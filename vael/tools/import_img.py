@@ -30,6 +30,10 @@ def seamless(im: Image.Image) -> Image.Image:
 
 
 def trim(im: Image.Image) -> Image.Image:
+    # Fully transparent pixels must be black: their hidden colour bleeds when the GPU filters the texture.
+    arr = np.asarray(im).copy()
+    arr[arr[..., 3] < 4] = 0
+    im = Image.fromarray(arr, "RGBA")
     a = im.getchannel("A").point(lambda v: 255 if v > 10 else 0)
     bb = a.getbbox()
     return im.crop(bb) if bb else im
@@ -60,6 +64,9 @@ def main() -> None:
             cap = 1024 if name.startswith(("fg_", "pt_", "npc_", "plat_", "edge_")) else 768
             im.thumbnail((cap, cap), Image.LANCZOS)
             im.save(out / f"{name}.webp", "WEBP", quality=88, method=6, exact=True)
+            if name.startswith("fg_"):
+                from feather import feather
+                feather(str(out / f"{name}.webp"))
         print(name, im.size)
 
 

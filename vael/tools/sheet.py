@@ -114,7 +114,9 @@ def main() -> None:
     print(f"{len(frames)} frames, median height {median_h}px, star {median_star}px ({len(stars)} found), scale {scale:.3f}")
     outs = []
     for f in frames:
-        im = Image.fromarray(np.clip(f["img"], 0, 255).astype(np.uint8), "RGBA")
+        arr = np.clip(f["img"], 0, 255).astype(np.uint8)
+        arr[arr[..., 3] < 4] = 0
+        im = Image.fromarray(arr, "RGBA")
         nw, nh = max(1, round(im.width * scale)), max(1, round(im.height * scale))
         im = im.resize((nw, nh), Image.LANCZOS)
         ax, ay = f["ax"] * scale, f["ay"] * scale
