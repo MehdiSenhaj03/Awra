@@ -356,7 +356,7 @@ export class App {
       if (this.zoneT > 0) {
         this.zoneT += 1;
         const k = this.zoneT < 60 ? (this.zoneT - 1) / 60 : this.zoneT > 200 ? Math.max(0, 1 - (this.zoneT - 200) / 60) : 1;
-        this.zoneText.alpha = k;
+        this.zoneText.alpha = this.modals.length ? 0 : k;
         if (this.zoneT > 260) this.zoneT = 0;
       } else this.zoneText.alpha = 0;
     }
