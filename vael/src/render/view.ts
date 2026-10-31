@@ -320,14 +320,34 @@ export class GameView {
       const Y = y * TILE;
       const W = w * TILE;
       const H = h * TILE;
-      g.rect(X, Y, W, H).fill({ color: 0x9fb8ff, alpha: 0.07 });
-      for (let i = -H; i < W; i += 46) {
-        const x0 = Math.max(X, X + i);
-        const y0 = Y + Math.max(0, -i);
-        const len = Math.min(W - Math.max(0, i), H - Math.max(0, -i));
-        if (len > 0) g.moveTo(x0, y0).lineTo(x0 + len, y0 + len).stroke({ color: 0xcfe0ff, width: 3, alpha: 0.18 });
+      g.rect(X, Y, W, H).fill({ color: 0x8aa6e8, alpha: 0.12 });
+      // Broad mirror reflections slanting across the stone, like light on polished obsidian.
+      const span = W + H;
+      const band = Math.max(28, Math.min(W, H) * 0.5);
+      for (const [k, wk, al] of [[0.22, 1, 0.1], [0.38, 0.35, 0.16], [0.7, 0.6, 0.07]] as const) {
+        const c = X - H + span * k;
+        const bw = band * wk;
+        const pts = [c, Y + H, c + bw, Y + H, c + bw + H, Y, c + H, Y];
+        // Clip the slanted band to the rectangle.
+        const poly: number[] = [];
+        const clipX = (v: number) => Math.max(X, Math.min(X + W, v));
+        for (let i = 0; i < pts.length; i += 2) poly.push(clipX(pts[i]), pts[i + 1]);
+        g.poly(poly).fill({ color: 0xe6f0ff, alpha: al });
       }
-      g.rect(X, Y, W, H).stroke({ color: 0xcfe0ff, width: 2, alpha: 0.35 });
+      // Lit upper edge and a cold rim.
+      g.rect(X, Y, W, 3).fill({ color: 0xf2f6ff, alpha: 0.55 });
+      g.rect(X, Y + 3, W, 6).fill({ color: 0xc8dcff, alpha: 0.12 });
+      // A few frozen glints.
+      const gr = new Rng(hash(x * 31 + y * 7 + w));
+      for (let i = 0; i < Math.max(1, Math.round((W * H) / 40000)); i++) {
+        const gx = X + gr.range(8, W - 8);
+        const gy = Y + gr.range(8, H - 8);
+        const r = gr.range(3, 6);
+        g.moveTo(gx - r * 2, gy).lineTo(gx + r * 2, gy).stroke({ color: 0xffffff, width: 1.5, alpha: 0.5 });
+        g.moveTo(gx, gy - r * 2).lineTo(gx, gy + r * 2).stroke({ color: 0xffffff, width: 1.5, alpha: 0.5 });
+        g.circle(gx, gy, r * 0.6).fill({ color: 0xffffff, alpha: 0.6 });
+      }
+      g.rect(X, Y, W, H).stroke({ color: 0xd8e6ff, width: 1.5, alpha: 0.4 });
       this.platLayer.addChild(g);
     }
     // Gloam pools.
