@@ -1,4 +1,5 @@
-import { Container, Graphics, type Text } from 'pixi.js';
+import { Container, Graphics, Sprite, type Text } from 'pixi.js';
+import { hasTex, tex } from '../render/assets';
 import { audio } from '../engine/audio';
 import { input } from '../engine/input';
 import { CELL_H, CELL_W, TILE } from '../engine/core';
@@ -23,7 +24,16 @@ export class MapScreen implements Modal {
   private legend: Text;
 
   constructor(private scene: Scene) {
-    this.c.addChild(new Graphics().rect(0, 0, 1920, 1080).fill({ color: 0x03040a, alpha: 0.94 }), this.g, this.labels);
+    this.c.addChild(new Graphics().rect(0, 0, 1920, 1080).fill({ color: 0x03040a, alpha: 0.94 }));
+    if (hasTex('map_paper')) {
+      // The star-chart parchment the map is inked on.
+      const paper = new Sprite(tex('map_paper'));
+      paper.width = 1920;
+      paper.height = 1080;
+      paper.alpha = 0.85;
+      this.c.addChild(paper);
+    }
+    this.c.addChild(this.g, this.labels);
     this.legend = text('', style('italic', DIM, 26, 'center'), 960, 1040, 0.5, 0.5);
     this.c.addChild(this.legend, text(t('menu.map').toUpperCase(), style('title', GOLD, 40, 'center'), 960, 60, 0.5, 0.5));
     // Centre on the current room.

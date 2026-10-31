@@ -1,4 +1,5 @@
-import { Container, Graphics, Text, TextStyle } from 'pixi.js';
+import { Container, Graphics, NineSliceSprite, Text, TextStyle } from 'pixi.js';
+import { hasTex, tex } from '../render/assets';
 
 export const GOLD = 0xf2d9a0;
 export const PALE = 0xe8ecff;
@@ -42,14 +43,28 @@ export function text(str: string, st: TextStyle, x = 0, y = 0, ax = 0, ay = 0): 
 }
 
 /** A dark translucent panel with a thin gold rim and corner ornaments. */
-export function panel(w: number, h: number, alpha = 0.82): Graphics {
+export function panel(w: number, h: number, alpha = 0.82): Container {
+  const c = new Container();
   const g = new Graphics();
-  g.roundRect(0, 0, w, h, 6).fill({ color: 0x070914, alpha }).stroke({ color: GOLD, width: 1.5, alpha: 0.55 });
+  c.addChild(g);
+  g.roundRect(0, 0, w, h, 6).fill({ color: 0x070914, alpha });
+  if (hasTex('ui_frame')) {
+    // The painted frame: its gold line sits 30 px inside the texture; corners keep their size (nine-slice).
+    const k = Math.min(1, (Math.min(w, h) + 40) / 260);
+    const f = new NineSliceSprite({ texture: tex('ui_frame'), leftWidth: 100, rightWidth: 100, topHeight: 100, bottomHeight: 100 });
+    f.scale.set(k);
+    f.width = (w + 60 * k) / k;
+    f.height = (h + 54 * k) / k;
+    f.position.set(-30 * k, -27 * k);
+    c.addChild(f);
+    return c;
+  }
+  g.roundRect(0, 0, w, h, 6).stroke({ color: GOLD, width: 1.5, alpha: 0.55 });
   g.roundRect(8, 8, w - 16, h - 16, 4).stroke({ color: GOLD, width: 1, alpha: 0.18 });
   for (const [x, y] of [[0, 0], [w, 0], [0, h], [w, h]]) {
     g.moveTo(x - 10, y).lineTo(x, y - 10).lineTo(x + 10, y).lineTo(x, y + 10).closePath().fill({ color: GOLD, alpha: 0.75 });
   }
-  return g;
+  return c;
 }
 
 /** A thin ornamental divider. */
