@@ -110,29 +110,37 @@ function macros(s: Scene): { name: string; m: Macro; frames: number }[] {
   if (has('ring') && has('blink')) {
     const rings = s.entities.filter((e) => e instanceof Ring);
     for (const r0 of rings) {
-      list.push({
-        name: `ring@${Math.round(r0.cx / TILE)}`, frames: 240,
-        m: (f, sc) => {
-          const p = sc.player;
-          const b = sc.blade;
-          if (b.held() && !p.zip) {
-            // Aim at the nearest ring above or ahead that is not the one just used.
-            const cands = sc.entities.filter((e) => e instanceof Ring && Math.hypot(e.cx - p.cx, e.cy - p.cy) < 640);
-            const target = f < 4 ? r0 : cands.sort((a, c) => c.cy - a.cy).find((e) => e.cy < p.cy - 110 && Math.hypot(e.cx - p.cx, e.cy - p.cy) > 130) ?? null;
-            if (!target) return { x: 0, jumpPressed: !p.body.onGround && p.body.vy > -3 && p.body.vy < 3, jumpHeld: true };
-            const dx = target.cx - p.cx;
-            const dy = target.cy - (p.cy - 8);
-            // The closest of the eight throwing directions.
-            const an = Math.round(Math.atan2(dy, dx) / (Math.PI / 4)) * (Math.PI / 4);
-            const ax = Math.round(Math.cos(an));
-            const ay = Math.round(Math.sin(an));
-            return { x: ax, y: ay, bladePressed: true, jumpPressed: p.body.onGround && ay > 0, jumpHeld: true };
-          }
-          if (b.ring) return { blinkPressed: true };
-          if (b.state === 'stuck' && !b.ring) return { bladePressed: true };
-          return {};
-        },
-      });
+      for (const mode of ['up', 'near'] as const) {
+        const used = new Set<number>();
+        list.push({
+          name: `ring@${Math.round(r0.cx / TILE)}${mode}`, frames: 300,
+          m: (f, sc) => {
+            const p = sc.player;
+            const b = sc.blade;
+            if (b.ring) {
+              for (const e of sc.entities) if (e instanceof Ring && Math.hypot(e.cx - b.ring.x, e.cy - b.ring.y) < 10) used.add(e.id);
+              return { blinkPressed: true };
+            }
+            if (b.held() && !p.zip) {
+              // Next ring: the first one, then the nearest unused one (or the nearest above).
+              const cands = sc.entities.filter((e) => e instanceof Ring && !used.has(e.id) && Math.hypot(e.cx - p.cx, e.cy - p.cy) < 620 && Math.hypot(e.cx - p.cx, e.cy - p.cy) > 90);
+              let target = f < 4 ? r0 : null;
+              if (!target) {
+                if (mode === 'up') target = cands.sort((a, c) => c.cy - a.cy).find((e) => e.cy < p.cy - 110) ?? null;
+                else target = cands.sort((a, c) => Math.hypot(a.cx - p.cx, a.cy - p.cy) - Math.hypot(c.cx - p.cx, c.cy - p.cy))[0] ?? null;
+              }
+              if (!target) return { x: f % 60 < 30 ? 1 : -1, jumpPressed: !p.body.onGround && p.body.vy > -3 && p.body.vy < 3, jumpHeld: true };
+              const dx = target.cx - p.cx;
+              const dy = target.cy - (p.cy - 8);
+              // The closest of the eight throwing directions.
+              const an = Math.round(Math.atan2(dy, dx) / (Math.PI / 4)) * (Math.PI / 4);
+              return { x: Math.round(Math.cos(an)), y: Math.round(Math.sin(an)), bladePressed: true, jumpPressed: p.body.onGround && Math.round(Math.sin(an)) > 0, jumpHeld: true };
+            }
+            if (b.state === 'stuck' && !b.ring) return { bladePressed: true };
+            return { x: p.body.vx > 0 ? 1 : p.body.vx < 0 ? -1 : 0 };
+          },
+        });
+      }
     }
   }
   return list;
@@ -261,6 +269,8 @@ export function explore(opts: { ban?: string; maxRounds?: number; verbose?: bool
             const k = key(scene.room.id, p.cx, p.feet);
             const n = perRoom.get(scene.room.id) ?? 0;
             if (!seen.has(k) && n < 70) {
+              const tr = process.env.REACH_TRACE?.split(':');
+              if (tr && scene.room.id === tr[0] && p.feet / TILE <= Number(tr[1])) console.log('TRACE', mc.name, 'from', room, Math.round(x / TILE), Math.round(feet / TILE), 'to', Math.round(p.cx / TILE), Math.round(p.feet / TILE));
               seen.add(k);
               perRoom.set(scene.room.id, n + 1);
               queue.push([scene.room.id, p.cx, p.feet]);

@@ -100,8 +100,8 @@ export const COURONNE: RoomDef[] = [
     // The way down, past the keeper: towards the Gardens and the Forge.
     // A thorn chasm only the Wake can cross, then the long way down.
     id: 'c_sortie', zone: 'couronne', at: [16, 6], size: [1, 2],
-    exits: { l: [[18, 21]], d: [[20, 25]] },
-    solid: [[0, 22, 12, 5], [28, 22, 20, 5], [0, 0, 48, 3], [0, 49, 20, 5], [26, 49, 22, 5], [44, 3, 4, 19], [0, 27, 14, 22], [34, 27, 14, 22], [12, 26, 16, 1]],
+    exits: { l: [[18, 21]], d: [[18, 23]] },
+    solid: [[0, 22, 12, 5], [28, 22, 20, 5], [0, 0, 48, 3], [0, 49, 18, 5], [24, 49, 24, 5], [44, 3, 4, 19], [0, 27, 14, 22], [34, 27, 14, 22], [12, 26, 16, 1]],
     slick: [[0, 3, 2, 19], [12, 23, 16, 4]],
     hole: [[30, 22, 4, 5]],
     spike: [[12, 25, 16, 1]],

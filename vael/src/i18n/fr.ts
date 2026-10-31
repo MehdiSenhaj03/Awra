@@ -318,6 +318,7 @@ export const FR = {
     double: 'Trop haut pour un seul saut. Le Second Souffle, peut-être.',
     gate: 'Bas + {blade} en l\'air : la lame passe à travers la grille. Puis {blink}.',
     forge: 'Maître Vey forge au fond de la salle. Le fer d\'étoile le rendra bavard.',
+    trial: 'L\'Épreuve du Cœur. Le Lien, l\'œil, la porte : quatre secondes. Ne regardez pas en bas.',
     crystal: 'Du cristal noir. Une ruée de comète le briserait.',
     eye: 'La lame traverse les grilles. Depuis la corniche, lancez-la ({blade}) sur l\'œil d\'étoile.',
     end: 'Fin de la démonstration de la Couronne. La suite du royaume est en construction.',

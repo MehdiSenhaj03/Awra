@@ -85,11 +85,9 @@ def main() -> None:
             plain.append(str(p))
     for key, files in bosses.items():
         files.sort()
-        first = sheet(files[0], files[0].stem, "--height", str(BOSS_H))
-        scale = first.split("scale ")[-1]
-        print(files[0].stem, first)
-        for f in files[1:]:
-            print(f.stem, sheet(f, f.stem, "--scale", scale))
+        # The generator does not keep the same scale between sheets: each one is matched on its median height.
+        for f in files:
+            print(f.stem, sheet(f, f.stem, "--height", str(BOSS_H)))
     if plain:
         subprocess.run([sys.executable, str(TOOLS / "import_img.py"), str(IMG), *plain], check=True)
     subprocess.run([sys.executable, str(TOOLS / "manifest.py")], check=True)

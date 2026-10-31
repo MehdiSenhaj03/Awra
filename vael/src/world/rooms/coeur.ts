@@ -10,17 +10,17 @@ export const COEUR: RoomDef[] = [
     ents: [['shrine', 24, 21], ['tablet', 12, 21, { lore: 'l16' }]],
   },
   {
-    // A trial of everything learned: the Constellation waits at the end.
+    // A trial of everything learned: rings over thorns, an eye that opens a gate for four seconds, the Constellation.
     id: 'h_epreuve', zone: 'coeur', at: [16, 21], size: [2, 1],
     exits: { l: [[18, 21]] },
-    solid: [[0, 22, 10, 5], [0, 0, 96, 3], [86, 18, 10, 9], [93, 3, 3, 15], [30, 6, 4, 10], [60, 3, 4, 12]],
-    slick: [[0, 0, 96, 3], [30, 6, 4, 10], [60, 3, 4, 12]],
-    spike: [[10, 26, 76, 1]],
-    grate: [[48, 12, 2, 10]],
-    brk: [[74, 8, 2, 10, 'gate_h1']],
+    solid: [[0, 22, 10, 5], [0, 0, 96, 3], [84, 18, 12, 9], [93, 3, 3, 15]],
+    slick: [[0, 0, 96, 3]],
+    spike: [[10, 26, 74, 1]],
+    plat: [[34, 17, 6]],
+    brk: [[44, 3, 2, 23, 'gate_h1']],
     ents: [
-      ['ring', 22, 14], ['ring', 42, 18], ['eye', 54, 18, { flag: 'gate_h1', timed: 240 }], ['ring', 66, 18], ['ring', 80, 12],
-      ['art', 90, 17, { value: 'constellation', id: 'art_constellation' }], ['astrelet', 40, 8], ['sentinelle', 90, 17],
+      ['ring', 16, 15], ['ring', 30, 13], ['eye', 37, 8, { flag: 'gate_h1', timed: 240 }], ['ring', 50, 15], ['ring', 64, 12], ['ring', 78, 11],
+      ['art', 90, 17, { value: 'constellation', id: 'art_constellation' }], ['astrelet', 56, 6], ['sentinelle', 88, 17], ['hint', 4, 21, { text: 'trial' }],
     ],
   },
   {

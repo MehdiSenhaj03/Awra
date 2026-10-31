@@ -7,12 +7,12 @@ export const JARDINS: RoomDef[] = [
   {
     // The Crossroads: west to the Gardens, a polished chimney east (claws), bars over the way down (Starstep).
     id: 'j_carrefour', zone: 'jardins', at: [14, 8], size: [3, 1], bg: 'bg_jardins_b',
-    exits: { u: [[116, 121]], l: [[18, 21]], r: [[3, 6]], d: [[70, 75]] },
+    exits: { u: [[114, 119]], l: [[18, 21]], r: [[3, 6]], d: [[70, 75]] },
     solid: [
-      [0, 22, 70, 5], [76, 22, 68, 5], [0, 0, 112, 3], [122, 0, 22, 1], [112, 0, 2, 2],
-      [126, 7, 18, 15], [120, 5, 2, 17], [30, 15, 10, 3],
+      [0, 22, 70, 5], [76, 22, 68, 5], [0, 0, 114, 3], [122, 0, 22, 1],
+      [126, 7, 18, 15], [120, 0, 2, 19], [30, 15, 10, 3],
     ],
-    slick: [[120, 5, 2, 17], [126, 7, 2, 15]],
+    slick: [[120, 0, 2, 19], [126, 7, 2, 15]],
     plat: [[100, 15, 6], [46, 12, 6]],
     ents: [
       ['shrine', 104, 21], ['npc', 92, 21, { who: 'orsa' }], ['tablet', 20, 21, { lore: 'l4' }],

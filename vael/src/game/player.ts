@@ -565,9 +565,11 @@ export class Player {
   }
 }
 
+/** A wall close by on one side, along the whole body (a thin ledge's edge is not a wall). */
 function nearWall(room: Room, b: Body): number {
-  if (!fits(room, b.x - 10, b.y + 4, b.w, b.h - 10)) return -1;
-  if (!fits(room, b.x + 10, b.y + 4, b.w, b.h - 10)) return 1;
+  const side = (dx: number) => !fits(room, b.x + dx, b.y + 4, b.w, 6) && !fits(room, b.x + dx, b.y + b.h - 12, b.w, 6);
+  if (side(-10)) return -1;
+  if (side(10)) return 1;
   return 0;
 }
 
