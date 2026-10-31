@@ -3,10 +3,12 @@ import { Rng } from '../src/engine/core';
 import { NO_CONTROLS, type Controls } from '../src/game/controls';
 import { makeScene } from './helpers';
 
-/** An invulnerable bot that walks to the keeper and keeps striking: every keeper must fall and play its phases. */
-function fight(room: string, key: string, maxFrames = 60 * 240) {
+/** A bot that walks to the keeper and keeps striking (the vulnerable variant never jumps nor dodges). An invulnerable bot that walks to the keeper and keeps striking: every keeper must fall and play its phases. */
+function fight(room: string, key: string, maxFrames = 60 * 240, god = true) {
   const s = makeScene(['dash', 'walljump', 'double', 'blink', 'ring', 'comet'], room);
-  s.god = true;
+  s.god = god;
+  let hits = 0;
+  let lastHp = s.player.hp;
   s.rng = new Rng(4242);
   const p = s.player;
   // Start inside, on the floor, away from the door.
@@ -27,14 +29,17 @@ function fight(room: string, key: string, maxFrames = 60 * 240) {
       const dy = b.cy - p.cy;
       c.x = Math.abs(dx) > 60 ? Math.sign(dx) : 0;
       c.y = dy < -120 ? -1 : 0;
-      if (dy < -100 && p.body.onGround && f % 20 === 0) { c.jumpPressed = true; c.jumpHeld = true; }
+      if (god && dy < -100 && p.body.onGround && f % 20 === 0) { c.jumpPressed = true; c.jumpHeld = true; }
       if (!p.body.onGround) c.jumpHeld = true;
       c.attackPressed = Math.abs(dx) < 220 && f % 4 === 0;
     }
     s.update(c);
-    if (s.flags[`boss_${key}`]) return { won: true, frames: f, phases: maxPhase };
+    if (p.hp < lastHp) hits++;
+    lastHp = p.hp;
+    if (!god && (p.hp <= 0 || p.pose === 'dead')) return { won: false, frames: f, phases: maxPhase, hits, died: true };
+    if (s.flags[`boss_${key}`]) return { won: true, frames: f, phases: maxPhase, hits, died: false };
   }
-  return { won: false, frames: -1, phases: maxPhase };
+  return { won: false, frames: -1, phases: maxPhase, hits, died: false };
 }
 
 const ARENAS: [string, string][] = [
@@ -49,6 +54,16 @@ describe('keepers', () => {
       console.log(key, r);
       expect(r.won).toBe(true);
       expect(r.phases).toBe(3);
+    });
+  }
+});
+
+describe('keepers punish face-tanking', () => {
+  for (const [room, key] of ARENAS) {
+    it(`${key} kills a hero who never dodges`, () => {
+      const r = fight(room, key, 60 * 240, false);
+      console.log('no-dodge', key, r);
+      expect(r.won).toBe(false);
     });
   }
 });

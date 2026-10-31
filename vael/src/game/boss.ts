@@ -19,11 +19,17 @@ export abstract class Boss extends Foe {
   intro = 60;
   /** Speed factor (phases make keepers faster). */
   pace = 1;
+  /** Frames the hero has spent hugging the keeper; past a limit the keeper answers with a telegraphed repulse. */
+  private hugT = 0;
+  /** Distance under which the hero counts as hugging (from the keeper's edge). */
+  hugRange = 170;
+  /** Damage of the repulse burst. */
+  repulseDmg = 1;
 
   constructor(scene: Scene, x: number, feet: number, w: number, h: number, key: string, hp: number) {
     super(scene, x, feet, w, h);
     this.bossKey = key;
-    this.hp = this.maxHp = hp * (scene.save.hard ? 1.25 : 1);
+    this.hp = this.maxHp = hp * 1.5 * (scene.save.hard ? 1.25 : 1);
     this.heavy = true;
     this.contact = 1;
     this.dust = 0;
@@ -67,15 +73,63 @@ export abstract class Boss extends Foe {
       this.phase = next;
       this.onPhase(next);
     }
+    if (this.repulse()) return;
     this.think();
   }
 
   abstract think(): void;
 
+  /**
+   * Anti-hug: standing on a keeper and mashing is never safe. A flash, a short wind-up, then a burst of light
+   * all around the keeper. Returns true while the repulse owns the keeper.
+   */
+  private repulse(): boolean {
+    const p = this.scene.player;
+    const gap = Math.abs(p.cx - this.cx) - this.body.w / 2;
+    const near = gap < this.hugRange && Math.abs(p.cy - this.cy) < this.body.h * 0.6 + 80;
+    if (this.state === 'repulseWind') {
+      this.body.vx *= 0.8;
+      this.setAnim('stagger');
+      if (this.st % 6 === 0) this.telegraph(-0.1, true);
+      if (this.st >= this.f(24)) {
+        const w = this.body.w + 2 * (this.hugRange + 70);
+        const h = this.body.h + 90;
+        this.scene.add(new HitZone(this.scene, { box: { x: this.cx - w / 2, y: this.body.y + this.body.h - h, w, h }, damage: this.repulseDmg }, 8));
+        this.scene.emit({ t: 'shockwave', x: this.cx, y: this.cy, r: w * 0.55, color: 0xfff0c0 });
+        this.scene.emit({ t: 'boom', x: this.cx, y: this.cy + this.body.h * 0.3, r: 220, color: 0xffe0a0 });
+        this.scene.sfx('break');
+        this.to('repulse');
+      }
+      this.fall();
+      return true;
+    }
+    if (this.state === 'repulse') {
+      this.body.vx *= 0.8;
+      this.setAnim('idle');
+      if (this.st >= this.f(26)) {
+        this.hugT = 0;
+        this.to('walk');
+      }
+      this.fall();
+      return true;
+    }
+    this.hugT = near ? this.hugT + 1 : Math.max(0, this.hugT - 2);
+    const limit = this.phase === 1 ? 150 : this.phase === 2 ? 110 : 80;
+    if (this.hugT > limit && (this.state === 'idle' || this.state === 'walk')) {
+      this.hugT = 0;
+      this.to('repulseWind');
+      this.telegraph(-0.1, true);
+      this.scene.sfx('focus');
+      return true;
+    }
+    return false;
+  }
+
   onPhase(n: number): void {
     this.pace = n === 2 ? 1.15 : 1.32;
     this.scene.emit({ t: 'roar', x: this.cx, y: this.cy });
-    this.to('roar');
+    // A repulse already wound up still goes off.
+    if (!this.state.startsWith('repulse')) this.to('roar');
   }
 
   damage(amount: number, fromX: number, source: Parameters<Foe['damage']>[2]): boolean {
