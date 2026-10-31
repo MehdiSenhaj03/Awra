@@ -20,6 +20,9 @@ unchanged (checked against the frozen 1.0.0 contract).
   a row, actions inside a row and capacity gauges.
 - Style role `spaced-rows` keeps a small gap between the rows of a table, so
   neighbours selected together still read as separate items.
+- Style roles `about-to-open` and `refused` announce a place opening under a
+  held drag and an input that was turned down.
+- `AwraPopover` content unfolds like menus do, and follows reduced motion.
 - `AwraTransitionBin` animates content replaced in place, such as a list that
   receives another model, from the last frame it showed.
 - Rows, breadcrumbs, tabs and menus ease between states; presses give way,

@@ -3056,6 +3056,29 @@ awraheader.awra-compact .awra-menu-button.awra-toolbar-button {
 .awra-role-compact-table columnview cell { padding: 5px 10px; }
 .awra-role-compact-table columnview listview > row { min-height: 30px; border-radius: 4px; }
 .awra-role-compact-table columnview > header > button { min-height: 26px; padding: 4px 10px; }
+/* A place held under a drag says it is about to open. */
+@keyframes awra-about-to-open {
+  from { background-color: alpha(@awra_accent, .10); }
+  50% { background-color: alpha(@awra_accent, .32); }
+  to { background-color: alpha(@awra_accent, .10); }
+}
+.awra-role-about-to-open { animation: awra-about-to-open 300ms ease-in-out infinite; }
+.awra-reduced-motion .awra-role-about-to-open { animation: none; }
+
+/* What was refused shakes its head, without moving what surrounds it. */
+@keyframes awra-refused {
+  20% { transform: translateX(-4px); }
+  40% { transform: translateX(4px); }
+  60% { transform: translateX(-3px); }
+  80% { transform: translateX(2px); }
+  to { transform: none; }
+}
+.awra-role-refused { animation: awra-refused 260ms ease-in-out; }
+.awra-reduced-motion .awra-role-refused { animation: none; }
+
+popover.awra-popover > contents { animation: awra-unfold 120ms cubic-bezier(.2, .8, .2, 1); }
+.awra-reduced-motion popover.awra-popover > contents { animation: none; }
+
 /* Selected neighbours stay two items, and the gap belongs to the view. */
 .awra-role-spaced-rows columnview listview > row { margin-bottom: 3px; }
 .awra-role-compact-navigation .awra-navigation-item-label { font-weight: 400; }
