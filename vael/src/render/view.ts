@@ -26,6 +26,9 @@ export class GameView {
   private terrainLayer = new Container();
   private platLayer = new Container();
   private gates = new Container();
+  /** Additive glow of closed boss seals (above the lightmap, so they really shine). */
+  private sealFx = new Container();
+  private seals: { x: number; y: number; w: number; h: number }[] = [];
   private lastTiles = -1;
   readonly actors = new Container();
   readonly heroLayer = new Container();
@@ -82,7 +85,7 @@ export class GameView {
     r.addChild(this.lightOverlay);
     // Additive effects and the foreground draw above the lighting so they glow.
     const fxWorld = new Container();
-    fxWorld.addChild(this.vfx.normal, this.fxLayer, this.vfx.add);
+    fxWorld.addChild(this.vfx.normal, this.sealFx, this.fxLayer, this.vfx.add);
     this.fxWorld = fxWorld;
     r.addChild(fxWorld, this.fgLayer);
     this.ambient.texture = Texture.WHITE;
@@ -375,9 +378,14 @@ export class GameView {
   /** Iron gates, black crystal and boss seals that are currently closed. */
   private drawGates(scene: Scene): void {
     for (const ch of this.gates.removeChildren()) ch.destroy();
+    for (const ch of this.sealFx.removeChildren()) ch.destroy();
+    this.seals = [];
     const room = scene.room;
     const g = new Graphics();
     this.gates.addChild(g);
+    const sg = new Graphics();
+    sg.blendMode = 'add';
+    this.sealFx.addChild(sg);
     for (const [x, y, w, h, flag] of room.def.brk ?? []) {
       if (flag.startsWith('crack_')) continue;
       if (tileAt(room, x, y) !== T.Breakable) continue;
@@ -408,9 +416,31 @@ export class GameView {
           }
         }
       } else {
-        // Boss seal: a wall of light.
-        g.rect(X, Y, W, H).fill({ color: 0xffe0a0, alpha: 0.18 }).stroke({ color: 0xffe6b0, width: 3, alpha: 0.9 });
-        for (let i = 0; i < 6; i++) g.moveTo(X + W / 2, Y + (H * i) / 6).lineTo(X + W / 2, Y + (H * (i + 0.6)) / 6).stroke({ color: 0xfff4dc, width: 4, alpha: 0.6 });
+        // Boss seal: a curtain of starlight. A soft core along the axis, bright edges, runes drifting along it.
+        this.seals.push({ x: X, y: Y, w: W, h: H });
+        g.rect(X, Y, W, H).fill({ color: 0x1a1408, alpha: 0.6 });
+        const vertical = H >= W;
+        const L = vertical ? H : W;
+        const TH = vertical ? W : H;
+        const span = (a: number, b: number, al: number, col: number) => {
+          if (vertical) sg.rect(X + a, Y, b - a, H).fill({ color: col, alpha: al });
+          else sg.rect(X, Y + a, W, b - a).fill({ color: col, alpha: al });
+        };
+        for (let i = 0; i < 6; i++) {
+          const m = (TH * (6 - i)) / 12;
+          span(TH / 2 - m, TH / 2 + m, 0.07, 0xffd890);
+        }
+        span(TH / 2 - 3, TH / 2 + 3, 0.6, 0xfff4dc);
+        span(0, 2, 0.8, 0xffe6b0);
+        span(TH - 2, TH, 0.8, 0xffe6b0);
+        // Runes: small diamonds strung along the axis.
+        for (let d = 30; d < L - 20; d += 56) {
+          const cx = vertical ? X + W / 2 : X + d;
+          const cy = vertical ? Y + d : Y + H / 2;
+          const r = Math.min(14, TH * 0.3);
+          sg.moveTo(cx, cy - r).lineTo(cx + r * 0.6, cy).lineTo(cx, cy + r).lineTo(cx - r * 0.6, cy).closePath().fill({ color: 0xfff0c8, alpha: 0.85 });
+          sg.circle(cx, cy, r * 1.8).fill({ color: 0xffd890, alpha: 0.12 });
+        }
       }
     }
   }
@@ -514,6 +544,14 @@ export class GameView {
     this.ents.lights(scene);
     const tt = performance.now() / 1000;
     for (const d of this.decorLights) this.light(d.x, d.y, d.r * (0.95 + Math.sin(tt * 2.3 + d.ph) * 0.05), d.c, 0.75);
+    for (const sl of this.seals) {
+      const n = Math.max(1, Math.round(Math.max(sl.w, sl.h) / 200));
+      for (let i = 0; i < n; i++) {
+        const k = (i + 0.5) / n;
+        this.light(sl.w > sl.h ? sl.x + sl.w * k : sl.x + sl.w / 2, sl.w > sl.h ? sl.y + sl.h / 2 : sl.y + sl.h * k, 260, 0xffd890, 0.8);
+      }
+    }
+    this.sealFx.alpha = 0.8 + Math.sin(tt * 3) * 0.2;
     this.director.lights();
     for (let i = this.lightUsed; i < this.lightPool.length; i++) this.lightPool[i].visible = false;
     this.app.renderer.render({ container: this.lights, target: this.lightRT, clear: true });

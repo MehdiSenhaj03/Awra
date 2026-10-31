@@ -22,6 +22,7 @@ ENEMY_H = {
     "en_geolier": 210, "en_corbeau": 120, "en_astre": 110, "en_ombre": 160, "en_sentinelle": 220, "en_veilleur": 200,
 }
 BOSS_H = 420
+SHARED_SCALE = {"boss_geoliers", "boss_bibliothecaire"}
 
 ICON_NAMES = {
     "icons_seals": [f"ic_seal_{i}" for i in range(16)],
@@ -85,9 +86,18 @@ def main() -> None:
             plain.append(str(p))
     for key, files in bosses.items():
         files.sort()
-        # The generator does not keep the same scale between sheets: each one is matched on its median height.
-        for f in files:
-            print(f.stem, sheet(f, f.stem, "--height", str(BOSS_H)))
+        # The generator does not always keep the same scale between sheets: each one is matched on its median height,
+        # except keepers whose later sheets are mostly crouched or collapsing poses (checked by eye): those reuse the
+        # scale of their standing sheet.
+        if key in SHARED_SCALE:
+            out = sheet(files[0], files[0].stem, "--height", str(BOSS_H))
+            print(files[0].stem, out)
+            sc = out.split("scale ")[-1].split()[0]
+            for f in files[1:]:
+                print(f.stem, sheet(f, f.stem, "--scale", sc))
+        else:
+            for f in files:
+                print(f.stem, sheet(f, f.stem, "--height", str(BOSS_H)))
     if plain:
         subprocess.run([sys.executable, str(TOOLS / "import_img.py"), str(IMG), *plain], check=True)
     subprocess.run([sys.executable, str(TOOLS / "manifest.py")], check=True)
