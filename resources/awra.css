@@ -3056,6 +3056,8 @@ awraheader.awra-compact .awra-menu-button.awra-toolbar-button {
 .awra-role-compact-table columnview cell { padding: 5px 10px; }
 .awra-role-compact-table columnview listview > row { min-height: 30px; border-radius: 4px; }
 .awra-role-compact-table columnview > header > button { min-height: 26px; padding: 4px 10px; }
+/* Selected neighbours stay two items, and the gap belongs to the view. */
+.awra-role-spaced-rows columnview listview > row { margin-bottom: 3px; }
 .awra-role-compact-navigation .awra-navigation-item-label { font-weight: 400; }
 .awra-role-compact-navigation .awra-navigation-item:checked .awra-navigation-item-label { font-weight: 600; }
 @keyframes awra-rise {
