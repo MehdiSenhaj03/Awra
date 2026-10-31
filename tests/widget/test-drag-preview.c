@@ -56,7 +56,9 @@ test_pile_counts_more_than_it_shows (void)
 int
 main (int argc, char **argv)
 {
-  gtk_test_init (&argc, &argv, NULL);
+  g_test_init (&argc, &argv, NULL);
+  if (!gtk_init_check ())
+    return 77;
   g_test_add_func ("/drag-preview/single", test_single_item);
   g_test_add_func ("/drag-preview/pile", test_pile_counts_more_than_it_shows);
   return g_test_run ();

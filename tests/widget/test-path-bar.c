@@ -165,6 +165,8 @@ int
 main (int argc, char **argv)
 {
   g_test_init (&argc, &argv, NULL);
+  /* GDK warns about frame timings on virtual displays, whatever the widget does. */
+  g_log_set_always_fatal (G_LOG_FATAL_MASK | G_LOG_LEVEL_CRITICAL);
   if (!gtk_init_check ())
     return 77;
   awra_init ();

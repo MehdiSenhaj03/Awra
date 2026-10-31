@@ -65,7 +65,9 @@ test_transition_finishes (void)
 int
 main (int argc, char **argv)
 {
-  gtk_test_init (&argc, &argv, NULL);
+  g_test_init (&argc, &argv, NULL);
+  if (!gtk_init_check ())
+    return 77;
   g_test_add_func ("/transition-bin/child", test_child_ownership);
   g_test_add_func ("/transition-bin/unmapped", test_play_needs_a_mapped_child);
   g_test_add_func ("/transition-bin/finishes", test_transition_finishes);
