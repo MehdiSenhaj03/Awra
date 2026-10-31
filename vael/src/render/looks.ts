@@ -125,17 +125,7 @@ export function registerLooks(): void {
   };
   defineLook('comet', { height: 1, noBody: true, customAdd: true, custom: cometLook(22), light: { color: 0xffe0a0, radius: 360 } });
   defineLook('cometSmall', { height: 1, noBody: true, customAdd: true, custom: cometLook(13), light: { color: 0xffe0a0, radius: 200 } });
-  defineLook('ascension', {
-    height: 1, noBody: true, customAdd: true,
-    custom: (g, e, now) => {
-      if (e.t > 20) return;
-      for (let i = 0; i < 6; i++) {
-        const a = now * 14 + (i * Math.PI) / 3;
-        g.moveTo(e.cx, e.cy).lineTo(e.cx + Math.cos(a) * 130, e.cy + Math.sin(a) * 120).stroke({ color: 0xfff0c8, width: 6, alpha: 0.6 });
-      }
-      g.circle(e.cx, e.cy, 140).stroke({ color: 0xffe6b0, width: 3, alpha: 0.5 });
-    },
-  });
+  defineLook('ascension', { height: 1, noBody: true });
   defineLook('starfall', { height: 1, noBody: true });
   defineLook('constellation', {
     height: 1, noBody: true, customAdd: true,

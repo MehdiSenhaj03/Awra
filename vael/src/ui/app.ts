@@ -148,6 +148,19 @@ export class App {
       p.body.y = 10 * 40;
       for (let i = 0; i < 60 && !p.body.onGround; i++) this.scene.update(NO_CONTROLS);
     }
+    // A new game: the spark wakes in its cocoon of crystal.
+    if (!save.flags.awake && !roomOverride) {
+      save.flags.awake = true;
+      const p = this.scene.player;
+      p.body.x = 14 * 40;
+      p.body.y = 22 * 40 - p.body.h;
+      p.wakeT = 130;
+      p.facing = 1;
+      setTimeout(() => {
+        this.scene.emit({ t: 'heal', x: p.cx, y: p.cy });
+        this.scene.emit({ t: 'shockwave', x: p.cx, y: p.cy, r: 300, color: 0xffe6b0 });
+      }, 1500);
+    }
     this.view.buildRoom(this.scene);
     this.view.camera.snap(this.scene.player.cx, this.scene.player.cy);
     this.fadeK = 1;

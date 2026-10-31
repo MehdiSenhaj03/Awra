@@ -79,7 +79,7 @@ export const EN = {
     rebond: { name: 'Rebound Seal', desc: 'Every bounce off a foe restores Lumen.' },
     lueur: { name: 'Last Glimmer Seal', desc: 'At a single light of life, your damage rises by 50%.' },
     jumelle: { name: 'Twin Star Seal', desc: 'A second, spectral blade joins every throw.' },
-    guet: { name: 'Watch Seal', desc: 'Your position appears on the map.' },
+    guet: { name: 'Watch Seal', desc: 'Treasures still hidden appear on the map.' },
   },
   ui: {
     seals: 'Seals', notches: 'Notches: {used} / {max}', arts: 'Arts', abilities: 'Abilities', items: 'Items', lore: 'Frescoes', equip: 'Equip', unequip: 'Remove',

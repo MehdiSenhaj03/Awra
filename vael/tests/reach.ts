@@ -28,9 +28,9 @@ function macros(s: Scene): { name: string; m: Macro; frames: number }[] {
   const list: { name: string; m: Macro; frames: number }[] = [];
   const has = (a: string) => s.has(a);
   for (const d of [-1, 1]) {
-    for (const k of [6, 16, 40, 90]) list.push({ name: `run${d}x${k}`, frames: k + 60, m: (f) => (f < k ? { x: d } : {}) });
-    for (const hold of [2, 9, 16]) {
-      for (const drift of [8, 20, 60]) {
+    for (const k of [8, 30, 90]) list.push({ name: `run${d}x${k}`, frames: k + 60, m: (f) => (f < k ? { x: d } : {}) });
+    for (const hold of [4, 16]) {
+      for (const drift of [10, 24, 60]) {
         list.push({ name: `jump${d}h${hold}d${drift}`, frames: 120, m: (f) => ({ x: f < drift ? d : 0, jumpPressed: f === 0, jumpHeld: f < hold }) });
       }
       list.push({ name: `upjump${d}h${hold}`, frames: 120, m: (f) => ({ x: f > 10 ? d : 0, jumpPressed: f === 0, jumpHeld: f < hold }) });
@@ -62,6 +62,16 @@ function macros(s: Scene): { name: string; m: Macro; frames: number }[] {
           },
         });
       }
+      for (const cycles of [2, 3, 4, 6]) {
+        list.push({
+          name: `wallup${d}c${cycles}`, frames: 60 + cycles * 18 + 40,
+          m: (f, sc) => {
+            const p = sc.player;
+            if (f < cycles * 18) return { x: p.body.wall !== 0 ? p.body.wall : d * (Math.floor(f / 18) % 2 === 0 ? 1 : -1), jumpPressed: f % 18 === 0, jumpHeld: f % 18 < 14 };
+            return { x: d, jumpPressed: p.body.wall !== 0 && f % 6 === 0, jumpHeld: true };
+          },
+        });
+      }
       list.push({ name: `wallexit${d}`, frames: 200, m: (f, sc) => ({ x: sc.player.body.wall !== 0 ? sc.player.body.wall : d, jumpPressed: f % 18 === 0, jumpHeld: true }) });
     }
     // Blade foothold: jump against a wall, throw while rising, land on the hilt, jump again.
@@ -81,7 +91,8 @@ function macros(s: Scene): { name: string; m: Macro; frames: number }[] {
   }
   // Throws in eight directions (eyes behind bars), with Starstep when owned.
   const dirs: [number, number][] = [[1, 0], [-1, 0], [0, -1], [1, -1], [-1, -1], [0, 1], [1, 1], [-1, 1]];
-  for (const [dx, dy] of dirs) {
+  const eyes = s.entities.some((e) => e instanceof Eye && !(e as Eye).open);
+  for (const [dx, dy] of has('blink') || eyes ? dirs : []) {
     for (const airborne of [false, true]) {
       list.push({
         name: `throw${dx},${dy}${airborne ? 'a' : ''}`, frames: 120,
@@ -179,7 +190,8 @@ export function explore(opts: { ban?: string; maxRounds?: number; verbose?: bool
     scene.freeze = 0;
   };
 
-  const key = (room: string, x: number, feet: number) => `${room}:${Math.round(x / TILE)}:${Math.round(feet / TILE)}`;
+  const key = (room: string, x: number, feet: number) => `${room}:${Math.round(x / TILE / 3) * 3}:${Math.round(feet / TILE)}`;
+  const perRoom = new Map<string, number>();
   const settle = (): boolean => {
     for (let i = 0; i < 90; i++) {
       if (scene.player.body.onGround && scene.blade.held()) return true;
@@ -192,6 +204,7 @@ export function explore(opts: { ban?: string; maxRounds?: number; verbose?: bool
   for (let round = 0; round < (opts.maxRounds ?? 14); round++) {
     const before = `${save.abilities.length}|${Object.keys(save.flags).length}`;
     const seen = new Set<string>();
+    perRoom.clear();
     const queue: [string, number, number][] = [];
     // Start at the first altar.
     enter('c_reveil');
@@ -208,10 +221,16 @@ export function explore(opts: { ban?: string; maxRounds?: number; verbose?: bool
         if (scene.room.id !== room) enter(room);
         place(x, feet);
         let left = false;
+        let still = 0;
         for (let f = 0; f < mc.frames; f++) {
           const c = mc.m(f, scene);
           scene.update(C(c ?? {}));
           if (scene.pending) break;
+          // Landed and at rest for a while: the rest of the macro would only stand there.
+          const p0 = scene.player;
+          if (f > 20 && p0.body.onGround && Math.abs(p0.body.vx) < 0.5 && scene.blade.held() && !p0.attack) {
+            if (++still > 12 && !mc.name.startsWith('wall') && !mc.name.startsWith('blade') && !mc.name.startsWith('ring') && !mc.name.startsWith('strike')) break;
+          } else still = 0;
           if (scene.player.hp < scene.player.maxHp) scene.player.hp = scene.player.maxHp;
           // Interact with everything in reach (frescoes, altars, the heart).
           for (const e of scene.entities) if (e instanceof Interactive && e.inRange() && e.prompt === 'touch') res.heart = true;
@@ -234,8 +253,10 @@ export function explore(opts: { ban?: string; maxRounds?: number; verbose?: bool
           if (settle() && !scene.pending) {
             const p = scene.player;
             const k = key(scene.room.id, p.cx, p.feet);
-            if (!seen.has(k)) {
+            const n = perRoom.get(scene.room.id) ?? 0;
+            if (!seen.has(k) && n < 70) {
               seen.add(k);
+              perRoom.set(scene.room.id, n + 1);
               queue.push([scene.room.id, p.cx, p.feet]);
             }
           }

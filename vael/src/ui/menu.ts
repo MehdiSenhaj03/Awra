@@ -55,15 +55,18 @@ export class Menu {
       audio.play('uiMove');
       this.refresh();
     }
-    let fired = false;
     if ((input.pressed('confirm') || input.pressed('jump') || input.pressed('attack')) && !(it.disabled?.() ?? false)) {
       audio.play('ui');
       it.action?.();
-      fired = true;
-      this.refresh();
+      // The action may have replaced this menu: draw only if still alive.
+      if (!this.cursor.destroyed) {
+        this.refresh();
+        this.draw();
+      }
+      return true;
     }
     this.draw();
-    return fired;
+    return false;
   }
 
   draw(): void {

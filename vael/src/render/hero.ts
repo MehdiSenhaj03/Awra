@@ -77,6 +77,9 @@ function pick(p: Player, scene: Scene): { clip: Clip; t: number; flip?: number }
     case 'hurt':
       if (!has('hero_hurt_death')) return { clip: C(idle, [0], 1), t };
       return { clip: C('hero_hurt_death', [0, 1], 7, false), t };
+    case 'wake':
+      if (!has('hero_hurt_death')) return { clip: C(idle, [0], 1), t };
+      return { clip: C('hero_hurt_death', [7, 7, 7, 7, 6, 5, 4, 3, 2], 14, false), t };
     case 'dead':
       if (!has('hero_hurt_death')) return { clip: C(idle, [0], 1), t };
       return { clip: C('hero_hurt_death', range(2, 7), 8, false), t };

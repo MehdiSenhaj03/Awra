@@ -65,6 +65,8 @@ export class GameView {
   private lightPool: Sprite[] = [];
   private lightUsed = 0;
   private motes: { s: Sprite; x: number; y: number; vx: number; vy: number; ph: number }[] = [];
+  /** Lights fixed in the decor (lamps, candles, crystals). */
+  private decorLights: { x: number; y: number; r: number; c: number; ph: number }[] = [];
 
   constructor(public app: Application) {
     const r = this.root;
@@ -146,6 +148,7 @@ export class GameView {
     this.midSprites = [];
     this.fgSprites = [];
     this.motes = [];
+    this.decorLights = [];
 
     // Far painting.
     const bgName = room.def.bg && hasTex(room.def.bg) ? room.def.bg : L.bgs.filter(hasTex)[hash(room.id, 'bg') % Math.max(1, L.bgs.filter(hasTex).length)] ?? L.bgs[0];
@@ -215,6 +218,7 @@ export class GameView {
         }
       }
     }
+    const names: string[] = [];
     const edgeTex = hasTex(L.edge) ? tex(L.edge) : null;
     for (const r of runs) {
       const w = (r.x1 - r.x0) * TILE;
@@ -230,14 +234,44 @@ export class GameView {
       if (backs.length && w >= 240) {
         const count = Math.floor(w / 520) + (rng.chance(0.6) ? 1 : 0);
         for (let i = 0; i < count; i++) {
-          const s = new Sprite(tex(rng.pick(backs)));
+          names.push(rng.pick(backs));
+          const s = new Sprite(tex(names[names.length - 1]));
           s.anchor.set(0.5, 0.97);
           const h = rng.range(130, 300);
           s.scale.set((h / s.texture.height) * (rng.chance(0.5) ? 1 : -1), h / s.texture.height);
           s.position.set(r.x0 * TILE + rng.range(60, w - 60), r.y * TILE + 6);
-          s.tint = 0x5a6488;
+          const glows = (L.glow ?? []).includes(names[names.length - 1]);
+          s.tint = glows ? 0xb8c0e0 : 0x5a6488;
           s.alpha = 0.92;
           this.back.addChild(s);
+          if (glows) this.decorLights.push({ x: s.x, y: s.y - h * 0.5, r: h * 1.6, c: L.motes, ph: rng.range(0, 6) });
+        }
+      }
+    }
+    // Props hanging from ceilings: lanterns, banners, chains, roots.
+    const hangs = (L.hang ?? []).filter(hasTex);
+    if (hangs.length) {
+      for (let y = 1; y < room.h - 1; y++) {
+        let x0 = -1;
+        for (let x = 0; x <= room.w; x++) {
+          const ceil = x < room.w && isSolid(tileAt(room, x, y)) && !isSolid(tileAt(room, x, y + 1));
+          if (ceil && x0 < 0) x0 = x;
+          if (!ceil && x0 >= 0) {
+            const w = (x - x0) * TILE;
+            if (w >= 280 && rng.chance(0.75)) {
+              const name = rng.pick(hangs);
+              const s = new Sprite(tex(name));
+              s.anchor.set(0.5, 0.02);
+              const h = rng.range(160, 360) * (name.includes('chain') ? 1.6 : 1);
+              s.scale.set(h / s.texture.height);
+              s.position.set(x0 * TILE + rng.range(80, w - 80), (y + 1) * TILE - 4);
+              const glows = (L.glow ?? []).includes(name);
+              s.tint = glows ? 0xd0d4f0 : 0x6a7498;
+              this.back.addChild(s);
+              if (glows) this.decorLights.push({ x: s.x, y: s.y + h * 0.75, r: 420, c: 0xffe0a8, ph: rng.range(0, 6) });
+            }
+            x0 = -1;
+          }
         }
       }
     }
@@ -458,6 +492,8 @@ export class GameView {
     this.light(p.cx, p.cy - 20, 640, this.look.hero, 0.9);
     if (scene.blade.out()) this.light(scene.blade.x, scene.blade.y, 300, 0xffe0a0, 0.7);
     this.ents.lights(scene);
+    const tt = performance.now() / 1000;
+    for (const d of this.decorLights) this.light(d.x, d.y, d.r * (0.95 + Math.sin(tt * 2.3 + d.ph) * 0.05), d.c, 0.75);
     this.director.lights();
     for (let i = this.lightUsed; i < this.lightPool.length; i++) this.lightPool[i].visible = false;
     this.app.renderer.render({ container: this.lights, target: this.lightRT, clear: true });

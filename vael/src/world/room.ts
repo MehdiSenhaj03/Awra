@@ -123,7 +123,10 @@ export function buildRoom(def: RoomDef, flags: Record<string, boolean | number>)
   for (const r of def.gloam ?? []) fill(r, T.Gloam);
   for (const r of def.water ?? []) fill(r, T.Water);
   for (const r of def.grate ?? []) fill(r, T.Grate);
-  for (const r of def.slick ?? []) fill(r, T.Slick);
+  // Polish only what is already rock.
+  for (const r of def.slick ?? []) {
+    for (let y = r[1]; y < r[1] + r[3]; y++) for (let x = r[0]; x < r[0] + r[2]; x++) if (tileAt(room, x, y) === T.Solid && x >= 0 && y >= 0 && x < w && y < h) setTile(room, x, y, T.Slick);
+  }
   for (const [x, y, bw, bh, flag] of def.brk ?? []) fill([x, y, bw, bh], flags[flag] ? T.Empty : T.Breakable);
   return room;
 }

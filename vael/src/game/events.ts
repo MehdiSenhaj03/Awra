@@ -24,4 +24,6 @@ export type FxEvent =
   | { t: 'telegraph'; x: number; y: number; big?: boolean }
   | { t: 'sfx'; name: string; x?: number; y?: number; vol?: number }
   | { t: 'roar'; x: number; y: number }
-  | { t: 'spark'; x: number; y: number; n: number; color: number };
+  | { t: 'spark'; x: number; y: number; n: number; color: number }
+  | { t: 'spin'; x: number; y: number; big: boolean }
+  | { t: 'trail'; x: number; y: number; vx: number; vy: number };

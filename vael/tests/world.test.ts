@@ -48,3 +48,36 @@ describe('world', () => {
     }
   });
 });
+
+import { buildRoom, isSolid, tileAt } from '../src/world/room';
+
+describe('exits', () => {
+  it('no exit is walled off from the inside', () => {
+    const bad: string[] = [];
+    for (const r of ROOMS) {
+      const seals: Record<string, boolean> = {};
+      for (const [, , , , f] of r.brk ?? []) if (f.startsWith('seal_')) seals[f] = true;
+      const room = buildRoom(r, seals);
+      for (const side of ['l', 'r', 'u', 'd'] as const) {
+        for (const [a, b] of r.exits?.[side] ?? []) {
+          // Two tiles in from the edge, at least 3 consecutive open tiles along the span.
+          let run = 0;
+          let best = 0;
+          for (let v = a; v <= b; v++) {
+            let open = true;
+            for (let k = 0; k < 3; k++) {
+              const tx = side === 'l' ? k : side === 'r' ? room.w - 1 - k : v;
+              const ty = side === 'u' ? k : side === 'd' ? room.h - 1 - k : v;
+              if (isSolid(tileAt(room, tx, ty))) open = false;
+            }
+            run = open ? run + 1 : 0;
+            best = Math.max(best, run);
+          }
+          const need = side === 'l' || side === 'r' ? 3 : 2;
+          if (best < Math.min(need, b - a + 1)) bad.push(`${r.id} ${side}[${a},${b}]`);
+        }
+      }
+    }
+    expect(bad).toEqual([]);
+  });
+});

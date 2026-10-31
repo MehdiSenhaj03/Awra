@@ -80,13 +80,20 @@ export class MapScreen implements Modal {
         }
       }
       for (const e of r.ents ?? []) {
+        // The Watch seal reveals what is still hidden.
+        const id = (e[3] as { id?: string } | undefined)?.id;
+        if (this.scene.seal('guet') && id && !s.flags[id] && ['ability', 'art', 'shard', 'vessel', 'ore', 'notch', 'chant', 'seal'].includes(e[0])) {
+          const px = x + (e[1] / b.w) * w;
+          const py = y + (e[2] / b.h) * h;
+          g.moveTo(px, py - 8).lineTo(px + 6, py).lineTo(px, py + 8).lineTo(px - 6, py).closePath().fill({ color: 0xffe0a0, alpha: 0.9 });
+        }
         if (e[0] === 'shrine') star(g, x + (e[1] / b.w) * w, y + (e[2] / b.h) * h, 10, 0xffe0a0);
         if (e[0] === 'npc' && seen) g.circle(x + (e[1] / b.w) * w, y + (e[2] / b.h) * h, 6).fill({ color: 0x90e0ff });
       }
       zones.add(r.zone);
     }
     // The hero.
-    if (this.scene.seal('guet') || true) {
+    {
       const b = bounds(this.scene.room.def);
       const p = this.scene.player;
       const px = sx((b.x + p.cx / TILE) / CELL_W);

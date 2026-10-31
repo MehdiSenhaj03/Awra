@@ -311,6 +311,22 @@ export class FxDirector {
         break;
       case 'art':
         sound.play('art');
+        v.vfx.spawn(ft.glow, { x: e.x, y: e.y, life: 14, scale: 2.4, scaleEnd: 0.3, tint: 0xffe6b0 });
+        v.vfx.spawn(hasTex('fx_glyph') ? tex('fx_glyph') : ft.ring, { x: e.x, y: e.y, life: 26, scale: 0.08, scaleEnd: 0.32, spin: 0.05, tint: 0xffe6b0, alpha: 0.9 });
+        v.chroma = 3;
+        break;
+      case 'spin': {
+        const spin = hasTex('fx_slash_spin') ? tex('fx_slash_spin') : ft.ring;
+        v.vfx.spawn(spin, { x: e.x, y: e.y, life: 12, scale: 0.36, scaleEnd: 0.46, rot: fx.range(0, 6.28), spin: 0.35, tint: 0xfff0d0 });
+        v.vfx.burst(ft.streak, e.x, e.y, 4, { speed: 12, life: 14, scale: 0.3, stretch: 0.04, tint: 0xffe6b0, dir: Math.PI / 2, spread: 0.5 });
+        this.tlight(e.x, e.y, 380, 0xffe0a0, 6);
+        if (e.big) { cam.shake(0.2); sound.play('slashBig'); } else sound.play('slash', { vol: 0.5, pitch: 1.2 });
+        break;
+      }
+      case 'trail':
+        v.vfx.spawn(ft.streak, { x: e.x + fx.range(-10, 10), y: e.y - 60, vx: 0, vy: -30, life: 8, scale: 0.6, stretch: 0.05, tint: 0xfff0c8 });
+        v.vfx.spawn(ft.glow, { x: e.x, y: e.y, life: 6, scale: 1.2, scaleEnd: 0.2, tint: 0xffd890 });
+        this.tlight(e.x, e.y, 300, 0xffe0a0, 4);
         break;
       case 'sfx':
         sound.play(e.name, { vol: e.vol });

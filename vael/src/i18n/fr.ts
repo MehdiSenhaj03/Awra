@@ -119,7 +119,7 @@ export const FR = {
     rebond: { name: 'Sceau du Rebond', desc: 'Chaque rebond sur un ennemi rend du Lumen.' },
     lueur: { name: 'Sceau de la Dernière Lueur', desc: 'À une seule lumière de vie, vos dégâts augmentent de 50 %.' },
     jumelle: { name: "Sceau de l'Étoile Jumelle", desc: 'Une seconde lame spectrale accompagne chaque lancer.' },
-    guet: { name: 'Sceau du Guet', desc: 'Votre position apparaît sur la carte.' },
+    guet: { name: 'Sceau du Guet', desc: 'Les trésors encore cachés apparaissent sur la carte.' },
   },
   ui: {
     seals: 'Sceaux',

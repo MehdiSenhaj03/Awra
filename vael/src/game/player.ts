@@ -1,5 +1,5 @@
 import { type Box, approach, clamp } from '../engine/core';
-import { type Body, type Ledge, type MoveResult, fits, makeBody, move, onPlatform, standing } from '../engine/physics';
+import { type Body, type Ledge, type MoveResult, fits, inWater, makeBody, move, onPlatform, standing } from '../engine/physics';
 import type { Room } from '../world/room';
 import type { Controls } from './controls';
 
@@ -37,7 +37,7 @@ export const SLASH = [
   { total: 24, from: 3, to: 8, chain: 99, cancel: 9, mul: 1.6, reach: 178, height: 128 },
 ];
 
-export type Pose = 'idle' | 'run' | 'jump' | 'fall' | 'land' | 'dash' | 'wall' | 'slash' | 'slashUp' | 'slashDown' | 'throw' | 'heal' | 'hurt' | 'art' | 'dead' | 'blink';
+export type Pose = 'wake' | 'idle' | 'run' | 'jump' | 'fall' | 'land' | 'dash' | 'wall' | 'slash' | 'slashUp' | 'slashDown' | 'throw' | 'heal' | 'hurt' | 'art' | 'dead' | 'blink';
 
 export type AttackDir = 'side' | 'up' | 'down';
 
@@ -126,6 +126,8 @@ export class Player {
   dead = false;
   /** Frames since the last footstep event. */
   private stepT = 0;
+  /** Frames left of the awakening at the start of a new game. */
+  wakeT = 0;
   /** A down-strike bounced this frame (Rebound seal). */
   pogoed = false;
   /** Being pulled to an astral ring. */
@@ -230,6 +232,13 @@ export class Player {
     if (c.bladePressed) this.bladeBuf = 6;
     else if (this.bladeBuf > 0) this.bladeBuf--;
 
+    if (this.wakeT > 0) {
+      this.wakeT--;
+      this.setPose('wake');
+      b.vy = Math.min(b.vy + PHYS.gravity, PHYS.maxFall);
+      move(w.room, b, 0, b.vy, w.ledges);
+      return ev;
+    }
     if (this.dead) {
       b.vx = approach(b.vx, 0, 1);
       b.vy = Math.min(b.vy + PHYS.gravity, PHYS.maxFall);
@@ -447,7 +456,8 @@ export class Player {
     const wantX = this.wallLockT > 0 ? 0 : c.x;
     if (this.wallLockT > 0) this.wallLockT--;
     const attacking = !!this.attack && this.attack.dir === 'side' && b.onGround;
-    const target = wantX * PHYS.run * (attacking ? 0.35 : 1) * (w.seal('coureur') ? 1.15 : 1);
+    const wet = inWater(w.room, b);
+    const target = wantX * PHYS.run * (attacking ? 0.35 : 1) * (w.seal('coureur') ? 1.15 : 1) * (wet ? 0.7 : 1);
     if (this.wallLockT === 0) {
       const accel = b.onGround ? (wantX !== 0 ? PHYS.accelGround : PHYS.decelGround) : PHYS.accelAir;
       b.vx = approach(b.vx, target, Math.abs(b.vx) > PHYS.run + 0.5 ? 1.2 : accel);
@@ -515,7 +525,7 @@ export class Player {
       }
     }
     const apex = Math.abs(b.vy) < 3 && c.jumpHeld;
-    if (!this.jumping) b.vy = Math.min(b.vy + (apex ? PHYS.apexGravity : PHYS.gravity), onWall ? PHYS.wallSlide : PHYS.maxFall);
+    if (!this.jumping) b.vy = Math.min(b.vy + (apex ? PHYS.apexGravity : PHYS.gravity) * (wet ? 0.6 : 1), onWall ? PHYS.wallSlide : wet ? 8 : PHYS.maxFall);
 
     const wasGround = b.onGround;
     const r: MoveResult = move(w.room, b, b.vx, b.vy, w.ledges);

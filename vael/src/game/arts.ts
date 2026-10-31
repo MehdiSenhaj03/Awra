@@ -81,7 +81,7 @@ export class Ascension extends ArtFx {
       p.artT = Math.max(p.artT, 2);
       p.artFree = true;
       this.sweep({ x: p.cx - 140, y: p.cy - 160, w: 280, h: 300 }, BASE_DAMAGE * 0.9, 5);
-      if (this.t % 4 === 0) this.scene.emit({ t: 'spark', x: p.cx, y: p.cy, n: 4, color: 0xffe6b0 });
+      if (this.t % 3 === 0) this.scene.emit({ t: 'spin', x: p.cx, y: p.cy, big: this.t === 3 });
     } else {
       p.artFree = false;
       if (!this.pillar) this.dead = true;
@@ -115,7 +115,7 @@ export class Starfall extends ArtFx {
       p.body.vx = 0;
       p.body.vy = 36;
       this.sweep({ x: p.cx - 60, y: p.body.y, w: 120, h: p.body.h + 40 }, BASE_DAMAGE * 1.2);
-      if (this.t % 2 === 0) this.scene.emit({ t: 'spark', x: p.cx, y: p.body.y, n: 3, color: 0xffe6b0 });
+      this.scene.emit({ t: 'trail', x: p.cx, y: p.cy, vx: 0, vy: -1 });
       if (p.body.onGround || this.t > 70) {
         this.landed = true;
         p.artFree = false;
