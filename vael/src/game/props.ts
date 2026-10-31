@@ -222,7 +222,10 @@ export class Arena extends Entity {
   }
 }
 
-/** A tutorial hint shown at the bottom of the screen while the hero is near. */
+/** Abilities a tutorial hint is about; without them the hint's "locked" text is shown. */
+const HINT_NEEDS: Record<string, string[]> = { ring: ['ring', 'blink'], gate: ['blink'], thorns: ['dash'], double: ['double'], crystal: ['comet'] };
+
+/** A tutorial hint shown at the bottom of the screen while the hero is near (the nearest hint wins). */
 export class Hint extends Entity {
   constructor(scene: Scene, x: number, feet: number, public key: string) {
     super(scene, x, feet, 10, 10);
@@ -235,7 +238,15 @@ export class Hint extends Entity {
 
   update(): void {
     const p = this.scene.player;
-    if (Math.abs(p.cx - this.cx) < 420 && Math.abs(p.cy - this.cy) < 300) this.scene.hint = this.key;
+    const dx = Math.abs(p.cx - this.cx);
+    const dy = Math.abs(p.cy - this.cy);
+    if (dx > 420 || dy > 300) return;
+    const d = dx + dy;
+    if (d >= this.scene.hintDist) return;
+    this.scene.hintDist = d;
+    // A hint about an ability the hero does not have yet says so, instead of teaching a move they cannot do.
+    const need = HINT_NEEDS[this.key];
+    this.scene.hint = need && !need.every((a) => this.scene.has(a)) ? `${this.key}Locked` : this.key;
   }
 }
 

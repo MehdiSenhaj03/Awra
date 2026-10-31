@@ -70,6 +70,8 @@ export class Scene implements PlayerWorld {
   toast: { text: string; t: number } | null = null;
   /** Tutorial hint key shown this frame. */
   hint = '';
+  /** Distance of the hint shown this frame (the nearest one wins). */
+  hintDist = Infinity;
 
   constructor(public save: Save, public hooks: SceneHooks) {
     this.player = new Player(0, 0);
@@ -365,6 +367,7 @@ export class Scene implements PlayerWorld {
   update(c: Controls): void {
     this.t++;
     this.hint = '';
+    this.hintDist = Infinity;
     if (this.toast && --this.toast.t <= 0) this.toast = null;
     if (this.freeze > 0) {
       this.freeze--;

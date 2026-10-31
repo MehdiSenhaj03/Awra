@@ -22,7 +22,7 @@ ENEMY_H = {
     "en_geolier": 210, "en_corbeau": 120, "en_astre": 110, "en_ombre": 160, "en_sentinelle": 220, "en_veilleur": 200,
 }
 BOSS_H = 420
-SHARED_SCALE = {"boss_geoliers", "boss_bibliothecaire"}
+SHARED_SCALE = {"boss_geoliers", "boss_bibliothecaire", "boss_reine", "boss_oiseau"}
 
 ICON_NAMES = {
     "icons_seals": [f"ic_seal_{i}" for i in range(16)],
