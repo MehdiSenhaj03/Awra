@@ -145,6 +145,14 @@ export class FxDirector {
         this.tlight(e.x, e.y, 520 * s, 0xb488ff, 22);
         cam.shake(0.2 + 0.1 * s);
         v.shockwave(e.x, e.y, 10 + 6 * s);
+        if (e.size >= 250) {
+          // A keeper falls: white-out, long shockwave.
+          v.flash = 0.7;
+          v.flashColor = 0xfff4dc;
+          v.chroma = 10;
+          cam.shake(0.9);
+          v.shockwave(e.x, e.y, 40);
+        }
         sound.play('kill', { pitch: 1.1 - Math.min(0.4, s * 0.1) });
         break;
       }

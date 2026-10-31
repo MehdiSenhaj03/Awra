@@ -13,3 +13,16 @@ describe('the kingdom can be completed', () => {
     expect(r.heart).toBe(true);
   }, 1800000);
 });
+
+// Each ability is needed: without it, the keeper behind its gate cannot be reached.
+const GATES: [string, string][] = [
+  ['dash', 'racine'], ['walljump', 'forgeron'], ['blink', 'bibliothecaire'], ['double', 'geoliers'], ['ring', 'oiseau'], ['comet', 'reine'],
+];
+describe('each ability is really needed', () => {
+  for (const [ab, boss] of GATES) {
+    it(`without ${ab}, ${boss} cannot be reached`, () => {
+      const r = explore({ ban: ab, stopAt: boss });
+      expect(r.bosses.has(boss)).toBe(false);
+    }, 3600000);
+  }
+});

@@ -21,7 +21,7 @@ export function registerLooks(): void {
   defineLook('enclume', { sheet: 'en_enclume', height: 210, facesLeft: true, light: { color: 0xff9040, radius: 260 } });
   defineLook('etincelle', { sheet: 'en_etincelle', height: 80, facesLeft: true, light: { color: 0xffa050, radius: 260 } });
   defineLook('lecteur', { sheet: 'en_noye', height: 150, facesLeft: true, bob: 4, light: { color: 0x70e0ff, radius: 220 } });
-  defineLook('anguille', { sheet: 'en_anguille', height: 70, facesLeft: true, light: { color: 0x70e0ff, radius: 200 } });
+  defineLook('anguille', { sheet: 'en_anguille', height: 130, facesLeft: true, light: { color: 0x70e0ff, radius: 200 } });
   defineLook('geolier', { sheet: 'en_geolier', height: 190, facesLeft: true });
   defineLook('corbeau', { sheet: 'en_corbeau', height: 100, facesLeft: true, light: { color: 0xc8d0ff, radius: 160 } });
   defineLook('astrelet', { sheet: 'en_astre', height: 90, facesLeft: true, light: { color: 0xff9ad8, radius: 300 } });

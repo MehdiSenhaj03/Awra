@@ -41,25 +41,33 @@ Sans la lame en main, vos coups sont des frappes de paume plus faibles : chaque 
 
 ## Progression
 
-| Zone | Capacité obtenue | Gardien |
-|---|---|---|
-| 1. La Couronne | Lame Liée (dès le départ), Sillage (dash) | Le Gardien Brisé |
-| 2. Les Jardins Suspendus | Griffes (saut mural) | La Mère-Racine |
-| 3. La Forge Éteinte | Saut d'Étoile (téléportation sur la lame) | Le Forgeron Creux |
-| 4. Les Archives Englouties | Second Souffle (double saut) | Le Bibliothécaire Noyé |
-| 5. Le Bastion des Chaînes | Lien (anneaux astraux) | Les Geôliers |
-| 6. Le Firmament Inversé | Comète-Sillage (super dash qui brise le cristal) | L'Oiseau-Comète |
-| 7. La Pénombre | — | La Reine de Pénombre |
-| 8. Le Cœur | — | L'Enchaîneur, puis l'Étoile |
+| Zone | Accès | Gardien | Récompense |
+|---|---|---|---|
+| 1. La Couronne | départ ; escalade à la lame | Le Gardien Brisé | Sillage (ruée) |
+| 2. Les Jardins Suspendus | gouffre d'épines (Sillage) | La Mère-Racine | Griffes de Racine (saut mural) |
+| 3. La Forge Éteinte | cheminée de roche polie (Griffes) | Le Forgeron Creux | Saut d'Étoile |
+| 4. Les Archives Englouties | grille au sol (lame à travers, puis Saut d'Étoile) | Le Bibliothécaire Noyé | Second Souffle (double saut) |
+| 5. Le Bastion des Chaînes | bloc poli trop haut (double saut) | Les Geôliers | Lien (anneaux astraux) |
+| 6. Le Firmament Inversé | vide où pendent des anneaux (Lien) | L'Oiseau-Comète | Sillage de Comète |
+| 7. La Pénombre | cristal noir (Sillage de Comète) | La Reine de Pénombre | Météore, porte du Cœur |
+| 8. Le Cœur | sol ouvert par la Reine | L'Enchaîneur | le choix |
 
-Objets : éclats de vie (4 = +1 vie), fioles de Lumen, **Sceaux** (équipements passifs à emplacements), forge de la lame (dégâts), Arts et leurs versions supérieures, cartes, fresques de récit.
+Optionnel : le Veilleur Gris (duel, encoche de Sceau), l'Épreuve du Cœur (Constellation), l'Étoile Rêveuse (gardien secret, vraie fin).
 
-## Économie
+La roche polie et les bords des salles repoussent la lame : on ne peut pas tout escalader avec elle. Le Saut d'Étoile ne rejoint qu'une lame plantée.
 
-La **poussière d'étoile** tombe des ennemis. Elle s'achète chez les marchands (sceaux, cartes, éclats). À la mort, elle reste dans une **étoile filante** à l'endroit de la chute : il faut la frapper ou y lancer la lame pour la récupérer.
+## Contenu
 
-## Caméra et lisibilité
+- 63 salles (environ 140 écrans) dans 8 zones, toutes reliées et vérifiées par l'explorateur automatique.
+- 10 gardiens à trois phases (anticipations visibles, vacillement après une rafale de coups, mort au ralenti).
+- 19 types d'ennemis : soldats creux, acariens de cristal, lanternes, prêtres voilés, chevaliers de Pénombre, ronces, spores, mantes, ouvriers de braise, enclumiers, étincelles, lecteurs noyés, anguilles, gardiens de cellule (bouclier), corbeaux, astrelets, ombres-mères, sentinelles de cristal.
+- 7 Arts : Comète, Grande Comète, Ascension, Firmament, Chute d'Astre, Météore, Constellation.
+- 16 Sceaux à équiper dans des encoches (3 à 7).
+- Objets : éclats de vie (4 = une vie de plus), fragments de fiole (3 = une fiole de Lumen), fer d'étoile (forge de la lame, 4 niveaux), 8 Chants de l'Étoile, cartes.
+- 6 personnages : Orsa la Cartographe, Maître Vey, Sœur Lunelle, le Veilleur Gris, Pip, Murmure ; 4 marchands.
+- 16 fresques de récit, 3 fins : le Nouveau Lien, la Libération, l'Aube (8 Chants + Pip retrouvé 4 fois).
+- Mode Supernova (dégâts reçus doublés), 3 emplacements de sauvegarde, touches reconfigurables, manette, français et anglais.
 
-- Caméra douce : zone morte, anticipation dans la direction du regard, regard vers le bas en chute, jamais de zoom subit sauf mises en scène.
-- Tremblements courts et directionnels, réglables (0 à 100 %).
-- Ennemis : toute attaque a une anticipation visible (au moins 20 images) et un son.
+## Durée
+
+Estimation (pas une mesure) : 5 à 7 heures pour une première partie qui va au bout, 8 à 10 heures pour tout trouver. Un robot invulnérable qui frappe sans esquiver bat chaque gardien en 15 à 40 secondes ; un joueur qui doit esquiver met plusieurs minutes et plusieurs essais.

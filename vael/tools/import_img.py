@@ -56,7 +56,9 @@ def main() -> None:
             im.save(out / f"{name}.webp", "WEBP", quality=88, method=6)
         else:
             im = trim(im.convert("RGBA"))
-            im.thumbnail((1024, 1024), Image.LANCZOS)
+            # Decor is never shown very large; foreground frames and portraits keep more detail.
+            cap = 1024 if name.startswith(("fg_", "pt_", "npc_", "plat_", "edge_")) else 768
+            im.thumbnail((cap, cap), Image.LANCZOS)
             im.save(out / f"{name}.webp", "WEBP", quality=88, method=6, exact=True)
         print(name, im.size)
 

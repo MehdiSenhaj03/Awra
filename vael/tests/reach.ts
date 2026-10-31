@@ -139,7 +139,7 @@ function macros(s: Scene): { name: string; m: Macro; frames: number }[] {
 }
 
 /** Explores until nothing new is found. `ban` removes an ability from the world (it never gets granted). */
-export function explore(opts: { ban?: string; maxRounds?: number; verbose?: boolean; start?: [string, number, number]; abilities?: string[] } = {}): ReachResult {
+export function explore(opts: { ban?: string; maxRounds?: number; verbose?: boolean; start?: [string, number, number]; abilities?: string[]; stopAt?: string } = {}): ReachResult {
   const save = newSave(1);
   if (opts.abilities) save.abilities = [...opts.abilities];
   save.notches = 3;
@@ -177,6 +177,8 @@ export function explore(opts: { ban?: string; maxRounds?: number; verbose?: bool
     scene.enter(id);
     // Foes do not matter for reachability.
     scene.entities = scene.entities.filter((e) => e.prop || e instanceof Interactive || e instanceof Pickup || e instanceof Crack || e instanceof Eye || e instanceof Ring || e instanceof Arena);
+    // Timed gates are treated as staying open (the time window itself is checked by hand: it is a trial).
+    for (const e of scene.entities) if (e instanceof Eye) e.timed = 0;
   };
 
   const place = (x: number, feet: number) => {
@@ -269,6 +271,7 @@ export function explore(opts: { ban?: string; maxRounds?: number; verbose?: bool
         steps++;
       }
       grant();
+      if (opts.stopAt && res.bosses.has(opts.stopAt)) return res;
     }
     grant();
     const after = `${save.abilities.length}|${Object.keys(save.flags).length}`;

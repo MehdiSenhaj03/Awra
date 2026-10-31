@@ -51,6 +51,7 @@ export abstract class Boss extends Foe {
     }
     if (this.intro > 0) {
       this.intro--;
+      if (this.intro === 0) this.scene.emit({ t: 'roar', x: this.cx, y: this.cy });
       this.setAnim('idle');
       this.fall();
       return;
