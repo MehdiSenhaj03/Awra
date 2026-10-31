@@ -327,7 +327,7 @@ export class Player {
       if (d < sp + 30 || r.hitX || r.hitY || z.t > 50) {
         this.zip = null;
         b.vx *= 0.75;
-        b.vy = Math.min(b.vy * 0.6, -10);
+        b.vy = Math.min(b.vy * 0.8, -12);
         this.doubleUsed = false;
         this.airDashUsed = false;
         ev.push({ kind: 'zipEnd', x: this.cx, y: this.cy });

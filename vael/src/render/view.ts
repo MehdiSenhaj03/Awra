@@ -152,7 +152,7 @@ export class GameView {
 
     // Far painting.
     const bgName = room.def.bg && hasTex(room.def.bg) ? room.def.bg : L.bgs.filter(hasTex)[hash(room.id, 'bg') % Math.max(1, L.bgs.filter(hasTex).length)] ?? L.bgs[0];
-    const far = new Sprite(tex(bgName));
+    const far = new Sprite(tex(hasTex(bgName) ? bgName : 'bg_couronne_a'));
     far.tint = L.bgTint;
     this.far.addChild(far);
     this.farSprites.push(far);

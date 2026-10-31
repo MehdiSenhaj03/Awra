@@ -1,3 +1,7 @@
 html, body { margin: 0; height: 100%; background: #030308; overflow: hidden; }
 #game { position: fixed; inset: 0; }
 #game canvas { display: block; width: 100%; height: 100%; }
+#loading { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; background: #020205; color: #f2d9a0; font-family: Georgia, serif; transition: opacity .8s; z-index: 2; }
+#loading .name { font-size: 64px; letter-spacing: 24px; opacity: .85; margin-bottom: 28px; }
+#loading .bar { width: 320px; height: 2px; background: rgba(242, 217, 160, .15); }
+#loadbar { width: 0; height: 100%; background: #f2d9a0; transition: width .2s; }

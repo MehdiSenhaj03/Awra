@@ -118,12 +118,14 @@ function macros(s: Scene): { name: string; m: Macro; frames: number }[] {
           if (b.held() && !p.zip) {
             // Aim at the nearest ring above or ahead that is not the one just used.
             const cands = sc.entities.filter((e) => e instanceof Ring && Math.hypot(e.cx - p.cx, e.cy - p.cy) < 640);
-            const target = f < 4 ? r0 : cands.sort((a, c) => (a.cy - c.cy) || 0).find((e) => e.cy < p.cy - 40) ?? null;
-            if (!target) return { x: 0 };
+            const target = f < 4 ? r0 : cands.sort((a, c) => c.cy - a.cy).find((e) => e.cy < p.cy - 110 && Math.hypot(e.cx - p.cx, e.cy - p.cy) > 130) ?? null;
+            if (!target) return { x: 0, jumpPressed: !p.body.onGround && p.body.vy > -3 && p.body.vy < 3, jumpHeld: true };
             const dx = target.cx - p.cx;
             const dy = target.cy - (p.cy - 8);
-            const ax = Math.abs(dx) < 60 ? 0 : Math.sign(dx);
-            const ay = dy < -60 ? -1 : dy > 60 ? 1 : 0;
+            // The closest of the eight throwing directions.
+            const an = Math.round(Math.atan2(dy, dx) / (Math.PI / 4)) * (Math.PI / 4);
+            const ax = Math.round(Math.cos(an));
+            const ay = Math.round(Math.sin(an));
             return { x: ax, y: ay, bladePressed: true, jumpPressed: p.body.onGround && ay > 0, jumpHeld: true };
           }
           if (b.ring) return { blinkPressed: true };
@@ -137,8 +139,9 @@ function macros(s: Scene): { name: string; m: Macro; frames: number }[] {
 }
 
 /** Explores until nothing new is found. `ban` removes an ability from the world (it never gets granted). */
-export function explore(opts: { ban?: string; maxRounds?: number; verbose?: boolean } = {}): ReachResult {
+export function explore(opts: { ban?: string; maxRounds?: number; verbose?: boolean; start?: [string, number, number]; abilities?: string[] } = {}): ReachResult {
   const save = newSave(1);
+  if (opts.abilities) save.abilities = [...opts.abilities];
   save.notches = 3;
   const res: ReachResult = { rooms: new Set(), flags: new Set(), abilities: new Set(), bosses: new Set(), heart: false, log: [], positions: [] };
   const scene = new Scene(save, { roomDef: (id) => roomDef(id), neighbour, spawn: spawnEntity });
@@ -207,8 +210,8 @@ export function explore(opts: { ban?: string; maxRounds?: number; verbose?: bool
     perRoom.clear();
     const queue: [string, number, number][] = [];
     // Start at the first altar.
-    enter('c_reveil');
-    const start: [string, number, number] = ['c_reveil', 12 * TILE, 22 * TILE];
+    const start: [string, number, number] = opts.start ? [opts.start[0], opts.start[1] * TILE, opts.start[2] * TILE] : ['c_reveil', 12 * TILE, 22 * TILE];
+    enter(start[0]);
     queue.push(start);
     seen.add(key(...start));
     let steps = 0;
@@ -245,7 +248,8 @@ export function explore(opts: { ban?: string; maxRounds?: number; verbose?: bool
           p.body.vx = pd.vx;
           p.body.vy = Math.min(pd.vy, pd.vy < 0 ? -14 : pd.vy);
           // Keep going the same way a little, then settle.
-          const dir = Math.sign(pd.vx);
+          // Going up through a hole: drift aside to land beside it (alternating sides between macros).
+          const dir = Math.abs(pd.vx) > 1 ? Math.sign(pd.vx) : steps % 2 ? 1 : -1;
           for (let i = 0; i < 40 && !scene.pending; i++) scene.update(C({ x: dir, jumpHeld: pd.vy < 0 }));
           left = true;
         }
@@ -270,7 +274,7 @@ export function explore(opts: { ban?: string; maxRounds?: number; verbose?: bool
     const after = `${save.abilities.length}|${Object.keys(save.flags).length}`;
     if (opts.verbose) console.log(`round ${round}: ${seen.size} positions, ${res.rooms.size} rooms, abilities ${[...save.abilities].join(',')}, ${steps} macros`);
     res.log.push(`round ${round}: ${seen.size} positions, rooms ${res.rooms.size}`);
-    res.positions = [...seen];
+    res.positions = [...new Set([...res.positions, ...seen])];
     if (after === before) break;
   }
   return res;

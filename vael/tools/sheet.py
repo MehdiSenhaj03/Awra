@@ -143,7 +143,10 @@ def main() -> None:
     out.parent.mkdir(parents=True, exist_ok=True)
     atlas.save(out.with_suffix(".png"))
     json.dump({"frames": meta, "scale": scale}, open(out.with_suffix(".json"), "w"))
-    print(f"atlas {aw}x{ah} -> {out.with_suffix('.png')}", flush=True)
+    try:
+        print(f"atlas {aw}x{ah} -> {out.with_suffix('.png')}", flush=True)
+    except BrokenPipeError:
+        pass
 
 
 if __name__ == "__main__":

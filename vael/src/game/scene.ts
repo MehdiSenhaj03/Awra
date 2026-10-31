@@ -163,6 +163,26 @@ export class Scene implements PlayerWorld {
   throwBlade(dx: number, dy: number): void {
     const p = this.player;
     Blade.RANGE = this.seal('longfil') ? 960 : 640;
+    // Aim assist: with the Tether, a ring close to the chosen direction pulls the throw onto it.
+    if (this.has('ring')) {
+      const a0 = Math.atan2(dy, dx);
+      let best: { d: number; a: number } | null = null;
+      for (const e of this.entities) {
+        if (e.sprite !== 'ring') continue;
+        const ex = e.cx - p.cx;
+        const ey = e.cy - (p.cy - 8);
+        const d = Math.hypot(ex, ey);
+        if (d < 70 || d > Blade.RANGE - 20) continue;
+        const a = Math.atan2(ey, ex);
+        let diff = Math.abs(a - a0);
+        if (diff > Math.PI) diff = Math.PI * 2 - diff;
+        if (diff < 0.5 && (!best || d < best.d)) best = { d, a };
+      }
+      if (best) {
+        dx = Math.cos(best.a);
+        dy = Math.sin(best.a);
+      }
+    }
     this.blade.throw(p.cx + dx * 20, p.cy - 8 + dy * 10, dx, dy);
     if (this.seal('jumelle')) this.add(new Comet(this, p.cx + dx * 30, p.cy - 30, dx >= 0 ? 1 : -1, false, true, dy * 20));
     this.emit({ t: 'throw', x: p.cx, y: p.cy, dir: p.facing });
@@ -438,7 +458,7 @@ export class Scene implements PlayerWorld {
       this.emit({ t: 'lodge', x: b.x, y: b.y, angle: b.angle });
       // Lodged under the hero's feet would trap them inside the step; nothing to do, the step is one-way.
     }
-    if (b.state === 'flying' && this.has('ring')) {
+    if (b.state === 'flying' && this.has('ring') && b.travelled > 60) {
       for (const e of this.entities) {
         if (e.sprite !== 'ring') continue;
         if (Math.hypot(e.cx - b.x, e.cy - b.y) < 46) {

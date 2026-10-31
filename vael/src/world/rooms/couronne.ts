@@ -94,7 +94,7 @@ export const COURONNE: RoomDef[] = [
     solid: [[0, 22, 12, 5], [28, 22, 20, 5], [0, 0, 20, 3], [26, 0, 22, 3], [44, 3, 4, 19], [12, 26, 16, 1]],
     slick: [[18, 0, 2, 3], [26, 0, 2, 3], [44, 3, 2, 19]],
     spike: [[12, 25, 16, 1]],
-    ents: [['art', 38, 21, { value: 'comete', id: 'art_comete' }], ['tablet', 32, 21, { lore: 'l14' }], ['lampion', 20, 12], ['ring', 22, 12], ['hint', 22, 21, { text: 'ring' }]],
+    ents: [['art', 38, 21, { value: 'comete', id: 'art_comete' }], ['tablet', 32, 21, { lore: 'l14' }], ['lampion', 20, 12], ['ring', 22, 15], ['ring', 22, 6], ['hint', 22, 21, { text: 'ring' }]],
   },
   {
     // The way down, past the keeper: towards the Gardens and the Forge.

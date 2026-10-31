@@ -78,7 +78,15 @@ export class App {
     if (this.settings.bindings) Object.assign(input.bindings, this.settings.bindings);
     registerLooks();
     await Promise.all([document.fonts.load('40px Cinzel'), document.fonts.load('40px "Cormorant Garamond"'), document.fonts.load('italic 500 40px "Cormorant Garamond"')]).catch(() => {});
-    await loadAssets(IMAGES, ATLASES);
+    await loadAssets(IMAGES, ATLASES, (k) => {
+      const bar = document.getElementById('loadbar');
+      if (bar) bar.style.width = `${Math.round(k * 100)}%`;
+    });
+    const ld = document.getElementById('loading');
+    if (ld) {
+      ld.style.opacity = '0';
+      setTimeout(() => ld.remove(), 900);
+    }
     sound.play = (name, o) => audio.play(name, o);
     this.view = new GameView(this.app);
     this.app.stage.addChild(this.view.root, this.ui);
