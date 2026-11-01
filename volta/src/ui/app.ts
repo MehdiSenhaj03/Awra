@@ -334,11 +334,15 @@ export class App {
           { label: t('results.map'), action: () => this.toMap(id) },
         ];
     music.intensity = 0;
+    this.session!.hud.root.style.display = 'none';
     this.push(new Results(w, win, g, record, notes, actions.map((a) => ({ label: a.label, action: () => { this.pop(); a.action(); } }))));
   }
 
   /** Story beats and unlocks after a first clear, then onwards. */
   private afterWin(id: string, firstClear: boolean, next: string | undefined): void {
+    this.endSession();
+    music.start('title');
+    music.intensity = 0;
     const queue: (() => void)[] = [];
     const run = () => {
       const f = queue.shift();
@@ -451,7 +455,7 @@ export class App {
       s.frame(Math.min(1, this.acc / DT), dt);
     } else {
       input.poll();
-      if (s) s.frame(1, blocking ? 0 : dt);
+      if (s) s.frame(1, blocking ? 0 : dt, this.test);
       else if (music.theme) music.update(performance.now() / 1000 * (music.theme.bpm / 60), music.theme.bpm);
       const top = this.overlays[this.overlays.length - 1] ?? this.screen;
       top?.update(dt);

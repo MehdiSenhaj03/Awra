@@ -27,7 +27,9 @@ export class MapScreen implements Screen {
       const art = el('div', 'art');
       art.style.backgroundImage = `url(${img(SECTOR_BG[s])})`;
       const info = el('div', 'info');
-      info.append(el('div', 'num', `${String(s).padStart(2, '0')} / 06`), el('div', 'nm', t(`sector.${s}.name`)), el('div', 'ds', t(`sector.${s}.desc`)));
+      const emb = el('img', 'emb');
+      emb.src = img(`ic_b${7 + s}`);
+      info.append(emb, el('div', 'num', `${String(s).padStart(2, '0')} / 06`), el('div', 'nm', t(`sector.${s}.name`)), el('div', 'ds', t(`sector.${s}.desc`)));
       const st = el('div', 'stages');
       let anyOpen = false;
       for (let k = 1; k <= 4; k++) {
