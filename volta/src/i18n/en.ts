@@ -1,4 +1,5 @@
 export const en = {
+  keys: { enter: 'Enter', escape: 'Esc' },
   hud: { overdrive: 'RESONANCE', overdriveReady: 'OVERDRIVE READY — [{key}]', overdriveOn: 'OVERDRIVE', wave: 'WAVE', checkpoint: 'CHECKPOINT' },
   rank: { 0: 'MUTE', 1: 'STIR', 2: 'PULSE', 3: 'CHORD', 4: 'SYMPHONY', 5: 'SUPERNOVA', 6: 'VOLTA' },
   title: { tagline: 'Break the Silence.', press: 'Press any key', play: 'Play', continue: 'Continue', encore: 'Encore', encoreLocked: 'Encore — beat the Foundry', codex: 'Codex', options: 'Options', quit: 'Quit', newGame: 'New game', confirmNew: 'Erase your progress and start over?' },

@@ -52,7 +52,7 @@ export class MapScreen implements Screen {
       if (!anyOpen) sec.classList.add('locked');
       this.strip.appendChild(sec);
     }
-    const foot = el('div', 'map-foot keys', `<span><kbd>←</kbd><kbd>→</kbd>${t('map.subtitle')}</span><span><kbd>Entrée</kbd>${t('common.start')}</span><span><kbd>Échap</kbd>${t('common.back')}</span>`);
+    const foot = el('div', 'map-foot keys', `<span><kbd>←</kbd><kbd>→</kbd>${t('map.subtitle')}</span><span><kbd>${t('keys.enter')}</kbd>${t('common.start')}</span><span><kbd>${t('keys.escape')}</kbd>${t('common.back')}</span>`);
     map.append(head, this.strip, foot);
     this.root.append(bg, map, notes);
     // Focus: the requested stage, else the furthest open one.

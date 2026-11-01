@@ -1,4 +1,5 @@
 export const fr = {
+  keys: { enter: 'Entrée', escape: 'Échap' },
   hud: { overdrive: 'RÉSONANCE', overdriveReady: 'SURCHARGE PRÊTE — [{key}]', overdriveOn: 'SURCHARGE', wave: 'VAGUE', checkpoint: 'POINT DE REPRISE' },
   rank: { 0: 'MUET', 1: 'ÉVEIL', 2: 'BATTEMENT', 3: 'ACCORD', 4: 'SYMPHONIE', 5: 'SUPERNOVA', 6: 'VOLTA' },
   title: {

@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { DT } from '../engine/core';
 import { audio } from '../engine/audio';
-import { input, type Action } from '../engine/input';
+import { input, loadLayout, type Action } from '../engine/input';
 import { music } from '../engine/music';
 import { sfx } from '../engine/sfx';
 import type { Fx } from '../game/events';
@@ -65,6 +65,7 @@ export class App {
   }
 
   async boot(): Promise<void> {
+    void loadLayout();
     const bar = document.getElementById('bootbar');
     let done = 0;
     const total = PAINTINGS.length + 3;

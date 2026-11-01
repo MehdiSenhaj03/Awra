@@ -150,7 +150,21 @@ class Input {
   }
 }
 
+/** Real labels of the player's keyboard layout (AZERTY shows Z where QWERTY has W). */
+let layout: Map<string, string> | null = null;
+export async function loadLayout(): Promise<void> {
+  try {
+    const kb = (navigator as unknown as { keyboard?: { getLayoutMap(): Promise<Map<string, string>> } }).keyboard;
+    if (kb) layout = await kb.getLayoutMap();
+  } catch {
+    layout = null;
+  }
+}
+
 export function codeName(c: string): string {
+  const l = layout?.get(c);
+  if (l && l.trim() && c.startsWith('Key')) return l.toUpperCase();
+  if (l && l.trim() && c.startsWith('Digit')) return l;
   if (c === 'Mouse0') return 'Clic G';
   if (c === 'Mouse2') return 'Clic D';
   if (c === 'Mouse1') return 'Clic M';
