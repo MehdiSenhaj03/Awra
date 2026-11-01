@@ -102,6 +102,7 @@ int main() {
     printf("%s;%zu;%zu\n", "AwraTagEntryClass", sizeof(AwraTagEntryClass), alignof(AwraTagEntryClass));
     printf("%s;%zu;%zu\n", "AwraTextAreaClass", sizeof(AwraTextAreaClass), alignof(AwraTextAreaClass));
     printf("%s;%zu;%zu\n", "AwraTextureStreamClass", sizeof(AwraTextureStreamClass), alignof(AwraTextureStreamClass));
+    printf("%s;%zu;%zu\n", "AwraTileViewClass", sizeof(AwraTileViewClass), alignof(AwraTileViewClass));
     printf("%s;%zu;%zu\n", "AwraTimelineClass", sizeof(AwraTimelineClass), alignof(AwraTimelineClass));
     printf("%s;%zu;%zu\n", "AwraToastOverlayClass", sizeof(AwraToastOverlayClass), alignof(AwraToastOverlayClass));
     printf("%s;%zu;%zu\n", "AwraToggleButtonClass", sizeof(AwraToggleButtonClass), alignof(AwraToggleButtonClass));

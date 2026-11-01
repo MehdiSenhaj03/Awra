@@ -236,6 +236,8 @@ awra_data_view_init (AwraDataView *self)
   gtk_widget_add_css_class (GTK_WIDGET (self->delegate), "awra-data-view-delegate");
   gtk_scrolled_window_set_child (self->scroller, GTK_WIDGET (self->delegate));
   gtk_widget_set_vexpand (GTK_WIDGET (self->scroller), TRUE);
+  /* A list can be made small: pages that are not shown do not stand in its way. */
+  gtk_stack_set_vhomogeneous (self->stack, FALSE);
   gtk_stack_add_named (self->stack, GTK_WIDGET (self->scroller), "content");
   awra_empty_state_set_title (AWRA_EMPTY_STATE (empty), _("No results"));
   awra_loading_state_set_title (AWRA_LOADING_STATE (loading), _("Loading"));

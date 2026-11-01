@@ -13,7 +13,13 @@ unchanged (checked against the frozen 1.0.0 contract).
   fitting it to a height can no longer report inconsistent sizes.
 - Scrolling menus and their shortcut labels resist hostile themes, and theme
   slider margins can no longer give an Awra scrollbar a negative size.
-- Rust bindings cover `AwraPathBar`, `AwraDragPreview` and `AwraTransitionBin`.
+- `AwraTileView` divides a surface into as many tiles as the user wants: tiles
+  divide again in either direction, dividers resize their neighbours, and
+  adding, removing or moving a tile animates without reparenting any child.
+- `AwraDataView` no longer keeps the height of its hidden state pages, so a list
+  can be made small.
+- Rust bindings cover `AwraPathBar`, `AwraDragPreview`, `AwraTransitionBin` and
+  `AwraTileView`.
 - `awra_path_bar_get_item_at()` and `awra_path_bar_set_drop_item()` let each
   breadcrumb receive a drop.
 - Style roles `inline-edit`, `inline-action` and `usage-meter` cover editing in

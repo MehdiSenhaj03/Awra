@@ -256,6 +256,9 @@ mod texture_stream;
 #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
 pub use self::texture_stream::TextureStream;
 
+mod tile_view;
+pub use self::tile_view::TileView;
+
 #[cfg(feature = "v1_1")]
 #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
 mod timeline;
@@ -407,6 +410,7 @@ pub(crate) mod builders {
     pub use super::tab_view::TabViewBuilder;
     pub use super::tag_entry::TagEntryBuilder;
     pub use super::text_area::TextAreaBuilder;
+    pub use super::tile_view::TileViewBuilder;
     #[cfg(feature = "v1_1")]
     #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
     pub use super::timeline::TimelineBuilder;

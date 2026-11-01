@@ -861,6 +861,13 @@ const RUST_LAYOUTS: &[(&str, Layout)] = &[
         },
     ),
     (
+        "AwraTileViewClass",
+        Layout {
+            size: size_of::<AwraTileViewClass>(),
+            alignment: align_of::<AwraTileViewClass>(),
+        },
+    ),
+    (
         "AwraTimelineClass",
         Layout {
             size: size_of::<AwraTimelineClass>(),

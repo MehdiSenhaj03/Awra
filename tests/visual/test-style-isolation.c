@@ -330,6 +330,9 @@ make_probe_scene (void)
     GtkWidget *waveform = awra_waveform_view_new ();
     GtkWidget *row = awra_media_row_new ("Rain");
     GtkWidget *drop = awra_drop_zone_new ();
+    GtkWidget *tiles = awra_tile_view_new ();
+    GtkWidget *left_tile = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 0);
+    GtkWidget *right_tile = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 0);
     GdkRGBA tint = { 0.70, 0.20, 0.25, 1.0 };
 
     awra_key_cap_set_bound (AWRA_KEY_CAP (bound), TRUE);
@@ -361,6 +364,11 @@ make_probe_scene (void)
     gtk_box_append (GTK_BOX (media), waveform);
     gtk_box_append (GTK_BOX (media), row);
     gtk_box_append (GTK_BOX (media), drop);
+    awra_tile_view_insert (AWRA_TILE_VIEW (tiles), left_tile, NULL, GTK_POS_LEFT);
+    awra_tile_view_insert (AWRA_TILE_VIEW (tiles), right_tile, left_tile,
+                           GTK_POS_RIGHT);
+    gtk_widget_set_size_request (tiles, -1, 24);
+    gtk_box_append (GTK_BOX (media), tiles);
     GtkWidget *timeline = awra_timeline_new ();
     awra_timeline_set_duration (AWRA_TIMELINE (timeline), 60);
     awra_timeline_set_position (AWRA_TIMELINE (timeline), 24);

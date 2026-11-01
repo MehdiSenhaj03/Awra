@@ -955,6 +955,36 @@ awrasplitview paned > separator {
   padding: 0;
 }
 
+awratileview,
+awratileview > .awra-tile-divider {
+  background-color: transparent;
+  background-image: none;
+  border: 0;
+  box-shadow: none;
+}
+
+awratileview > .awra-tile-divider > separator {
+  min-width: 1px;
+  min-height: 1px;
+  margin: 0;
+  padding: 0;
+  background-color: @awra_separator;
+  background-image: none;
+  border: 0;
+  box-shadow: none;
+  transition: background-color 120ms ease-out, box-shadow 120ms ease-out;
+}
+
+awratileview > .awra-tile-divider:hover > separator,
+awratileview > .awra-tile-divider:active > separator {
+  background-color: @awra_accent;
+  box-shadow: 0 0 0 1px @awra_accent;
+}
+
+.awra-reduced-motion awratileview > .awra-tile-divider > separator {
+  transition: none;
+}
+
 .awra-edge-trigger {
   min-width: 6px;
   min-height: 0;

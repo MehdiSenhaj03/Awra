@@ -1211,6 +1211,20 @@ impl ::std::fmt::Debug for AwraTextureStreamClass {
 
 #[derive(Copy, Clone)]
 #[repr(C)]
+pub struct AwraTileViewClass {
+    pub parent_class: gtk::GtkWidgetClass,
+}
+
+impl ::std::fmt::Debug for AwraTileViewClass {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        f.debug_struct(&format!("AwraTileViewClass @ {self:p}"))
+            .field("parent_class", &self.parent_class)
+            .finish()
+    }
+}
+
+#[derive(Copy, Clone)]
+#[repr(C)]
 pub struct AwraTimelineClass {
     pub parent_class: gtk::GtkWidgetClass,
 }
@@ -2326,6 +2340,19 @@ impl ::std::fmt::Debug for AwraTextureStream {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
         f.debug_struct(&format!("AwraTextureStream @ {self:p}"))
             .finish()
+    }
+}
+
+#[repr(C)]
+#[allow(dead_code)]
+pub struct AwraTileView {
+    _data: [u8; 0],
+    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
+}
+
+impl ::std::fmt::Debug for AwraTileView {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        f.debug_struct(&format!("AwraTileView @ {self:p}")).finish()
     }
 }
 
@@ -4546,6 +4573,82 @@ unsafe extern "C" {
         texture: *mut gdk::GdkTexture,
         aspect_ratio: c_double,
     );
+
+    //=========================================================================
+    // AwraTileView
+    //=========================================================================
+    pub fn awra_tile_view_get_type() -> GType;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_tile_view_new() -> *mut gtk::GtkWidget;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_tile_view_compute_insertion(
+        self_: *mut AwraTileView,
+        beside: *mut gtk::GtkWidget,
+        side: gtk::GtkPositionType,
+        bounds: *mut gdk::GdkRectangle,
+    ) -> gboolean;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_tile_view_equalize(self_: *mut AwraTileView);
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_tile_view_get_arrangement(self_: *mut AwraTileView) -> *mut glib::GVariant;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_tile_view_get_child_bounds(
+        self_: *mut AwraTileView,
+        child: *mut gtk::GtkWidget,
+        bounds: *mut gdk::GdkRectangle,
+    ) -> gboolean;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_tile_view_get_children(self_: *mut AwraTileView) -> *mut glib::GList;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_tile_view_get_column_spacing(self_: *mut AwraTileView) -> c_int;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_tile_view_get_row_spacing(self_: *mut AwraTileView) -> c_int;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_tile_view_insert(
+        self_: *mut AwraTileView,
+        child: *mut gtk::GtkWidget,
+        beside: *mut gtk::GtkWidget,
+        side: gtk::GtkPositionType,
+    );
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_tile_view_move(
+        self_: *mut AwraTileView,
+        child: *mut gtk::GtkWidget,
+        beside: *mut gtk::GtkWidget,
+        side: gtk::GtkPositionType,
+    );
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_tile_view_remove(self_: *mut AwraTileView, child: *mut gtk::GtkWidget);
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_tile_view_set_arrangement(
+        self_: *mut AwraTileView,
+        arrangement: *mut glib::GVariant,
+    ) -> gboolean;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_tile_view_set_column_spacing(self_: *mut AwraTileView, spacing: c_int);
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_tile_view_set_row_spacing(self_: *mut AwraTileView, spacing: c_int);
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_tile_view_touches_edge(
+        self_: *mut AwraTileView,
+        child: *mut gtk::GtkWidget,
+        side: gtk::GtkPositionType,
+    ) -> gboolean;
 
     //=========================================================================
     // AwraTimeline

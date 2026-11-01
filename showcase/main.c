@@ -734,6 +734,58 @@ make_demo_peaks (guint  count,
   return peaks;
 }
 
+
+static void
+divide_tile (GtkButton *button,
+             gpointer   user_data);
+
+static GtkWidget *
+make_tile (void)
+{
+  GtkWidget *tile = make_box (GTK_ORIENTATION_VERTICAL, AWRA_SPACING_SM);
+  GtkWidget *right = gtk_button_new_with_label ("Divide right");
+  GtkWidget *below = gtk_button_new_with_label ("Divide below");
+  GtkWidget *close = gtk_button_new_with_label ("Close");
+
+  gtk_widget_set_valign (tile, GTK_ALIGN_CENTER);
+  gtk_widget_set_margin_start (tile, 12);
+  gtk_widget_set_margin_end (tile, 12);
+  g_object_set_data (G_OBJECT (right), "side", GINT_TO_POINTER (GTK_POS_RIGHT));
+  g_object_set_data (G_OBJECT (below), "side", GINT_TO_POINTER (GTK_POS_BOTTOM));
+  g_signal_connect (right, "clicked", G_CALLBACK (divide_tile), tile);
+  g_signal_connect (below, "clicked", G_CALLBACK (divide_tile), tile);
+  g_signal_connect (close, "clicked", G_CALLBACK (divide_tile), tile);
+  gtk_box_append (GTK_BOX (tile), right);
+  gtk_box_append (GTK_BOX (tile), below);
+  gtk_box_append (GTK_BOX (tile), close);
+  return tile;
+}
+
+static void
+divide_tile (GtkButton *button,
+             gpointer   user_data)
+{
+  GtkWidget *tile = user_data;
+  AwraTileView *tiles = AWRA_TILE_VIEW (gtk_widget_get_parent (tile));
+  gpointer side = g_object_get_data (G_OBJECT (button), "side");
+  g_autoptr (GList) children = awra_tile_view_get_children (tiles);
+
+  if (side != NULL)
+    awra_tile_view_insert (tiles, make_tile (), tile, GPOINTER_TO_INT (side));
+  else if (children->next != NULL)
+    awra_tile_view_remove (tiles, tile);
+}
+
+static GtkWidget *
+make_tiles (void)
+{
+  GtkWidget *tiles = awra_tile_view_new ();
+
+  gtk_widget_set_size_request (tiles, -1, 280);
+  awra_tile_view_insert (AWRA_TILE_VIEW (tiles), make_tile (), NULL, GTK_POS_LEFT);
+  return tiles;
+}
+
 static GtkWidget *
 make_waveform (double duration,
                double seed,
@@ -2132,6 +2184,11 @@ make_inputs_page (ShowcaseState *state)
   awra_status_banner_set_action (AWRA_STATUS_BANNER (banner),
                                  make_button ("Apply", AWRA_BUTTON_APPEARANCE_GHOST));
   gtk_box_append (GTK_BOX (body), banner);
+  append_section (body, "Tiles",
+                  "Drag a divider to resize its neighbours, double-click it to "
+                  "even them out, or divide a tile with its buttons.");
+  gtk_box_append (GTK_BOX (body), make_tiles ());
+
   append_section (body, "Media inputs",
                   "Record a shortcut (Escape cancels), drag the start marker "
                   "or use the arrow keys, and drop audio files on the well.");
