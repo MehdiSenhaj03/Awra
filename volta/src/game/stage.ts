@@ -142,6 +142,17 @@ export class StageRunner {
     else e = ENEMY_KINDS[s.kind](s.x, s.y);
     if (s.elite) e.makeElite();
     e.spawnT = Math.round(w.beat.spb * 60);
+    // Never on top of the hero: push the entry point out to a fair distance.
+    const hero = w.player;
+    const dx = e.x - hero.x;
+    const dy = e.y - hero.y;
+    const d = Math.hypot(dx, dy);
+    const safe = e.heavy ? 9 : 6;
+    if (d < safe) {
+      const a = d > 0.01 ? Math.atan2(dy, dx) : w.rng.range(0, Math.PI * 2);
+      e.x = hero.x + Math.cos(a) * safe;
+      e.y = hero.y + Math.sin(a) * safe;
+    }
     const p = { x: e.x, y: e.y };
     w.arena.confine(p, e.r + 0.5);
     e.x = e.px = p.x;

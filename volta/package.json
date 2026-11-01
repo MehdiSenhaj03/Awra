@@ -1,7 +1,7 @@
 {
   "name": "volta",
   "version": "1.0.0",
-  "description": "VOLTA — break the Silence",
+  "description": "VOLTA \u2014 break the Silence",
   "private": true,
   "type": "module",
   "main": "electron/main.cjs",
@@ -24,13 +24,16 @@
       "output": "release"
     },
     "linux": {
-      "target": "dir"
+      "target": "dir",
+      "icon": "dist/icon.png"
     },
     "win": {
-      "target": "dir"
+      "target": "dir",
+      "icon": "dist/icon.png"
     },
     "mac": {
-      "target": "dir"
+      "target": "dir",
+      "icon": "dist/icon.png"
     }
   },
   "dependencies": {
@@ -47,5 +50,6 @@
     "typescript": "^5.6.3",
     "vite": "^5.4.11",
     "vitest": "^2.1.9"
-  }
+  },
+  "author": "VOLTA"
 }

@@ -58,6 +58,7 @@ export class App {
     this.settings = loadSettings();
     if (this.settings.bindings) Object.assign(input.bindings, this.settings.bindings);
     setLang(this.settings.lang);
+    this.view.setQuality(this.settings.quality);
     const resize = () => this.view.resize(window.innerWidth, window.innerHeight);
     window.addEventListener('resize', resize);
     resize();
@@ -184,6 +185,7 @@ export class App {
 
   private applySettings(): void {
     audio.setVolumes(this.settings.music, this.settings.sfx);
+    this.view.setQuality(this.settings.quality);
     this.view.shakeScale = this.settings.shake;
     this.view.flashScale = this.settings.flashes;
     if (this.session) this.session.world.beat.latency = this.settings.latency;

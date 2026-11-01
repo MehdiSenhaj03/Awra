@@ -56,6 +56,7 @@ export class Options implements Screen {
     row(t('options.sfx'), () => pct(st.sfx), (d) => { st.sfx = Math.max(0, Math.min(1, st.sfx + d * 0.1)); audio.setVolumes(st.music, st.sfx); sfx('ui'); });
     row(t('options.shake'), () => pct(st.shake), (d) => { st.shake = Math.max(0, Math.min(1, st.shake + d * 0.25)); });
     row(t('options.flashes'), () => pct(st.flashes), (d) => { st.flashes = Math.max(0, Math.min(1, st.flashes + d * 0.25)); });
+    row(t('options.quality'), () => t(`options.q${st.quality}`), (d) => { st.quality = (st.quality + (d > 0 ? 1 : 2)) % 3; });
     row(t('options.latency'), () => `${Math.round(st.latency * 1000)} ms`, (d) => { st.latency = Math.max(-0.2, Math.min(0.3, st.latency + d * 0.005)); });
     this.menu.add(`<b>${t('options.calibrate')}</b><span>♪</span>`, () => this.calibrate());
     row(t('options.lang'), () => (st.lang === 'fr' ? 'Français' : 'English'), () => { st.lang = st.lang === 'fr' ? 'en' : 'fr'; setLang(st.lang); setTimeout(() => this.build(), 0); });

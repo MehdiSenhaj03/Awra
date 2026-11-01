@@ -70,36 +70,59 @@ function edges(geo: THREE.BufferGeometry, color: number, k = 3): THREE.LineSegme
   return new THREE.LineSegments(new THREE.EdgesGeometry(geo), new THREE.LineBasicMaterial({ color: new THREE.Color(color).multiplyScalar(k), toneMapped: false }));
 }
 
-/** Volta: a tall prism of light, a halo, orbiting shards. */
+/** Volta: a slender figure in black with neon seams, silver light for hair, a tuning-fork halo and a prism gauntlet. */
 export function playerModel(): Model {
   const m = model();
   const body = new THREE.Group();
-  const prism = core(m, 0xbff8ff, 2.6, new THREE.OctahedronGeometry(1, 0));
-  prism.scale.set(0.34, 0.95, 0.34);
-  prism.position.y = 1.15;
-  const inner = new THREE.Mesh(new THREE.OctahedronGeometry(1, 0), glow(0xffffff, 6));
-  inner.scale.set(0.14, 0.5, 0.14);
-  inner.position.y = 1.15;
-  const halo = new THREE.Mesh(new THREE.TorusGeometry(0.62, 0.035, 8, 48), glow(0x2ef2ff, 4));
-  halo.position.y = 1.3;
-  halo.rotation.x = Math.PI / 2;
+  const suit = glow(0x7fe9ff, 1.25);
+  const dark = obsidian(0x05060c, 0.2, 0x2ef2ff, 2.2);
+  const torso = new THREE.Mesh(new THREE.OctahedronGeometry(1, 0), suit);
+  torso.scale.set(0.26, 0.62, 0.2);
+  torso.position.y = 1.35;
+  const hips = new THREE.Mesh(new THREE.OctahedronGeometry(1, 0), dark);
+  hips.scale.set(0.2, 0.3, 0.16);
+  hips.position.y = 0.82;
+  for (const sx of [-1, 1]) {
+    const leg = new THREE.Mesh(new THREE.ConeGeometry(0.075, 0.75, 5), suit);
+    leg.rotation.z = Math.PI;
+    leg.position.set(sx * 0.09, 0.42, 0);
+    body.add(leg);
+  }
+  const seam = new THREE.Mesh(new THREE.BoxGeometry(0.03, 1.0, 0.21), glow(0xffffff, 5));
+  seam.position.y = 1.25;
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.15, 16, 12), glow(0xe8f4ff, 3.2));
+  head.position.y = 2.08;
+  const hair = new THREE.Mesh(new THREE.ConeGeometry(0.13, 0.42, 6), glow(0xffd6f4, 2.6));
+  hair.position.set(-0.04, 2.05, -0.14);
+  hair.rotation.x = -1.1;
+  // Halo: a thin ring standing behind the shoulders.
+  const halo = new THREE.Mesh(new THREE.TorusGeometry(0.36, 0.014, 8, 48), glow(0xffd890, 4));
+  halo.position.set(0, 2.02, -0.2);
   m.parts.halo = halo;
+  // The gauntlet follows the aim.
+  const aim = new THREE.Group();
+  const gaunt = new THREE.Mesh(new THREE.OctahedronGeometry(1, 0), glow(0xffffff, 6));
+  gaunt.scale.set(0.16, 0.1, 0.1);
+  gaunt.position.set(0.45, 1.4, 0);
+  const gauntGlow = new THREE.Mesh(new THREE.OctahedronGeometry(1, 0), glow(0x2ef2ff, 3));
+  gauntGlow.scale.set(0.26, 0.16, 0.16);
+  gauntGlow.position.copy(gaunt.position);
+  const blade = new THREE.Mesh(new THREE.ConeGeometry(0.05, 0.7, 4), glow(0xbff8ff, 3));
+  blade.rotation.z = -Math.PI / 2;
+  blade.position.set(0.95, 1.4, 0);
+  aim.add(gaunt, gauntGlow, blade);
+  m.parts.aim = aim;
   const shards = new THREE.Group();
   for (let i = 0; i < 3; i++) {
-    const s = new THREE.Mesh(G.tetra, glow(i === 1 ? 0xff2fb9 : 0x2ef2ff, 3));
-    s.scale.setScalar(0.12);
-    s.position.set(Math.cos((i / 3) * Math.PI * 2) * 0.75, 1.0, Math.sin((i / 3) * Math.PI * 2) * 0.75);
-    shards.add(s);
+    const sh = new THREE.Mesh(G.tetra, glow(i === 1 ? 0xff2fb9 : 0x2ef2ff, 3));
+    sh.scale.setScalar(0.09);
+    sh.position.set(Math.cos((i / 3) * Math.PI * 2) * 0.7, 1.5, Math.sin((i / 3) * Math.PI * 2) * 0.7);
+    shards.add(sh);
   }
   m.parts.shards = shards;
-  // Aim: a thin blade of light pointing forward.
-  const aim = new THREE.Group();
-  const blade = new THREE.Mesh(new THREE.ConeGeometry(0.09, 0.9, 4), glow(0xffffff, 3));
-  blade.rotation.z = -Math.PI / 2;
-  blade.position.set(0.95, 0.9, 0);
-  aim.add(blade);
-  m.parts.aim = aim;
-  body.add(prism, inner, halo, shards, aim);
+  m.flash.push(head.material as THREE.MeshBasicMaterial);
+  m.base.push((head.material as THREE.MeshBasicMaterial).color.clone());
+  body.add(torso, hips, seam, head, hair, halo, shards, aim);
   m.parts.body = body;
   m.root.add(body);
   return m;

@@ -85,6 +85,8 @@ export class View {
   time = 0;
   look: SectorLook = { accent: 0x2ef2ff, accent2: 0xff2fb9, fog: 0x02030a };
   shakeScale = 1;
+  private reflScale = 0.6;
+  private ratio = Math.min(window.devicePixelRatio, 1.5);
   flashScale = 1;
   /** Music level 0..1 (from the analyser), for reactive visuals. */
   level = 0;
@@ -172,7 +174,17 @@ export class View {
     overlay.appendChild(this.screenFlash);
   }
 
+  /** Graphics quality: 0 low, 1 medium, 2 high. */
+  setQuality(q: number): void {
+    this.ratio = q >= 2 ? Math.min(window.devicePixelRatio, 1.5) : q === 1 ? 1 : 0.75;
+    this.reflScale = q >= 2 ? 0.6 : q === 1 ? 0.45 : 0.3;
+    this.composer.multisampling = q >= 2 ? 4 : q === 1 ? 2 : 0;
+    this.renderer.setPixelRatio(this.ratio);
+    this.resize(window.innerWidth, window.innerHeight);
+  }
+
   resize(w: number, h: number): void {
+    this.renderer.setPixelRatio(this.ratio);
     this.renderer.setSize(w, h, false);
     this.composer.setSize(w, h);
     this.camera.aspect = w / h;
@@ -195,7 +207,7 @@ export class View {
     this.scene.add(this.player.root);
     const a = new THREE.Color(look.accent);
     const b = new THREE.Color(look.accent2);
-    this.floor = new Floor(w.arena, a, b);
+    this.floor = new Floor(w.arena, a, b, this.reflScale);
     this.scene.add(this.floor.mesh);
     this.backdrop = new Backdrop(painting, a.clone().multiplyScalar(0.5), b.clone().multiplyScalar(0.4), this.neonEnv);
     this.scene.add(this.backdrop.group);
@@ -428,8 +440,8 @@ export class View {
     const t = this.time;
     const ox = (Math.sin(t * 61) + Math.sin(t * 37.3)) * 0.5 * sh * 0.9 + this.kickX;
     const oz = (Math.sin(t * 53.1) + Math.sin(t * 29.7)) * 0.5 * sh * 0.9 + this.kickZ;
-    const height = 21 * this.zoom;
-    const back = 12.5 * this.zoom;
+    const height = 19.5 * this.zoom;
+    const back = 11.5 * this.zoom;
     this.camera.position.set(this.camX + ox, height, this.camZ + back + oz);
     this.camera.lookAt(this.camX + ox * 0.5, 0, this.camZ + oz * 0.5);
     this.camera.rotation.z += (Math.sin(t * 47) * sh * 0.012);
@@ -468,17 +480,19 @@ export class View {
     const p = w.player;
     const m = this.player;
     m.root.position.set(px, 0, pz);
-    m.root.scale.setScalar(1.25);
+    m.root.scale.setScalar(1.6);
     const body = m.parts.body;
     const t = this.time;
     body.position.y = Math.sin(t * 3) * 0.06;
     m.parts.aim.rotation.y = -p.aim;
-    m.parts.halo.rotation.z += dt * 2;
-    m.parts.halo.scale.setScalar(1 + this.beatPulse * 0.25);
+    // The halo faces the camera and swells on the beat.
+    m.parts.halo.rotation.x = -0.9;
+    m.parts.halo.scale.setScalar(1 + this.beatPulse * 0.3);
     m.parts.shards.rotation.y += dt * (2.5 + this.odK * 5);
     // Lean into motion.
     body.rotation.z = -p.vx * 0.012;
     body.rotation.x = p.vy * 0.012;
+    m.parts.aim.rotation.y = -p.aim;
     // Invulnerability blink.
     m.root.visible = !p.dead && !(p.inv > 0 && Math.floor(p.inv / 4) % 2 === 0);
     this.playerLight.position.set(px, 2.2, pz);

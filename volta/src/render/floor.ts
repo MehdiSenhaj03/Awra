@@ -14,7 +14,7 @@ export class Floor {
   private ripples: THREE.Vector4[] = [];
   private next = 0;
 
-  constructor(arena: Arena, accent: THREE.Color, accent2: THREE.Color) {
+  constructor(arena: Arena, accent: THREE.Color, accent2: THREE.Color, reflScale = 0.6) {
     const size = arena.extent * 2 + 8;
     const geo = new THREE.PlaneGeometry(size, size, 1, 1);
     for (let i = 0; i < MAX_RIPPLES; i++) this.ripples.push(new THREE.Vector4(0, 0, -100, 0));
@@ -137,7 +137,7 @@ export class Floor {
           gl_FragColor = vec4(col, alpha);
         }`,
     };
-    const scale = Math.min(window.devicePixelRatio, 1.5) * 0.6;
+    const scale = Math.min(window.devicePixelRatio, 1.5) * reflScale;
     const refl = new Reflector(geo, { shader, textureWidth: Math.round(window.innerWidth * scale), textureHeight: Math.round(window.innerHeight * scale), clipBias: 0.003, multisample: 0 });
     refl.rotation.x = -Math.PI / 2;
     this.mat = refl.material as THREE.ShaderMaterial;

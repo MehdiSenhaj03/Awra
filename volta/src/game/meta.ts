@@ -134,11 +134,12 @@ export interface Settings {
   lang: string;
   bindings: Record<string, string[]> | null;
   fullscreen: boolean;
+  quality: number;
 }
 
 const SKEY = 'volta.settings.v1';
 export function loadSettings(): Settings {
-  const d: Settings = { music: 0.7, sfx: 0.8, shake: 1, flashes: 1, latency: 0, lang: navigator.language?.startsWith('fr') ? 'fr' : 'en', bindings: null, fullscreen: false };
+  const d: Settings = { music: 0.7, sfx: 0.8, shake: 1, flashes: 1, latency: 0, lang: navigator.language?.startsWith('fr') ? 'fr' : 'en', bindings: null, fullscreen: false, quality: 2 };
   try {
     const raw = localStorage.getItem(SKEY);
     if (raw) return { ...d, ...JSON.parse(raw) };
