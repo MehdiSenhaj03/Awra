@@ -38,6 +38,7 @@ export class Player {
   dashT = 0;
   dashA = 0;
   dashJudge: Judge = 'off';
+  private dashHit = new Set<number>();
   pulseT = 0;
   pulseCd = 0;
   pulseR = PLAYER.pulseRadius;
@@ -104,7 +105,17 @@ export class Player {
       this.vx = Math.cos(this.dashA) * sp * 60;
       this.vy = Math.sin(this.dashA) * sp * 60;
       this.dashT--;
+      if (mods.has.has('sillage')) {
+        for (const e of w.enemies) {
+          if (!e.active || e.hurtable === false || this.dashHit.has(e.id)) continue;
+          if (Math.hypot(e.x - this.x, e.y - this.y) < e.r + 1) {
+            this.dashHit.add(e.id);
+            e.hit(w, 4 * mods.damage, this.x, this.y);
+          }
+        }
+      }
       if (this.dashT === 0) {
+        this.dashHit.clear();
         // Leaving the dash keeps some momentum.
         this.vx *= 0.35;
         this.vy *= 0.35;
@@ -121,7 +132,7 @@ export class Player {
     w.arena.confine(this, PLAYER.radius);
     // Pulse (parry).
     if (this.pulseCd > 0) this.pulseCd--;
-    if (c.pulse && this.pulseCd === 0 && this.pulseT === 0) {
+    if (c.pulse && w.canPulse && this.pulseCd === 0 && this.pulseT === 0) {
       this.pulseJudge = w.beat.judge();
       this.pulseR = PLAYER.pulseRadius * mods.pulseRadius * (this.pulseJudge === 'perfect' ? 1.45 : this.pulseJudge === 'great' ? 1.2 : 1);
       this.pulseT = PLAYER.pulseFrames;
@@ -139,7 +150,7 @@ export class Player {
       this.odEnd = 0;
       w.emit({ t: 'overdrive', on: false });
     }
-    if (c.overdrive && this.odEnd === 0 && w.gauge >= 100) {
+    if (c.overdrive && w.canOverdrive && this.odEnd === 0 && w.gauge >= 100) {
       w.gauge = 0;
       this.odEnd = Math.ceil(w.beat.beat) + 16 * mods.overdrive;
       w.emit({ t: 'overdrive', on: true });

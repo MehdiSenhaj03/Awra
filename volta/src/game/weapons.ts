@@ -51,7 +51,8 @@ const prism: Weapon = {
       const accent = w.beat.crossed(1);
       const [x, y] = muzzle(p);
       const spread = (w.rng.next() - 0.5) * 0.035;
-      w.shots.add(x, y, p.aim + spread, accent ? 56 : 50, (accent ? 2.5 : 1) * m, accent ? SK.Accent : SK.Bolt, 0.75, od ? 2 : accent ? 1 : 0);
+      const down = accent && w.mods.has.has('tempsfort') && w.beat.index(1) % 4 === 0 ? 2 : 1;
+      w.shots.add(x, y, p.aim + spread, accent ? 56 : 50, (accent ? 2.5 * down : 1) * m, accent ? SK.Accent : SK.Bolt, 0.75, od ? 2 : accent ? 1 : 0);
       if (od) for (const s of [-0.12, 0.12]) w.shots.add(x, y, p.aim + s, 50, m, SK.Bolt, 0.6, 1);
       w.emit({ t: 'shot', x, y, a: p.aim, accent, weapon: 'prism' });
       if (accent) w.recoil(0.08);

@@ -1,3 +1,4 @@
+import { Rng } from '../engine/core';
 import type { ArenaDef } from './arena';
 import { F, wave } from './formations';
 import type { StageDef, Wave } from './stage';
@@ -163,3 +164,41 @@ def(6, 2, circle(23, [[-8, 0, 1.5], [8, 0, 1.5], [0, -8, 1.5], [0, 8, 1.5]]), [
 ], [84000, 168000, 252000, 350000], { m: 1, w: 1 });
 
 boss(6, circle(23), [80000, 160000, 245000, 340000]);
+
+// ---- ENCORE — endless: the mix grows every wave, a Conductor every ten ------------------------------------------
+
+
+function encoreWaves(): Wave[] {
+  const rng = new Rng(2026);
+  const tiers = [
+    ['mote', 'spitter', 'lancer', 'splitter'],
+    ['spinner', 'mirror', 'phantom', 'bulwark'],
+    ['mortar', 'weaver', 'sniper', 'choir'],
+  ];
+  const bosses = ['ostinato', 'crescendo', 'fugue', 'rubato', 'staccato', 'fermata'];
+  const waves: Wave[] = [];
+  for (let n = 1; n <= 120; n++) {
+    if (n % 10 === 0) {
+      waves.push([{ at: 0, kind: `boss:${bosses[(n / 10 - 1) % bosses.length]}`, x: 0, y: -6 }]);
+      continue;
+    }
+    const pool = tiers.slice(0, Math.min(3, 1 + Math.floor(n / 6))).flat();
+    const budget = 4 + n * 1.3;
+    const parts: Wave = [];
+    let used = 0;
+    let i = 0;
+    while (used < budget && i < 40) {
+      const kind = rng.pick(pool);
+      const cost = kind === 'mote' ? 0.5 : ['bulwark', 'weaver', 'choir', 'mortar'].includes(kind) ? 3 : 1.5;
+      const a = rng.range(0, Math.PI * 2);
+      const r = rng.range(10, 17);
+      parts.push({ at: Math.floor(i / 4) * 2 + rng.int(0, 1), kind, x: Math.cos(a) * r, y: Math.sin(a) * r, elite: n > 15 && rng.chance(Math.min(0.4, n / 120)) });
+      used += cost;
+      i++;
+    }
+    waves.push(parts);
+  }
+  return waves;
+}
+
+STAGES.encore = { id: 'encore', sector: 6, index: 0, bpm: 150, theme: 'ville', arena: circle(22), movements: [encoreWaves()], par: [1e9, 1e9, 1e9, 1e9] };

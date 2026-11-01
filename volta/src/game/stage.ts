@@ -121,6 +121,7 @@ export class StageRunner {
     this.waveBeat = w.beat.beat;
     this.pending = mv[this.movement][this.wave].slice();
     w.emit({ t: 'wave', n: this.waveNumber, of: this.total });
+    if (w.mods.has.has('sourdine')) w.guard = true;
     const f = this.def.fragment;
     if (f && !this.echoSpawned && f.m === this.movement && f.w === this.wave) {
       this.echoSpawned = true;
@@ -132,6 +133,11 @@ export class StageRunner {
   private spawn(s: Spawn): void {
     const w = this.w;
     let e: Enemy;
+    if (s.kind.startsWith('boss:')) {
+      const b = BOSSES[s.kind.slice(5)](w);
+      if (!w.enemies.includes(b)) w.add(b);
+      return;
+    }
     if (s.kind.startsWith('echo:')) e = new GoldenEcho(s.x, s.y, s.kind.slice(5));
     else e = ENEMY_KINDS[s.kind](s.x, s.y);
     if (s.elite) e.makeElite();

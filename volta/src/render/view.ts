@@ -85,6 +85,7 @@ export class View {
   time = 0;
   look: SectorLook = { accent: 0x2ef2ff, accent2: 0xff2fb9, fog: 0x02030a };
   shakeScale = 1;
+  flashScale = 1;
   /** Music level 0..1 (from the analyser), for reactive visuals. */
   level = 0;
   private screenFlash: HTMLDivElement;
@@ -449,14 +450,14 @@ export class View {
     this.backdrop?.update(t, dt, this.level);
     // Post.
     this.chromaK *= Math.exp(-dt * 4);
-    const ca = 0.0006 + this.chromaK * 0.006 + this.odK * 0.0015;
+    const ca = 0.0006 + this.chromaK * 0.006 * this.flashScale + this.odK * 0.0015;
     this.chroma.offset.set(ca, ca * 0.6);
     this.bloom.intensity = 1.35 + this.beatPulse * 0.25 + this.odK * 0.6;
     this.hue.saturation = 0.12 + this.odK * 0.15;
     this.hue.hue = this.odK * 0.08;
     this.bc.brightness = this.odK * 0.04;
     this.flashK *= Math.exp(-dt * 10);
-    this.screenFlash.style.opacity = String(Math.min(0.85, this.flashK));
+    this.screenFlash.style.opacity = String(Math.min(0.85, this.flashK * this.flashScale));
     this.screenFlash.style.background = `#${this.flashC.getHexString()}`;
     this.kickX *= Math.exp(-dt * 12);
     this.kickZ *= Math.exp(-dt * 12);

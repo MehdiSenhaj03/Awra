@@ -83,12 +83,35 @@ export class World {
   god = false;
   /** Enemy time scale (overdrive slows the world). */
   k = 1;
+  /** Abilities unlocked by the campaign. */
+  canPulse = true;
+  canOverdrive = true;
+  /** Sourdine: one absorbed hit per wave. */
+  guard = false;
+  /** Reprise: one second chance per stage. */
+  secondChance = false;
+  private perfectsForHeal = 0;
 
   constructor(arena: ArenaDef, bpm = 128, seed = 1) {
     this.rng = new Rng(seed);
     this.beat = new BeatClock(bpm);
     this.arena = new Arena(arena);
     this.player.y = 0;
+  }
+
+  /** Applies Overtones that change the hero or the rules at the start of a stage. */
+  applyMods(m: Mods): void {
+    this.mods = m;
+    const p = this.player;
+    if (m.has.has('trille')) p.maxDash = p.dashCharges = 3;
+    if (m.has.has('virtuose')) p.maxHp = p.hp = Math.max(1, p.maxHp - 1);
+    if (m.has.has('metronome')) this.beat.perfectWindow = 0.1;
+    this.secondChance = m.has.has('reprise');
+    this.guard = m.has.has('sourdine');
+  }
+
+  get scoreMult(): number {
+    return (this.mods.has.has('virtuose') ? 1.25 : 1) * (this.mods.has.has('metronome') ? 0.9 : 1);
   }
 
   get mult(): number {
@@ -122,7 +145,7 @@ export class World {
     this.styleIdle = 0;
     this.gauge = Math.min(100, this.gauge + gauge * this.mods.gauge);
     if (score > 0) {
-      const v = Math.round(score * this.mult);
+      const v = Math.round(score * this.mult * this.scoreMult);
       this.score += v;
       if (x !== undefined && y !== undefined) this.emit({ t: 'score', x, y, value: v });
     }
@@ -145,6 +168,14 @@ export class World {
     if (j === 'perfect') {
       this.stats.perfects++;
       this.gain(26, 5, 60, x, y);
+      if (this.mods.has.has('harmonie') && ++this.perfectsForHeal >= 30) {
+        this.perfectsForHeal = 0;
+        if (this.player.hp < this.player.maxHp) {
+          this.player.hp++;
+          this.emit({ t: 'heal', x, y });
+          this.sfx('heal');
+        }
+      }
     } else if (j === 'great') {
       this.stats.greats++;
       this.gain(10, 2.5, 25);
@@ -190,6 +221,15 @@ export class World {
       b.color[i] = j === 'perfect' ? 0xffffff : 0x2ef2ff;
       b.dmg[i] = (j === 'perfect' ? 7 : j === 'great' ? 5 : 3.5) * this.mods.damage;
       n++;
+      if (this.mods.has.has('contrepoint')) {
+        for (const da of [-0.35, 0.35]) {
+          const k = b.add(b.x[i], b.y[i], a + da, sp, { color: b.color[i], r: b.r[i], life: 2 });
+          if (k >= 0) {
+            b.flags[k] = 2;
+            b.dmg[k] = b.dmg[i] * 0.6;
+          }
+        }
+      }
     }
     if (n > 0) {
       this.stats.parries += n;
@@ -288,7 +328,21 @@ export class World {
   hurtPlayer(fromX: number, fromY: number): void {
     const p = this.player;
     if (p.invulnerable || this.god) return;
+    if (this.guard) {
+      this.guard = false;
+      p.inv = 50;
+      this.clearBullets(p.x, p.y, 4, false);
+      this.emit({ t: 'ring', x: p.x, y: p.y, r: 3, color: 0xffffff, life: 24 });
+      this.emit({ t: 'judge', x: p.x, y: p.y, judge: 'great', what: 'guard' });
+      this.sfx('parry', 0.7);
+      return;
+    }
     p.hp--;
+    if (p.hp <= 0 && this.secondChance) {
+      this.secondChance = false;
+      p.hp = 1;
+      this.emit({ t: 'heal', x: p.x, y: p.y });
+    }
     p.inv = PLAYER.hurtInv;
     this.stats.hits++;
     // Losing two ranks hurts more than the hit itself.
@@ -483,7 +537,7 @@ export class World {
       if (b.flags[i] === 0 && d2 < gr * gr) {
         b.flags[i] = 1;
         this.stats.grazes++;
-        this.gain(5, 2.2, 10);
+        this.gain(5, this.mods.has.has('frolement') ? 4.4 : 2.2, 10);
         this.emit({ t: 'graze', x: b.x[i], y: b.y[i] });
       }
     }

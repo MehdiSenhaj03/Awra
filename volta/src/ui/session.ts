@@ -21,6 +21,7 @@ export class Session {
   scriptAim: { x: number; y: number } | 'auto' | null = null;
   private lastAim = { x: 1, y: 0 };
   onEnd: ((win: boolean) => void) | null = null;
+  onEvents: ((e: Fx[]) => void) | null = null;
   ended = false;
 
   constructor(public def: StageDef, public view: View, ui: HTMLElement, opts: { checkpoint?: number; seed?: number; setup?: (w: World) => void } = {}) {
@@ -32,6 +33,7 @@ export class Session {
     ui.append(this.hud.root, this.popLayer);
     music.start(def.theme);
     music.intensity = 1;
+    this.world.beat.setBpm(def.bpm);
   }
 
   dispose(): void {
@@ -96,10 +98,13 @@ export class Session {
     w.events = [];
     this.view.handle(events, w);
     this.sound(events);
+    this.onEvents?.(events);
     if (Math.floor(w.beat.beat) !== prevBeat) this.view.onBeat(Math.floor(w.beat.beat) % 4 === 0);
     // Music intensity follows the fight.
     music.intensity = this.runner.state === 'intro' ? 1 : this.runner.boss ? 4 : w.rank >= 3 ? 3 : 2;
     music.overdrive = w.player.overdrive;
+    const f = w.enemies.find((e) => e.kind === 'fermata') as unknown as { silence?: number } | undefined;
+    music.silence = f?.silence ?? 0;
     if (!this.ended && w.over) {
       this.ended = true;
       const win = w.over === 'win';

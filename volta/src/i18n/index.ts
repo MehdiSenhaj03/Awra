@@ -1,7 +1,8 @@
 import { en } from './en';
 import { fr } from './fr';
 
-type Dict = { [k: string]: string | string[] | Dict };
+type Val = string | string[] | string[][] | Dict;
+type Dict = { [k: string]: Val };
 const LANGS: Record<string, Dict> = { fr, en };
 let lang = 'fr';
 
@@ -14,8 +15,8 @@ export function getLang(): string {
   return lang;
 }
 
-function lookup(d: Dict, key: string): string | string[] | Dict | undefined {
-  let cur: string | string[] | Dict | undefined = d;
+function lookup(d: Dict, key: string): Val | undefined {
+  let cur: Val | undefined = d;
   for (const p of key.split('.')) {
     if (!cur || typeof cur === 'string' || Array.isArray(cur)) return undefined;
     cur = cur[p];
@@ -32,7 +33,13 @@ export function t(key: string, vars: Record<string, string | number> = {}): stri
 
 export function tl(key: string): string[] {
   const v = lookup(LANGS[lang], key) ?? lookup(fr, key);
-  return Array.isArray(v) ? v : [];
+  return Array.isArray(v) ? (v as string[]) : [];
+}
+
+/** Dialogue lines: [speaker, text][]. */
+export function dialogue(key: string): [string, string][] {
+  const v = lookup(LANGS[lang], key) ?? lookup(fr, key);
+  return Array.isArray(v) ? (v as unknown as [string, string][]) : [];
 }
 
 export function has(key: string): boolean {

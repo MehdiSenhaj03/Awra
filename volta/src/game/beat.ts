@@ -13,6 +13,8 @@ export class BeatClock {
   private prevBeat = 0;
   /** Player calibration, in seconds (positive: the player hears/sees the beat later). */
   latency = 0;
+  /** Half-width of the PERFECT window (seconds); the Metronome Overtone widens it. */
+  perfectWindow = 0.07;
 
   constructor(bpm = 128) {
     this.bpm = bpm;
@@ -59,7 +61,7 @@ export class BeatClock {
   /** Rhythm judgement of an action pressed this frame. */
   judge(div = 1): 'perfect' | 'great' | 'off' {
     const o = Math.abs(this.offsetSec(div));
-    return o <= 0.07 ? 'perfect' : o <= 0.12 ? 'great' : 'off';
+    return o <= this.perfectWindow ? 'perfect' : o <= this.perfectWindow + 0.05 ? 'great' : 'off';
   }
 
   /** 0 at a beat, rising to 1 just before the next one. */
