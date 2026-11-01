@@ -1,0 +1,51 @@
+{
+  "name": "volta",
+  "version": "1.0.0",
+  "description": "VOLTA — break the Silence",
+  "private": true,
+  "type": "module",
+  "main": "electron/main.cjs",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "test": "vitest run",
+    "desktop": "npm run build && electron .",
+    "package": "npm run build && electron-builder --dir"
+  },
+  "build": {
+    "appId": "com.volta.game",
+    "productName": "Volta",
+    "files": [
+      "dist/**",
+      "electron/**",
+      "package.json"
+    ],
+    "directories": {
+      "output": "release"
+    },
+    "linux": {
+      "target": "dir"
+    },
+    "win": {
+      "target": "dir"
+    },
+    "mac": {
+      "target": "dir"
+    }
+  },
+  "dependencies": {
+    "@fontsource/jetbrains-mono": "^5.1.1",
+    "@fontsource/space-grotesk": "^5.1.0",
+    "@fontsource/unbounded": "^5.1.0",
+    "postprocessing": "^6.36.4",
+    "three": "^0.170.0"
+  },
+  "devDependencies": {
+    "@types/three": "^0.170.0",
+    "electron": "^33.4.11",
+    "electron-builder": "^25.1.8",
+    "typescript": "^5.6.3",
+    "vite": "^5.4.11",
+    "vitest": "^2.1.9"
+  }
+}
