@@ -6,6 +6,7 @@ import '@fontsource/space-grotesk/600.css';
 import '@fontsource/jetbrains-mono/500.css';
 import '@fontsource/jetbrains-mono/700.css';
 import './styles.css';
+import './game/bosses/index';
 import { App } from './ui/app';
 
 const app = new App(document.getElementById('gl') as HTMLCanvasElement, document.getElementById('overlay')!, document.getElementById('ui')!);

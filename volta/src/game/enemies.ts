@@ -177,11 +177,17 @@ export class Splitter extends Enemy {
   }
 }
 
-/** Rempart: a shield bearer that only takes hits from behind (or after a perfect Pulse). */
+/**
+ * Rempart: a shield bearer. Shots from the front are blocked — flank it, stun it with a Pulse, or crack the
+ * shield with accented shots (on the beat): six cracks and it shatters for two bars.
+ */
 export class Bulwark extends Enemy {
   kind = 'bulwark';
   look = 'bulwark';
   shieldA = 0;
+  guard = 6;
+  /** Frames left with the shield broken. */
+  broken = 0;
   constructor(x: number, y: number) {
     super(x, y);
     this.r = 1.05;
@@ -194,16 +200,33 @@ export class Bulwark extends Enemy {
   update(w: World): void {
     steer(this, w.player.x, w.player.y, 2.2, 0.03);
     // The shield turns slowly: flanking works.
-    this.shieldA += clamp(angleDiff(this.shieldA, this.angleTo(w)), -0.028, 0.028);
+    this.shieldA += clamp(angleDiff(this.shieldA, this.angleTo(w)), -0.022, 0.022);
     this.rot = this.shieldA;
+    if (this.broken > 0 && --this.broken === 0) {
+      this.guard = this.elite ? 9 : 6;
+      w.emit({ t: 'ring', x: this.x, y: this.y, r: 2, color: C.gold, life: 20 });
+    }
     if (w.beat.crossed(1) && w.beat.index(1) % 4 === 2 && this.t > 60) {
       fan(w, this.x, this.y, this.shieldA, this.elite ? 11 : 7, 1.3, 8.5, { color: C.gold, kind: BK.Big, r: 0.42 });
       w.sfx('enemyShot', 0.6, 0.6);
     }
   }
-  blocks(_w: World, fx: number, fy: number): boolean {
-    if (this.stun > 0) return false;
-    return Math.abs(angleDiff(this.shieldA, Math.atan2(fy - this.y, fx - this.x))) < 1.05;
+  blocks(w: World, fx: number, fy: number, kind?: SK): boolean {
+    if (this.stun > 0 || this.broken > 0) return false;
+    if (Math.abs(angleDiff(this.shieldA, Math.atan2(fy - this.y, fx - this.x))) >= 1.05) return false;
+    if (kind === SK.Accent || kind === SK.Perfect || kind === SK.Lance) {
+      this.guard -= kind === SK.Accent ? 1 : 2;
+      w.emit({ t: 'hit', x: this.x + Math.cos(this.shieldA) * this.r, y: this.y + Math.sin(this.shieldA) * this.r, color: C.gold, big: true });
+      if (this.guard <= 0) {
+        this.broken = Math.round(w.beat.spb * 60 * 8);
+        this.flash = 1;
+        w.emit({ t: 'boom', x: this.x, y: this.y, r: 2.5, color: C.gold });
+        w.emit({ t: 'judge', x: this.x, y: this.y, judge: 'perfect', what: 'break' });
+        w.sfx('bigBoom', 1.4, 0.6);
+        return false;
+      }
+    }
+    return true;
   }
 }
 

@@ -356,24 +356,24 @@ export class World {
     const es = this.enemies;
     for (let i = 0; i < es.length; i++) {
       const a = es[i];
-      if (!a.active || a.heavy) continue;
+      if (!a.active || a.boss) continue;
       for (let j = i + 1; j < es.length; j++) {
         const b = es[j];
-        if (!b.active) continue;
+        if (!b.active || b.boss) continue;
         const dx = b.x - a.x;
         const dy = b.y - a.y;
         const m = a.r + b.r;
         const d2 = dx * dx + dy * dy;
-        if (d2 < m * m && d2 > 1e-6) {
-          const d = Math.sqrt(d2);
-          const push = ((m - d) / d) * 0.5;
-          if (!b.heavy) {
-            b.x += dx * push * 0.5;
-            b.y += dy * push * 0.5;
-          }
-          a.x -= dx * push * 0.5;
-          a.y -= dy * push * 0.5;
-        }
+        if (d2 >= m * m || d2 < 1e-6) continue;
+        const d = Math.sqrt(d2);
+        const push = (m - d) / d;
+        // Heavy foes barely move for light ones.
+        const wa = a.heavy === b.heavy ? 0.5 : a.heavy ? 0.05 : 0.95;
+        const wb = 1 - wa;
+        a.x -= dx * push * wa * 0.5;
+        a.y -= dy * push * wa * 0.5;
+        b.x += dx * push * wb * 0.5;
+        b.y += dy * push * wb * 0.5;
       }
     }
   }

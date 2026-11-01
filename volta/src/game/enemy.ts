@@ -108,7 +108,7 @@ export abstract class Enemy {
   /** Returns false when the hit was blocked. */
   hit(w: World, dmg: number, fromX: number, fromY: number, _kind?: SK): boolean {
     if (!this.hurtable || this.dead || this.spawnT > 0) return false;
-    if (this.blocks(w, fromX, fromY)) {
+    if (this.blocks(w, fromX, fromY, _kind)) {
       w.emit({ t: 'hit', x: this.x + (fromX - this.x) * 0.5, y: this.y + (fromY - this.y) * 0.5, color: 0xffffff, big: false });
       w.sfx('block', 1 + Math.random() * 0.2, 0.5);
       return false;
@@ -127,7 +127,7 @@ export abstract class Enemy {
   }
 
   /** Shields and mirrors override this. */
-  blocks(_w: World, _fx: number, _fy: number): boolean {
+  blocks(_w: World, _fx: number, _fy: number, _kind?: SK): boolean {
     return false;
   }
 

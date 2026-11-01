@@ -86,7 +86,7 @@ export class StageRunner {
       }
     }
     if (this.boss) {
-      if (this.boss.dead) {
+      if (!w.enemies.some((e) => e.boss && !e.dead)) {
         this.state = 'clear';
         w.over = 'win';
         w.emit({ t: 'clear' });

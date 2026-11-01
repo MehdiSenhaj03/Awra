@@ -11,6 +11,7 @@ import { Floor } from './floor';
 import { GS, Glows } from './glows';
 import { type Model, enemyModel, playerModel, setEnv } from './models';
 import { Shards } from './shards';
+import { POSERS } from './bossModels';
 import { Sparks } from './sparks';
 
 export interface SectorLook {
@@ -333,7 +334,7 @@ export class View {
           this.sparks.emit(e.x, 0.8, e.y, 5, 0xffffff, 5, { life: 0.2, size: 0.22 });
           break;
         case 'hurt':
-          this.flashK = 0.6;
+          this.flashK = 0.32;
           this.flashC.set(0xff2040);
           this.chromaK = 1.4;
           this.ring(e.x, e.y, 4.5, 0xff3050, 0.4, 0.15);
@@ -406,8 +407,15 @@ export class View {
     this.beatPulse *= Math.exp(-dt * 5);
     // Camera: follows the hero with a slight lead towards the aim, frames bosses wider.
     const lead = 3.2;
-    const tx = px + Math.cos(p.aim) * lead;
-    const tz = pz + Math.sin(p.aim) * lead * 0.8;
+    let tx = px + Math.cos(p.aim) * lead;
+    let tz = pz + Math.sin(p.aim) * lead * 0.8;
+    const boss = w.enemies.find((e) => e.boss && !e.dead);
+    if (boss) {
+      // Frame the duel: lean towards the Conductor and pull back.
+      tx = px + (boss.x - px) * 0.38;
+      tz = pz + (boss.y - pz) * 0.38;
+      this.zoomTarget = 1.32;
+    } else this.zoomTarget = 1;
     this.camX += (tx - this.camX) * damp(5, dt);
     this.camZ += (tz - this.camZ) * damp(5, dt);
     const ext = w.arena.extent;
@@ -447,7 +455,7 @@ export class View {
     this.hue.saturation = 0.12 + this.odK * 0.15;
     this.hue.hue = this.odK * 0.08;
     this.bc.brightness = this.odK * 0.04;
-    this.flashK *= Math.exp(-dt * 7);
+    this.flashK *= Math.exp(-dt * 10);
     this.screenFlash.style.opacity = String(Math.min(0.85, this.flashK));
     this.screenFlash.style.background = `#${this.flashC.getHexString()}`;
     this.kickX *= Math.exp(-dt * 12);
@@ -488,7 +496,7 @@ export class View {
       seen.add(e.id);
       let m = this.models.get(e.id);
       if (!m) {
-        m = enemyModel(e.look, e.r * 1.35, e.color, e.elite);
+        m = enemyModel(e.look, e.r * (e.boss ? 1 : 1.35), e.color, e.elite);
         this.models.set(e.id, m);
         this.scene.add(m.root);
       }
@@ -532,12 +540,14 @@ export class View {
     if (m.parts.face) m.parts.face.rotation.y = -e.rot;
     if (e instanceof Bulwark && m.parts.shield) {
       m.parts.shield.parent!.rotation.y = -e.shieldA;
-      m.parts.shield.rotation.y = 0;
+      m.parts.shield.visible = e.broken === 0;
+      m.parts.shield.scale.setScalar(0.9 + (e.guard / 6) * 0.1);
     }
     if (e instanceof Mirror) {
       const open = e.spin > 0.5;
       m.flash.forEach((mat) => mat.color.multiplyScalar(open ? 2 : 0.4));
     }
+    POSERS[e.look]?.(e, m, dt, this.time);
     if (m.parts.crown) m.parts.crown.rotation.y += dt * 2;
     if (m.parts.ring) m.parts.ring.rotation.z += dt;
     if (e.stun > 0) m.root.rotation.y = Math.sin(this.time * 40) * 0.1;

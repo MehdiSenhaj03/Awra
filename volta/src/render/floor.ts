@@ -95,7 +95,7 @@ export class Floor {
           rc.xy += tilt * rc.w;
           vec3 refl = texture2DProj(tDiffuse, rc).rgb;
           vec3 V = normalize(cameraPosition - vW);
-          float fres = 0.18 + 0.5 * pow(1.0 - max(V.y, 0.0), 3.0);
+          float fres = 0.07 + 0.45 * pow(1.0 - max(V.y, 0.0), 3.0);
           col += refl * fres * smoothstep(0.0, 0.08, h.x);
           col += uAccent * 0.025 * exp(-dp * 0.25);
           // Lattice lines: fine, mostly dark, lit by the hero and by waves on the beat.

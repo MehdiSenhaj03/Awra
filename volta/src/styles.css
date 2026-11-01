@@ -66,4 +66,4 @@ html, body { width: 100%; height: 100%; background: #000; overflow: hidden; colo
 @keyframes bannerIn { 0% { opacity: 0; transform: scale(1.3); filter: blur(10px); } 12% { opacity: 1; transform: scale(1); filter: blur(0); } 80% { opacity: 1; } 100% { opacity: 0; transform: scale(0.97); } }
 .hud-hint { position: absolute; left: 50%; bottom: 120px; transform: translateX(-50%); font-size: 18px; color: var(--pale); text-align: center; text-shadow: 0 2px 10px #000; transition: opacity 0.4s; max-width: 70vw; }
 .hud-hint kbd { font-family: var(--mono); font-size: 14px; padding: 2px 8px; border: 1px solid #ffffff55; border-radius: 4px; margin: 0 2px; background: #ffffff10; }
-.vignette-hurt { position: absolute; inset: 0; pointer-events: none; box-shadow: inset 0 0 180px #ff1040; opacity: 0; transition: opacity 0.3s; }
+.vignette-hurt { position: absolute; inset: 0; pointer-events: none; box-shadow: inset 0 0 140px #ff104088; opacity: 0; transition: opacity 0.3s; }
