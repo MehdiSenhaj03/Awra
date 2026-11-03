@@ -16,6 +16,7 @@
 
 struct _AwraStyleManager {
   GObject parent_instance;
+  GdkDisplay *display;
   GtkSettings *settings;
   AwraAppearance appearance;
   AwraAccentSource accent_source;
@@ -319,6 +320,53 @@ system_accent_changed (const GdkRGBA *changed,
   }
 }
 
+/* Placed between two rows of pixels, small text loses the dot of an i and the
+ * top of its round figures, more or less depending on where the window is.
+ * While a display at scale 1 shows it, glyphs follow the pixel grid and the
+ * desktop's own hinting; only a fully dense setup keeps GTK's free placement. */
+static void
+update_font_rendering (AwraStyleManager *self)
+{
+  GListModel *monitors = gdk_display_get_monitors (self->display);
+  gboolean dense = g_list_model_get_n_items (monitors) > 0;
+
+  for (guint i = 0; dense && i < g_list_model_get_n_items (monitors); i++) {
+    g_autoptr (GdkMonitor) monitor = g_list_model_get_item (monitors, i);
+
+    dense = gdk_monitor_get_scale (monitor) > 1.0;
+  }
+  g_object_set (self->settings, "gtk-font-rendering",
+                dense ? GTK_FONT_RENDERING_AUTOMATIC : GTK_FONT_RENDERING_MANUAL,
+                NULL);
+}
+
+static void
+watch_monitors (AwraStyleManager *self,
+                GListModel       *monitors,
+                guint             position,
+                guint             added)
+{
+  for (guint i = position; i < position + added; i++) {
+    g_autoptr (GdkMonitor) monitor = g_list_model_get_item (monitors, i);
+
+    g_signal_connect_object (monitor, "notify::scale",
+                             G_CALLBACK (update_font_rendering), self,
+                             G_CONNECT_SWAPPED);
+  }
+}
+
+static void
+monitors_changed_cb (GListModel       *monitors,
+                     guint             position,
+                     guint             removed,
+                     guint             added,
+                     AwraStyleManager *self)
+{
+  (void) removed;
+  watch_monitors (self, monitors, position, added);
+  update_font_rendering (self);
+}
+
 static void
 awra_style_manager_dispose (GObject *object)
 {
@@ -336,6 +384,7 @@ awra_style_manager_dispose (GObject *object)
     self->win32_watch = 0;
   }
   g_clear_object (&self->settings);
+  g_clear_object (&self->display);
   g_clear_object (&self->session_bus);
   g_clear_object (&self->tokens);
 
@@ -504,6 +553,7 @@ awra_style_manager_new_for_display (GdkDisplay *display)
   g_return_val_if_fail (GDK_IS_DISPLAY (display), NULL);
 
   self = g_object_new (AWRA_TYPE_STYLE_MANAGER, NULL);
+  self->display = g_object_ref (display);
   self->settings = g_object_ref (gtk_settings_get_for_display (display));
 #ifdef AWRA_HAVE_WIN32
   /* Windows has no portal or session bus: read its preferences directly. */
@@ -549,6 +599,14 @@ awra_style_manager_new_for_display (GdkDisplay *display)
                     "notify::gtk-interface-reduced-motion",
                     G_CALLBACK (settings_changed_cb),
                     self);
+  {
+    GListModel *monitors = gdk_display_get_monitors (display);
+
+    g_signal_connect_object (monitors, "items-changed",
+                             G_CALLBACK (monitors_changed_cb), self, 0);
+    watch_monitors (self, monitors, 0, g_list_model_get_n_items (monitors));
+    update_font_rendering (self);
+  }
   resolve_accent (self);
   rebuild_tokens (self);
 

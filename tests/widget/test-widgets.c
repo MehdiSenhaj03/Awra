@@ -2789,6 +2789,27 @@ test_form_row_prefers_side_by_side (void)
   g_object_unref (row);
 }
 
+static void
+test_text_on_pixel_grid (void)
+{
+  GdkDisplay *display = gdk_display_get_default ();
+  GListModel *monitors = gdk_display_get_monitors (display);
+  GtkFontRendering rendering = GTK_FONT_RENDERING_AUTOMATIC;
+  gboolean dense = g_list_model_get_n_items (monitors) > 0;
+
+  (void) awra_context_get_style_manager (awra_context_get_for_display (display));
+  for (guint i = 0; dense && i < g_list_model_get_n_items (monitors); i++) {
+    g_autoptr (GdkMonitor) monitor = g_list_model_get_item (monitors, i);
+
+    dense = gdk_monitor_get_scale (monitor) > 1.0;
+  }
+  g_object_get (gtk_settings_get_for_display (display),
+                "gtk-font-rendering", &rendering, NULL);
+  /* At scale 1, small text keeps the dots of its i and the tops of its figures. */
+  g_assert_cmpint (rendering, ==, dense ? GTK_FONT_RENDERING_AUTOMATIC
+                                        : GTK_FONT_RENDERING_MANUAL);
+}
+
 int
 main (int   argc,
       char *argv[])
@@ -2800,6 +2821,7 @@ main (int   argc,
   }
 
   g_test_add_func ("/awra/widgets/constructors", test_constructors);
+  g_test_add_func ("/awra/widgets/text-on-pixel-grid", test_text_on_pixel_grid);
   g_test_add_func ("/awra/widgets/builder", test_builder);
   g_test_add_func ("/awra/widgets/controls", test_controls);
   g_test_add_func ("/awra/widgets/layout", test_layout_components);

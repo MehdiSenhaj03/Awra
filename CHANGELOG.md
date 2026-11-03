@@ -18,6 +18,9 @@ unchanged (checked against the frozen 1.0.0 contract).
   adding, removing or moving a tile animates without reparenting any child.
 - `AwraDataView` no longer keeps the height of its hidden state pages, so a list
   can be made small.
+- While a display at scale 1 is connected, the style manager keeps text on the
+  pixel grid with the desktop's hinting, so small labels no longer lose the dot
+  of an i or the top of their figures depending on where a window sits.
 - Rust bindings cover `AwraPathBar`, `AwraDragPreview`, `AwraTransitionBin` and
   `AwraTileView`.
 - `awra_path_bar_get_item_at()` and `awra_path_bar_set_drop_item()` let each

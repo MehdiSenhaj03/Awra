@@ -15,6 +15,9 @@ external-consumer tests.
 - `AwraStyleManager` owns appearance, accent, contrast, reduced motion and
   reduced transparency preferences. Accent sources are SYSTEM (best-effort,
   DEFAULT fallback), DEFAULT and CUSTOM.
+  It also sets the display's font rendering: while any monitor is at scale 1,
+  glyphs follow the pixel grid and the desktop's hinting; only a fully dense
+  setup keeps GTK's automatic placement.
 - The style manager also exposes reversible material-calibration overrides for
   Canvas tint/alpha, grain scale and native-blur activation. These rebuild the
   immutable token snapshot in real time; `reset_material_tuning()` restores the
