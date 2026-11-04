@@ -1874,6 +1874,27 @@ test_rail_item_context_menu (void)
   gtk_window_destroy (GTK_WINDOW (window));
 }
 
+/* Avatars in a group overlap: narrower together than side by side. */
+static void
+test_avatar_group (void)
+{
+  GtkWidget *group = g_object_ref_sink (awra_avatar_group_new ());
+  int one = 0;
+  int three = 0;
+
+  awra_avatar_group_append (AWRA_AVATAR_GROUP (group), awra_avatar_new (40, "Bob"));
+  gtk_widget_measure (group, GTK_ORIENTATION_HORIZONTAL, -1, &one, NULL, NULL, NULL);
+  awra_avatar_group_append (AWRA_AVATAR_GROUP (group), awra_avatar_new (40, "Carol"));
+  awra_avatar_group_append (AWRA_AVATAR_GROUP (group), awra_avatar_new (40, "Dave"));
+  gtk_widget_measure (group, GTK_ORIENTATION_HORIZONTAL, -1, &three, NULL, NULL, NULL);
+  g_assert_cmpint (three, >, one);
+  g_assert_cmpint (three, <, 3 * one);
+  gtk_widget_size_allocate (group, &(GtkAllocation) { 0, 0, three, one }, -1);
+  awra_avatar_group_remove_all (AWRA_AVATAR_GROUP (group));
+  g_assert_null (gtk_widget_get_first_child (group));
+  g_object_unref (group);
+}
+
 /* A subtitle allowed more lines wraps onto them at a narrow width. */
 static void
 test_action_row_subtitle_lines (void)
@@ -3294,6 +3315,8 @@ main (int   argc,
                    test_conversation_edge_status);
   g_test_add_func ("/awra/widgets/rail-item-context-menu",
                    test_rail_item_context_menu);
+  g_test_add_func ("/awra/widgets/avatar-group",
+                   test_avatar_group);
   g_test_add_func ("/awra/widgets/color-palette",
                    test_color_palette);
   g_test_add_func ("/awra/widgets/page-wraps-its-content",

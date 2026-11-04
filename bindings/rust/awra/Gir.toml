@@ -22,6 +22,7 @@ generate = [
   "Awra.Appearance",
   "Awra.AspectPaintable",
   "Awra.Avatar",
+  "Awra.AvatarGroup",
   "Awra.AvatarShape",
   "Awra.TextureStream",
   "Awra.Badge",

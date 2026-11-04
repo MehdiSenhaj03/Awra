@@ -34,6 +34,9 @@ mod avatar;
 #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
 pub use self::avatar::Avatar;
 
+mod avatar_group;
+pub use self::avatar_group::AvatarGroup;
+
 mod badge;
 pub use self::badge::Badge;
 
@@ -501,6 +504,7 @@ pub(crate) mod builders {
     #[cfg(feature = "v1_1")]
     #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
     pub use super::avatar::AvatarBuilder;
+    pub use super::avatar_group::AvatarGroupBuilder;
     pub use super::badge::BadgeBuilder;
     pub use super::badge_group::BadgeGroupBuilder;
     pub use super::breadcrumb_bar::BreadcrumbBarBuilder;

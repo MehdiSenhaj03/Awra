@@ -141,6 +141,9 @@ unchanged (checked against the frozen 1.0.0 contract).
 
 ### Forms, actions and lists
 
+- `AwraAvatarGroup` overlaps avatars, such as a conversation's people,
+  each cut out where the next covers it, with a gap that reads on any
+  background.
 - `AwraColorPalette` offers colours as round swatches that wrap with the
   width, an optional automatic choice before them ("System", "Default"),
   and a last swatch that opens the system's colour chooser; a colour from

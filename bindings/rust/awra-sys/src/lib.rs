@@ -317,6 +317,20 @@ impl ::std::fmt::Debug for AwraAvatarClass {
 
 #[derive(Copy, Clone)]
 #[repr(C)]
+pub struct AwraAvatarGroupClass {
+    pub parent_class: gtk::GtkWidgetClass,
+}
+
+impl ::std::fmt::Debug for AwraAvatarGroupClass {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        f.debug_struct(&format!("AwraAvatarGroupClass @ {self:p}"))
+            .field("parent_class", &self.parent_class)
+            .finish()
+    }
+}
+
+#[derive(Copy, Clone)]
+#[repr(C)]
 pub struct AwraBadgeClass {
     pub parent_class: gtk::GtkWidgetClass,
 }
@@ -1736,6 +1750,20 @@ pub struct AwraAvatar {
 impl ::std::fmt::Debug for AwraAvatar {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
         f.debug_struct(&format!("AwraAvatar @ {self:p}")).finish()
+    }
+}
+
+#[repr(C)]
+#[allow(dead_code)]
+pub struct AwraAvatarGroup {
+    _data: [u8; 0],
+    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
+}
+
+impl ::std::fmt::Debug for AwraAvatarGroup {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        f.debug_struct(&format!("AwraAvatarGroup @ {self:p}"))
+            .finish()
     }
 }
 
@@ -3413,6 +3441,20 @@ unsafe extern "C" {
     #[cfg(feature = "v1_1")]
     #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
     pub fn awra_avatar_set_text(self_: *mut AwraAvatar, text: *const c_char);
+
+    //=========================================================================
+    // AwraAvatarGroup
+    //=========================================================================
+    pub fn awra_avatar_group_get_type() -> GType;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_avatar_group_new() -> *mut gtk::GtkWidget;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_avatar_group_append(self_: *mut AwraAvatarGroup, avatar: *mut gtk::GtkWidget);
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_avatar_group_remove_all(self_: *mut AwraAvatarGroup);
 
     //=========================================================================
     // AwraBadge

@@ -14,6 +14,7 @@ int main() {
     printf("%s;%zu;%zu\n", "AwraAppearance", sizeof(AwraAppearance), alignof(AwraAppearance));
     printf("%s;%zu;%zu\n", "AwraAspectPaintableClass", sizeof(AwraAspectPaintableClass), alignof(AwraAspectPaintableClass));
     printf("%s;%zu;%zu\n", "AwraAvatarClass", sizeof(AwraAvatarClass), alignof(AwraAvatarClass));
+    printf("%s;%zu;%zu\n", "AwraAvatarGroupClass", sizeof(AwraAvatarGroupClass), alignof(AwraAvatarGroupClass));
     printf("%s;%zu;%zu\n", "AwraAvatarShape", sizeof(AwraAvatarShape), alignof(AwraAvatarShape));
     printf("%s;%zu;%zu\n", "AwraBadgeAppearance", sizeof(AwraBadgeAppearance), alignof(AwraBadgeAppearance));
     printf("%s;%zu;%zu\n", "AwraBadgeClass", sizeof(AwraBadgeClass), alignof(AwraBadgeClass));

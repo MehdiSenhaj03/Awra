@@ -245,6 +245,13 @@ const RUST_LAYOUTS: &[(&str, Layout)] = &[
         },
     ),
     (
+        "AwraAvatarGroupClass",
+        Layout {
+            size: size_of::<AwraAvatarGroupClass>(),
+            alignment: align_of::<AwraAvatarGroupClass>(),
+        },
+    ),
+    (
         "AwraAvatarShape",
         Layout {
             size: size_of::<AwraAvatarShape>(),
