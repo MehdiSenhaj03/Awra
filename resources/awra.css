@@ -3342,7 +3342,7 @@ awrafilterbar {
   color: @awra_foreground;
   font-size: 1.07em;
   font-weight: 400;
-  line-height: 1.42;
+  line-height: 1.12;
 }
 
 .awra-display {
