@@ -198,7 +198,8 @@ as many tiles as the user wants; see
 a bottom-anchored, virtualized timeline for chats, comment threads and logs,
 `AwraComposer` the growing field where messages are written and
 `AwraCompletionPopover` the suggestions shown at its caret, and `AwraDivider`
-separates days or marks unread messages; see
+separates days or marks unread messages, and `AwraEmojiPicker` picks emoji
+and custom images from `AwraEmojiItem` sections; see
 [conversations](../guides/conversations.md). Physical keys use `KeyboardEvent.code`
 identifiers; `awra_keyboard_code_from_hardware_keycode()`,
 `awra_keyboard_code_to_hardware_keycode()` and

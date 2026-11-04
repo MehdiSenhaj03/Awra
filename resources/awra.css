@@ -60,7 +60,8 @@ awramediarow,
 awradropzone,
 awraconversationview,
 awracomposer,
-awradivider {
+awradivider,
+awraemojipicker {
   min-width: 0;
   min-height: 0;
   margin: 0;
@@ -2982,6 +2983,138 @@ awradivider.awra-divider-danger > label {
 
 .awra-high-contrast awradivider.awra-divider-neutral {
   color: @awra_outline;
+}
+
+/* Emoji picker: the search and the tabs on top, a quiet grid whose cells
+ * answer the pointer, and a preview of the item about to be picked. */
+awraemojipicker {
+  min-width: 0;
+  color: @awra_foreground;
+}
+
+awraemojipicker > .awra-emoji-header {
+  padding: 10px 10px 4px;
+}
+
+awraemojipicker scrolledwindow,
+awraemojipicker scrolledwindow > undershoot,
+awraemojipicker scrolledwindow > overshoot,
+awraemojipicker overlay,
+awraemojipicker listview.awra-emoji-grid,
+awraemojipicker listview.awra-emoji-grid > row,
+awraemojipicker listview.awra-emoji-grid > header,
+awraemojipicker .awra-emoji-row,
+awraemojipicker .awra-emoji-tabs {
+  min-width: 0;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  color: @awra_foreground;
+  background-color: transparent;
+  background-image: none;
+  box-shadow: none;
+  outline: 0;
+  opacity: 1;
+  filter: none;
+}
+
+awraemojipicker listview.awra-emoji-grid {
+  padding: 0 6px 6px;
+}
+
+awraemojipicker listview.awra-emoji-grid > header {
+  padding: 10px 6px 4px;
+}
+
+awraemojipicker .awra-emoji-section-title {
+  color: @awra_muted;
+}
+
+awraemojipicker .awra-emoji-cell {
+  min-width: 36px;
+  min-height: 36px;
+  margin: 2px;
+  border-radius: 9px;
+  background-color: transparent;
+  transition: background-color 90ms ease-out, transform 90ms ease-out;
+}
+
+awraemojipicker .awra-emoji-cell:hover {
+  background-color: @awra_control_hover;
+}
+
+awraemojipicker .awra-emoji-cell:active {
+  background-color: @awra_control_pressed;
+  transform: scale(.92);
+}
+
+/* The keyboard cursor reads as chosen, like a selected row. */
+awraemojipicker .awra-emoji-cell.awra-emoji-cursor {
+  background-color: @awra_accent_soft;
+  box-shadow: inset 0 0 0 1px alpha(@awra_accent, .35);
+}
+
+awraemojipicker .awra-emoji-glyph {
+  font-size: 22px;
+  color: @awra_foreground;
+}
+
+awraemojipicker .awra-emoji-image {
+  margin: 5px;
+}
+
+awraemojipicker .awra-button.awra-emoji-tab {
+  min-width: 26px;
+  min-height: 26px;
+  padding: 2px 4px;
+  border-radius: 8px;
+  color: @awra_muted;
+  font-size: 16px;
+}
+
+awraemojipicker .awra-button.awra-emoji-tab.awra-emoji-tab-current {
+  color: @awra_accent_content;
+  background-color: @awra_accent_soft;
+}
+
+awraemojipicker .awra-emoji-empty {
+  color: @awra_muted;
+}
+
+awraemojipicker > .awra-emoji-preview {
+  min-height: 44px;
+  padding: 6px 12px;
+  border-top: 1px solid @awra_separator;
+}
+
+awraemojipicker .awra-emoji-preview-glyph {
+  font-size: 30px;
+}
+
+awraemojipicker .awra-emoji-preview-image {
+  min-width: 32px;
+  min-height: 32px;
+}
+
+awraemojipicker .awra-emoji-preview-name {
+  color: @awra_muted;
+  font-weight: 600;
+}
+
+awraemojipicker scrolledwindow > scrollbar {
+  min-width: 6px;
+  margin: 4px 2px;
+  opacity: .6;
+}
+
+.awra-reduced-motion awraemojipicker .awra-emoji-cell {
+  transition: none;
+}
+
+.awra-reduced-motion awraemojipicker .awra-emoji-cell:active {
+  transform: none;
 }
 
 /* A filter bar is structural chrome rather than another content card. Its

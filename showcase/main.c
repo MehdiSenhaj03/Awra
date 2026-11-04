@@ -1620,6 +1620,74 @@ conversation_reply_cb (GtkButton        *button,
   gtk_widget_grab_focus (GTK_WIDGET (demo->composer));
 }
 
+static GListModel *
+conversation_emoji (const char * const *pairs)
+{
+  GListStore *store = g_list_store_new (AWRA_TYPE_EMOJI_ITEM);
+
+  for (guint i = 0; pairs[i] != NULL; i += 2) {
+    g_autoptr (AwraEmojiItem) item = awra_emoji_item_new (pairs[i + 1], pairs[i + 1], pairs[i]);
+
+    g_list_store_append (store, item);
+  }
+  return G_LIST_MODEL (store);
+}
+
+static void
+conversation_emoji_picked_cb (AwraEmojiPicker  *picker,
+                              AwraEmojiItem    *item,
+                              ConversationDemo *demo)
+{
+  GtkTextBuffer *buffer = awra_composer_get_buffer (demo->composer);
+
+  gtk_text_buffer_insert_at_cursor (buffer, awra_emoji_item_get_text (item), -1);
+  gtk_popover_popdown (GTK_POPOVER (gtk_widget_get_ancestor (GTK_WIDGET (picker), GTK_TYPE_POPOVER)));
+  gtk_widget_grab_focus (GTK_WIDGET (demo->composer));
+}
+
+static GtkWidget *
+conversation_emoji_button (ConversationDemo *demo)
+{
+  static const char *faces[] = {
+    "😀", "grinning", "😂", "joy", "😉", "wink", "😍", "heart_eyes", "🤔", "thinking",
+    "😎", "sunglasses", "😴", "sleeping", "😭", "sob", "😡", "rage", "🥳", "partying_face",
+    "👍", "thumbs_up", "👎", "thumbs_down", "👏", "clap", "🙏", "pray", "💪", "muscle", NULL,
+  };
+  static const char *nature[] = {
+    "🐶", "dog", "🐱", "cat", "🦊", "fox", "🐼", "panda", "🐸", "frog", "🐧", "penguin",
+    "🌵", "cactus", "🌻", "sunflower", "🌸", "cherry_blossom", "🍀", "four_leaf_clover", NULL,
+  };
+  static const char *food[] = {
+    "🍎", "apple", "🍐", "pear", "🍋", "lemon", "🍉", "watermelon", "🍓", "strawberry",
+    "🍕", "pizza", "🍔", "hamburger", "🍟", "fries", "☕", "coffee", "🍰", "cake", NULL,
+  };
+  static const char *recent[] = { "👍", "thumbs_up", "🎉", "tada", "❤️", "heart", NULL };
+  GtkWidget *button = awra_menu_button_new ();
+  GtkWidget *popover = awra_popover_new ();
+  GtkWidget *picker = awra_emoji_picker_new ();
+  g_autoptr (GListModel) recent_items = conversation_emoji (recent);
+  g_autoptr (GListModel) face_items = conversation_emoji (faces);
+  g_autoptr (GListModel) nature_items = conversation_emoji (nature);
+  g_autoptr (GListModel) food_items = conversation_emoji (food);
+
+  awra_emoji_picker_set_recent (AWRA_EMOJI_PICKER (picker), recent_items);
+  awra_emoji_picker_add_section (AWRA_EMOJI_PICKER (picker), "people", "Smileys & people",
+                                 "emoji-people-symbolic", face_items);
+  awra_emoji_picker_add_section (AWRA_EMOJI_PICKER (picker), "nature", "Animals & nature",
+                                 "emoji-nature-symbolic", nature_items);
+  awra_emoji_picker_add_section (AWRA_EMOJI_PICKER (picker), "food", "Food & drink",
+                                 "emoji-food-symbolic", food_items);
+  g_signal_connect (picker, "picked", G_CALLBACK (conversation_emoji_picked_cb), demo);
+  gtk_widget_set_size_request (picker, -1, 340);
+  awra_popover_set_child (AWRA_POPOVER (popover), picker);
+  gtk_popover_set_position (GTK_POPOVER (popover), GTK_POS_TOP);
+  awra_menu_button_set_icon_name (AWRA_MENU_BUTTON (button), "face-smile-symbolic");
+  awra_menu_button_set_appearance (AWRA_MENU_BUTTON (button), AWRA_BUTTON_APPEARANCE_GHOST);
+  awra_menu_button_set_popover (AWRA_MENU_BUTTON (button), AWRA_POPOVER (popover));
+  gtk_widget_set_tooltip_text (button, "Emoji");
+  return button;
+}
+
 static GtkWidget *
 conversation_icon_button (const char *icon_name,
                           const char *tooltip)
@@ -1778,8 +1846,7 @@ make_conversation_workspace (void)
   awra_composer_set_placeholder_text (demo->composer, "Message #design-review — type @ to mention");
   awra_composer_set_start_widget (demo->composer,
                                   conversation_icon_button ("list-add-symbolic", "Attach"));
-  awra_composer_set_end_widget (demo->composer,
-                                conversation_icon_button ("face-smile-symbolic", "Emoji"));
+  awra_composer_set_end_widget (demo->composer, conversation_emoji_button (demo));
   gtk_widget_set_margin_start (composer, 12);
   gtk_widget_set_margin_end (composer, 12);
   gtk_widget_set_margin_bottom (composer, 12);

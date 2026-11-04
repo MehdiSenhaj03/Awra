@@ -102,6 +102,20 @@ pub use self::dropdown::Dropdown;
 mod edge_panel;
 pub use self::edge_panel::EdgePanel;
 
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+mod emoji_item;
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+pub use self::emoji_item::EmojiItem;
+
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+mod emoji_picker;
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+pub use self::emoji_picker::EmojiPicker;
+
 mod empty_state;
 pub use self::empty_state::EmptyState;
 
@@ -404,6 +418,12 @@ pub(crate) mod builders {
     pub use super::drop_zone::DropZoneBuilder;
     pub use super::dropdown::DropdownBuilder;
     pub use super::edge_panel::EdgePanelBuilder;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub use super::emoji_item::EmojiItemBuilder;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub use super::emoji_picker::EmojiPickerBuilder;
     pub use super::empty_state::EmptyStateBuilder;
     pub use super::entry::EntryBuilder;
     pub use super::error_state::ErrorStateBuilder;

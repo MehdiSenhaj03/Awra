@@ -24,6 +24,7 @@ static const char hostile_css[] =
   "awrashortcutcapture label, awrawaveformview, awratimeline, awravolumecontrol,"
   "awramediarow, awramediarow label, awradropzone, awradropzone label,"
   "awradropzone box, awraconversationview, awracomposer, awradivider,"
+  "awraemojipicker,"
   "awradataview columnview,"
   "awradataview columnview > header > button,"
   "awradataview columnview listview > row {"
@@ -410,6 +411,19 @@ make_probe_scene (void)
       awra_divider_set_label_position (AWRA_DIVIDER (unread), AWRA_DIVIDER_LABEL_POSITION_END);
       gtk_box_append (GTK_BOX (chat), day);
       gtk_box_append (GTK_BOX (chat), unread);
+    }
+    {
+      GtkWidget *picker = awra_emoji_picker_new ();
+      GListStore *items = g_list_store_new (AWRA_TYPE_EMOJI_ITEM);
+      AwraEmojiItem *item = awra_emoji_item_new ("smile", "smile", "🙂");
+
+      g_list_store_append (items, item);
+      g_object_unref (item);
+      awra_emoji_picker_add_section (AWRA_EMOJI_PICKER (picker), "people", "People",
+                                     NULL, G_LIST_MODEL (items));
+      g_object_unref (items);
+      gtk_widget_set_size_request (picker, -1, 200);
+      gtk_box_append (GTK_BOX (chat), picker);
     }
     gtk_grid_attach (GTK_GRID (grid), chat, 0, 15, 3, 1);
   }

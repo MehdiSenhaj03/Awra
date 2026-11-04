@@ -288,3 +288,19 @@ msgstr "Fermer"
 #: src/overlays/awra-completion-popover.c
 msgid "Suggestions"
 msgstr "Suggestions"
+
+#: src/widgets/awra-emoji-picker.c
+msgid "Search emoji"
+msgstr "Rechercher un emoji"
+
+#: src/widgets/awra-emoji-picker.c
+msgid "Emoji"
+msgstr "Emoji"
+
+#: src/widgets/awra-emoji-picker.c
+msgid "No emoji found"
+msgstr "Aucun emoji trouvé"
+
+#: src/widgets/awra-emoji-picker.c
+msgid "Recent"
+msgstr "Récents"

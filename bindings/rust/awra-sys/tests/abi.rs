@@ -455,6 +455,20 @@ const RUST_LAYOUTS: &[(&str, Layout)] = &[
         },
     ),
     (
+        "AwraEmojiItemClass",
+        Layout {
+            size: size_of::<AwraEmojiItemClass>(),
+            alignment: align_of::<AwraEmojiItemClass>(),
+        },
+    ),
+    (
+        "AwraEmojiPickerClass",
+        Layout {
+            size: size_of::<AwraEmojiPickerClass>(),
+            alignment: align_of::<AwraEmojiPickerClass>(),
+        },
+    ),
+    (
         "AwraEmptyStateClass",
         Layout {
             size: size_of::<AwraEmptyStateClass>(),

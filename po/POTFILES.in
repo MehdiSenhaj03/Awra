@@ -18,3 +18,4 @@ src/widgets/awra-timeline.c
 src/widgets/awra-conversation-view.c
 src/widgets/awra-composer.c
 src/overlays/awra-completion-popover.c
+src/widgets/awra-emoji-picker.c

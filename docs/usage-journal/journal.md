@@ -967,3 +967,20 @@ rôle accessible est celui d’un séparateur nommé par son étiquette. Dans la
 vitrine, la chronologie l’emploie comme en-tête de section d’un
 `GtkSortListModel` trié par jour.
 
+## 2026-11-04 — Yapfast — Un sélecteur d’emoji alimenté par l’application
+
+Les réactions et le champ de message de Yapfast ont besoin d’un sélecteur
+d’emoji où les emoji personnalisés d’un serveur et les autocollants côtoient
+les emoji Unicode. `GtkEmojiChooser` ne connaît que les siens et ne se nourrit
+pas d’un modèle.
+
+`AwraEmojiPicker` reçoit des sections de `AwraEmojiItem` (texte Unicode ou
+image), une section « Récents » tenue par l’application, et offre recherche
+sur les noms et mots-clés, onglets qui suivent le défilement, grille
+virtualisée, aperçu en grand et navigation au clavier même pendant la saisie de
+la recherche. `GtkGridView` n’affiche pas de titres de section : la grille est
+une liste de rangées de cellules dont le nombre de colonnes suit la largeur. Les
+données Unicode de GTK vivent dans une ressource privée dont le chemin et le
+format ne sont pas une API : Awra ne les lit pas, l’application fournit sa base
+d’emoji.
+

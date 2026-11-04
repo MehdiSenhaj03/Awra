@@ -41,6 +41,8 @@ generate = [
   "Awra.DataViewState",
   "Awra.DetailPane",
   "Awra.Divider",
+  "Awra.EmojiItem",
+  "Awra.EmojiPicker",
   "Awra.DividerAppearance",
   "Awra.DividerLabelPosition",
   "Awra.Diagnostics",

@@ -27,6 +27,13 @@ unchanged (checked against the frozen 1.0.0 contract).
 - `AwraDivider` separates content with a line and an optional label, centred
   or at the end, in a neutral, accent or danger appearance: day separators and
   the line where unread messages start.
+- `AwraEmojiPicker` and `AwraEmojiItem` pick emoji, custom emoji and stickers
+  from sections the application provides, with a search across sections,
+  tabs that follow the scrolling, a virtualized grid with section titles,
+  keyboard navigation, a large preview and a recent section.
+- Rust bindings cover `AwraConversationView`, `AwraComposer`,
+  `AwraCompletionPopover`, `AwraDivider`, `AwraEmojiPicker` and
+  `AwraEmojiItem`.
 
 ### Desktop workspace composition
 

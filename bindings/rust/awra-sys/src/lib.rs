@@ -567,6 +567,34 @@ impl ::std::fmt::Debug for AwraEdgePanelClass {
 
 #[derive(Copy, Clone)]
 #[repr(C)]
+pub struct AwraEmojiItemClass {
+    pub parent_class: gobject::GObjectClass,
+}
+
+impl ::std::fmt::Debug for AwraEmojiItemClass {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        f.debug_struct(&format!("AwraEmojiItemClass @ {self:p}"))
+            .field("parent_class", &self.parent_class)
+            .finish()
+    }
+}
+
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub struct AwraEmojiPickerClass {
+    pub parent_class: gtk::GtkWidgetClass,
+}
+
+impl ::std::fmt::Debug for AwraEmojiPickerClass {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        f.debug_struct(&format!("AwraEmojiPickerClass @ {self:p}"))
+            .field("parent_class", &self.parent_class)
+            .finish()
+    }
+}
+
+#[derive(Copy, Clone)]
+#[repr(C)]
 pub struct AwraEmptyStateClass {
     pub parent_class: gtk::GtkWidgetClass,
 }
@@ -1772,6 +1800,34 @@ pub struct AwraEdgePanel {
 impl ::std::fmt::Debug for AwraEdgePanel {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
         f.debug_struct(&format!("AwraEdgePanel @ {self:p}"))
+            .finish()
+    }
+}
+
+#[repr(C)]
+#[allow(dead_code)]
+pub struct AwraEmojiItem {
+    _data: [u8; 0],
+    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
+}
+
+impl ::std::fmt::Debug for AwraEmojiItem {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        f.debug_struct(&format!("AwraEmojiItem @ {self:p}"))
+            .finish()
+    }
+}
+
+#[repr(C)]
+#[allow(dead_code)]
+pub struct AwraEmojiPicker {
+    _data: [u8; 0],
+    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
+}
+
+impl ::std::fmt::Debug for AwraEmojiPicker {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        f.debug_struct(&format!("AwraEmojiPicker @ {self:p}"))
             .finish()
     }
 }
@@ -3524,6 +3580,88 @@ unsafe extern "C" {
     pub fn awra_edge_panel_set_panel_width(self_: *mut AwraEdgePanel, width: c_uint);
     pub fn awra_edge_panel_set_reveal_width(self_: *mut AwraEdgePanel, width: c_uint);
     pub fn awra_edge_panel_set_revealed(self_: *mut AwraEdgePanel, revealed: gboolean);
+
+    //=========================================================================
+    // AwraEmojiItem
+    //=========================================================================
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_emoji_item_get_type() -> GType;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_emoji_item_new(
+        id: *const c_char,
+        name: *const c_char,
+        text: *const c_char,
+    ) -> *mut AwraEmojiItem;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_emoji_item_new_for_paintable(
+        id: *const c_char,
+        name: *const c_char,
+        paintable: *mut gdk::GdkPaintable,
+    ) -> *mut AwraEmojiItem;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_emoji_item_get_id(self_: *mut AwraEmojiItem) -> *const c_char;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_emoji_item_get_keywords(self_: *mut AwraEmojiItem) -> *const *const c_char;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_emoji_item_get_name(self_: *mut AwraEmojiItem) -> *const c_char;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_emoji_item_get_paintable(self_: *mut AwraEmojiItem) -> *mut gdk::GdkPaintable;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_emoji_item_get_text(self_: *mut AwraEmojiItem) -> *const c_char;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_emoji_item_matches(self_: *mut AwraEmojiItem, query: *const c_char) -> gboolean;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_emoji_item_set_keywords(self_: *mut AwraEmojiItem, keywords: *const *const c_char);
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_emoji_item_set_paintable(
+        self_: *mut AwraEmojiItem,
+        paintable: *mut gdk::GdkPaintable,
+    );
+
+    //=========================================================================
+    // AwraEmojiPicker
+    //=========================================================================
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_emoji_picker_get_type() -> GType;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_emoji_picker_new() -> *mut gtk::GtkWidget;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_emoji_picker_add_section(
+        self_: *mut AwraEmojiPicker,
+        id: *const c_char,
+        title: *const c_char,
+        icon_name: *const c_char,
+        items: *mut gio::GListModel,
+    );
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_emoji_picker_clear(self_: *mut AwraEmojiPicker);
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_emoji_picker_get_search_text(self_: *mut AwraEmojiPicker) -> *const c_char;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_emoji_picker_remove_section(self_: *mut AwraEmojiPicker, id: *const c_char);
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_emoji_picker_set_recent(self_: *mut AwraEmojiPicker, items: *mut gio::GListModel);
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_emoji_picker_set_search_text(self_: *mut AwraEmojiPicker, text: *const c_char);
 
     //=========================================================================
     // AwraEmptyState

@@ -94,6 +94,8 @@
 #include <awra/awra-composer.h>
 #include <awra/awra-completion-popover.h>
 #include <awra/awra-divider.h>
+#include <awra/awra-emoji-item.h>
+#include <awra/awra-emoji-picker.h>
 
 G_BEGIN_DECLS
 

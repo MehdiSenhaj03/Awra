@@ -114,3 +114,36 @@ awra_divider_set_label_position (AWRA_DIVIDER (unread), AWRA_DIVIDER_LABEL_POSIT
 
 A divider is a separator for assistive technologies, named by its label.
 
+## Reacting: `AwraEmojiPicker`
+
+The picker shows what the application gives it, a section at a time, so
+custom emoji and stickers sit next to Unicode ones:
+
+```c
+GtkWidget *picker = awra_emoji_picker_new ();
+
+awra_emoji_picker_set_recent (AWRA_EMOJI_PICKER (picker), recent_items);
+awra_emoji_picker_add_section (AWRA_EMOJI_PICKER (picker), "people",
+                               _("Smileys & people"), "emoji-people-symbolic",
+                               people_items);
+awra_emoji_picker_add_section (AWRA_EMOJI_PICKER (picker), "server",
+                               _("Server emoji"), NULL, server_items);
+g_signal_connect (picker, "picked", G_CALLBACK (insert_emoji_cb), app);
+awra_popover_set_child (popover, picker);
+```
+
+Items are `AwraEmojiItem`s: a Unicode `text` or an image `paintable`, a
+`name` shown as `:name:` and searched with its `keywords`, and an `id` for the
+application. The search field filters every section; tabs scroll to a section
+and follow the scrolling (a section without an icon shows its first item); the
+grid is virtualized and the preview under it shows the hovered or keyboard
+item in large. The arrow keys move through the grid even while the search has
+the focus, Enter picks, and a click picks. The application keeps the recent
+list and passes it again after a pick.
+
+The grid is a `GtkListView` of rows of cells rather than a `GtkGridView`,
+which cannot show section titles; the number of columns follows the width.
+Awra does not ship Unicode emoji data: GTK keeps its own in a private resource
+whose path and format are not part of its API, so applications provide their
+emoji database.
+

@@ -44,6 +44,8 @@ int main() {
     printf("%s;%zu;%zu\n", "AwraEdgePanelClass", sizeof(AwraEdgePanelClass), alignof(AwraEdgePanelClass));
     printf("%s;%zu;%zu\n", "AwraEffectCapability", sizeof(AwraEffectCapability), alignof(AwraEffectCapability));
     printf("%s;%zu;%zu\n", "AwraElevation", sizeof(AwraElevation), alignof(AwraElevation));
+    printf("%s;%zu;%zu\n", "AwraEmojiItemClass", sizeof(AwraEmojiItemClass), alignof(AwraEmojiItemClass));
+    printf("%s;%zu;%zu\n", "AwraEmojiPickerClass", sizeof(AwraEmojiPickerClass), alignof(AwraEmojiPickerClass));
     printf("%s;%zu;%zu\n", "AwraEmptyStateClass", sizeof(AwraEmptyStateClass), alignof(AwraEmptyStateClass));
     printf("%s;%zu;%zu\n", "AwraEntryClass", sizeof(AwraEntryClass), alignof(AwraEntryClass));
     printf("%s;%zu;%zu\n", "AwraErrorStateClass", sizeof(AwraErrorStateClass), alignof(AwraErrorStateClass));
