@@ -20,8 +20,10 @@ unchanged (checked against the frozen 1.0.0 contract).
   as in the rest of navigation. `sidebar-heading` also styles a button that
   folds its section, and `inline-action` now owns the look of any GTK
   button, so the desktop theme no longer draws one around it.
-- A sidebar docked with no inset squares its corner under the titlebar and
-  keeps its inner corners soft. A button holding only an icon is square
+- A sidebar docked with no inset is a straight band that draws only the
+  edge it shares with the content; the window's frame rounds its outer
+  corners. With overlay chrome and an unpainted header, it runs the
+  window's full height. A button holding only an icon is square
   whatever its appearance, and a search field is as tall as the buttons
   beside it. `quiet-search` gives a side panel's search the sidebar's
   quiet look. `flat-list` takes a plain GTK list or grid, whose items
