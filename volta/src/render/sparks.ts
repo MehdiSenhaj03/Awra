@@ -5,7 +5,7 @@ import { fx } from '../engine/core';
 export class Sparks {
   points: THREE.Points;
   private max: number;
-  private n = 0;
+  n = 0;
   private pos: Float32Array;
   private col: Float32Array;
   private size: Float32Array;
@@ -18,7 +18,7 @@ export class Sparks {
   private D: Float32Array;
   private tmp = new THREE.Color();
 
-  constructor(max = 9000) {
+  constructor(max = 5000) {
     this.max = max;
     this.pos = new Float32Array(max * 3);
     this.col = new Float32Array(max * 3);

@@ -99,7 +99,8 @@ export class Glows {
             // Ring: prm = thickness (0..1 of radius).
             float r = length(vUv);
             float t = max(prm, 0.02);
-            float ring = exp(-pow((r - (1.0 - t)) / t, 2.0) * 2.5) * step(r, 1.0);
+            float q = (r - (1.0 - t)) / t;
+            float ring = exp(-q * q * 2.5) * step(r, 1.0);
             c = vC * ring;
           } else if (st < 3.5) {
             // Burning beam along x.
@@ -117,8 +118,10 @@ export class Glows {
           } else if (st < 5.5) {
             // Landing zone: ring at the edge and a disc filling from the centre.
             float r = length(vUv);
-            float edge = exp(-pow((r - 0.96) * 20.0, 2.0)) * 1.4;
-            float fill = step(r, prm) * 0.22 + exp(-pow((r - prm) * 18.0, 2.0)) * 0.9 * step(r, 1.0);
+            float qe = (r - 0.96) * 20.0;
+            float qf = (r - prm) * 18.0;
+            float edge = exp(-qe * qe) * 1.4;
+            float fill = step(r, prm) * 0.22 + exp(-qf * qf) * 0.9 * step(r, 1.0);
             float stripes = 0.6 + 0.4 * step(0.5, fract((vUv.x + vUv.y) * 4.0 - uTime * 1.5));
             c = vC * (edge + fill * stripes) * step(r, 1.02);
           } else {
@@ -126,7 +129,8 @@ export class Glows {
             float r = length(vUv);
             c = vC * exp(-r * r * 3.5) * step(r, 1.0);
           }
-          gl_FragColor = vec4(c, 1.0);
+          if (any(isnan(c)) || any(isinf(c))) c = vec3(0.0);
+          gl_FragColor = vec4(min(c, vec3(40.0)), 1.0);
         }`,
     });
     this.mesh = new THREE.InstancedMesh(geo as unknown as THREE.BufferGeometry, this.mat, max);

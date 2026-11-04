@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import type { Enemy } from '../game/enemy';
-import { GEO, type Model, addCore, glow, newModel, obsidian, registerLook } from './models';
+import { GEO, type Model, addCore, cg, glow, newModel, obsidian, registerLook } from './models';
 
 /** Per-look animation of boss models (called every frame). */
 export const POSERS: Record<string, (e: Enemy, m: Model, dt: number, time: number) => void> = {};
@@ -18,7 +18,7 @@ registerLook('ostinato', (r, color) => {
   const m = newModel();
   const g = new THREE.Group();
   g.position.y = 2.2;
-  const heart = addCore(m, color, 4, new THREE.OctahedronGeometry(1, 0), 'heart');
+  const heart = addCore(m, color, 4, cg('Octahedron', [1, 0], () => new THREE.OctahedronGeometry(1, 0)), 'heart');
   heart.scale.set(r * 0.32, r * 0.55, r * 0.32);
   const inner = new THREE.Mesh(GEO.octa, glow(0xffffff, 6));
   inner.scale.set(r * 0.12, r * 0.25, r * 0.12);
@@ -27,8 +27,8 @@ registerLook('ostinato', (r, color) => {
   for (let i = 0; i < 3; i++) {
     const ringG = new THREE.Group();
     const R = r * (0.8 + i * 0.32);
-    const band = new THREE.Mesh(new THREE.TorusGeometry(R, r * 0.07, 10, 96), rim(m, color));
-    const lip = new THREE.Mesh(new THREE.TorusGeometry(R, r * 0.012, 6, 96), glow(i === 1 ? 0xffc34a : color, 3));
+    const band = new THREE.Mesh(cg('Torus', [R, r * 0.07, 10, 96], () => new THREE.TorusGeometry(R, r * 0.07, 10, 96)), rim(m, color));
+    const lip = new THREE.Mesh(cg('Torus', [R, r * 0.012, 6, 96], () => new THREE.TorusGeometry(R, r * 0.012, 6, 96)), glow(i === 1 ? 0xffc34a : color, 3));
     lip.position.z = r * 0.07;
     ringG.add(band, lip);
     // Organ pipes and candles on the outer ring.
@@ -36,7 +36,7 @@ registerLook('ostinato', (r, color) => {
       for (let k = 0; k < 12; k++) {
         const a = (k / 12) * Math.PI * 2;
         const h = r * (0.4 + (k % 3) * 0.2);
-        const pipe = new THREE.Mesh(new THREE.CylinderGeometry(r * 0.05, r * 0.06, h, 6), rim(m, color, 0x0c0c14));
+        const pipe = new THREE.Mesh(cg('Cylinder', [r * 0.05, r * 0.06, h, 6], () => new THREE.CylinderGeometry(r * 0.05, r * 0.06, h, 6)), rim(m, color, 0x0c0c14));
         pipe.position.set(Math.cos(a) * R, Math.sin(a) * R, 0);
         pipe.rotation.z = a - Math.PI / 2;
         pipe.translateY(h / 2);
@@ -76,7 +76,7 @@ POSERS.ostinato = (e, m, dt, time) => {
 registerLook('crescendo', (r, color) => {
   const m = newModel();
   const g = new THREE.Group();
-  const trunk = new THREE.Mesh(new THREE.CylinderGeometry(r * 0.35, r * 0.75, r * 2.2, 7), rim(m, color));
+  const trunk = new THREE.Mesh(cg('Cylinder', [r * 0.35, r * 0.75, r * 2.2, 7], () => new THREE.CylinderGeometry(r * 0.35, r * 0.75, r * 2.2, 7)), rim(m, color));
   trunk.position.y = r * 1.1;
   g.add(trunk);
   const crystalMat = (k: number) => glow(color, k, { transparent: true, opacity: 0.85 });
@@ -84,7 +84,7 @@ registerLook('crescendo', (r, color) => {
   for (let i = 0; i < 9; i++) {
     const a = (i / 9) * Math.PI * 2;
     const len = r * (1.1 + (i % 3) * 0.45);
-    const b = new THREE.Mesh(new THREE.ConeGeometry(r * 0.13, len, 5), i % 2 ? rim(m, color, 0x0a140f) : crystalMat(2.2));
+    const b = new THREE.Mesh(cg('Cone', [r * 0.13, len, 5], () => new THREE.ConeGeometry(r * 0.13, len, 5)), i % 2 ? rim(m, color, 0x0a140f) : crystalMat(2.2));
     b.position.set(Math.cos(a) * r * 0.5, r * 2.2 + len * 0.3, Math.sin(a) * r * 0.5);
     b.rotation.z = Math.cos(a) * -0.8;
     b.rotation.x = Math.sin(a) * 0.8;
@@ -97,7 +97,7 @@ registerLook('crescendo', (r, color) => {
   // Roots of glass on the floor.
   for (let i = 0; i < 7; i++) {
     const a = (i / 7) * Math.PI * 2 + 0.3;
-    const root = new THREE.Mesh(new THREE.ConeGeometry(r * 0.12, r * 1.6, 4), crystalMat(1.4));
+    const root = new THREE.Mesh(cg('Cone', [r * 0.12, r * 1.6, 4], () => new THREE.ConeGeometry(r * 0.12, r * 1.6, 4)), crystalMat(1.4));
     root.position.set(Math.cos(a) * r * 0.9, r * 0.15, Math.sin(a) * r * 0.9);
     root.rotation.z = Math.PI / 2;
     root.rotation.y = -a;
@@ -141,16 +141,16 @@ POSERS.crystal = (e, m) => {
 registerLook('fugue', (r, color) => {
   const m = newModel();
   const g = new THREE.Group();
-  const torso = new THREE.Mesh(new THREE.OctahedronGeometry(1, 0), rim(m, color));
+  const torso = new THREE.Mesh(cg('Octahedron', [1, 0], () => new THREE.OctahedronGeometry(1, 0)), rim(m, color));
   torso.scale.set(r * 0.75, r * 1.0, r * 0.6);
   torso.position.y = r * 1.6;
-  const furnace = addCore(m, color, 5, new THREE.OctahedronGeometry(1, 0), 'heart');
+  const furnace = addCore(m, color, 5, cg('Octahedron', [1, 0], () => new THREE.OctahedronGeometry(1, 0)), 'heart');
   furnace.scale.set(r * 0.28, r * 0.36, r * 0.2);
   furnace.position.set(0, r * 1.6, r * 0.42);
-  const head = new THREE.Mesh(new THREE.ConeGeometry(r * 0.35, r * 0.7, 5), rim(m, color));
+  const head = new THREE.Mesh(cg('Cone', [r * 0.35, r * 0.7, 5], () => new THREE.ConeGeometry(r * 0.35, r * 0.7, 5)), rim(m, color));
   head.position.y = r * 2.75;
   for (let i = 0; i < 4; i++) {
-    const c = new THREE.Mesh(new THREE.CylinderGeometry(r * 0.07, r * 0.09, r * 0.6, 6), rim(m, color, 0x100c08));
+    const c = new THREE.Mesh(cg('Cylinder', [r * 0.07, r * 0.09, r * 0.6, 6], () => new THREE.CylinderGeometry(r * 0.07, r * 0.09, r * 0.6, 6)), rim(m, color, 0x100c08));
     c.position.set((i - 1.5) * r * 0.3, r * 2.5 + (i % 2) * r * 0.2, -r * 0.15);
     const f = new THREE.Mesh(GEO.octa, glow(0xff60c0, 5));
     f.scale.set(r * 0.06, r * 0.12, r * 0.06);
@@ -160,7 +160,7 @@ registerLook('fugue', (r, color) => {
   const arms: THREE.Object3D[] = [];
   for (const s of [-1, 1]) {
     const arm = new THREE.Group();
-    const a = new THREE.Mesh(new THREE.OctahedronGeometry(1, 0), rim(m, color));
+    const a = new THREE.Mesh(cg('Octahedron', [1, 0], () => new THREE.OctahedronGeometry(1, 0)), rim(m, color));
     a.scale.set(r * 0.28, r * 0.75, r * 0.28);
     a.position.y = -r * 0.6;
     const fist = addCore(m, color, 3, GEO.sphere, `fist${s}`);
@@ -172,7 +172,7 @@ registerLook('fugue', (r, color) => {
     g.add(arm);
   }
   for (const s of [-1, 1]) {
-    const leg = new THREE.Mesh(new THREE.OctahedronGeometry(1, 0), rim(m, color));
+    const leg = new THREE.Mesh(cg('Octahedron', [1, 0], () => new THREE.OctahedronGeometry(1, 0)), rim(m, color));
     leg.scale.set(r * 0.3, r * 0.65, r * 0.3);
     leg.position.set(s * r * 0.4, r * 0.6, 0);
     g.add(leg);
@@ -205,12 +205,12 @@ registerLook('rubato', (r, color) => {
   const m = newModel();
   const g = new THREE.Group();
   g.position.y = 1.3;
-  const head = new THREE.Mesh(new THREE.SphereGeometry(r, 24, 16), chrome());
+  const head = new THREE.Mesh(cg('Sphere', [r, 24, 16], () => new THREE.SphereGeometry(r, 24, 16)), chrome());
   head.scale.set(1.3, 0.85, 1);
   m.rims.push({ u: (head.material as THREE.MeshStandardMaterial).userData.rim, base: (head.material as THREE.MeshStandardMaterial).userData.rim.value.clone() });
   // The tuning-fork crest.
   for (const s of [-1, 1]) {
-    const prong = new THREE.Mesh(new THREE.BoxGeometry(r * 1.6, r * 0.18, r * 0.18), chrome());
+    const prong = new THREE.Mesh(cg('Box', [r * 1.6, r * 0.18, r * 0.18], () => new THREE.BoxGeometry(r * 1.6, r * 0.18, r * 0.18)), chrome());
     prong.position.set(-r * 0.6, r * 0.55, s * r * 0.45);
     prong.rotation.z = 0.35;
     g.add(prong);
@@ -231,10 +231,10 @@ registerLook('segment', (r, color) => {
   const m = newModel();
   const g = new THREE.Group();
   g.position.y = 1.2;
-  const ring = new THREE.Mesh(new THREE.SphereGeometry(r, 20, 14), chrome());
+  const ring = new THREE.Mesh(cg('Sphere', [r, 20, 14], () => new THREE.SphereGeometry(r, 20, 14)), chrome());
   ring.scale.set(0.9, 0.75, 0.9);
   m.rims.push({ u: (ring.material as THREE.MeshStandardMaterial).userData.rim, base: (ring.material as THREE.MeshStandardMaterial).userData.rim.value.clone() });
-  const band = addCore(m, color, 3, new THREE.TorusGeometry(r * 0.92, r * 0.06, 6, 32), 'band');
+  const band = addCore(m, color, 3, cg('Torus', [r * 0.92, r * 0.06, 6, 32], () => new THREE.TorusGeometry(r * 0.92, r * 0.06, 6, 32)), 'band');
   band.rotation.y = Math.PI / 2;
   g.add(ring, band);
   m.parts.face = g;
@@ -264,12 +264,12 @@ registerLook('staccato', (r, color) => {
   const g = new THREE.Group();
   for (let i = 0; i < 4; i++) {
     const h = r * (1.4 - i * 0.22);
-    const b = new THREE.Mesh(new THREE.BoxGeometry(r * (1.1 - i * 0.18), h, r * (0.9 - i * 0.15)), rim(m, color));
+    const b = new THREE.Mesh(cg('Box', [r * (1.1 - i * 0.18), h, r * (0.9 - i * 0.15)], () => new THREE.BoxGeometry(r * (1.1 - i * 0.18), h, r * (0.9 - i * 0.15))), rim(m, color));
     b.position.y = r * 0.7 + i * r * 1.05;
     b.rotation.y = i * 0.35;
     g.add(b);
     // Lit windows.
-    const w = new THREE.Mesh(new THREE.BoxGeometry(r * (1.12 - i * 0.18), h * 0.06, r * (0.92 - i * 0.15)), glow(color, 2.5));
+    const w = new THREE.Mesh(cg('Box', [r * (1.12 - i * 0.18), h * 0.06, r * (0.92 - i * 0.15)], () => new THREE.BoxGeometry(r * (1.12 - i * 0.18), h * 0.06, r * (0.92 - i * 0.15))), glow(color, 2.5));
     w.position.copy(b.position);
     w.rotation.y = b.rotation.y;
     g.add(w);
@@ -279,7 +279,7 @@ registerLook('staccato', (r, color) => {
   core.position.y = r * 4.6;
   const blades: THREE.Object3D[] = [];
   for (const s of [-1, 1]) {
-    const blade = new THREE.Mesh(new THREE.BoxGeometry(r * 0.08, r * 3, r * 0.5), glow(color, 4));
+    const blade = new THREE.Mesh(cg('Box', [r * 0.08, r * 3, r * 0.5], () => new THREE.BoxGeometry(r * 0.08, r * 3, r * 0.5)), glow(color, 4));
     blade.position.set(s * r * 1.1, r * 1.8, 0);
     blade.rotation.z = s * 0.35;
     blades.push(blade);
@@ -304,18 +304,18 @@ registerLook('fermata', (r) => {
   const m = newModel();
   const g = new THREE.Group();
   g.position.y = 3;
-  const sun = new THREE.Mesh(new THREE.SphereGeometry(r, 48, 32), new THREE.MeshBasicMaterial({ color: 0x000000 }));
-  const halo = new THREE.Mesh(new THREE.TorusGeometry(r * 1.04, r * 0.05, 12, 96), glow(0xffffff, 6));
+  const sun = new THREE.Mesh(cg('Sphere', [r, 48, 32], () => new THREE.SphereGeometry(r, 48, 32)), new THREE.MeshBasicMaterial({ color: 0x000000 }));
+  const halo = new THREE.Mesh(cg('Torus', [r * 1.04, r * 0.05, 12, 96], () => new THREE.TorusGeometry(r * 1.04, r * 0.05, 12, 96)), glow(0xffffff, 6));
   halo.rotation.x = Math.PI / 2.4;
-  const corona = new THREE.Mesh(new THREE.TorusGeometry(r * 1.12, r * 0.14, 12, 96), glow(0xffd890, 1.4, { transparent: true, opacity: 0.6 }));
+  const corona = new THREE.Mesh(cg('Torus', [r * 1.12, r * 0.14, 12, 96], () => new THREE.TorusGeometry(r * 1.12, r * 0.14, 12, 96)), glow(0xffd890, 1.4, { transparent: true, opacity: 0.6 }));
   corona.rotation.x = Math.PI / 2.4;
   m.flash.push(halo.material as THREE.MeshBasicMaterial);
   m.base.push((halo.material as THREE.MeshBasicMaterial).color.clone());
   // The fermata arc above, broken.
-  const arc = new THREE.Mesh(new THREE.TorusGeometry(r * 1.9, r * 0.09, 8, 64, Math.PI * 0.85), rim(m, 0xffc34a, 0x14100a));
+  const arc = new THREE.Mesh(cg('Torus', [r * 1.9, r * 0.09, 8, 64, Math.PI * 0.85], () => new THREE.TorusGeometry(r * 1.9, r * 0.09, 8, 64, Math.PI * 0.85)), rim(m, 0xffc34a, 0x14100a));
   arc.rotation.z = Math.PI * 0.075;
   arc.position.y = r * 0.2;
-  const arcGlow = new THREE.Mesh(new THREE.TorusGeometry(r * 1.9, r * 0.025, 6, 64, Math.PI * 0.85), glow(0xffc34a, 5));
+  const arcGlow = new THREE.Mesh(cg('Torus', [r * 1.9, r * 0.025, 6, 64, Math.PI * 0.85], () => new THREE.TorusGeometry(r * 1.9, r * 0.025, 6, 64, Math.PI * 0.85)), glow(0xffc34a, 5));
   arcGlow.rotation.copy(arc.rotation);
   arcGlow.position.copy(arc.position);
   const orbit = new THREE.Group();

@@ -60,7 +60,7 @@ export abstract class Boss extends Enemy {
         w.emit({ t: 'shake', a: 1 });
         w.emit({ t: 'flash', color: 0xffffff, a: 1 });
         w.sfx('bigBoom');
-        w.freeze = 30;
+        w.hitStop(16);
       }
       return;
     }
@@ -104,7 +104,7 @@ export abstract class Boss extends Enemy {
       w.emit({ t: 'shake', a: 0.8 });
       w.emit({ t: 'chroma', a: 1 });
       w.sfx('roar');
-      w.freeze = 18;
+      w.hitStop(10);
       this.onPhase(w, next);
       return;
     }
@@ -131,7 +131,7 @@ export abstract class Boss extends Enemy {
     w.emit({ t: 'flash', color: 0xffffff, a: 0.9 });
     w.emit({ t: 'shake', a: 1 });
     w.sfx('roar');
-    w.freeze = 40;
+    w.hitStop(14);
     this.onDeath(w);
   }
 

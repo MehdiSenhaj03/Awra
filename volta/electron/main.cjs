@@ -2,6 +2,15 @@
 const { app, BrowserWindow, ipcMain } = require('electron');
 const path = require('node:path');
 
+// Use the GPU even when Chromium has it on its blocklist (otherwise WebGL may fall back to slow software
+// rendering), rasterise on the GPU and never throttle the game when the window loses focus.
+app.commandLine.appendSwitch('ignore-gpu-blocklist');
+app.commandLine.appendSwitch('enable-gpu-rasterization');
+app.commandLine.appendSwitch('enable-zero-copy');
+app.commandLine.appendSwitch('disable-renderer-backgrounding');
+app.commandLine.appendSwitch('disable-background-timer-throttling');
+app.commandLine.appendSwitch('force_high_performance_gpu');
+
 function createWindow() {
   const win = new BrowserWindow({
     width: 1600,
@@ -17,6 +26,7 @@ function createWindow() {
       preload: path.join(__dirname, 'preload.cjs'),
       contextIsolation: true,
       sandbox: true,
+      backgroundThrottling: false,
     },
   });
   win.setMenu(null);

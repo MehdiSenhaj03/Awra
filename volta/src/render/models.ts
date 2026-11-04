@@ -6,6 +6,37 @@ import * as THREE from 'three';
  */
 
 let env: THREE.Texture | null = null;
+
+/** Geometries are shared between every model that asks for the same shape (no per-spawn GPU upload). */
+const geoCache = new Map<string, THREE.BufferGeometry>();
+export function cg<T extends THREE.BufferGeometry>(type: string, args: unknown[], make: () => T): T {
+  const key = `${type}|${JSON.stringify(args)}`;
+  let g = geoCache.get(key) as T | undefined;
+  if (!g) {
+    g = make();
+    geoCache.set(key, g);
+  }
+  return g;
+}
+
+const edgeCache = new Map<string, THREE.EdgesGeometry>();
+function edgeGeo(src: THREE.BufferGeometry): THREE.EdgesGeometry {
+  let e = edgeCache.get(src.uuid);
+  if (!e) {
+    e = new THREE.EdgesGeometry(src);
+    edgeCache.set(src.uuid, e);
+  }
+  return e;
+}
+
+/** Frees a model's materials (geometries are shared and kept). */
+export function disposeModel(m: Model): void {
+  m.root.traverse((o) => {
+    const mat = (o as THREE.Mesh).material as THREE.Material | THREE.Material[] | undefined;
+    if (Array.isArray(mat)) mat.forEach((x) => x.dispose());
+    else mat?.dispose();
+  });
+}
 export function setEnv(t: THREE.Texture | null): void {
   env = t;
 }
@@ -24,7 +55,7 @@ export function obsidian(tint = 0x0b0c14, rough = 0.16, rim = 0x000000, rimK = 1
     sh.uniforms.uRim = u;
     sh.fragmentShader = sh.fragmentShader
       .replace('#include <common>', '#include <common>\nuniform vec3 uRim;')
-      .replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\n{ float fr = pow(1.0 - abs(dot(normalize(normal), normalize(vViewPosition))), 3.0); totalEmissiveRadiance += uRim * fr; }');
+      .replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\n{ float fr = pow(clamp(1.0 - abs(dot(normalize(normal), normalize(vViewPosition))), 0.0, 1.0), 3.0); totalEmissiveRadiance += uRim * fr; }');
   };
   m.customProgramCacheKey = () => 'obsidianRim';
   return m;
@@ -58,16 +89,16 @@ function core(m: Model, color: number, k: number, geo: THREE.BufferGeometry, nam
 }
 
 const G = {
-  tetra: new THREE.TetrahedronGeometry(1, 0),
-  octa: new THREE.OctahedronGeometry(1, 0),
-  ico: new THREE.IcosahedronGeometry(1, 0),
-  dodeca: new THREE.DodecahedronGeometry(1, 0),
-  sphere: new THREE.SphereGeometry(1, 20, 14),
-  box: new THREE.BoxGeometry(1, 1, 1),
+  tetra: cg('Tetrahedron', [1, 0], () => new THREE.TetrahedronGeometry(1, 0)),
+  octa: cg('Octahedron', [1, 0], () => new THREE.OctahedronGeometry(1, 0)),
+  ico: cg('Icosahedron', [1, 0], () => new THREE.IcosahedronGeometry(1, 0)),
+  dodeca: cg('Dodecahedron', [1, 0], () => new THREE.DodecahedronGeometry(1, 0)),
+  sphere: cg('Sphere', [1, 20, 14], () => new THREE.SphereGeometry(1, 20, 14)),
+  box: cg('Box', [1, 1, 1], () => new THREE.BoxGeometry(1, 1, 1)),
 };
 
 function edges(geo: THREE.BufferGeometry, color: number, k = 3): THREE.LineSegments {
-  return new THREE.LineSegments(new THREE.EdgesGeometry(geo), new THREE.LineBasicMaterial({ color: new THREE.Color(color).multiplyScalar(k), toneMapped: false }));
+  return new THREE.LineSegments(edgeGeo(geo), new THREE.LineBasicMaterial({ color: new THREE.Color(color).multiplyScalar(k), toneMapped: false }));
 }
 
 /** Volta: a slender figure in black with neon seams, silver light for hair, a tuning-fork halo and a prism gauntlet. */
@@ -76,38 +107,38 @@ export function playerModel(): Model {
   const body = new THREE.Group();
   const suit = glow(0x7fe9ff, 1.25);
   const dark = obsidian(0x05060c, 0.2, 0x2ef2ff, 2.2);
-  const torso = new THREE.Mesh(new THREE.OctahedronGeometry(1, 0), suit);
+  const torso = new THREE.Mesh(cg('Octahedron', [1, 0], () => new THREE.OctahedronGeometry(1, 0)), suit);
   torso.scale.set(0.26, 0.62, 0.2);
   torso.position.y = 1.35;
-  const hips = new THREE.Mesh(new THREE.OctahedronGeometry(1, 0), dark);
+  const hips = new THREE.Mesh(cg('Octahedron', [1, 0], () => new THREE.OctahedronGeometry(1, 0)), dark);
   hips.scale.set(0.2, 0.3, 0.16);
   hips.position.y = 0.82;
   for (const sx of [-1, 1]) {
-    const leg = new THREE.Mesh(new THREE.ConeGeometry(0.075, 0.75, 5), suit);
+    const leg = new THREE.Mesh(cg('Cone', [0.075, 0.75, 5], () => new THREE.ConeGeometry(0.075, 0.75, 5)), suit);
     leg.rotation.z = Math.PI;
     leg.position.set(sx * 0.09, 0.42, 0);
     body.add(leg);
   }
-  const seam = new THREE.Mesh(new THREE.BoxGeometry(0.03, 1.0, 0.21), glow(0xffffff, 5));
+  const seam = new THREE.Mesh(cg('Box', [0.03, 1.0, 0.21], () => new THREE.BoxGeometry(0.03, 1.0, 0.21)), glow(0xffffff, 5));
   seam.position.y = 1.25;
-  const head = new THREE.Mesh(new THREE.SphereGeometry(0.15, 16, 12), glow(0xe8f4ff, 3.2));
+  const head = new THREE.Mesh(cg('Sphere', [0.15, 16, 12], () => new THREE.SphereGeometry(0.15, 16, 12)), glow(0xe8f4ff, 3.2));
   head.position.y = 2.08;
-  const hair = new THREE.Mesh(new THREE.ConeGeometry(0.13, 0.42, 6), glow(0xffd6f4, 2.6));
+  const hair = new THREE.Mesh(cg('Cone', [0.13, 0.42, 6], () => new THREE.ConeGeometry(0.13, 0.42, 6)), glow(0xffd6f4, 2.6));
   hair.position.set(-0.04, 2.05, -0.14);
   hair.rotation.x = -1.1;
   // Halo: a thin ring standing behind the shoulders.
-  const halo = new THREE.Mesh(new THREE.TorusGeometry(0.36, 0.014, 8, 48), glow(0xffd890, 4));
+  const halo = new THREE.Mesh(cg('Torus', [0.36, 0.014, 8, 48], () => new THREE.TorusGeometry(0.36, 0.014, 8, 48)), glow(0xffd890, 4));
   halo.position.set(0, 2.02, -0.2);
   m.parts.halo = halo;
   // The gauntlet follows the aim.
   const aim = new THREE.Group();
-  const gaunt = new THREE.Mesh(new THREE.OctahedronGeometry(1, 0), glow(0xffffff, 6));
+  const gaunt = new THREE.Mesh(cg('Octahedron', [1, 0], () => new THREE.OctahedronGeometry(1, 0)), glow(0xffffff, 6));
   gaunt.scale.set(0.16, 0.1, 0.1);
   gaunt.position.set(0.45, 1.4, 0);
-  const gauntGlow = new THREE.Mesh(new THREE.OctahedronGeometry(1, 0), glow(0x2ef2ff, 3));
+  const gauntGlow = new THREE.Mesh(cg('Octahedron', [1, 0], () => new THREE.OctahedronGeometry(1, 0)), glow(0x2ef2ff, 3));
   gauntGlow.scale.set(0.26, 0.16, 0.16);
   gauntGlow.position.copy(gaunt.position);
-  const blade = new THREE.Mesh(new THREE.ConeGeometry(0.05, 0.7, 4), glow(0xbff8ff, 3));
+  const blade = new THREE.Mesh(cg('Cone', [0.05, 0.7, 4], () => new THREE.ConeGeometry(0.05, 0.7, 4)), glow(0xbff8ff, 3));
   blade.rotation.z = -Math.PI / 2;
   blade.position.set(0.95, 1.4, 0);
   aim.add(gaunt, gauntGlow, blade);
@@ -140,7 +171,7 @@ function rimmed(m: Model, color: number, tint = 0x0b0c14, rough = 0.16): THREE.M
 function crown(m: Model, r: number, y: number): void {
   const g = new THREE.Group();
   for (let i = 0; i < 5; i++) {
-    const s = new THREE.Mesh(new THREE.ConeGeometry(0.08, 0.35, 4), glow(0xffc34a, 4));
+    const s = new THREE.Mesh(cg('Cone', [0.08, 0.35, 4], () => new THREE.ConeGeometry(0.08, 0.35, 4)), glow(0xffc34a, 4));
     const a = (i / 5) * Math.PI * 2;
     s.position.set(Math.cos(a) * r * 0.55, y, Math.sin(a) * r * 0.55);
     g.add(s);
@@ -169,7 +200,7 @@ const BUILD: Record<string, (r: number, color: number) => Model> = {
     const g = new THREE.Group();
     const b = new THREE.Mesh(G.octa, rimmed(m, color));
     b.scale.set(r, r * 0.8, r);
-    const mouth = core(m, color, 4, new THREE.TorusGeometry(0.42, 0.09, 8, 24));
+    const mouth = core(m, color, 4, cg('Torus', [0.42, 0.09, 8, 24], () => new THREE.TorusGeometry(0.42, 0.09, 8, 24)));
     mouth.scale.setScalar(r);
     mouth.rotation.y = Math.PI / 2;
     mouth.position.x = r * 0.75;
@@ -190,12 +221,12 @@ const BUILD: Record<string, (r: number, color: number) => Model> = {
   spinner(r, color) {
     const m = model();
     const g = new THREE.Group();
-    const ringM = new THREE.Mesh(new THREE.TorusGeometry(r, r * 0.28, 12, 48), rimmed(m, color));
+    const ringM = new THREE.Mesh(cg('Torus', [r, r * 0.28, 12, 48], () => new THREE.TorusGeometry(r, r * 0.28, 12, 48)), rimmed(m, color));
     ringM.rotation.x = Math.PI / 2;
-    const inner = core(m, color, 4, new THREE.TorusGeometry(r * 0.62, r * 0.07, 8, 48));
+    const inner = core(m, color, 4, cg('Torus', [r * 0.62, r * 0.07, 8, 48], () => new THREE.TorusGeometry(r * 0.62, r * 0.07, 8, 48)));
     inner.rotation.x = Math.PI / 2;
     for (let i = 0; i < 6; i++) {
-      const sp = new THREE.Mesh(new THREE.ConeGeometry(r * 0.16, r * 0.7, 4), rimmed(m, color, 0x12121e));
+      const sp = new THREE.Mesh(cg('Cone', [r * 0.16, r * 0.7, 4], () => new THREE.ConeGeometry(r * 0.16, r * 0.7, 4)), rimmed(m, color, 0x12121e));
       const a = (i / 6) * Math.PI * 2;
       sp.position.set(Math.cos(a) * r * 1.3, 0, Math.sin(a) * r * 1.3);
       sp.rotation.z = -Math.PI / 2;
@@ -217,7 +248,7 @@ const BUILD: Record<string, (r: number, color: number) => Model> = {
     b.scale.set(r * 2.1, r * 0.5, r * 0.65);
     const e = edges(G.octa, color, 3);
     e.scale.set(r * 2.12, r * 0.51, r * 0.66);
-    const tip = core(m, color, 4, new THREE.ConeGeometry(r * 0.22, r * 1.1, 4));
+    const tip = core(m, color, 4, cg('Cone', [r * 0.22, r * 1.1, 4], () => new THREE.ConeGeometry(r * 0.22, r * 1.1, 4)));
     tip.rotation.z = -Math.PI / 2;
     tip.position.x = r * 1.7;
     g.add(b, e, tip);
@@ -244,16 +275,16 @@ const BUILD: Record<string, (r: number, color: number) => Model> = {
   bulwark(r, color) {
     const m = model();
     const g = new THREE.Group();
-    const b = new THREE.Mesh(new THREE.CylinderGeometry(r * 0.75, r * 0.9, r * 1.6, 6), rimmed(m, color));
+    const b = new THREE.Mesh(cg('Cylinder', [r * 0.75, r * 0.9, r * 1.6, 6], () => new THREE.CylinderGeometry(r * 0.75, r * 0.9, r * 1.6, 6)), rimmed(m, color));
     b.position.y = r * 0.8;
-    const c = core(m, color, 3, new THREE.CylinderGeometry(r * 0.3, r * 0.3, r * 1.62, 6));
+    const c = core(m, color, 3, cg('Cylinder', [r * 0.3, r * 0.3, r * 1.62, 6], () => new THREE.CylinderGeometry(r * 0.3, r * 0.3, r * 1.62, 6)));
     c.position.y = r * 0.8;
     // The shield: a curved wall in front, gold-edged.
     const sh = new THREE.Group();
-    const wall = new THREE.Mesh(new THREE.CylinderGeometry(r * 1.45, r * 1.45, r * 1.5, 24, 1, true, -1.05, 2.1), rimmed(m, color, 0x161208, 0.1));
+    const wall = new THREE.Mesh(cg('Cylinder', [r * 1.45, r * 1.45, r * 1.5, 24, 1, true, -1.05, 2.1], () => new THREE.CylinderGeometry(r * 1.45, r * 1.45, r * 1.5, 24, 1, true, -1.05, 2.1)), rimmed(m, color, 0x161208, 0.1));
     (wall.material as THREE.MeshStandardMaterial).side = THREE.DoubleSide;
     wall.position.y = r * 0.8;
-    const lip = new THREE.Mesh(new THREE.TorusGeometry(r * 1.45, 0.05, 6, 24, 2.1), glow(0xffc34a, 4));
+    const lip = new THREE.Mesh(cg('Torus', [r * 1.45, 0.05, 6, 24, 2.1], () => new THREE.TorusGeometry(r * 1.45, 0.05, 6, 24, 2.1)), glow(0xffc34a, 4));
     lip.rotation.x = Math.PI / 2;
     lip.rotation.z = -1.05;
     lip.position.y = r * 1.55;
@@ -274,9 +305,9 @@ const BUILD: Record<string, (r: number, color: number) => Model> = {
       const t = i / 12;
       pts.push(new THREE.Vector2(r * (0.35 + 0.75 * Math.pow(t, 2.2)), r * 1.6 * (1 - t)));
     }
-    const bell = new THREE.Mesh(new THREE.LatheGeometry(pts, 24), rimmed(m, color));
+    const bell = new THREE.Mesh(cg('Lathe', [pts, 24], () => new THREE.LatheGeometry(pts, 24)), rimmed(m, color));
     (bell.material as THREE.MeshStandardMaterial).side = THREE.DoubleSide;
-    const mouth = core(m, color, 4, new THREE.CircleGeometry(r * 1.05, 24));
+    const mouth = core(m, color, 4, cg('Circle', [r * 1.05, 24], () => new THREE.CircleGeometry(r * 1.05, 24)));
     mouth.rotation.x = -Math.PI / 2;
     mouth.position.y = 0.05;
     const top = core(m, color, 3, G.sphere, 'top');
@@ -293,13 +324,13 @@ const BUILD: Record<string, (r: number, color: number) => Model> = {
     const g = new THREE.Group();
     const shell = new THREE.Mesh(G.sphere, rimmed(m, color));
     shell.scale.setScalar(r);
-    const iris = core(m, color, 5, new THREE.TorusGeometry(r * 0.5, r * 0.08, 8, 32));
+    const iris = core(m, color, 5, cg('Torus', [r * 0.5, r * 0.08, 8, 32], () => new THREE.TorusGeometry(r * 0.5, r * 0.08, 8, 32)));
     iris.rotation.y = Math.PI / 2;
     iris.position.x = r * 0.86;
     const pupil = new THREE.Mesh(G.sphere, glow(0xffffff, 6));
     pupil.scale.setScalar(r * 0.22);
     pupil.position.x = r * 0.9;
-    const ringO = new THREE.Mesh(new THREE.TorusGeometry(r * 1.4, 0.03, 6, 48), glow(color, 2));
+    const ringO = new THREE.Mesh(cg('Torus', [r * 1.4, 0.03, 6, 48], () => new THREE.TorusGeometry(r * 1.4, 0.03, 6, 48)), glow(color, 2));
     ringO.rotation.x = Math.PI / 2;
     m.parts.ring = ringO;
     g.add(shell, iris, pupil, ringO);
@@ -355,7 +386,7 @@ const BUILD: Record<string, (r: number, color: number) => Model> = {
     const m = model();
     const g = new THREE.Group();
     for (let i = 0; i < 3; i++) {
-      const t = new THREE.Mesh(new THREE.TorusGeometry(r * (0.9 - i * 0.2), 0.08, 8, 32), rimmed(m, color));
+      const t = new THREE.Mesh(cg('Torus', [r * (0.9 - i * 0.2), 0.08, 8, 32], () => new THREE.TorusGeometry(r * (0.9 - i * 0.2), 0.08, 8, 32)), rimmed(m, color));
       t.rotation.x = Math.PI / 2;
       t.position.y = i * 0.4;
       g.add(t);
@@ -411,6 +442,10 @@ export function enemyModel(look: string, r: number, color: number, elite: boolea
   const m = f(r, color);
   if (elite) crown(m, r, r * 2 + 0.6);
   return m;
+}
+
+export function lookNames(): string[] {
+  return Object.keys(BUILD);
 }
 
 export function registerLook(name: string, f: (r: number, color: number) => Model): void {

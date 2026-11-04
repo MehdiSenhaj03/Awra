@@ -2,6 +2,7 @@ import type { StageRunner } from '../game/stage';
 import { RANKS, RANK_AT, type World } from '../game/world';
 import { t } from '../i18n';
 import { el } from './dom';
+import { input } from '../engine/input';
 
 const RANK_COLORS = ['#7d8aa8', '#7fb8ff', '#2ef2ff', '#40ffb0', '#ffc34a', '#ff7a2f', '#ff2fb9'];
 
@@ -30,6 +31,16 @@ export class Hud {
   private lastRank = -1;
   private lastHp = -1;
   private hintT = 0;
+  /** Last written values: the DOM is only touched when something changed. */
+  private cache: Record<string, string> = {};
+
+  private put(key: string, el: HTMLElement, value: string, prop: 'text' | 'width' | 'opacity' = 'text'): void {
+    if (this.cache[key] === value) return;
+    this.cache[key] = value;
+    if (prop === 'text') el.textContent = value;
+    else if (prop === 'width') el.style.width = value;
+    else el.style.opacity = value;
+  }
 
   constructor() {
     const tl = el('div', 'hud-tl');
@@ -64,16 +75,16 @@ export class Hud {
       for (let i = 0; i < p.maxHp; i++) this.hp.appendChild(el('i', i < p.hp ? '' : 'off'));
       this.lastHp = p.hp;
     }
-    this.hurt.style.opacity = p.hp === 1 ? String(0.35 + Math.sin(performance.now() / 180) * 0.15) : '0';
-    this.gaugeB.style.width = `${w.gauge}%`;
+    this.put('hurt', this.hurt, p.hp === 1 ? (0.35 + Math.sin(performance.now() / 180) * 0.15).toFixed(2) : '0', 'opacity');
+    this.put('gauge', this.gaugeB, `${Math.round(w.gauge)}%`, 'width');
     const full = w.gauge >= 100;
     this.gauge.classList.toggle('full', full || p.overdrive);
-    this.gaugeL.textContent = p.overdrive ? t('hud.overdriveOn') : full ? t('hud.overdriveReady') : t('hud.overdrive');
+    this.put('gaugeL', this.gaugeL, p.overdrive ? t('hud.overdriveOn') : full ? t('hud.overdriveReady', { key: input.keyName('overdrive') }) : t('hud.overdrive'));
     this.gaugeL.classList.toggle('ready', full || p.overdrive);
     this.shownScore += (w.score - this.shownScore) * 0.2;
     if (Math.abs(w.score - this.shownScore) < 1) this.shownScore = w.score;
-    this.score.textContent = Math.round(this.shownScore).toLocaleString('fr-FR');
-    this.mult.textContent = `×${w.mult}`;
+    this.put('score', this.score, Math.round(this.shownScore).toLocaleString('fr-FR'));
+    this.put('mult', this.mult, `×${w.mult}`);
     const r = w.rank;
     if (r !== this.lastRank) {
       this.rank.style.setProperty('--rc', RANK_COLORS[r]);
@@ -86,15 +97,15 @@ export class Hud {
     }
     const lo = RANK_AT[r];
     const hi = RANK_AT[r + 1] ?? 1000;
-    this.rankBar.style.width = `${Math.min(100, ((w.style - lo) / (hi - lo)) * 100)}%`;
+    this.put('rankBar', this.rankBar, `${Math.round(Math.min(100, ((w.style - lo) / (hi - lo)) * 100))}%`, 'width');
     if (run) this.wave.textContent = run.boss ? '' : `${t('hud.wave')} ${run.waveNumber} / ${run.total - (run.def.boss ? 1 : 0)}`;
     const boss = run?.boss;
     this.boss.classList.toggle('on', !!boss && !boss.dead);
     if (boss) {
       this.bossName.textContent = t(`boss.${run!.def.boss}.name`);
       const k = Math.max(0, boss.hp / boss.maxHp) * 100;
-      this.bossB.style.width = `${k}%`;
-      this.bossS.style.width = `${k}%`;
+      this.put('bossB', this.bossB, `${k.toFixed(1)}%`, 'width');
+      this.put('bossS', this.bossS, `${k.toFixed(1)}%`, 'width');
     }
     if (this.hintT > 0 && --this.hintT === 0) this.hint.style.opacity = '0';
     else if (this.hintT > 0) this.hint.style.opacity = '1';

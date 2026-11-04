@@ -52,7 +52,7 @@ export class AudioEngine {
     this.sfx.connect(this.master);
     // Reverb: a generated hall.
     this.reverb = ctx.createConvolver();
-    const len = Math.floor(ctx.sampleRate * 2.8);
+    const len = Math.floor(ctx.sampleRate * 1.8);
     const ir = ctx.createBuffer(2, len, ctx.sampleRate);
     for (let c = 0; c < 2; c++) {
       const d = ir.getChannelData(c);

@@ -118,7 +118,7 @@ export const V = {
     f.frequency.setValueAtTime(cutoff * 3, t);
     f.frequency.exponentialRampToValueAtTime(cutoff * 0.5, t + Math.min(len, 0.25));
     const fr = mtof(note);
-    for (const [type, det, gv] of [['sawtooth', 0, 0.5], ['square', -7, 0.3], ['sine', -1200, 0.6]] as const) {
+    for (const [type, det, gv] of [['sawtooth', 0, 0.6], ['sine', -1200, 0.7]] as const) {
       const osc = c.createOscillator();
       osc.type = type;
       osc.frequency.value = fr;
@@ -156,7 +156,7 @@ export const V = {
     f.frequency.linearRampToValueAtTime(bright, t + len * 0.5);
     f.Q.value = 0.7;
     for (const n of notes) {
-      for (const det of [-11, 0, 12]) {
+      for (const det of [-9, 9]) {
         const osc = c.createOscillator();
         osc.type = 'sawtooth';
         osc.frequency.value = mtof(n);
@@ -167,7 +167,7 @@ export const V = {
       }
     }
     f.connect(g);
-    env(g, t, Math.min(0.4, len * 0.3), (vol * 0.07) / Math.sqrt(notes.length), 0.5, 0.8, 0.9, len);
+    env(g, t, Math.min(0.4, len * 0.3), (vol * 0.085) / Math.sqrt(notes.length), 0.5, 0.8, 0.9, len);
     route(g, { ...o, rev: (o.rev ?? 0) + 0.6 });
   },
   /** Bright pluck for arpeggios and the hero's notes. */
@@ -230,7 +230,7 @@ export const V = {
     f.frequency.setValueAtTime(bright, t);
     f.Q.value = 2;
     const g = c.createGain();
-    for (const det of [-18, -7, 0, 7, 18]) {
+    for (const det of [-14, 0, 14]) {
       const osc = c.createOscillator();
       osc.type = 'sawtooth';
       osc.frequency.value = mtof(note);
@@ -240,7 +240,7 @@ export const V = {
       osc.stop(t + len + 0.4);
     }
     f.connect(g);
-    env(g, t, 0.01, vol * 0.05, 0.2, 0.75, 0.25, len);
+    env(g, t, 0.01, vol * 0.075, 0.2, 0.75, 0.25, len);
     route(g, o);
   },
   /** Noise sweep (risers, impacts). */

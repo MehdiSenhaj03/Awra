@@ -9,7 +9,7 @@ import type { World } from '../game/world';
 import { Backdrop } from './backdrop';
 import { Floor } from './floor';
 import { GS, Glows } from './glows';
-import { type Model, enemyModel, playerModel, setEnv } from './models';
+import { type Model, disposeModel, enemyModel, lookNames, playerModel, setEnv } from './models';
 import { Shards } from './shards';
 import { POSERS } from './bossModels';
 import { Sparks } from './sparks';
@@ -22,10 +22,18 @@ export interface SectorLook {
 }
 
 const col = new THREE.Color();
+const RGB: [number, number, number] = [0, 0, 0];
+/** Colour as linear RGB × k, written into one shared array (no allocation per bullet). */
 const rgb = (c: number, k = 1): [number, number, number] => {
   col.set(c);
-  return [col.r * k, col.g * k, col.b * k];
+  RGB[0] = col.r * k;
+  RGB[1] = col.g * k;
+  RGB[2] = col.b * k;
+  return RGB;
 };
+const HOT = new THREE.Color(8, 8, 8);
+const HOT_RIM = new THREE.Color(10, 10, 10);
+const SHIELD = new THREE.Color(0.5, 4, 2);
 
 /** Text popups (score, PERFECT) drawn by the interface at projected positions. */
 export interface Popup {
@@ -85,7 +93,14 @@ export class View {
   time = 0;
   look: SectorLook = { accent: 0x2ef2ff, accent2: 0xff2fb9, fog: 0x02030a };
   shakeScale = 1;
-  private reflScale = 0.6;
+  /** Profiling accumulators (ms). */
+  prof = { actors: 0, fx: 0, misc: 0, gpu: 0, worstGpu: 0 };
+  /** Debug switches (profiling). */
+  dbg: Record<string, boolean> = {};
+  private reflScale = 0.5;
+  quality = 2;
+  gpu = '';
+  software = false;
   private ratio = Math.min(window.devicePixelRatio, 1.5);
   flashScale = 1;
   /** Music level 0..1 (from the analyser), for reactive visuals. */
@@ -130,6 +145,15 @@ export class View {
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.renderer.toneMapping = THREE.NoToneMapping;
+    // Detect software rendering (no GPU acceleration): the game then has to run on its lightest settings.
+    try {
+      const gl = this.renderer.getContext();
+      const ext = gl.getExtension('WEBGL_debug_renderer_info');
+      this.gpu = ext ? String(gl.getParameter(ext.UNMASKED_RENDERER_WEBGL)) : '';
+      this.software = /swiftshader|llvmpipe|softpipe|software|basic render/i.test(this.gpu);
+    } catch {
+      this.software = false;
+    }
     this.camera = new THREE.PerspectiveCamera(36, 16 / 9, 0.5, 600);
     this.scene.background = new THREE.Color(0x010104);
     this.scene.add(new THREE.AmbientLight(0x30365a, 0.55));
@@ -141,7 +165,7 @@ export class View {
     this.scene.add(rim);
     this.playerLight = new THREE.PointLight(0x7ff6ff, 60, 16, 1.6);
     this.scene.add(this.playerLight);
-    for (let i = 0; i < 6; i++) {
+    for (let i = 0; i < 4; i++) {
       const l = new THREE.PointLight(0xffffff, 0, 14, 1.8);
       this.lights.push(l);
       this.scene.add(l);
@@ -152,10 +176,13 @@ export class View {
     this.scene.add(this.player.root);
     this.scene.add(this.stageGroup);
     this.scene.add(this.glows.mesh, this.sparks.points, this.shards.dark, this.shards.lit);
+    // Layer 1: drawn by the main camera only, never a second time by the floor mirror.
+    this.camera.layers.enable(1);
+    for (const o of [this.sparks.points, this.shards.dark, this.shards.lit]) o.layers.set(1);
     // Post-processing.
     this.composer = new EffectComposer(this.renderer, { frameBufferType: THREE.HalfFloatType, multisampling: 4 });
     this.composer.addPass(new RenderPass(this.scene, this.camera));
-    this.bloom = new BloomEffect({ mipmapBlur: true, luminanceThreshold: 0.55, luminanceSmoothing: 0.25, intensity: 1.45, radius: 0.78, levels: 8 });
+    this.bloom = new BloomEffect({ mipmapBlur: true, luminanceThreshold: 0.55, luminanceSmoothing: 0.25, intensity: 1.45, radius: 0.78, levels: 6 });
     for (let i = 0; i < 3; i++) {
       const s = new ShockWaveEffect(this.camera, new THREE.Vector3(), { speed: 1.6, maxRadius: 0.6, waveSize: 0.22, amplitude: 0.06 });
       this.shocks.push(s);
@@ -176,9 +203,10 @@ export class View {
 
   /** Graphics quality: 0 low, 1 medium, 2 high. */
   setQuality(q: number): void {
-    this.ratio = q >= 2 ? Math.min(window.devicePixelRatio, 1.5) : q === 1 ? 1 : 0.75;
-    this.reflScale = q >= 2 ? 0.6 : q === 1 ? 0.45 : 0.3;
+    this.ratio = q >= 2 ? Math.min(window.devicePixelRatio, 1.25) : q === 1 ? 1 : 0.75;
+    this.reflScale = q >= 2 ? 0.5 : q === 1 ? 0.35 : 0;
     this.composer.multisampling = q >= 2 ? 4 : q === 1 ? 2 : 0;
+    this.quality = q;
     this.renderer.setPixelRatio(this.ratio);
     this.resize(window.innerWidth, window.innerHeight);
   }
@@ -197,12 +225,28 @@ export class View {
     this.look = look;
     void env;
     setEnv(this.neonEnv);
+    // Free everything the previous stage put on the GPU.
+    this.stageGroup.traverse((o) => {
+      const m = o as THREE.Mesh;
+      m.geometry?.dispose();
+      (m.material as THREE.Material | undefined)?.dispose();
+    });
     this.stageGroup.clear();
-    if (this.floor) this.scene.remove(this.floor.mesh);
-    if (this.backdrop) this.scene.remove(this.backdrop.group);
-    for (const m of this.models.values()) this.scene.remove(m.root);
+    if (this.floor) {
+      this.scene.remove(this.floor.mesh);
+      this.floor.dispose();
+    }
+    if (this.backdrop) {
+      this.scene.remove(this.backdrop.group);
+      this.backdrop.dispose();
+    }
+    for (const m of this.models.values()) {
+      this.scene.remove(m.root);
+      disposeModel(m);
+    }
     this.models.clear();
     this.scene.remove(this.player.root);
+    disposeModel(this.player);
     this.player = playerModel();
     this.scene.add(this.player.root);
     const a = new THREE.Color(look.accent);
@@ -211,6 +255,7 @@ export class View {
     this.scene.add(this.floor.mesh);
     this.backdrop = new Backdrop(painting, a.clone().multiplyScalar(0.5), b.clone().multiplyScalar(0.4), this.neonEnv);
     this.scene.add(this.backdrop.group);
+    this.backdrop.group.traverse((o) => o.layers.set(1));
     this.scene.fog = new THREE.Fog(look.fog, 60, 220);
     // Pillars: obsidian columns with glowing bands.
     for (const p of w.arena.pillars) {
@@ -232,6 +277,34 @@ export class View {
     this.popups = [];
     this.camX = w.player.x;
     this.camZ = w.player.y;
+    this.prewarm();
+  }
+
+  /** Models kept alive so their shader programs are never released (and never recompiled mid-fight). */
+  private warm: THREE.Group | null = null;
+
+  /**
+   * Compiles every shader the fight can need before it starts: all foe and Conductor models, effects, the floor.
+   * A program compiled mid-fight is a visible hitch (hundreds of milliseconds on some Windows drivers).
+   */
+  private prewarm(): void {
+    if (!this.warm) {
+      this.warm = new THREE.Group();
+      for (const look of lookNames()) {
+        this.warm.add(enemyModel(look, 1, 0xff2fb9, false).root);
+        this.warm.add(enemyModel(look, 1, 0x2ef2ff, true).root);
+      }
+    }
+    // One real frame through the whole pipeline (main pass, floor mirror, post-processing), models shrunk to
+    // nothing so they are compiled but never seen.
+    this.warm.scale.setScalar(0.001);
+    this.warm.position.set(this.camX, 1, this.camZ);
+    this.camera.position.set(this.camX, 19.5, this.camZ + 11.5);
+    this.camera.lookAt(this.camX, 0, this.camZ);
+    this.scene.add(this.warm);
+    this.renderer.compile(this.scene, this.camera);
+    this.composer.render(1 / 60);
+    this.scene.remove(this.warm);
   }
 
   // ---- Events ---------------------------------------------------------------------------------------------
@@ -259,7 +332,7 @@ export class View {
 
   private popup(x: number, z: number, text: string, cls: string): void {
     this.popups.push({ x, y: 1.5, z, text, cls, t: 0 });
-    if (this.popups.length > 40) this.popups.shift();
+    if (this.popups.length > 12) this.popups.shift();
   }
 
   handle(events: Fx[], w: World): void {
@@ -368,7 +441,7 @@ export class View {
           } else this.popup(e.x, e.y, 'BIEN', 'pp-great');
           break;
         case 'score':
-          if (e.value >= 200) this.popup(e.x, e.y, `+${e.value}`, e.value >= 1000 ? 'pp-big' : 'pp-score');
+          if (e.value >= 400) this.popup(e.x, e.y, `+${e.value}`, e.value >= 1000 ? 'pp-big' : 'pp-score');
           break;
         case 'note':
           this.sparks.emit(e.x, 0.8, e.y, 4, 0xffc34a, 3, { life: 0.25, size: 0.25 });
@@ -449,13 +522,16 @@ export class View {
     this.camera.fov = 36 + this.fovKick * 3 + this.odK * 4;
     this.camera.updateProjectionMatrix();
     // Player model.
+    const T0 = performance.now();
     this.updatePlayer(w, px, pz, dt);
     // Enemies.
     this.updateEnemies(w, alpha, dt);
+    const T1 = performance.now();
     // Bullets, shots, hazards, rings.
     this.drawGlows(w, alpha, dt, px, pz);
     this.sparks.update(dt);
     this.shards.update(dt);
+    const T2 = performance.now();
     for (const l of this.lights) l.intensity *= Math.exp(-dt * 9);
     // Floor and backdrop.
     this.floor?.update(t, w.beat.beat, this.beatPulse, this.level, px, pz, this.odK);
@@ -473,7 +549,14 @@ export class View {
     this.screenFlash.style.background = `#${this.flashC.getHexString()}`;
     this.kickX *= Math.exp(-dt * 12);
     this.kickZ *= Math.exp(-dt * 12);
+    const T3 = performance.now();
     if (!skipDraw) this.composer.render(dt);
+    const T4 = performance.now();
+    this.prof.actors += T1 - T0;
+    this.prof.fx += T2 - T1;
+    this.prof.misc += T3 - T2;
+    this.prof.gpu += T4 - T3;
+    this.prof.worstGpu = Math.max(this.prof.worstGpu, T4 - T3);
   }
 
   private updatePlayer(w: World, px: number, pz: number, dt: number): void {
@@ -499,14 +582,18 @@ export class View {
     this.playerLight.intensity = 55 + this.beatPulse * 30 + this.odK * 60;
     this.playerLight.color.set(p.overdrive ? 0xffe0a0 : 0x7ff6ff);
     // Ribbon trail and dash afterimages.
-    this.trail.unshift({ x: px, z: pz, a: p.aim });
-    if (this.trail.length > 18) this.trail.pop();
+    const tp = this.trail.length >= 18 ? this.trail.pop()! : { x: 0, z: 0, a: 0 };
+    tp.x = px;
+    tp.z = pz;
+    tp.a = p.aim;
+    this.trail.unshift(tp);
     if (p.dashing && w.frame % 2 === 0) this.afterimages.push({ x: px, z: pz, t: 0, a: p.dashA });
     if (p.overdrive && w.frame % 3 === 0) this.sparks.emit(px, 1.2, pz, 2, 0xffd890, 3, { life: 0.6, up: 2, gravity: -3, size: 0.3 });
   }
 
   private updateEnemies(w: World, alpha: number, dt: number): void {
-    const seen = new Set<number>();
+    const seen = this.seen;
+    seen.clear();
     for (const e of w.enemies) {
       seen.add(e.id);
       let m = this.models.get(e.id);
@@ -520,6 +607,7 @@ export class View {
     for (const [id, m] of this.models) {
       if (!seen.has(id)) {
         this.scene.remove(m.root);
+        disposeModel(m);
         this.models.delete(id);
       }
     }
@@ -536,13 +624,13 @@ export class View {
     const k = e.flash;
     m.flash.forEach((mat, i) => {
       mat.color.copy(m.base[i]);
-      if (k > 0) mat.color.lerp(new THREE.Color(8, 8, 8), k);
-      if (e.shielded > 0) mat.color.lerp(new THREE.Color(0.5, 4, 2), 0.4);
+      if (k > 0) mat.color.lerp(HOT, k);
+      if (e.shielded > 0) mat.color.lerp(SHIELD, 0.4);
     });
     for (const r of m.rims) {
       r.u.value.copy(r.base);
-      if (k > 0) r.u.value.lerp(new THREE.Color(10, 10, 10), k);
-      if (e.shielded > 0) r.u.value.lerp(new THREE.Color(0.5, 4, 2), 0.5);
+      if (k > 0) r.u.value.lerp(HOT_RIM, k);
+      if (e.shielded > 0) r.u.value.lerp(SHIELD, 0.5);
     }
     for (const f of m.fade) {
       f.transparent = true;
@@ -586,7 +674,7 @@ export class View {
     // Enemy bullets.
     const b = w.bullets;
     const ex = (1 - alpha) / 60;
-    for (let i = 0; i < b.n; i++) {
+    for (let i = 0; i < (this.dbg.noBullets ? 0 : b.n); i++) {
       const x = b.x[i] - b.vx[i] * ex * w.k;
       const z = b.y[i] - b.vy[i] * ex * w.k;
       const [r, gg, bb] = rgb(b.color[i], b.flags[i] === 2 ? 2.5 : 2);
@@ -607,7 +695,7 @@ export class View {
     }
     // Player shots.
     const s = w.shots;
-    for (let i = 0; i < s.n; i++) {
+    for (let i = 0; i < (this.dbg.noShots ? 0 : s.n); i++) {
       const x = s.x[i] - s.vx[i] * ex;
       const z = s.y[i] - s.vy[i] * ex;
       const a = Math.atan2(s.vy[i], s.vx[i]);
@@ -654,6 +742,7 @@ export class View {
     }
     for (let i = this.flashes.length - 1; i >= 0; i--) {
       const f = this.flashes[i];
+      if (this.dbg.noFlash) continue;
       f.t += dt;
       const k = f.t / f.life;
       if (k >= 1) {
@@ -686,7 +775,7 @@ export class View {
     }
     // The hero: a ribbon of light behind, dash afterimages, pulse readiness, beat ring.
     const p = w.player;
-    if (!p.dead) {
+    if (!p.dead && !this.dbg.noHero) {
       for (let i = 1; i < this.trail.length; i++) {
         const a = this.trail[i - 1];
         const c = this.trail[i];
@@ -728,24 +817,34 @@ export class View {
       // Aim line.
       g.add(GS.Warn, px + Math.cos(p.aim) * 4, pz + Math.sin(p.aim) * 4, 0.12, p.aim, 2.6, 0.12, 0.3, 0.8, 1, 0.2);
     }
+    for (let i = 0; i < (this.dbg.pad ? 80 : 0); i++) g.add(GS.Orb, px + (i % 10) * 0.5, pz + Math.floor(i / 10) * 0.5, 0.7, 0, 0.1, 0.1, 1, 1, 1);
     g.end(this.time);
   }
 
-  /** Projects popups to screen space for the interface. */
+  private seen = new Set<number>();
+  private v3 = new THREE.Vector3();
+  private v2 = new THREE.Vector2();
+  private ray = new THREE.Raycaster();
+  private plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -0.9);
+  private projOut = { x: 0, y: 0 };
+  private pickOut = { x: 0, y: 0 };
+
+  /** Projects popups to screen space for the interface (returns a shared object: read it at once). */
   project(x: number, y: number, z: number, w: number, h: number): { x: number; y: number } {
-    const v = new THREE.Vector3(x, y, z).project(this.camera);
-    return { x: (v.x * 0.5 + 0.5) * w, y: (-v.y * 0.5 + 0.5) * h };
+    const v = this.v3.set(x, y, z).project(this.camera);
+    this.projOut.x = (v.x * 0.5 + 0.5) * w;
+    this.projOut.y = (-v.y * 0.5 + 0.5) * h;
+    return this.projOut;
   }
 
-  /** World point under a screen position (on the floor plane). */
+  /** World point under a screen position, on the floor plane (shared object: read it at once). */
   pick(sx: number, sy: number, w: number, h: number): { x: number; y: number } | null {
-    const ndc = new THREE.Vector2((sx / w) * 2 - 1, -(sy / h) * 2 + 1);
-    const ray = new THREE.Raycaster();
-    ray.setFromCamera(ndc, this.camera);
-    const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -0.9);
-    const out = new THREE.Vector3();
-    if (!ray.ray.intersectPlane(plane, out)) return null;
-    return { x: out.x, y: out.z };
+    this.v2.set((sx / w) * 2 - 1, -(sy / h) * 2 + 1);
+    this.ray.setFromCamera(this.v2, this.camera);
+    if (!this.ray.ray.intersectPlane(this.plane, this.v3)) return null;
+    this.pickOut.x = this.v3.x;
+    this.pickOut.y = this.v3.z;
+    return this.pickOut;
   }
 
   kick(x: number, z: number): void {

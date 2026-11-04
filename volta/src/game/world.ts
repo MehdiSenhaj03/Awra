@@ -70,6 +70,17 @@ export class World {
   frame = 0;
   /** Hit-stop frames (the beat keeps running). */
   freeze = 0;
+  private lastStop = -999;
+
+  /**
+   * Requests a short hit-stop. Small ones are skipped when another one happened recently, so dense fights
+   * never stutter; big moments (getting hit, a Conductor falling) always get theirs.
+   */
+  hitStop(frames: number): void {
+    if (frames < 6 && this.frame - this.lastStop < 24) return;
+    if (frames > this.freeze) this.freeze = frames;
+    this.lastStop = this.frame;
+  }
   score = 0;
   style = 0;
   rank = 0;
@@ -235,7 +246,7 @@ export class World {
       this.stats.parries += n;
       this.gain(18 + n * 6, 6 + n * 2, 80 * n, x, y);
       this.emit({ t: 'parry', x, y, n });
-      this.freeze = Math.max(this.freeze, j === 'perfect' ? 6 : 3);
+      this.hitStop(j === 'perfect' ? 4 : 2);
       this.sfx('parry', j === 'perfect' ? 1.25 : 1);
     }
     // The pulse also shoves light foes.
@@ -349,7 +360,7 @@ export class World {
     const r = Math.max(0, this.rank - 2);
     this.style = Math.min(this.style, RANK_AT[r]);
     this.updateRank();
-    this.freeze = 10;
+    this.hitStop(6);
     const a = Math.atan2(p.y - fromY, p.x - fromX);
     p.vx = Math.cos(a) * 16;
     p.vy = Math.sin(a) * 16;
@@ -362,7 +373,7 @@ export class World {
       p.dead = true;
       this.emit({ t: 'die', x: p.x, y: p.y });
       this.sfx('die');
-      this.freeze = 24;
+      this.hitStop(18);
     }
   }
 
@@ -372,8 +383,7 @@ export class World {
     this.gain(10 + e.value / 25, 2.5 + e.value / 60, e.value, e.x, e.y);
     this.emit({ t: 'kill', x: e.x, y: e.y, size: e.r, color: e.color, look: e.look, heavy: e.heavy });
     this.drop(e.x, e.y, e.notes, 'note');
-    if (e.heavy) this.freeze = Math.max(this.freeze, 5);
-    else if (this.freeze < 2) this.freeze = 2;
+    if (e.heavy) this.hitStop(3);
   }
 
   // ---- Frame --------------------------------------------------------------------------------------------
@@ -392,7 +402,9 @@ export class World {
     p.update(this, c);
     for (const e of this.enemies) e.tick(this);
     for (const h of this.hazards) h.update(this);
-    this.hazards = this.hazards.filter((h) => !h.done);
+    let n = 0;
+    for (const h of this.hazards) if (!h.done) this.hazards[n++] = h;
+    this.hazards.length = n;
     this.separate();
     this.updateShots();
     this.updateBullets();

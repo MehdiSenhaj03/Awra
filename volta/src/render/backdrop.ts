@@ -87,6 +87,14 @@ export class Backdrop {
     this.group.add(this.debris);
   }
 
+  dispose(): void {
+    this.group.traverse((o) => {
+      const m = o as THREE.Mesh;
+      m.geometry?.dispose();
+      (m.material as THREE.Material | undefined)?.dispose();
+    });
+  }
+
   update(time: number, dt: number, level: number): void {
     this.mat.uniforms.uTime.value = time;
     this.mat.uniforms.uLevel.value = level;

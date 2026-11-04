@@ -93,7 +93,11 @@ export class Floor {
           vec2 tilt = (vec2(hash(h.yz + 3.1), hash(h.yz + 7.7)) - 0.5) * 0.012;
           vec4 rc = vRefl;
           rc.xy += tilt * rc.w;
+          #ifdef NO_REFL
+          vec3 refl = vec3(0.0);
+          #else
           vec3 refl = texture2DProj(tDiffuse, rc).rgb;
+          #endif
           vec3 V = normalize(cameraPosition - vW);
           float fres = 0.07 + 0.45 * pow(1.0 - max(V.y, 0.0), 3.0);
           col += refl * fres * smoothstep(0.0, 0.08, h.x);
@@ -114,7 +118,8 @@ export class Floor {
             float d = length(vP - r.xy);
             float front = age * 18.0 * (0.6 + r.w * 0.5);
             float k = 1.0 - age;
-            float ring = exp(-pow((d - front) * 2.4, 2.0)) * k * k;
+            float q = (d - front) * 2.4;
+            float ring = exp(-q * q) * k * k;
             col += mix(uAccent, vec3(1.0), 0.3) * ring * r.w * (0.06 + line * 1.8);
           }
           // Pillar shadows and rims.
@@ -138,7 +143,15 @@ export class Floor {
         }`,
     };
     const scale = Math.min(window.devicePixelRatio, 1.5) * reflScale;
-    const refl = new Reflector(geo, { shader, textureWidth: Math.round(window.innerWidth * scale), textureHeight: Math.round(window.innerHeight * scale), clipBias: 0.003, multisample: 0 });
+    let refl: THREE.Mesh;
+    if (reflScale > 0) {
+      refl = new Reflector(geo, { shader, textureWidth: Math.round(window.innerWidth * scale), textureHeight: Math.round(window.innerHeight * scale), clipBias: 0.003, multisample: 0 });
+    } else {
+      // Low quality: no second render of the scene for the mirror.
+      const uniforms = THREE.UniformsUtils.clone(shader.uniforms as Record<string, THREE.IUniform>);
+      uniforms.textureMatrix.value = new THREE.Matrix4();
+      refl = new THREE.Mesh(geo, new THREE.ShaderMaterial({ uniforms, vertexShader: shader.vertexShader, fragmentShader: shader.fragmentShader, defines: { NO_REFL: '' } }));
+    }
     refl.rotation.x = -Math.PI / 2;
     this.mat = refl.material as THREE.ShaderMaterial;
     this.mat.transparent = true;
@@ -148,6 +161,12 @@ export class Floor {
     this.mat.uniforms.uAccent2.value = accent2;
     this.mesh = refl;
     this.mesh.renderOrder = -1;
+  }
+
+  dispose(): void {
+    (this.mesh as unknown as { dispose?: () => void }).dispose?.();
+    this.mesh.geometry.dispose();
+    this.mat.dispose();
   }
 
   ripple(x: number, y: number, strength: number, time: number): void {

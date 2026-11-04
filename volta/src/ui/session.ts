@@ -163,29 +163,43 @@ export class Session {
     this.updatePopups(dt);
   }
 
+  /** Recycled popup elements (no DOM creation during the fight). */
+  private pool: HTMLElement[] = [];
+
   private updatePopups(dt: number): void {
     const v = this.view;
     for (const p of v.popups) {
-      const e = el('div', `pp ${p.cls}`, p.text);
-      this.popLayer.appendChild(e);
+      if (this.pops.length >= 14) {
+        const old = this.pops.shift()!;
+        old.e.style.opacity = '0';
+        this.pool.push(old.e);
+      }
+      let e = this.pool.pop();
+      if (!e) {
+        e = el('div', 'pp');
+        this.popLayer.appendChild(e);
+      }
+      e.className = `pp ${p.cls}`;
+      e.textContent = p.text;
       this.pops.push({ e, t: 0, x: p.x, y: p.y, z: p.z });
     }
     v.popups.length = 0;
     const c = v.renderer.domElement;
+    const W = c.clientWidth;
+    const H = c.clientHeight;
     for (let i = this.pops.length - 1; i >= 0; i--) {
       const p = this.pops[i];
       p.t += dt;
       if (p.t > 0.8) {
-        p.e.remove();
+        p.e.style.opacity = '0';
+        this.pool.push(p.e);
         this.pops.splice(i, 1);
         continue;
       }
-      const s = v.project(p.x, p.y + p.t * 1.6, p.z, c.clientWidth, c.clientHeight);
+      const s = v.project(p.x, p.y + p.t * 1.6, p.z, W, H);
       const k = p.t < 0.08 ? 1.4 - p.t * 5 : 1;
-      p.e.style.transform = `translate(${s.x}px, ${s.y}px) translate(-50%, -50%) scale(${k})`;
-      p.e.style.left = '0';
-      p.e.style.top = '0';
-      p.e.style.opacity = String(p.t > 0.55 ? 1 - (p.t - 0.55) / 0.25 : 1);
+      p.e.style.transform = `translate(${s.x.toFixed(1)}px, ${s.y.toFixed(1)}px) translate(-50%, -50%) scale(${k.toFixed(2)})`;
+      p.e.style.opacity = (p.t > 0.55 ? 1 - (p.t - 0.55) / 0.25 : 1).toFixed(2);
     }
   }
 }

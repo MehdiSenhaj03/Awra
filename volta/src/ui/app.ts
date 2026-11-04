@@ -58,6 +58,7 @@ export class App {
     this.settings = loadSettings();
     if (this.settings.bindings) Object.assign(input.bindings, this.settings.bindings);
     setLang(this.settings.lang);
+    if (this.view.software && !this.test) this.settings.quality = 0;
     this.view.setQuality(this.settings.quality);
     const resize = () => this.view.resize(window.innerWidth, window.innerHeight);
     window.addEventListener('resize', resize);
@@ -177,6 +178,7 @@ export class App {
     ];
     if (started) items.push({ label: t('title.newGame'), action: () => this.push(new Confirm(t('title.confirmNew'), () => { this.save = newSave(); writeSave(this.save); this.pop(); this.toTitle(); }, () => this.pop())) });
     if ((window as unknown as { voltaDesktop?: { quit(): void } }).voltaDesktop) items.push({ label: t('title.quit'), action: () => (window as unknown as { voltaDesktop: { quit(): void } }).voltaDesktop.quit() });
+    if (this.view.software) setTimeout(() => this.screen instanceof Title && this.screen.root.appendChild(Object.assign(document.createElement('div'), { className: 'gpu-warn', textContent: t('options.software') })), 300);
     this.setScreen(new Title(items, () => { this.awake = true; audio.init(); audio.setVolumes(this.settings.music, this.settings.sfx); this.menuMusic(); }, this.awake));
   }
 
@@ -429,9 +431,31 @@ export class App {
 
   // ---- Loop -----------------------------------------------------------------------------------------------
 
+  /** Frame-time watch: drops one quality level when the game stays under ~45 fps for three seconds. */
+  private slow = 0;
+  private watchT = 0;
+
+  private watch(raw: number): void {
+    if (!this.session || this.overlays.length || raw > 0.25) return;
+    this.watchT += raw;
+    if (raw > 1 / 45) this.slow += raw;
+    if (this.watchT < 3) return;
+    const ratio = this.slow / this.watchT;
+    this.watchT = 0;
+    this.slow = 0;
+    if (ratio > 0.6 && this.settings.quality > 0) {
+      this.settings.quality--;
+      this.view.setQuality(this.settings.quality);
+      writeSettings(this.settings);
+      this.session.hud.showHint(t('options.autoQuality', { q: t(`options.q${this.settings.quality}`) }), 300);
+    }
+  }
+
   private loop(now: number): void {
-    const dt = Math.min(0.1, (now - (this.last || now)) / 1000);
+    const raw = (now - (this.last || now)) / 1000;
+    const dt = Math.min(0.1, raw);
     this.last = now;
+    this.watch(raw);
     this.frame(dt);
     requestAnimationFrame((tm) => this.loop(tm));
   }
@@ -479,6 +503,57 @@ export class App {
     }
     if (this.session) this.session.frame(1, DT);
     input.script = null;
+  }
+
+  /** Benchmark hook: n frames, each simulated and fully rendered, with timings and GPU counters. */
+  bench(n: number, keys: Action[] = ['fire'], aim: { x: number; y: number } | 'auto' = 'auto'): Record<string, number> {
+    const s = this.session!;
+    input.script = new Set(keys);
+    s.scriptAim = aim;
+    const info = this.view.renderer.info;
+    const mem = (performance as unknown as { memory?: { usedJSHeapSize: number } }).memory;
+    const heap0 = mem?.usedJSHeapSize ?? 0;
+    const programs0 = info.programs?.length ?? 0;
+    let sim = 0;
+    let draw = 0;
+    let worst = 0;
+    let calls = 0;
+    info.autoReset = false;
+    const prof = this.view.prof;
+    Object.assign(prof, { actors: 0, fx: 0, misc: 0, gpu: 0, worstGpu: 0 });
+    for (let i = 0; i < n; i++) {
+      info.reset();
+      const t0 = performance.now();
+      s.step();
+      const t1 = performance.now();
+      s.frame(1, DT);
+      const t2 = performance.now();
+      sim += t1 - t0;
+      draw += t2 - t1;
+      worst = Math.max(worst, t2 - t0);
+      calls += info.render.calls;
+    }
+    input.script = null;
+    info.autoReset = true;
+    return {
+      actorsMs: prof.actors / n,
+      fxMs: prof.fx / n,
+      miscMs: prof.misc / n,
+      gpuMs: prof.gpu / n,
+      worstGpu: prof.worstGpu,
+      sparks: (this.view as unknown as { sparks: { n: number } }).sparks.n,
+      simMs: sim / n,
+      drawMs: draw / n,
+      worstMs: worst,
+      calls: calls / n,
+      programs: info.programs?.length ?? 0,
+      newPrograms: (info.programs?.length ?? 0) - programs0,
+      geometries: info.memory.geometries,
+      textures: info.memory.textures,
+      heapMB: ((mem?.usedJSHeapSize ?? 0) - heap0) / 1e6,
+      enemies: s.world.enemies.length,
+      bullets: s.world.bullets.n,
+    };
   }
 
   /** Test hook: one menu frame. */
