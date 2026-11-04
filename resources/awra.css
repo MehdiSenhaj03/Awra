@@ -3360,7 +3360,7 @@ awrafilterbar {
   color: @awra_foreground;
   font-size: 1.07em;
   font-weight: 400;
-  line-height: 1.12;
+  line-height: 1.04;
 }
 
 .awra-display {
@@ -4216,4 +4216,36 @@ button.awra-role-collection-tile:not(.awra-button):focus-visible {
   min-width: 22px;
   min-height: 22px;
   padding: 5px;
+}
+
+/* A GTK list or grid whose items draw their own states: no background,
+ * padding, hover or selection of the desktop theme's around them. */
+listview.awra-role-flat-list,
+listview.awra-role-flat-list:backdrop,
+flowbox.awra-role-flat-list,
+listview.awra-role-flat-list > row,
+listview.awra-role-flat-list > row:hover,
+listview.awra-role-flat-list > row:selected,
+listview.awra-role-flat-list > row:backdrop,
+flowbox.awra-role-flat-list > flowboxchild,
+flowbox.awra-role-flat-list > flowboxchild:hover,
+flowbox.awra-role-flat-list > flowboxchild:selected {
+  min-width: 0;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  outline: 0;
+  background-color: transparent;
+  background-image: none;
+  box-shadow: none;
+  color: inherit;
+}
+
+listview.awra-role-flat-list > row:focus-visible,
+flowbox.awra-role-flat-list > flowboxchild:focus-visible {
+  outline: 2px solid @awra_focus;
+  outline-offset: -2px;
+  border-radius: 8px;
 }

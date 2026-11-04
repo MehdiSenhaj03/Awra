@@ -24,7 +24,10 @@ unchanged (checked against the frozen 1.0.0 contract).
   keeps its inner corners soft. A button holding only an icon is square
   whatever its appearance, and a search field is as tall as the buttons
   beside it. `quiet-search` gives a side panel's search the sidebar's
-  quiet look.
+  quiet look. `flat-list` takes a plain GTK list or grid, whose items
+  draw their own states, out of the desktop theme's hands. Reading's
+  leading is calibrated against Noto Sans, whose own line height is
+  already open.
 
 ### Motion and messaging components
 
