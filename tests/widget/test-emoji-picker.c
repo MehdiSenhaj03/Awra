@@ -145,7 +145,18 @@ test_sections_and_search (void)
   g_assert_cmpuint (n_rows (picker), ==, 0);
   awra_emoji_picker_add_section (picker, "smileys", "Smileys", "emoji-people-symbolic", faces);
   awra_emoji_picker_add_section (picker, "food", "Food", NULL, meals);
-  /* Nine columns by default: one row for each section. */
+  /* A picker with no size yet shows no rows, so its grid makes none. */
+  g_assert_cmpuint (n_rows (picker), ==, 0);
+  {
+    int width = 0;
+    int height = 0;
+
+    gtk_widget_measure (widget, GTK_ORIENTATION_HORIZONTAL, -1, NULL, &width, NULL, NULL);
+    gtk_widget_measure (widget, GTK_ORIENTATION_VERTICAL, width, NULL, &height, NULL, NULL);
+    /* Nine columns at its natural width. */
+    gtk_widget_size_allocate (widget, &(GtkAllocation) { 0, 0, width, height }, -1);
+  }
+  /* One row for each section. */
   g_assert_cmpuint (n_rows (picker), ==, 2);
   awra_emoji_picker_set_recent (picker, recent);
   g_assert_cmpuint (n_rows (picker), ==, 3);

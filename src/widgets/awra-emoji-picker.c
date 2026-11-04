@@ -210,6 +210,10 @@ struct _AwraEmojiPicker {
   /* The list anchors its first row at the top, which hides the title of the
    * first section: at the top, the view returns to 0 after the next layout. */
   gboolean show_top;
+  /* The rows are published to the grid only once the picker has a size:
+   * a list view that has none makes rows for its first two hundred items,
+   * so a picker filled but never opened held thousands of cells. */
+  gboolean laid_out;
 };
 
 enum {
@@ -493,7 +497,7 @@ set_cursor (AwraEmojiPicker *self,
   g_set_object (&self->cursor, item);
   mark_cells (self);
   update_preview (self);
-  if (reveal && locate (self, item, &section_index, &index)) {
+  if (reveal && self->rows->n_rows > 0 && locate (self, item, &section_index, &index)) {
     Section *section = g_ptr_array_index (self->sections, section_index);
 
     gtk_list_view_scroll_to (self->grid, section->first_row + index / self->rows->columns,
@@ -842,7 +846,7 @@ relayout (AwraEmojiPicker *self)
     total += section->visible->len;
     gtk_widget_set_visible (section->tab, section->visible->len > 0);
   }
-  self->rows->n_rows = rows;
+  self->rows->n_rows = self->laid_out ? rows : 0;
   gtk_widget_set_visible (self->empty, total == 0 && self->sections->len > 0 &&
                                          self->query != NULL && *self->query != '\0');
   g_list_model_items_changed (G_LIST_MODEL (self->rows), 0, old, rows);
@@ -973,8 +977,9 @@ awra_emoji_picker_size_allocate (GtkWidget *widget,
 
   (void) baseline;
   /* Before the list is laid out: the rows depend on the columns. */
-  if (columns != self->rows->columns) {
+  if (columns != self->rows->columns || !self->laid_out) {
     self->rows->columns = columns;
+    self->laid_out = TRUE;
     relayout (self);
   }
   gtk_widget_measure (self->header, GTK_ORIENTATION_VERTICAL, width, NULL, &header, NULL, NULL);
@@ -989,6 +994,17 @@ awra_emoji_picker_size_allocate (GtkWidget *widget,
     gtk_adjustment_set_value (gtk_scrolled_window_get_vadjustment (self->scroller), 0);
   }
   scrolled_cb (gtk_scrolled_window_get_vadjustment (self->scroller), self);
+}
+
+/* A closed picker lets its rows go; it makes the few it shows when it opens. */
+static void
+awra_emoji_picker_unmap (GtkWidget *widget)
+{
+  AwraEmojiPicker *self = AWRA_EMOJI_PICKER (widget);
+
+  GTK_WIDGET_CLASS (awra_emoji_picker_parent_class)->unmap (widget);
+  self->laid_out = FALSE;
+  relayout (self);
 }
 
 static gboolean
@@ -1043,6 +1059,7 @@ awra_emoji_picker_class_init (AwraEmojiPickerClass *klass)
   object_class->finalize = awra_emoji_picker_finalize;
   widget_class->measure = awra_emoji_picker_measure;
   widget_class->size_allocate = awra_emoji_picker_size_allocate;
+  widget_class->unmap = awra_emoji_picker_unmap;
   widget_class->grab_focus = awra_emoji_picker_grab_focus;
 
   /**

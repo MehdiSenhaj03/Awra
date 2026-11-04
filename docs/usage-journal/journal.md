@@ -1048,3 +1048,18 @@ Autres manques rencontrés en portant les réglages et les listes :
   GTK, donc le texte replié était trop court et la page ne défilait pas
   jusqu’au bout) ; un `AwraSlider` sous le pointeur volait la molette à la page
   qui défilait. Il ne la prend plus que s’il a le focus.
+
+## 2026-11-04 — Yapfast — Un sélecteur jamais ouvert pesait 25 Mo
+
+En mesurant Yapfast (un profileur d’allocations en `LD_PRELOAD`, qui range les
+allocations vivantes par pile d’appel), 25 Mo du tas venaient de
+`row_setup_cb` du sélecteur d’emoji. Yapfast remplit ses deux sélecteurs (le
+champ principal et celui du fil) dès le départ, sans jamais les ouvrir. Une
+`GtkListView` qui n’a pas encore de taille fabrique les rangées de ses deux
+cents premiers éléments ; chaque rangée a seize cellules. Le sélecteur ne
+publie donc ses rangées qu’après sa première allocation, et les rend à sa
+fermeture. Mémoire anonyme de Yapfast au démarrage : 90 → 39 Mio.
+
+Leçon générale : une liste virtualisée dans un popover fermé n’est pas
+gratuite. Tout composant Awra à base de `GtkListView` caché devrait faire de
+même.

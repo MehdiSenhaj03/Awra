@@ -158,6 +158,11 @@ unchanged (checked against the frozen 1.0.0 contract).
 
 ### Framework updates
 
+- `AwraEmojiPicker` makes its rows only once it has a size, and lets them go
+  when it closes: a `GtkListView` with no size makes rows for its first two
+  hundred items, so a filled picker that was never opened held thousands of
+  cells. Yapfast, with two such pickers, went from 90 to 39 MiB of anonymous
+  memory at start.
 - `AwraPage` measures its content for the width it gets: wrapped text had
   the height of fewer lines than it took, and the page couldn't scroll to its
   end.
