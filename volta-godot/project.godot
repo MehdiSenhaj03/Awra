@@ -1,0 +1,42 @@
+; Engine configuration file.
+config_version=5
+
+[application]
+
+config/name="VOLTA"
+config/description="Break the Silence."
+run/main_scene="res://src/main.tscn"
+config/features=PackedStringArray("4.4", "Forward Plus")
+config/icon="res://assets/icon.png"
+run/max_fps=0
+
+[display]
+
+window/size/viewport_width=1920
+window/size/viewport_height=1080
+window/size/mode=3
+window/stretch/mode="canvas_items"
+window/stretch/aspect="expand"
+window/vsync/vsync_mode=1
+
+[physics]
+
+common/physics_ticks_per_second=60
+common/max_physics_steps_per_frame=5
+common/physics_jitter_fix=0.0
+
+[rendering]
+
+renderer/rendering_method="forward_plus"
+anti_aliasing/quality/msaa_3d=2
+anti_aliasing/quality/screen_space_aa=0
+environment/defaults/default_clear_color=Color(0, 0, 0, 1)
+textures/vram_compression/import_etc2_astc=false
+shading/overrides/force_vertex_shading=false
+lights_and_shadows/positional_shadow/atlas_size=0
+global_illumination/sdfgi/probe_ray_count=0
+
+[audio]
+
+driver/mix_rate=48000
+general/default_playback_type.web=0
