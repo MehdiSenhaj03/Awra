@@ -17,7 +17,7 @@ G_DECLARE_FINAL_TYPE (AwraColorPalette, awra_color_palette, AWRA, COLOR_PALETTE,
  * end with a swatch that opens the system's colour chooser for any colour
  * (#AwraColorPalette:allows-custom).
  *
- * Returns: (transfer full): a new colour palette
+ * Returns: a new colour palette
  *
  * Since: 1.1
  */

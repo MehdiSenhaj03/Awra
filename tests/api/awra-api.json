@@ -4571,7 +4571,7 @@
             },
             {
               "attributes": {
-                "transfer-ownership": "full"
+                "transfer-ownership": "none"
               },
               "children": [
                 {
@@ -4984,7 +4984,7 @@
             },
             {
               "attributes": {
-                "transfer-ownership": "full"
+                "transfer-ownership": "none"
               },
               "children": [
                 {
@@ -8034,7 +8034,7 @@
           "children": [
             {
               "attributes": {
-                "transfer-ownership": "full"
+                "transfer-ownership": "none"
               },
               "children": [
                 {

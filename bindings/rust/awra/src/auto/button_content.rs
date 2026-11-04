@@ -39,7 +39,7 @@ impl ButtonContent {
     pub fn new(icon_name: Option<&str>, label: Option<&str>) -> ButtonContent {
         assert_initialized_main_thread!();
         unsafe {
-            gtk::Widget::from_glib_full(ffi::awra_button_content_new(
+            gtk::Widget::from_glib_none(ffi::awra_button_content_new(
                 icon_name.to_glib_none().0,
                 label.to_glib_none().0,
             ))

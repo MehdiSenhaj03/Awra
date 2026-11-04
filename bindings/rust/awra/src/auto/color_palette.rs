@@ -39,7 +39,7 @@ impl ColorPalette {
     #[doc(alias = "awra_color_palette_new")]
     pub fn new() -> ColorPalette {
         assert_initialized_main_thread!();
-        unsafe { gtk::Widget::from_glib_full(ffi::awra_color_palette_new()).unsafe_cast() }
+        unsafe { gtk::Widget::from_glib_none(ffi::awra_color_palette_new()).unsafe_cast() }
     }
 
     // rustdoc-stripper-ignore-next

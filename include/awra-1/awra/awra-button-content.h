@@ -17,7 +17,7 @@ G_DECLARE_FINAL_TYPE (AwraButtonContent, awra_button_content, AWRA, BUTTON_CONTE
  * #AwraButton's or #AwraToggleButton's child, or use
  * awra_button_new_with_icon_and_label().
  *
- * Returns: (transfer full): a new button content
+ * Returns: a new button content
  *
  * Since: 1.1
  */

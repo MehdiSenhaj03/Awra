@@ -23,7 +23,7 @@ void       awra_button_set_appearance (AwraButton           *self,
  * Makes a button showing an icon, then a label, through an
  * #AwraButtonContent child.
  *
- * Returns: (transfer full): a new Awra button
+ * Returns: a new Awra button
  *
  * Since: 1.1
  */

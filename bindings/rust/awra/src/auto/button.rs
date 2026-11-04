@@ -58,7 +58,7 @@ impl Button {
     pub fn with_icon_and_label(icon_name: &str, label: &str) -> Button {
         assert_initialized_main_thread!();
         unsafe {
-            gtk::Widget::from_glib_full(ffi::awra_button_new_with_icon_and_label(
+            gtk::Widget::from_glib_none(ffi::awra_button_new_with_icon_and_label(
                 icon_name.to_glib_none().0,
                 label.to_glib_none().0,
             ))
