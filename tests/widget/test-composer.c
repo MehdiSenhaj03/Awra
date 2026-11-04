@@ -163,6 +163,21 @@ height_of (GtkWidget *widget)
   return gtk_widget_get_height (widget);
 }
 
+/* The height once fonts and styles have settled and nothing moves. */
+static int
+settled_height (GtkWidget *widget)
+{
+  int height = -1;
+
+  for (guint i = 0; i < 30; i++) {
+    run (100);
+    if (height_of (widget) == height)
+      break;
+    height = height_of (widget);
+  }
+  return height_of (widget);
+}
+
 static void
 test_growth (void)
 {
@@ -183,8 +198,7 @@ test_growth (void)
   gtk_window_set_child (GTK_WINDOW (window), box);
   gtk_window_set_default_size (GTK_WINDOW (window), 360, 600);
   gtk_window_present (GTK_WINDOW (window));
-  run (200);
-  one_line = height_of (widget);
+  one_line = settled_height (widget);
   g_assert_cmpint (one_line, >, 0);
 
   awra_composer_set_text (composer, "one\ntwo\nthree");
@@ -207,8 +221,7 @@ test_growth (void)
   g_assert_cmpint (capped, <, three_lines + (three_lines - one_line));
 
   awra_composer_set_text (composer, NULL);
-  run (500);
-  g_assert_cmpint (height_of (widget), ==, one_line);
+  g_assert_cmpint (settled_height (widget), ==, one_line);
 
   /* Destroyed in the middle of a glide and a reveal. */
   awra_composer_set_busy (composer, TRUE);
