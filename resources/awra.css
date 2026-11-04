@@ -2680,6 +2680,24 @@ awraconversationview > scrolledwindow > awraconversationport > listview.awra-con
   background-color: alpha(@awra_foreground, .035);
 }
 
+/* When a row also carries what comes before its entry, such as a date or
+ * the start of the conversation, only the entry answers the pointer. */
+awraconversationview.awra-role-entry-hover > scrolledwindow > awraconversationport > listview.awra-conversation-list > row:hover {
+  background-color: transparent;
+}
+
+awraconversationview .awra-role-conversation-entry {
+  transition: background-color 90ms ease-out;
+}
+
+awraconversationview .awra-role-conversation-entry:hover {
+  background-color: alpha(@awra_foreground, .035);
+}
+
+.awra-reduced-motion awraconversationview .awra-role-conversation-entry {
+  transition: none;
+}
+
 awraconversationview > scrolledwindow > awraconversationport > listview.awra-conversation-list > row:selected {
   background-color: transparent;
 }

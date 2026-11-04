@@ -67,6 +67,7 @@ preferences as the rest of Awra.
 | `active-tabs` | AwraTabView | Marks the focused view when several views each have their tabs |
 | `view-switcher` | GtkBox containing AwraToggleButton | Compact, observable view selection |
 | `floating-selection` | AwraSelectionToolbar | Selection actions over content without moving it |
+| `entry-hover` / `conversation-entry` | AwraConversationView / the entry inside its row | Rows that also carry a date or a heading tint only their entry on hover |
 | `inline-edit` | AwraEntry replacing text in a row | Edit in place at the height of the text |
 | `inline-action` | Any GtkButton inside a row or content | Quiet action, transparent at rest; Awra owns its look, so the desktop theme does not draw a button around it |
 | `usage-meter` | AwraProgressBar under a row | Thin capacity gauge; `awra-usage-low` turns it red |
