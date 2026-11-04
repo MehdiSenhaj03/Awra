@@ -37,7 +37,6 @@ generate = [
   "Awra.CardAppearance",
   "Awra.Chip",
   "Awra.ChipAppearance",
-  "Awra.ColorPalette",
   "Awra.CheckButton",
   "Awra.ChoiceGroup",
   "Awra.CommandPalette",
@@ -233,3 +232,12 @@ status = "generate"
     [[object.function]]
     name = "export_report"
     ignore = true
+
+[[object]]
+name = "Awra.ColorPalette"
+status = "generate"
+    [[object.signal]]
+    name = "chosen"
+        [[object.signal.parameter]]
+        name = "object"
+        nullable = true

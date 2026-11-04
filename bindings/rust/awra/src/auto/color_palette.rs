@@ -183,15 +183,25 @@ impl ColorPalette {
     }
 
     #[doc(alias = "chosen")]
-    pub fn connect_chosen<F: Fn(&Self, &gdk::RGBA) + 'static>(&self, f: F) -> SignalHandlerId {
-        unsafe extern "C" fn chosen_trampoline<F: Fn(&ColorPalette, &gdk::RGBA) + 'static>(
+    pub fn connect_chosen<F: Fn(&Self, Option<&gdk::RGBA>) + 'static>(
+        &self,
+        f: F,
+    ) -> SignalHandlerId {
+        unsafe extern "C" fn chosen_trampoline<
+            F: Fn(&ColorPalette, Option<&gdk::RGBA>) + 'static,
+        >(
             this: *mut ffi::AwraColorPalette,
             object: *mut gdk::ffi::GdkRGBA,
             f: glib::ffi::gpointer,
         ) {
             unsafe {
                 let f: &F = &*(f as *const F);
-                f(&from_glib_borrow(this), &from_glib_borrow(object))
+                f(
+                    &from_glib_borrow(this),
+                    Option::<gdk::RGBA>::from_glib_borrow(object)
+                        .as_ref()
+                        .as_ref(),
+                )
             }
         }
         unsafe {
