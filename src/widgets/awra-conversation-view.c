@@ -934,6 +934,11 @@ frame_layout_cb (GdkFrameClock        *clock,
   (void) clock;
   if (self->align_position != GTK_INVALID_LIST_POSITION) {
     apply_alignment (self);
+    /* An item shown at the end, such as the first unread when all of them
+     * fit, leaves the view at the newest: what arrives next follows. */
+    if (self->align_position == GTK_INVALID_LIST_POSITION && !self->follow &&
+        distance_to_end (self) <= AT_BOTTOM_SLACK)
+      set_follow_internal (self, TRUE);
   } else if (self->user_moved) {
     /* Scrolling away stops following; reaching the end resumes it. */
     set_follow_internal (self, distance <= AT_BOTTOM_SLACK);
