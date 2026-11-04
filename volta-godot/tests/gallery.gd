@@ -9,7 +9,7 @@ func _ready() -> void:
 	add_child(view)
 	var w := World.new({"shape": "rect", "w": 30, "h": 20, "pillars": []}, 128.0, 1)
 	view.set_stage(w, 0x2ef2ff, 0xff2fb9, 0x02040c, null)
-	view.set_quality(2)
+	view.set_quality(0 if OS.get_environment("NOREFL") != "" else 2)
 	var looks: Array = Models.LOOKS
 	var i := 0
 	for look: String in looks:

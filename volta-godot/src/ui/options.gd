@@ -31,8 +31,9 @@ func _init(st: Dictionary, on_back: Callable, on_change: Callable) -> void:
 
 func _relayout() -> void:
 	_panel.reset_size()
-	await get_tree().process_frame
-	_panel.position = (Vector2(Kit.W, Kit.H) - _panel.size) / 2
+
+func _process(_dt: float) -> void:
+	_panel.position = ((Vector2(Kit.W, Kit.H) - _panel.size) / 2).round()
 
 func _clear() -> void:
 	for c in _body.get_children():

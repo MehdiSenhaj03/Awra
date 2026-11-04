@@ -44,6 +44,7 @@ var _playing := false
 var _cut := 20000.0
 var _cut_target := 20000.0
 var _cut_speed := 0.3
+var _stop_tw: Tween
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
@@ -209,6 +210,8 @@ func start(th: String, b: float) -> void:
 	_master_gain = 1.0
 
 func _load_stems() -> void:
+	if _stop_tw and _stop_tw.is_valid():
+		_stop_tw.kill()
 	_names = _stem_names(theme, bpm)
 	for i in 5:
 		var p := _players[i]
@@ -227,7 +230,10 @@ func _load_stems() -> void:
 
 func stop(fade: float = 0.6) -> void:
 	theme = ""
+	if _stop_tw and _stop_tw.is_valid():
+		_stop_tw.kill()
 	var tw := create_tween()
+	_stop_tw = tw
 	for p in _players:
 		if p.playing:
 			tw.parallel().tween_property(p, "volume_db", -60.0, fade)

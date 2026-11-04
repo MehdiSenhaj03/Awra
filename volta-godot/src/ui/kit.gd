@@ -41,8 +41,9 @@ static func _file(fam: String, w: int) -> FontFile:
 		var base: String = FILES[fam]
 		f = load("res://assets/fonts/%s-latin-%d-normal.woff2" % [base, w])
 		var ext: FontFile = load("res://assets/fonts/%s-latin-ext-%d-normal.woff2" % [base, w])
-		if ext:
-			f.fallbacks = [ext]
+		var sym := SystemFont.new()
+		sym.font_names = PackedStringArray(["Segoe UI Symbol", "Noto Sans Symbols 2", "Noto Sans Symbols", "DejaVu Sans", "Symbola", "Arial Unicode MS"])
+		f.fallbacks = [ext, sym] if ext else [sym]
 		_fonts[key] = f
 	return f
 

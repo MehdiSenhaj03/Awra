@@ -177,15 +177,15 @@ func _build_environment() -> void:
 	env.ambient_light_color = Color(0x30365aff)
 	env.ambient_light_energy = 0.55
 	env.tonemap_mode = Environment.TONE_MAPPER_AGX
-	env.tonemap_exposure = 1.0
+	env.tonemap_exposure = 0.8
 	env.glow_enabled = true
 	env.glow_normalized = false
 	for i in 7:
 		env.set_glow_level(i, [0.0, 1.0, 1.0, 1.0, 0.8, 0.6, 0.4][i])
-	env.glow_intensity = 0.38
+	env.glow_intensity = 0.3
 	env.glow_strength = 1.0
 	env.glow_bloom = 0.0
-	env.glow_hdr_threshold = 0.75
+	env.glow_hdr_threshold = 0.9
 	env.glow_hdr_scale = 2.0
 	env.glow_blend_mode = Environment.GLOW_BLEND_MODE_ADDITIVE
 	env.adjustment_enabled = true
@@ -680,7 +680,7 @@ func render(w: World, alpha: float, dt: float) -> void:
 	_update_debris(t, dt)
 	# Screen.
 	_chroma_k *= exp(-dt * 4.0)
-	env.glow_intensity = 0.38 + _beat_pulse * 0.07 + _od_k * 0.17
+	env.glow_intensity = 0.3 + _beat_pulse * 0.06 + _od_k * 0.14
 	env.adjustment_saturation = 1.12 + _od_k * 0.15
 	env.adjustment_brightness = 1.0 + _od_k * 0.04
 	_flash_k *= exp(-dt * 10.0)

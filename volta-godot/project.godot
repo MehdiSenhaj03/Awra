@@ -48,5 +48,7 @@ Sound="*res://src/audio/sound.gd"
 [importer_defaults]
 
 texture={
+"compress/lossy_quality": 0.85,
+"compress/mode": 1,
 "mipmaps/generate": true
 }

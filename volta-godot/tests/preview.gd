@@ -11,17 +11,21 @@ var shots: Array = []
 var prefix := "/tmp/shot"
 var total := 8.0
 var t := 0.0
+var fast := 1
+var hud: Hud
 
 func _ready() -> void:
 	var args := OS.get_cmdline_user_args()
 	var id: String = args[0] if args.size() > 0 else "s1_1"
 	total = float(args[1]) if args.size() > 1 else 8.0
 	prefix = args[2] if args.size() > 2 else "/tmp/shot"
+	fast = int(args[3]) if args.size() > 3 else 1
+	var cp := int(args[4]) if args.size() > 4 else 0
 	var d := Stages.get_def(id)
 	w = World.new(d.arena, d.bpm, 3)
 	w.god = true
 	w.player.y = 4.0
-	run = StageRunner.new(w, d)
+	run = StageRunner.new(w, d, cp)
 	view = View.new()
 	add_child(view)
 	var layer := CanvasLayer.new()
@@ -34,6 +38,11 @@ func _ready() -> void:
 	layer.add_child(rect)
 	add_child(layer)
 	view.set_post(pm)
+	var hl := CanvasLayer.new()
+	hl.layer = 1
+	add_child(hl)
+	hud = Hud.new()
+	hl.add_child(hud)
 	var sector: int = d.get("sector", 1)
 	var looks := {1: [0x2ef2ff, 0xff2fb9, 0x02040c, "bg_seuil"], 2: [0x40ffb0, 0x2ef2ff, 0x020a08, "bg_jardin"], 3: [0xffa040, 0xff2fb9, 0x0a0402, "bg_fonderie"], 4: [0xc8d4ff, 0x9b5cff, 0x050510, "bg_ocean"], 5: [0xff2fb9, 0x9b5cff, 0x0a0210, "bg_ville"], 6: [0xffffff, 0xffc34a, 0x050505, "bg_coeur"]}
 	var lk: Array = looks.get(sector, looks[1])
@@ -43,16 +52,19 @@ func _ready() -> void:
 		shots.append(total * (i + 1) / 4.0)
 
 func _process(dt: float) -> void:
-	dt = 1.0 / 60.0
+	dt = fast / 60.0
 	t += dt
 	var t0 := Time.get_ticks_usec()
-	if w.over == "":
-		w.update(Bot.controls(w))
-		run.update()
-	view.handle(w.events, w)
-	w.events.clear()
+	for k in fast:
+		if w.over == "":
+			w.update(Bot.controls(w))
+			run.update()
+		view.handle(w.events, w)
+		w.events.clear()
 	var t1 := Time.get_ticks_usec()
 	view.render(w, 1.0, dt)
+	hud.update_hud(w, run, dt)
+	hud.update_popups(view, dt)
 	var t2 := Time.get_ticks_usec()
 	frames += 1
 	if frames % 60 == 0:
