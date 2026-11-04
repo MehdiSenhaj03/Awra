@@ -15,3 +15,7 @@ src/widgets/awra-volume-control.c
 src/widgets/awra-media-row.c
 src/widgets/awra-drop-zone.c
 src/widgets/awra-timeline.c
+src/widgets/awra-conversation-view.c
+src/widgets/awra-composer.c
+src/overlays/awra-completion-popover.c
+src/widgets/awra-emoji-picker.c

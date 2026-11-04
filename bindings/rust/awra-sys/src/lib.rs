@@ -76,11 +76,25 @@ pub type AwraChipAppearance = c_int;
 pub const AWRA_CHIP_APPEARANCE_NEUTRAL: AwraChipAppearance = 0;
 pub const AWRA_CHIP_APPEARANCE_ACCENT: AwraChipAppearance = 1;
 
+pub type AwraConversationAlign = c_int;
+pub const AWRA_CONVERSATION_ALIGN_TOP: AwraConversationAlign = 0;
+pub const AWRA_CONVERSATION_ALIGN_CENTER: AwraConversationAlign = 1;
+pub const AWRA_CONVERSATION_ALIGN_END: AwraConversationAlign = 2;
+
 pub type AwraDataViewState = c_int;
 pub const AWRA_DATA_VIEW_STATE_CONTENT: AwraDataViewState = 0;
 pub const AWRA_DATA_VIEW_STATE_EMPTY: AwraDataViewState = 1;
 pub const AWRA_DATA_VIEW_STATE_LOADING: AwraDataViewState = 2;
 pub const AWRA_DATA_VIEW_STATE_ERROR: AwraDataViewState = 3;
+
+pub type AwraDividerAppearance = c_int;
+pub const AWRA_DIVIDER_APPEARANCE_NEUTRAL: AwraDividerAppearance = 0;
+pub const AWRA_DIVIDER_APPEARANCE_ACCENT: AwraDividerAppearance = 1;
+pub const AWRA_DIVIDER_APPEARANCE_DANGER: AwraDividerAppearance = 2;
+
+pub type AwraDividerLabelPosition = c_int;
+pub const AWRA_DIVIDER_LABEL_POSITION_CENTER: AwraDividerLabelPosition = 0;
+pub const AWRA_DIVIDER_LABEL_POSITION_END: AwraDividerLabelPosition = 1;
 
 pub type AwraEasing = c_int;
 pub const AWRA_EASING_LINEAR: AwraEasing = 0;
@@ -447,6 +461,34 @@ impl ::std::fmt::Debug for AwraCommandPaletteClass {
 
 #[derive(Copy, Clone)]
 #[repr(C)]
+pub struct AwraCompletionPopoverClass {
+    pub parent_class: gtk::GtkPopoverClass,
+}
+
+impl ::std::fmt::Debug for AwraCompletionPopoverClass {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        f.debug_struct(&format!("AwraCompletionPopoverClass @ {self:p}"))
+            .field("parent_class", &self.parent_class)
+            .finish()
+    }
+}
+
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub struct AwraComposerClass {
+    pub parent_class: gtk::GtkWidgetClass,
+}
+
+impl ::std::fmt::Debug for AwraComposerClass {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        f.debug_struct(&format!("AwraComposerClass @ {self:p}"))
+            .field("parent_class", &self.parent_class)
+            .finish()
+    }
+}
+
+#[derive(Copy, Clone)]
+#[repr(C)]
 pub struct AwraContextClass {
     pub parent_class: gobject::GObjectClass,
 }
@@ -454,6 +496,20 @@ pub struct AwraContextClass {
 impl ::std::fmt::Debug for AwraContextClass {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
         f.debug_struct(&format!("AwraContextClass @ {self:p}"))
+            .field("parent_class", &self.parent_class)
+            .finish()
+    }
+}
+
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub struct AwraConversationViewClass {
+    pub parent_class: gtk::GtkWidgetClass,
+}
+
+impl ::std::fmt::Debug for AwraConversationViewClass {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        f.debug_struct(&format!("AwraConversationViewClass @ {self:p}"))
             .field("parent_class", &self.parent_class)
             .finish()
     }
@@ -531,6 +587,20 @@ impl ::std::fmt::Debug for AwraDialogClass {
 
 #[derive(Copy, Clone)]
 #[repr(C)]
+pub struct AwraDividerClass {
+    pub parent_class: gtk::GtkWidgetClass,
+}
+
+impl ::std::fmt::Debug for AwraDividerClass {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        f.debug_struct(&format!("AwraDividerClass @ {self:p}"))
+            .field("parent_class", &self.parent_class)
+            .finish()
+    }
+}
+
+#[derive(Copy, Clone)]
+#[repr(C)]
 pub struct AwraDragPreviewClass {
     pub parent_class: gtk::GtkWidgetClass,
 }
@@ -580,6 +650,34 @@ pub struct AwraEdgePanelClass {
 impl ::std::fmt::Debug for AwraEdgePanelClass {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
         f.debug_struct(&format!("AwraEdgePanelClass @ {self:p}"))
+            .field("parent_class", &self.parent_class)
+            .finish()
+    }
+}
+
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub struct AwraEmojiItemClass {
+    pub parent_class: gobject::GObjectClass,
+}
+
+impl ::std::fmt::Debug for AwraEmojiItemClass {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        f.debug_struct(&format!("AwraEmojiItemClass @ {self:p}"))
+            .field("parent_class", &self.parent_class)
+            .finish()
+    }
+}
+
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub struct AwraEmojiPickerClass {
+    pub parent_class: gtk::GtkWidgetClass,
+}
+
+impl ::std::fmt::Debug for AwraEmojiPickerClass {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        f.debug_struct(&format!("AwraEmojiPickerClass @ {self:p}"))
             .field("parent_class", &self.parent_class)
             .finish()
     }
@@ -1760,6 +1858,33 @@ impl ::std::fmt::Debug for AwraCommandPalette {
 
 #[repr(C)]
 #[allow(dead_code)]
+pub struct AwraCompletionPopover {
+    _data: [u8; 0],
+    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
+}
+
+impl ::std::fmt::Debug for AwraCompletionPopover {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        f.debug_struct(&format!("AwraCompletionPopover @ {self:p}"))
+            .finish()
+    }
+}
+
+#[repr(C)]
+#[allow(dead_code)]
+pub struct AwraComposer {
+    _data: [u8; 0],
+    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
+}
+
+impl ::std::fmt::Debug for AwraComposer {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        f.debug_struct(&format!("AwraComposer @ {self:p}")).finish()
+    }
+}
+
+#[repr(C)]
+#[allow(dead_code)]
 pub struct AwraContext {
     _data: [u8; 0],
     _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
@@ -1768,6 +1893,20 @@ pub struct AwraContext {
 impl ::std::fmt::Debug for AwraContext {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
         f.debug_struct(&format!("AwraContext @ {self:p}")).finish()
+    }
+}
+
+#[repr(C)]
+#[allow(dead_code)]
+pub struct AwraConversationView {
+    _data: [u8; 0],
+    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
+}
+
+impl ::std::fmt::Debug for AwraConversationView {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        f.debug_struct(&format!("AwraConversationView @ {self:p}"))
+            .finish()
     }
 }
 
@@ -1841,6 +1980,19 @@ impl ::std::fmt::Debug for AwraDialog {
 
 #[repr(C)]
 #[allow(dead_code)]
+pub struct AwraDivider {
+    _data: [u8; 0],
+    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
+}
+
+impl ::std::fmt::Debug for AwraDivider {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        f.debug_struct(&format!("AwraDivider @ {self:p}")).finish()
+    }
+}
+
+#[repr(C)]
+#[allow(dead_code)]
 pub struct AwraDragPreview {
     _data: [u8; 0],
     _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
@@ -1889,6 +2041,34 @@ pub struct AwraEdgePanel {
 impl ::std::fmt::Debug for AwraEdgePanel {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
         f.debug_struct(&format!("AwraEdgePanel @ {self:p}"))
+            .finish()
+    }
+}
+
+#[repr(C)]
+#[allow(dead_code)]
+pub struct AwraEmojiItem {
+    _data: [u8; 0],
+    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
+}
+
+impl ::std::fmt::Debug for AwraEmojiItem {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        f.debug_struct(&format!("AwraEmojiItem @ {self:p}"))
+            .finish()
+    }
+}
+
+#[repr(C)]
+#[allow(dead_code)]
+pub struct AwraEmojiPicker {
+    _data: [u8; 0],
+    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
+}
+
+impl ::std::fmt::Debug for AwraEmojiPicker {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        f.debug_struct(&format!("AwraEmojiPicker @ {self:p}"))
             .finish()
     }
 }
@@ -2879,9 +3059,30 @@ unsafe extern "C" {
     pub fn awra_chip_appearance_get_type() -> GType;
 
     //=========================================================================
+    // AwraConversationAlign
+    //=========================================================================
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_conversation_align_get_type() -> GType;
+
+    //=========================================================================
     // AwraDataViewState
     //=========================================================================
     pub fn awra_data_view_state_get_type() -> GType;
+
+    //=========================================================================
+    // AwraDividerAppearance
+    //=========================================================================
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_divider_appearance_get_type() -> GType;
+
+    //=========================================================================
+    // AwraDividerLabelPosition
+    //=========================================================================
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_divider_label_position_get_type() -> GType;
 
     //=========================================================================
     // AwraEasing
@@ -3345,6 +3546,147 @@ unsafe extern "C" {
     pub fn awra_command_palette_set_title(self_: *mut AwraCommandPalette, title: *const c_char);
 
     //=========================================================================
+    // AwraCompletionPopover
+    //=========================================================================
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_completion_popover_get_type() -> GType;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_completion_popover_new() -> *mut gtk::GtkWidget;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_completion_popover_attach(
+        self_: *mut AwraCompletionPopover,
+        text_widget: *mut gtk::GtkWidget,
+    );
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_completion_popover_get_attached_widget(
+        self_: *mut AwraCompletionPopover,
+    ) -> *mut gtk::GtkWidget;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_completion_popover_get_factory(
+        self_: *mut AwraCompletionPopover,
+    ) -> *mut gtk::GtkListItemFactory;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_completion_popover_get_model(
+        self_: *mut AwraCompletionPopover,
+    ) -> *mut gio::GListModel;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_completion_popover_get_selected(self_: *mut AwraCompletionPopover) -> c_uint;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_completion_popover_present_at_cursor(self_: *mut AwraCompletionPopover);
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_completion_popover_set_factory(
+        self_: *mut AwraCompletionPopover,
+        factory: *mut gtk::GtkListItemFactory,
+    );
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_completion_popover_set_model(
+        self_: *mut AwraCompletionPopover,
+        model: *mut gio::GListModel,
+    );
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_completion_popover_set_selected(
+        self_: *mut AwraCompletionPopover,
+        position: c_uint,
+    );
+
+    //=========================================================================
+    // AwraComposer
+    //=========================================================================
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_composer_get_type() -> GType;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_composer_new() -> *mut gtk::GtkWidget;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_composer_get_attachments(self_: *mut AwraComposer) -> *mut gtk::GtkWidget;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_composer_get_banner(self_: *mut AwraComposer) -> *mut gtk::GtkWidget;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_composer_get_buffer(self_: *mut AwraComposer) -> *mut gtk::GtkTextBuffer;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_composer_get_busy(self_: *mut AwraComposer) -> gboolean;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_composer_get_can_send(self_: *mut AwraComposer) -> gboolean;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_composer_get_end_widget(self_: *mut AwraComposer) -> *mut gtk::GtkWidget;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_composer_get_max_lines(self_: *mut AwraComposer) -> c_uint;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_composer_get_placeholder_text(self_: *mut AwraComposer) -> *const c_char;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_composer_get_send_on_enter(self_: *mut AwraComposer) -> gboolean;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_composer_get_start_widget(self_: *mut AwraComposer) -> *mut gtk::GtkWidget;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_composer_get_text(self_: *mut AwraComposer) -> *const c_char;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_composer_get_view(self_: *mut AwraComposer) -> *mut gtk::GtkTextView;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_composer_set_attachments(
+        self_: *mut AwraComposer,
+        attachments: *mut gtk::GtkWidget,
+    );
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_composer_set_banner(self_: *mut AwraComposer, banner: *mut gtk::GtkWidget);
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_composer_set_busy(self_: *mut AwraComposer, busy: gboolean);
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_composer_set_can_send(self_: *mut AwraComposer, can_send: gboolean);
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_composer_set_end_widget(self_: *mut AwraComposer, widget: *mut gtk::GtkWidget);
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_composer_set_max_lines(self_: *mut AwraComposer, lines: c_uint);
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_composer_set_placeholder_text(self_: *mut AwraComposer, text: *const c_char);
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_composer_set_send_on_enter(self_: *mut AwraComposer, send_on_enter: gboolean);
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_composer_set_start_widget(self_: *mut AwraComposer, widget: *mut gtk::GtkWidget);
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_composer_set_text(self_: *mut AwraComposer, text: *const c_char);
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_composer_show_banner(
+        self_: *mut AwraComposer,
+        text: *const c_char,
+        closable: gboolean,
+    );
+
+    //=========================================================================
     // AwraContext
     //=========================================================================
     pub fn awra_context_get_type() -> GType;
@@ -3359,6 +3701,112 @@ unsafe extern "C" {
         window_active: gboolean,
         elevation: c_uint,
     ) -> *mut AwraMaterialResolution;
+
+    //=========================================================================
+    // AwraConversationView
+    //=========================================================================
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_conversation_view_get_type() -> GType;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_conversation_view_new(
+        model: *mut gio::GListModel,
+        factory: *mut gtk::GtkListItemFactory,
+    ) -> *mut gtk::GtkWidget;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_conversation_view_get_at_bottom(self_: *mut AwraConversationView) -> gboolean;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_conversation_view_get_delegate(
+        self_: *mut AwraConversationView,
+    ) -> *mut gtk::GtkListView;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_conversation_view_get_edge_threshold(self_: *mut AwraConversationView) -> c_int;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_conversation_view_get_factory(
+        self_: *mut AwraConversationView,
+    ) -> *mut gtk::GtkListItemFactory;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_conversation_view_get_follow(self_: *mut AwraConversationView) -> gboolean;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_conversation_view_get_header_factory(
+        self_: *mut AwraConversationView,
+    ) -> *mut gtk::GtkListItemFactory;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_conversation_view_get_jump_label(self_: *mut AwraConversationView)
+        -> *const c_char;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_conversation_view_get_model(
+        self_: *mut AwraConversationView,
+    ) -> *mut gio::GListModel;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_conversation_view_get_unread_count(self_: *mut AwraConversationView) -> c_uint;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_conversation_view_get_visible_range(
+        self_: *mut AwraConversationView,
+        first: *mut c_uint,
+        last: *mut c_uint,
+    ) -> gboolean;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_conversation_view_scroll_to_end(
+        self_: *mut AwraConversationView,
+        animate: gboolean,
+    );
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_conversation_view_scroll_to_item(
+        self_: *mut AwraConversationView,
+        position: c_uint,
+        align: AwraConversationAlign,
+        highlight: gboolean,
+    );
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_conversation_view_set_edge_threshold(
+        self_: *mut AwraConversationView,
+        threshold: c_int,
+    );
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_conversation_view_set_factory(
+        self_: *mut AwraConversationView,
+        factory: *mut gtk::GtkListItemFactory,
+    );
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_conversation_view_set_follow(self_: *mut AwraConversationView, follow: gboolean);
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_conversation_view_set_header_factory(
+        self_: *mut AwraConversationView,
+        factory: *mut gtk::GtkListItemFactory,
+    );
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_conversation_view_set_jump_label(
+        self_: *mut AwraConversationView,
+        label: *const c_char,
+    );
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_conversation_view_set_model(
+        self_: *mut AwraConversationView,
+        model: *mut gio::GListModel,
+    );
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_conversation_view_set_unread_count(self_: *mut AwraConversationView, count: c_uint);
 
     //=========================================================================
     // AwraDataColumn
@@ -3511,6 +3959,37 @@ unsafe extern "C" {
     );
 
     //=========================================================================
+    // AwraDivider
+    //=========================================================================
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_divider_get_type() -> GType;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_divider_new(label: *const c_char) -> *mut gtk::GtkWidget;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_divider_get_appearance(self_: *mut AwraDivider) -> AwraDividerAppearance;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_divider_get_label(self_: *mut AwraDivider) -> *const c_char;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_divider_get_label_position(self_: *mut AwraDivider) -> AwraDividerLabelPosition;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_divider_set_appearance(self_: *mut AwraDivider, appearance: AwraDividerAppearance);
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_divider_set_label(self_: *mut AwraDivider, label: *const c_char);
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_divider_set_label_position(
+        self_: *mut AwraDivider,
+        position: AwraDividerLabelPosition,
+    );
+
+    //=========================================================================
     // AwraDragPreview
     //=========================================================================
     pub fn awra_drag_preview_get_type() -> GType;
@@ -3656,6 +4135,88 @@ unsafe extern "C" {
     pub fn awra_edge_panel_set_panel_width(self_: *mut AwraEdgePanel, width: c_uint);
     pub fn awra_edge_panel_set_reveal_width(self_: *mut AwraEdgePanel, width: c_uint);
     pub fn awra_edge_panel_set_revealed(self_: *mut AwraEdgePanel, revealed: gboolean);
+
+    //=========================================================================
+    // AwraEmojiItem
+    //=========================================================================
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_emoji_item_get_type() -> GType;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_emoji_item_new(
+        id: *const c_char,
+        name: *const c_char,
+        text: *const c_char,
+    ) -> *mut AwraEmojiItem;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_emoji_item_new_for_paintable(
+        id: *const c_char,
+        name: *const c_char,
+        paintable: *mut gdk::GdkPaintable,
+    ) -> *mut AwraEmojiItem;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_emoji_item_get_id(self_: *mut AwraEmojiItem) -> *const c_char;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_emoji_item_get_keywords(self_: *mut AwraEmojiItem) -> *const *const c_char;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_emoji_item_get_name(self_: *mut AwraEmojiItem) -> *const c_char;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_emoji_item_get_paintable(self_: *mut AwraEmojiItem) -> *mut gdk::GdkPaintable;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_emoji_item_get_text(self_: *mut AwraEmojiItem) -> *const c_char;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_emoji_item_matches(self_: *mut AwraEmojiItem, query: *const c_char) -> gboolean;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_emoji_item_set_keywords(self_: *mut AwraEmojiItem, keywords: *const *const c_char);
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_emoji_item_set_paintable(
+        self_: *mut AwraEmojiItem,
+        paintable: *mut gdk::GdkPaintable,
+    );
+
+    //=========================================================================
+    // AwraEmojiPicker
+    //=========================================================================
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_emoji_picker_get_type() -> GType;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_emoji_picker_new() -> *mut gtk::GtkWidget;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_emoji_picker_add_section(
+        self_: *mut AwraEmojiPicker,
+        id: *const c_char,
+        title: *const c_char,
+        icon_name: *const c_char,
+        items: *mut gio::GListModel,
+    );
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_emoji_picker_clear(self_: *mut AwraEmojiPicker);
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_emoji_picker_get_search_text(self_: *mut AwraEmojiPicker) -> *const c_char;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_emoji_picker_remove_section(self_: *mut AwraEmojiPicker, id: *const c_char);
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_emoji_picker_set_recent(self_: *mut AwraEmojiPicker, items: *mut gio::GListModel);
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_emoji_picker_set_search_text(self_: *mut AwraEmojiPicker, text: *const c_char);
 
     //=========================================================================
     // AwraEmptyState

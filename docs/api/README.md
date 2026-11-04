@@ -207,7 +207,13 @@ mention badges, keyboard navigation and drag reordering, and
 `AwraChip` for reactions, filters and tags with a rolling count; see
 [messaging](../guides/messaging.md). `AwraTileView` divides a surface into
 as many tiles as the user wants; see
-[page composition](../guides/page-composition.md). Physical keys use `KeyboardEvent.code`
+[page composition](../guides/page-composition.md). `AwraConversationView` is
+a bottom-anchored, virtualized timeline for chats, comment threads and logs,
+`AwraComposer` the growing field where messages are written and
+`AwraCompletionPopover` the suggestions shown at its caret, and `AwraDivider`
+separates days or marks unread messages, and `AwraEmojiPicker` picks emoji
+and custom images from `AwraEmojiItem` sections; see
+[conversations](../guides/conversations.md). Physical keys use `KeyboardEvent.code`
 identifiers; `awra_keyboard_code_from_hardware_keycode()`,
 `awra_keyboard_code_to_hardware_keycode()` and
 `awra_keyboard_code_get_label()` bridge them to GDK hardware keycodes and the

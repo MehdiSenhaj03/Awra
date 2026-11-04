@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <awra/awra.h>
+#include <string.h>
 #include <math.h>
 
 #define SHOWCASE_PAGE_COUNT 11
@@ -1633,6 +1634,518 @@ make_edge_workspace (ShowcaseState *state,
   return edge;
 }
 
+/* A conversation: authors and messages are generated, everything else is the
+ * public timeline API. Items are "author\ttext" strings. */
+
+typedef struct {
+  GtkStringList *messages;
+  AwraConversationView *view;
+  AwraComposer *composer;
+  GtkSortListModel *sections;
+  gpointer first_unread;
+  AwraCompletionPopover *mentions;
+  GtkStringFilter *mention_filter;
+  GtkFilterListModel *mention_model;
+  guint older_loaded;
+  guint received;
+} ConversationDemo;
+
+static const char *conversation_authors[] = {
+  "Ines", "Malik", "Sora", "Ada", "Théo", NULL,
+};
+
+static const char *conversation_lines[] = {
+  "Pushed the new build, can someone check the release notes?",
+  "Looks good on my side.",
+  "The sidebar flickers when I resize the window quickly, is that known?",
+  "Yes, there is a fix in review. It should land tonight.",
+  "Lunch?",
+  "I moved the meeting to 3 pm so everyone can make it, and added the agenda "
+  "to the shared document. Please add anything you want to discuss.",
+  "👍",
+  "Benchmarks are in: startup is 18% faster and memory went down by 40 MB.",
+  "Nice work!",
+  "Can we keep the old shortcut for one more release? People rely on it.",
+};
+
+/* Items are "days ago\tauthor\ttext". */
+static char *
+conversation_message (guint       index,
+                      guint       days_ago,
+                      const char *prefix)
+{
+  return g_strdup_printf ("%u\t%s\t%s%s", days_ago,
+                          conversation_authors[(index * 7 + index / 3) % (G_N_ELEMENTS (conversation_authors) - 1)],
+                          prefix,
+                          conversation_lines[(index * 3) % G_N_ELEMENTS (conversation_lines)]);
+}
+
+static guint
+conversation_days_ago (gpointer item)
+{
+  return (guint) g_ascii_strtoull (gtk_string_object_get_string (item), NULL, 10);
+}
+
+static int
+conversation_section_compare (gconstpointer a,
+                              gconstpointer b,
+                              gpointer      user_data)
+{
+  guint days_a = conversation_days_ago ((gpointer) a);
+  guint days_b = conversation_days_ago ((gpointer) b);
+
+  (void) user_data;
+  /* Older days first; messages keep their order within a day. */
+  return days_a == days_b ? GTK_ORDERING_EQUAL
+                          : days_a > days_b ? GTK_ORDERING_SMALLER : GTK_ORDERING_LARGER;
+}
+
+static void
+conversation_header_setup_cb (GtkSignalListItemFactory *factory,
+                              GtkListHeader            *header,
+                              gpointer                  user_data)
+{
+  GtkWidget *divider = awra_divider_new (NULL);
+
+  (void) factory;
+  (void) user_data;
+  gtk_widget_set_margin_start (divider, 20);
+  gtk_widget_set_margin_end (divider, 20);
+  gtk_widget_set_margin_top (divider, 8);
+  gtk_list_header_set_child (header, divider);
+}
+
+static void
+conversation_header_bind_cb (GtkSignalListItemFactory *factory,
+                             GtkListHeader            *header,
+                             gpointer                  user_data)
+{
+  static const char *days[] = {
+    "Today", "Yesterday", "Sunday", "Saturday", "Friday", "Thursday", "Wednesday",
+  };
+  guint days_ago = conversation_days_ago (gtk_list_header_get_item (header));
+  g_autofree char *older = g_strdup_printf ("%u days ago", days_ago);
+
+  (void) factory;
+  (void) user_data;
+  awra_divider_set_label (AWRA_DIVIDER (gtk_list_header_get_child (header)),
+                          days_ago < G_N_ELEMENTS (days) ? days[days_ago] : older);
+}
+
+static void
+conversation_setup_cb (GtkSignalListItemFactory *factory,
+                       GtkListItem              *item,
+                       gpointer                  user_data)
+{
+  GtkWidget *box = make_box (GTK_ORIENTATION_VERTICAL, AWRA_SPACING_XS);
+  GtkWidget *unread = awra_divider_new ("NEW");
+  GtkWidget *author = make_label (NULL, AWRA_TYPOGRAPHY_LABEL);
+  GtkWidget *text = make_label (NULL, AWRA_TYPOGRAPHY_BODY);
+
+  (void) factory;
+  (void) user_data;
+  gtk_label_set_selectable (GTK_LABEL (text), FALSE);
+  gtk_widget_set_margin_start (box, 20);
+  gtk_widget_set_margin_end (box, 20);
+  gtk_widget_set_margin_top (box, 6);
+  gtk_widget_set_margin_bottom (box, 6);
+  awra_divider_set_appearance (AWRA_DIVIDER (unread), AWRA_DIVIDER_APPEARANCE_DANGER);
+  awra_divider_set_label_position (AWRA_DIVIDER (unread), AWRA_DIVIDER_LABEL_POSITION_END);
+  gtk_widget_set_visible (unread, FALSE);
+  gtk_box_append (GTK_BOX (box), unread);
+  gtk_box_append (GTK_BOX (box), author);
+  gtk_box_append (GTK_BOX (box), text);
+  gtk_list_item_set_child (item, box);
+  gtk_list_item_set_activatable (item, FALSE);
+}
+
+static void
+conversation_bind_cb (GtkSignalListItemFactory *factory,
+                      GtkListItem              *item,
+                      gpointer                  user_data)
+{
+  ConversationDemo *demo = user_data;
+  GtkWidget *box = gtk_list_item_get_child (item);
+  GtkWidget *unread = gtk_widget_get_first_child (box);
+  gpointer string = gtk_list_item_get_item (item);
+  const char *message = strchr (gtk_string_object_get_string (string), '\t') + 1;
+  const char *tab = strchr (message, '\t');
+  g_autofree char *author = g_strndup (message, tab - message);
+
+  (void) factory;
+  gtk_widget_set_visible (unread, string == demo->first_unread);
+  gtk_label_set_text (GTK_LABEL (gtk_widget_get_next_sibling (unread)), author);
+  gtk_label_set_text (GTK_LABEL (gtk_widget_get_last_child (box)), tab + 1);
+}
+
+static void
+conversation_edge_cb (AwraConversationView *view,
+                      GtkPositionType       edge,
+                      ConversationDemo     *demo)
+{
+  g_autoptr (GPtrArray) older = NULL;
+
+  (void) view;
+  if (edge != GTK_POS_TOP || demo->older_loaded >= 2000)
+    return;
+  older = g_ptr_array_new_with_free_func (g_free);
+  for (guint i = 0; i < 100; i++)
+    g_ptr_array_add (older, conversation_message (demo->older_loaded + i,
+                                                  5 + (demo->older_loaded + 99 - i) / 120, ""));
+  g_ptr_array_add (older, NULL);
+  demo->older_loaded += 100;
+  gtk_string_list_splice (demo->messages, 0, 0, (const char * const *) older->pdata);
+}
+
+static void
+conversation_receive (ConversationDemo *demo,
+                      guint             count)
+{
+  for (guint i = 0; i < count; i++) {
+    g_autofree char *message = conversation_message (demo->received++ * 5 + 1, 0, "");
+    guint n = g_list_model_get_n_items (G_LIST_MODEL (demo->sections));
+
+    gtk_string_list_append (demo->messages, message);
+    if (demo->first_unread == NULL && !awra_conversation_view_get_at_bottom (demo->view))
+      demo->first_unread = g_list_model_get_item (G_LIST_MODEL (demo->messages), n);
+  }
+  if (!awra_conversation_view_get_at_bottom (demo->view))
+    awra_conversation_view_set_unread_count (
+      demo->view, awra_conversation_view_get_unread_count (demo->view) + count);
+}
+
+static void
+conversation_receive_cb (GtkButton        *button,
+                         ConversationDemo *demo)
+{
+  (void) button;
+  conversation_receive (demo, 1);
+}
+
+static void
+conversation_burst_cb (GtkButton        *button,
+                       ConversationDemo *demo)
+{
+  (void) button;
+  conversation_receive (demo, 4);
+}
+
+static void
+conversation_find_cb (GtkButton        *button,
+                      ConversationDemo *demo)
+{
+  guint n = g_list_model_get_n_items (G_LIST_MODEL (demo->messages));
+
+  (void) button;
+  if (n > 40)
+    awra_conversation_view_scroll_to_item (demo->view, n - 37,
+                                           AWRA_CONVERSATION_ALIGN_CENTER, TRUE);
+}
+
+static void
+conversation_at_bottom_cb (AwraConversationView *view,
+                           GParamSpec           *pspec,
+                           ConversationDemo     *demo)
+{
+  (void) pspec;
+  (void) demo;
+  if (awra_conversation_view_get_at_bottom (view))
+    awra_conversation_view_set_unread_count (view, 0);
+}
+
+static void
+conversation_submit_cb (AwraComposer     *composer,
+                        ConversationDemo *demo)
+{
+  g_autofree char *message = g_strdup_printf ("0\tYou\t%s", awra_composer_get_text (composer));
+
+  /* Writing reads everything above. */
+  g_clear_object (&demo->first_unread);
+
+  gtk_string_list_append (demo->messages, message);
+  awra_composer_set_text (composer, NULL);
+  if (awra_composer_get_banner (composer) != NULL)
+    awra_composer_set_banner (composer, NULL);
+  awra_conversation_view_scroll_to_end (demo->view, TRUE);
+}
+
+static void
+conversation_reply_cb (GtkButton        *button,
+                       ConversationDemo *demo)
+{
+  (void) button;
+  awra_composer_show_banner (demo->composer, "Replying to Malik", TRUE);
+  gtk_widget_grab_focus (GTK_WIDGET (demo->composer));
+}
+
+static GListModel *
+conversation_emoji (const char * const *pairs)
+{
+  GListStore *store = g_list_store_new (AWRA_TYPE_EMOJI_ITEM);
+
+  for (guint i = 0; pairs[i] != NULL; i += 2) {
+    g_autoptr (AwraEmojiItem) item = awra_emoji_item_new (pairs[i + 1], pairs[i + 1], pairs[i]);
+
+    g_list_store_append (store, item);
+  }
+  return G_LIST_MODEL (store);
+}
+
+static void
+conversation_emoji_picked_cb (AwraEmojiPicker  *picker,
+                              AwraEmojiItem    *item,
+                              ConversationDemo *demo)
+{
+  GtkTextBuffer *buffer = awra_composer_get_buffer (demo->composer);
+
+  gtk_text_buffer_insert_at_cursor (buffer, awra_emoji_item_get_text (item), -1);
+  gtk_popover_popdown (GTK_POPOVER (gtk_widget_get_ancestor (GTK_WIDGET (picker), GTK_TYPE_POPOVER)));
+  gtk_widget_grab_focus (GTK_WIDGET (demo->composer));
+}
+
+static GtkWidget *
+conversation_emoji_button (ConversationDemo *demo)
+{
+  static const char *faces[] = {
+    "😀", "grinning", "😂", "joy", "😉", "wink", "😍", "heart_eyes", "🤔", "thinking",
+    "😎", "sunglasses", "😴", "sleeping", "😭", "sob", "😡", "rage", "🥳", "partying_face",
+    "👍", "thumbs_up", "👎", "thumbs_down", "👏", "clap", "🙏", "pray", "💪", "muscle", NULL,
+  };
+  static const char *nature[] = {
+    "🐶", "dog", "🐱", "cat", "🦊", "fox", "🐼", "panda", "🐸", "frog", "🐧", "penguin",
+    "🌵", "cactus", "🌻", "sunflower", "🌸", "cherry_blossom", "🍀", "four_leaf_clover", NULL,
+  };
+  static const char *food[] = {
+    "🍎", "apple", "🍐", "pear", "🍋", "lemon", "🍉", "watermelon", "🍓", "strawberry",
+    "🍕", "pizza", "🍔", "hamburger", "🍟", "fries", "☕", "coffee", "🍰", "cake", NULL,
+  };
+  static const char *recent[] = { "👍", "thumbs_up", "🎉", "tada", "❤️", "heart", NULL };
+  GtkWidget *button = awra_menu_button_new ();
+  GtkWidget *popover = awra_popover_new ();
+  GtkWidget *picker = awra_emoji_picker_new ();
+  g_autoptr (GListModel) recent_items = conversation_emoji (recent);
+  g_autoptr (GListModel) face_items = conversation_emoji (faces);
+  g_autoptr (GListModel) nature_items = conversation_emoji (nature);
+  g_autoptr (GListModel) food_items = conversation_emoji (food);
+
+  awra_emoji_picker_set_recent (AWRA_EMOJI_PICKER (picker), recent_items);
+  awra_emoji_picker_add_section (AWRA_EMOJI_PICKER (picker), "people", "Smileys & people",
+                                 "emoji-people-symbolic", face_items);
+  awra_emoji_picker_add_section (AWRA_EMOJI_PICKER (picker), "nature", "Animals & nature",
+                                 "emoji-nature-symbolic", nature_items);
+  awra_emoji_picker_add_section (AWRA_EMOJI_PICKER (picker), "food", "Food & drink",
+                                 "emoji-food-symbolic", food_items);
+  g_signal_connect (picker, "picked", G_CALLBACK (conversation_emoji_picked_cb), demo);
+  gtk_widget_set_size_request (picker, -1, 340);
+  awra_popover_set_child (AWRA_POPOVER (popover), picker);
+  gtk_popover_set_position (GTK_POPOVER (popover), GTK_POS_TOP);
+  awra_menu_button_set_icon_name (AWRA_MENU_BUTTON (button), "face-smile-symbolic");
+  awra_menu_button_set_appearance (AWRA_MENU_BUTTON (button), AWRA_BUTTON_APPEARANCE_GHOST);
+  awra_menu_button_set_popover (AWRA_MENU_BUTTON (button), AWRA_POPOVER (popover));
+  gtk_widget_set_tooltip_text (button, "Emoji");
+  return button;
+}
+
+static GtkWidget *
+conversation_icon_button (const char *icon_name,
+                          const char *tooltip)
+{
+  GtkWidget *button = awra_button_new_from_icon_name (icon_name);
+
+  awra_button_set_appearance (AWRA_BUTTON (button), AWRA_BUTTON_APPEARANCE_GHOST);
+  gtk_widget_set_tooltip_text (button, tooltip);
+  return button;
+}
+
+/* The "@word" just before the caret, if the caret ends one. */
+static gboolean
+conversation_mention_bounds (AwraComposer *composer,
+                             GtkTextIter  *start,
+                             GtkTextIter  *end)
+{
+  GtkTextBuffer *buffer = awra_composer_get_buffer (composer);
+
+  gtk_text_buffer_get_iter_at_mark (buffer, end, gtk_text_buffer_get_insert (buffer));
+  *start = *end;
+  while (gtk_text_iter_backward_char (start)) {
+    gunichar c = gtk_text_iter_get_char (start);
+
+    if (c == '@')
+      return TRUE;
+    if (!g_unichar_isalnum (c))
+      return FALSE;
+  }
+  return FALSE;
+}
+
+static void
+conversation_text_changed_cb (GtkTextBuffer    *buffer,
+                              ConversationDemo *demo)
+{
+  GtkTextIter start;
+  GtkTextIter end;
+  g_autofree char *word = NULL;
+
+  (void) buffer;
+  if (!conversation_mention_bounds (demo->composer, &start, &end)) {
+    gtk_popover_popdown (GTK_POPOVER (demo->mentions));
+    return;
+  }
+  gtk_text_iter_forward_char (&start);
+  word = gtk_text_iter_get_text (&start, &end);
+  gtk_string_filter_set_search (demo->mention_filter, word);
+  awra_completion_popover_present_at_cursor (demo->mentions);
+}
+
+static void
+conversation_mention_cb (AwraCompletionPopover *mentions,
+                         guint                  position,
+                         ConversationDemo      *demo)
+{
+  GtkTextBuffer *buffer = awra_composer_get_buffer (demo->composer);
+  g_autoptr (GtkStringObject) name = g_list_model_get_item (G_LIST_MODEL (demo->mention_model), position);
+  g_autofree char *mention = g_strdup_printf ("@%s ", gtk_string_object_get_string (name));
+  GtkTextIter start;
+  GtkTextIter end;
+
+  if (!conversation_mention_bounds (demo->composer, &start, &end))
+    return;
+  gtk_popover_popdown (GTK_POPOVER (mentions));
+  g_signal_handlers_block_by_func (buffer, conversation_text_changed_cb, demo);
+  gtk_text_buffer_delete (buffer, &start, &end);
+  gtk_text_buffer_insert (buffer, &start, mention, -1);
+  g_signal_handlers_unblock_by_func (buffer, conversation_text_changed_cb, demo);
+}
+
+static void
+conversation_mention_setup_cb (GtkSignalListItemFactory *factory,
+                               GtkListItem              *item,
+                               gpointer                  user_data)
+{
+  (void) factory;
+  (void) user_data;
+  gtk_list_item_set_child (item, make_label (NULL, AWRA_TYPOGRAPHY_BODY));
+}
+
+static void
+conversation_mention_bind_cb (GtkSignalListItemFactory *factory,
+                              GtkListItem              *item,
+                              gpointer                  user_data)
+{
+  (void) factory;
+  (void) user_data;
+  gtk_label_set_text (GTK_LABEL (gtk_list_item_get_child (item)),
+                      gtk_string_object_get_string (gtk_list_item_get_item (item)));
+}
+
+static void
+conversation_demo_free (gpointer data)
+{
+  ConversationDemo *demo = data;
+
+  g_clear_object (&demo->messages);
+  g_clear_object (&demo->sections);
+  g_clear_object (&demo->first_unread);
+  g_clear_object (&demo->mention_model);
+  g_free (demo);
+}
+
+static GtkWidget *
+make_conversation_workspace (void)
+{
+  ConversationDemo *demo = g_new0 (ConversationDemo, 1);
+  g_autoptr (GPtrArray) initial = g_ptr_array_new_with_free_func (g_free);
+  GtkListItemFactory *factory = gtk_signal_list_item_factory_new ();
+  GtkWidget *box = make_box (GTK_ORIENTATION_VERTICAL, AWRA_SPACING_SM);
+  GtkWidget *actions = make_box (GTK_ORIENTATION_HORIZONTAL, AWRA_SPACING_XS);
+  GtkWidget *receive = make_button ("Receive a message", AWRA_BUTTON_APPEARANCE_SECONDARY);
+  GtkWidget *burst = make_button ("Receive four", AWRA_BUTTON_APPEARANCE_GHOST);
+  GtkWidget *find = make_button ("Find an older message", AWRA_BUTTON_APPEARANCE_GHOST);
+  GtkWidget *reply = make_button ("Reply", AWRA_BUTTON_APPEARANCE_GHOST);
+  GtkWidget *composer = awra_composer_new ();
+  GtkWidget *timeline;
+  GtkWidget *card;
+
+  for (guint i = 0; i < 400; i++)
+    g_ptr_array_add (initial, conversation_message (5000 + i, (399 - i) / 90, ""));
+  g_ptr_array_add (initial, NULL);
+  demo->messages = gtk_string_list_new ((const char * const *) initial->pdata);
+  g_signal_connect (factory, "setup", G_CALLBACK (conversation_setup_cb), NULL);
+  g_signal_connect (factory, "bind", G_CALLBACK (conversation_bind_cb), demo);
+  demo->sections = gtk_sort_list_model_new (G_LIST_MODEL (g_object_ref (demo->messages)), NULL);
+  gtk_sort_list_model_set_section_sorter (
+    demo->sections,
+    GTK_SORTER (gtk_custom_sorter_new (conversation_section_compare, NULL, NULL)));
+  timeline = awra_conversation_view_new (G_LIST_MODEL (g_object_ref (demo->sections)), factory);
+  {
+    GtkListItemFactory *headers = gtk_signal_list_item_factory_new ();
+
+    g_signal_connect (headers, "setup", G_CALLBACK (conversation_header_setup_cb), NULL);
+    g_signal_connect (headers, "bind", G_CALLBACK (conversation_header_bind_cb), NULL);
+    awra_conversation_view_set_header_factory (AWRA_CONVERSATION_VIEW (timeline), headers);
+    g_object_unref (headers);
+  }
+  demo->view = AWRA_CONVERSATION_VIEW (timeline);
+  gtk_widget_set_size_request (timeline, -1, 330);
+  gtk_widget_set_vexpand (timeline, TRUE);
+  g_object_set_data_full (G_OBJECT (timeline), "showcase-conversation", demo,
+                          conversation_demo_free);
+  g_signal_connect (timeline, "edge-reached", G_CALLBACK (conversation_edge_cb), demo);
+  g_signal_connect (timeline, "notify::at-bottom",
+                    G_CALLBACK (conversation_at_bottom_cb), demo);
+  g_signal_connect (receive, "clicked", G_CALLBACK (conversation_receive_cb), demo);
+  g_signal_connect (burst, "clicked", G_CALLBACK (conversation_burst_cb), demo);
+  g_signal_connect (find, "clicked", G_CALLBACK (conversation_find_cb), demo);
+  gtk_box_append (GTK_BOX (actions), receive);
+  gtk_box_append (GTK_BOX (actions), burst);
+  gtk_box_append (GTK_BOX (actions), find);
+  gtk_box_append (GTK_BOX (box), timeline);
+  demo->composer = AWRA_COMPOSER (composer);
+  awra_composer_set_placeholder_text (demo->composer, "Message #design-review — type @ to mention");
+  awra_composer_set_start_widget (demo->composer,
+                                  conversation_icon_button ("list-add-symbolic", "Attach"));
+  awra_composer_set_end_widget (demo->composer, conversation_emoji_button (demo));
+  gtk_widget_set_margin_start (composer, 12);
+  gtk_widget_set_margin_end (composer, 12);
+  gtk_widget_set_margin_bottom (composer, 12);
+  g_signal_connect (composer, "submit", G_CALLBACK (conversation_submit_cb), demo);
+  {
+    GtkListItemFactory *mention_factory = gtk_signal_list_item_factory_new ();
+    GtkStringList *people = gtk_string_list_new (conversation_authors);
+
+    demo->mention_filter = gtk_string_filter_new (
+      gtk_property_expression_new (GTK_TYPE_STRING_OBJECT, NULL, "string"));
+    gtk_string_filter_set_match_mode (demo->mention_filter, GTK_STRING_FILTER_MATCH_MODE_PREFIX);
+    demo->mention_model = gtk_filter_list_model_new (G_LIST_MODEL (people),
+                                                     GTK_FILTER (demo->mention_filter));
+    g_signal_connect (mention_factory, "setup", G_CALLBACK (conversation_mention_setup_cb), NULL);
+    g_signal_connect (mention_factory, "bind", G_CALLBACK (conversation_mention_bind_cb), NULL);
+    demo->mentions = AWRA_COMPLETION_POPOVER (awra_completion_popover_new ());
+    awra_completion_popover_set_model (demo->mentions, G_LIST_MODEL (demo->mention_model));
+    awra_completion_popover_set_factory (demo->mentions, mention_factory);
+    g_object_unref (mention_factory);
+    awra_completion_popover_attach (demo->mentions,
+                                    GTK_WIDGET (awra_composer_get_view (demo->composer)));
+    g_signal_connect (demo->mentions, "activated", G_CALLBACK (conversation_mention_cb), demo);
+    g_signal_connect (awra_composer_get_buffer (demo->composer), "changed",
+                      G_CALLBACK (conversation_text_changed_cb), demo);
+  }
+  g_signal_connect (reply, "clicked", G_CALLBACK (conversation_reply_cb), demo);
+  gtk_box_append (GTK_BOX (actions), reply);
+  gtk_box_append (GTK_BOX (box), composer);
+  card = make_card (box);
+  awra_card_set_content_inset (AWRA_CARD (card), AWRA_SPACING_NONE);
+  gtk_widget_set_overflow (card, GTK_OVERFLOW_HIDDEN);
+  {
+    GtkWidget *outer = make_box (GTK_ORIENTATION_VERTICAL, AWRA_SPACING_SM);
+
+    gtk_box_append (GTK_BOX (outer), actions);
+    gtk_box_append (GTK_BOX (outer), card);
+    g_object_set_data (G_OBJECT (outer), "showcase-conversation-box", box);
+    return outer;
+  }
+}
+
 static GtkWidget *
 make_patterns_page (ShowcaseState *state,
                     GMenuModel    *context_menu)
@@ -1651,6 +2164,11 @@ make_patterns_page (ShowcaseState *state,
                   "conversation. Drag a workspace to reorder it, or onto another "
                   "to ask for a folder.");
   gtk_box_append (GTK_BOX (body), make_messaging_workspace (state));
+  append_section (body, "Conversation",
+                  "A virtualized timeline that follows new messages, keeps "
+                  "its place while older ones load above, and offers a way "
+                  "back to the present when scrolled up.");
+  gtk_box_append (GTK_BOX (body), make_conversation_workspace ());
 
   {
     static const char *records[] = {

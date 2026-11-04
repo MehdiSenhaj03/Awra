@@ -936,3 +936,88 @@ gagne donc un `prefix` (n'importe quel widget à la place de l'icône), un
 Awra : contraste et graisse pour le premier, recul jusqu'au survol pour le
 second. Rien de propre à la messagerie : une boîte mail, une liste de
 comptes ou de projets s'en servent de la même façon.
+## 2026-11-04 — Yapfast — Une chronologie de conversation
+
+Yapfast, client de discussion Discord et Matrix, affiche des salons de dizaines
+de milliers de messages. Sous Slint, il recalculait lui-même la position de
+défilement à chaque message reçu et à chaque page d’historique chargée, avec des
+sauts visibles. Le besoin est générique : toute application de messagerie, fil
+de commentaires ou visionneuse de journaux lit une chronologie qui grandit vers
+le bas.
+
+`AwraConversationView` enveloppe un `GtkListView` virtualisé et part de la fin.
+Il suit les nouveaux éléments tant que la fin est visible (glissement doux,
+apparition des seuls éléments ajoutés), cesse de suivre quand l’utilisateur
+remonte, et propose une pastille « revenir au présent » qui peut compter les
+non-lus. L’historique inséré au début ne déplace pas ce qui est à l’écran ;
+`edge-reached` demande la page suivante. Pour savoir quelle rangée montre quelle
+position sans lire les rangées privées de GTK, la vue s’intercale entre la liste
+et la fabrique de l’application (signal ou modèle GtkBuilder). Un `GtkScrollable`
+privé encadre l’allocation de la liste : les positions que la liste fixe
+elle-même en réancrant ne sont jamais prises pour un défilement de
+l’utilisateur. Les tests couvrent 50 000 éléments, les ajouts en rafale, le
+chargement au début et le mouvement réduit.
+
+## 2026-11-04 — Yapfast — Un champ de saisie de message
+
+Le champ de message de Yapfast cumulait des besoins que chaque client de
+discussion réécrit : bandeau « Réponse à … » avec fermeture, aperçu des pièces
+jointes, boutons avant et après le texte, bouton d’envoi, texte qui grandit
+jusqu’à une limite puis défile, Entrée pour envoyer et Maj+Entrée pour un saut
+de ligne, sans jamais envoyer pendant une composition IME.
+
+`AwraComposer` regroupe tout cela dans un seul puits arrondi. La hauteur suit le
+texte en glissant (la rangée est découpée pendant la croissance plutôt que
+relayoutée ligne à ligne), le bandeau et les pièces jointes glissent en entrée
+et en sortie, le bouton d’envoi grandit depuis rien. Le `GtkTextView` reste
+accessible pour les balises, les ancres d’images et les raccourcis propres à
+l’application. Un `GtkTextView` ne connaît sa hauteur qu’après sa première
+allocation : une ligne sert de plancher dès le départ, sinon le champ démarrait
+à la hauteur minimale de la barre de défilement du thème.
+
+## 2026-11-04 — Yapfast — Des suggestions au curseur
+
+Mentionner quelqu’un avec `@`, insérer un emoji avec `:nom:` ou lancer une
+commande avec `/` demandent tous une liste de suggestions au curseur qui ne
+vole pas le focus du texte. `GtkEntryCompletion` est dépréciée et ne couvre pas
+`GtkTextView`.
+
+`AwraCompletionPopover` se rattache à un `GtkTextView` ou à un `GtkEditable`,
+se place au-dessus de la ligne du curseur (en dessous s’il manque de place) et
+intercepte seulement Haut, Bas, Tab, Entrée et Échap tant qu’il est visible.
+L’application garde le filtrage et l’insertion. Deux pièges rencontrés : un
+popover dont la taille minimale grandit après son affichage est refermé par GTK,
+d’où une largeur minimale fixe ; et un `GtkTextView` détruit se plaint de tout
+enfant qu’il ne connaît pas, d’où un rattachement qui suit l’entrée et la sortie
+du widget dans une fenêtre. Le composeur consulte une marque privée pour ne pas
+envoyer quand Entrée choisit une suggestion.
+
+## 2026-11-04 — Yapfast — Séparateurs de jours et ligne des non-lus
+
+Un salon de discussion sépare les messages par jour et marque l’endroit où
+commencent les messages non lus. Yapfast dessinait ces lignes à la main dans
+chaque délégué de message. `AwraDivider` est une ligne avec une étiquette
+facultative (au centre ou au bout), neutre, accentuée ou « danger » (étiquette
+dans une pastille, pour les non-lus). La ligne prend la couleur CSS du widget,
+donc le thème à fort contraste et les apparences restent possédés par Awra ; le
+rôle accessible est celui d’un séparateur nommé par son étiquette. Dans la
+vitrine, la chronologie l’emploie comme en-tête de section d’un
+`GtkSortListModel` trié par jour.
+
+## 2026-11-04 — Yapfast — Un sélecteur d’emoji alimenté par l’application
+
+Les réactions et le champ de message de Yapfast ont besoin d’un sélecteur
+d’emoji où les emoji personnalisés d’un serveur et les autocollants côtoient
+les emoji Unicode. `GtkEmojiChooser` ne connaît que les siens et ne se nourrit
+pas d’un modèle.
+
+`AwraEmojiPicker` reçoit des sections de `AwraEmojiItem` (texte Unicode ou
+image), une section « Récents » tenue par l’application, et offre recherche
+sur les noms et mots-clés, onglets qui suivent le défilement, grille
+virtualisée, aperçu en grand et navigation au clavier même pendant la saisie de
+la recherche. `GtkGridView` n’affiche pas de titres de section : la grille est
+une liste de rangées de cellules dont le nombre de colonnes suit la largeur. Les
+données Unicode de GTK vivent dans une ressource privée dont le chemin et le
+format ne sont pas une API : Awra ne les lit pas, l’application fournit sa base
+d’emoji.
+

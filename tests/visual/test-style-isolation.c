@@ -26,6 +26,8 @@ static const char hostile_css[] =
   "awradropzone box, awraavatar, awrarail, awraraillist, awrarailitem,"
   "awrarailgroup, awrarailgroupface, awrarailseparator, awratypingindicator,"
   "awratypingindicator label, awrachip,"
+  "awradropzone box, awraconversationview, awracomposer, awradivider,"
+  "awraemojipicker,"
   "awradataview columnview,"
   "awradataview columnview > header > button,"
   "awradataview columnview listview > row {"
@@ -419,6 +421,56 @@ make_probe_scene (void)
       gtk_box_append (GTK_BOX (media), chips);
     }
     gtk_grid_attach (GTK_GRID (grid), media, 0, 14, 3, 1);
+  }
+  {
+    static const char *messages[] = { "First", "Second", "Third", NULL };
+    static const char row_ui[] =
+      "<interface><template class=\"GtkListItem\"><property name=\"child\">"
+      "<object class=\"GtkLabel\"><style><class name=\"awra-body\"/></style>"
+      "<binding name=\"label\">"
+      "<lookup name=\"string\" type=\"GtkStringObject\">"
+      "<lookup name=\"item\">GtkListItem</lookup></lookup></binding>"
+      "</object></property></template></interface>";
+    g_autoptr (GBytes) row_bytes = g_bytes_new_static (row_ui, sizeof row_ui - 1);
+    GtkWidget *chat = gtk_box_new (GTK_ORIENTATION_VERTICAL, 6);
+    GtkListItemFactory *factory =
+      gtk_builder_list_item_factory_new_from_bytes (NULL, row_bytes);
+    GtkWidget *conversation = awra_conversation_view_new (
+      G_LIST_MODEL (gtk_string_list_new (messages)), factory);
+
+    gtk_widget_set_size_request (conversation, -1, 72);
+    gtk_box_append (GTK_BOX (chat), conversation);
+    {
+      GtkWidget *composer = awra_composer_new ();
+
+      awra_composer_set_placeholder_text (AWRA_COMPOSER (composer), "Message");
+      awra_composer_set_text (AWRA_COMPOSER (composer), "Hello");
+      awra_composer_show_banner (AWRA_COMPOSER (composer), "Replying", TRUE);
+      gtk_box_append (GTK_BOX (chat), composer);
+    }
+    {
+      GtkWidget *day = awra_divider_new ("Today");
+      GtkWidget *unread = awra_divider_new ("New");
+
+      awra_divider_set_appearance (AWRA_DIVIDER (unread), AWRA_DIVIDER_APPEARANCE_DANGER);
+      awra_divider_set_label_position (AWRA_DIVIDER (unread), AWRA_DIVIDER_LABEL_POSITION_END);
+      gtk_box_append (GTK_BOX (chat), day);
+      gtk_box_append (GTK_BOX (chat), unread);
+    }
+    {
+      GtkWidget *picker = awra_emoji_picker_new ();
+      GListStore *items = g_list_store_new (AWRA_TYPE_EMOJI_ITEM);
+      AwraEmojiItem *item = awra_emoji_item_new ("smile", "smile", "🙂");
+
+      g_list_store_append (items, item);
+      g_object_unref (item);
+      awra_emoji_picker_add_section (AWRA_EMOJI_PICKER (picker), "people", "People",
+                                     NULL, G_LIST_MODEL (items));
+      g_object_unref (items);
+      gtk_widget_set_size_request (picker, -1, 200);
+      gtk_box_append (GTK_BOX (chat), picker);
+    }
+    gtk_grid_attach (GTK_GRID (grid), chat, 0, 15, 3, 1);
   }
   g_object_set_data (G_OBJECT (grid), "awra-probe-dropdown", dropdown);
   g_object_set_data (G_OBJECT (grid), "awra-probe-menu-button", menu_button);

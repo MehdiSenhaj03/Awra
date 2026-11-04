@@ -486,4 +486,76 @@ typedef enum {
  */
 GType awra_chip_appearance_get_type (void) G_GNUC_CONST;
 
+/**
+ * AwraConversationAlign:
+ * @AWRA_CONVERSATION_ALIGN_TOP: the item's top meets the top of the view
+ * @AWRA_CONVERSATION_ALIGN_CENTER: the item is centred in the view
+ * @AWRA_CONVERSATION_ALIGN_END: the item's bottom meets the bottom of the view
+ *
+ * Where awra_conversation_view_scroll_to_item() places an item.
+ *
+ * Since: 1.1
+ */
+typedef enum {
+  AWRA_CONVERSATION_ALIGN_TOP,
+  AWRA_CONVERSATION_ALIGN_CENTER,
+  AWRA_CONVERSATION_ALIGN_END,
+} AwraConversationAlign;
+
+#define AWRA_TYPE_CONVERSATION_ALIGN (awra_conversation_align_get_type ())
+/**
+ * awra_conversation_align_get_type:
+ *
+ * Since: 1.1
+ */
+GType awra_conversation_align_get_type (void) G_GNUC_CONST;
+
+/**
+ * AwraDividerLabelPosition:
+ * @AWRA_DIVIDER_LABEL_POSITION_CENTER: the label sits between two lines
+ * @AWRA_DIVIDER_LABEL_POSITION_END: the line runs up to the label at the end
+ *
+ * Where an #AwraDivider puts its label.
+ *
+ * Since: 1.1
+ */
+typedef enum {
+  AWRA_DIVIDER_LABEL_POSITION_CENTER,
+  AWRA_DIVIDER_LABEL_POSITION_END,
+} AwraDividerLabelPosition;
+
+#define AWRA_TYPE_DIVIDER_LABEL_POSITION (awra_divider_label_position_get_type ())
+/**
+ * awra_divider_label_position_get_type:
+ *
+ * Since: 1.1
+ */
+GType awra_divider_label_position_get_type (void) G_GNUC_CONST;
+
+/**
+ * AwraDividerAppearance:
+ * @AWRA_DIVIDER_APPEARANCE_NEUTRAL: a quiet line, such as between days
+ * @AWRA_DIVIDER_APPEARANCE_ACCENT: a line in the accent colour
+ * @AWRA_DIVIDER_APPEARANCE_DANGER: a line that demands attention, such as the
+ *   start of unread messages, with its label in a small pill
+ *
+ * How an #AwraDivider looks.
+ *
+ * Since: 1.1
+ */
+typedef enum {
+  AWRA_DIVIDER_APPEARANCE_NEUTRAL,
+  AWRA_DIVIDER_APPEARANCE_ACCENT,
+  AWRA_DIVIDER_APPEARANCE_DANGER,
+} AwraDividerAppearance;
+
+#define AWRA_TYPE_DIVIDER_APPEARANCE (awra_divider_appearance_get_type ())
+/**
+ * awra_divider_appearance_get_type:
+ *
+ * Since: 1.1
+ */
+GType awra_divider_appearance_get_type (void) G_GNUC_CONST;
+
+
 G_END_DECLS

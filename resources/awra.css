@@ -66,7 +66,11 @@ awrarailgroup,
 awrarailgroupface,
 awrarailseparator,
 awratypingindicator,
-awrachip {
+awrachip,
+awraconversationview,
+awracomposer,
+awradivider,
+awraemojipicker {
   min-width: 0;
   min-height: 0;
   margin: 0;
@@ -2587,6 +2591,539 @@ awralistview scrollbar.dragging {
   filter: none;
   transition: none;
   animation: none;
+}
+
+/* A conversation is the page itself: rows carry no card, only a quiet hover
+ * and the two short-lived marks the view adds (arrival and highlight). */
+awraconversationview {
+  min-width: 0;
+  min-height: 0;
+  color: @awra_foreground;
+  background-color: transparent;
+  background-image: none;
+}
+
+awraconversationview > scrolledwindow,
+awraconversationview > scrolledwindow > undershoot,
+awraconversationview > scrolledwindow > overshoot,
+awraconversationview > scrolledwindow > awraconversationport,
+awraconversationview > scrolledwindow > awraconversationport > listview.awra-conversation-list,
+awraconversationview > scrolledwindow > awraconversationport > listview.awra-conversation-list > header {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  color: @awra_foreground;
+  background-color: transparent;
+  background-image: none;
+  box-shadow: none;
+  outline: 0;
+  opacity: 1;
+  filter: none;
+}
+
+awraconversationview > scrolledwindow > awraconversationport > listview.awra-conversation-list {
+  padding: 8px 0;
+}
+
+awraconversationview > scrolledwindow > awraconversationport > listview.awra-conversation-list > row {
+  min-width: 0;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  color: @awra_foreground;
+  background-color: transparent;
+  background-image: none;
+  box-shadow: none;
+  outline: 0;
+  opacity: 1;
+  filter: none;
+  transition: background-color 90ms ease-out;
+}
+
+awraconversationview > scrolledwindow > awraconversationport > listview.awra-conversation-list > row:hover {
+  background-color: alpha(@awra_foreground, .035);
+}
+
+awraconversationview > scrolledwindow > awraconversationport > listview.awra-conversation-list > row:selected {
+  background-color: transparent;
+}
+
+awraconversationview > scrolledwindow > awraconversationport > listview.awra-conversation-list > row:focus-visible {
+  outline: 2px solid @awra_focus;
+  outline-offset: -2px;
+}
+
+awraconversationview > scrolledwindow > scrollbar {
+  min-width: 8px;
+  min-height: 8px;
+  margin: 3px;
+  opacity: 0;
+  transition: opacity 120ms ease;
+}
+
+awraconversationview:hover > scrolledwindow > scrollbar,
+awraconversationview > scrolledwindow > scrollbar:hover,
+awraconversationview > scrolledwindow > scrollbar.dragging {
+  opacity: 1;
+}
+
+@keyframes awra-conversation-arrive {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: none; }
+}
+
+/* Two identical highlights, so highlighting the same row again replays. */
+@keyframes awra-conversation-highlight {
+  from { background-color: @awra_accent_soft; box-shadow: inset 3px 0 @awra_accent; }
+  35% { background-color: @awra_accent_soft; box-shadow: inset 3px 0 @awra_accent; }
+  to { background-color: alpha(@awra_accent_soft, 0); box-shadow: inset 3px 0 alpha(@awra_accent, 0); }
+}
+
+@keyframes awra-conversation-highlight-again {
+  from { background-color: @awra_accent_soft; box-shadow: inset 3px 0 @awra_accent; }
+  35% { background-color: @awra_accent_soft; box-shadow: inset 3px 0 @awra_accent; }
+  to { background-color: alpha(@awra_accent_soft, 0); box-shadow: inset 3px 0 alpha(@awra_accent, 0); }
+}
+
+awraconversationview .awra-conversation-arriving {
+  animation: awra-conversation-arrive 220ms cubic-bezier(.2, .8, .2, 1);
+}
+
+awraconversationview .awra-conversation-highlight {
+  animation: awra-conversation-highlight 1500ms ease-out;
+}
+
+awraconversationview .awra-conversation-highlight-again {
+  animation: awra-conversation-highlight-again 1500ms ease-out;
+}
+
+.awra-reduced-motion awraconversationview .awra-conversation-arriving {
+  animation: none;
+}
+
+/* Without motion, the highlight still says where to look, then leaves. */
+.awra-reduced-motion awraconversationview .awra-conversation-highlight,
+.awra-reduced-motion awraconversationview .awra-conversation-highlight-again {
+  animation: none;
+  background-color: @awra_accent_soft;
+  box-shadow: inset 3px 0 @awra_accent;
+}
+
+awraconversationview > .awra-button.awra-conversation-jump {
+  min-height: 20px;
+  padding: 6px 15px 6px 11px;
+  border-radius: 999px;
+  color: @awra_foreground;
+  background-color: @awra_background;
+  background-image: linear-gradient(@awra_cap, @awra_cap);
+  box-shadow:
+    0 0 0 1px @awra_outline,
+    0 6px 16px -4px rgba(0, 0, 0, .30),
+    inset 0 1px @awra_rim;
+  font-size: .92em;
+  font-weight: 600;
+}
+
+awraconversationview > .awra-button.awra-conversation-jump:hover {
+  background-image: linear-gradient(@awra_cap_hover, @awra_cap_hover);
+}
+
+awraconversationview > .awra-button.awra-conversation-jump:active {
+  background-image: linear-gradient(@awra_control_pressed, @awra_control_pressed);
+}
+
+awraconversationview > .awra-button.awra-conversation-jump.awra-conversation-jump-unread {
+  color: @awra_on_accent;
+  background-color: @awra_accent;
+  background-image: none;
+  box-shadow:
+    0 6px 16px -4px alpha(@awra_accent, .55),
+    inset 0 1px rgba(255, 255, 255, .20);
+}
+
+awraconversationview > .awra-button.awra-conversation-jump.awra-conversation-jump-unread:hover {
+  background-image: linear-gradient(alpha(@awra_on_accent, .10), alpha(@awra_on_accent, .10));
+}
+
+awraconversationview > .awra-button.awra-conversation-jump image {
+  -gtk-icon-size: 14px;
+}
+
+/* The composer is one well: banner, attachments and the row of text and
+ * actions share its matter, and the focus ring surrounds all of them. */
+awracomposer {
+  min-height: 0;
+  padding: 6px;
+  border-radius: 18px;
+  color: @awra_foreground;
+  background-color: @awra_control;
+  background-image: none;
+  box-shadow: inset 0 0 0 1px @awra_border, inset 0 1px @awra_rim;
+  transition: box-shadow 120ms ease-out, background-color 120ms ease-out;
+}
+
+awracomposer:focus-within {
+  box-shadow: inset 0 0 0 1px @awra_focus, 0 0 0 3px alpha(@awra_focus, .16);
+}
+
+awracomposer:disabled {
+  color: @awra_disabled;
+  background-color: alpha(@awra_control, .5);
+  box-shadow: inset 0 0 0 1px alpha(@awra_border, .6);
+}
+
+awracomposer > overlay.awra-composer-field,
+awracomposer > overlay.awra-composer-field > scrolledwindow,
+awracomposer > overlay.awra-composer-field > scrolledwindow > undershoot,
+awracomposer > overlay.awra-composer-field > scrolledwindow > overshoot,
+awracomposer > overlay.awra-composer-field > scrolledwindow > textview,
+awracomposer > overlay.awra-composer-field > scrolledwindow > textview > text,
+awracomposer > overlay.awra-composer-field > label.awra-composer-placeholder {
+  min-width: 0;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background-color: transparent;
+  background-image: none;
+  box-shadow: none;
+  outline: 0;
+  text-shadow: none;
+  opacity: 1;
+  filter: none;
+}
+
+awracomposer > overlay.awra-composer-field > scrolledwindow > textview,
+awracomposer > overlay.awra-composer-field > scrolledwindow > textview > text {
+  color: @awra_foreground;
+  caret-color: @awra_accent_content;
+}
+
+awracomposer > overlay.awra-composer-field > scrolledwindow > textview > text selection {
+  background-color: alpha(@awra_accent, .32);
+  color: @awra_foreground;
+}
+
+awracomposer:disabled > overlay.awra-composer-field > scrolledwindow > textview > text {
+  color: @awra_disabled;
+}
+
+awracomposer > overlay.awra-composer-field > label.awra-composer-placeholder {
+  color: @awra_muted;
+}
+
+/* A one-line field must not inherit the height of a theme's scrollbar. */
+awracomposer > overlay.awra-composer-field > scrollbar,
+awracomposer > overlay.awra-composer-field > scrolledwindow > scrollbar,
+awracomposer > overlay.awra-composer-field > scrolledwindow > scrollbar > range,
+awracomposer > overlay.awra-composer-field > scrolledwindow > scrollbar > range > trough {
+  min-width: 0;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background-color: transparent;
+  background-image: none;
+  box-shadow: none;
+}
+
+awracomposer > overlay.awra-composer-field > scrolledwindow > scrollbar {
+  margin: 4px 0;
+}
+
+awracomposer > overlay.awra-composer-field > scrolledwindow > scrollbar > range > trough > slider {
+  min-width: 4px;
+  min-height: 12px;
+  margin: 0 1px;
+  border: 0;
+  border-radius: 999px;
+  background-color: alpha(@awra_foreground, .28);
+  background-image: none;
+  box-shadow: none;
+}
+
+awracomposer > overlay.awra-composer-field > scrolledwindow > scrollbar > button {
+  min-width: 0;
+  min-height: 0;
+  padding: 0;
+  margin: 0;
+  border: 0;
+  -gtk-icon-size: 0;
+  opacity: 0;
+}
+
+awracomposer > .awra-composer-banner {
+  min-height: 28px;
+  padding: 2px 2px 2px 10px;
+  border-radius: 12px;
+  background-color: alpha(@awra_foreground, .045);
+}
+
+awracomposer > .awra-composer-banner-text > label {
+  color: @awra_muted;
+  font-size: .92em;
+}
+
+awracomposer > .awra-composer-banner .awra-button.awra-composer-banner-close {
+  min-width: 24px;
+  min-height: 24px;
+  padding: 0;
+  border-radius: 999px;
+}
+
+awracomposer > .awra-composer-banner .awra-button.awra-composer-banner-close image {
+  -gtk-icon-size: 12px;
+}
+
+awracomposer > .awra-button.awra-composer-send {
+  min-width: 32px;
+  min-height: 32px;
+  padding: 0;
+  border-radius: 999px;
+}
+
+awracomposer > .awra-button.awra-composer-send image {
+  -gtk-icon-size: 16px;
+}
+
+/* Busy: the icon steps back behind the turning arc. */
+awracomposer > .awra-button.awra-composer-send.awra-composer-busy image {
+  opacity: .35;
+}
+
+/* Completion: a short floating list next to the caret. The selected row is
+ * the one Enter takes, so it reads as chosen, not merely hovered. */
+popover.awra-completion-popover scrolledwindow,
+popover.awra-completion-popover scrolledwindow > undershoot,
+popover.awra-completion-popover scrolledwindow > overshoot,
+popover.awra-completion-popover listview.awra-completion-list,
+popover.awra-completion-popover listview.awra-completion-list > row {
+  min-width: 0;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  color: @awra_foreground;
+  background-color: transparent;
+  background-image: none;
+  box-shadow: none;
+  outline: 0;
+  opacity: 1;
+  filter: none;
+}
+
+popover.awra-completion-popover listview.awra-completion-list {
+  padding: 5px;
+}
+
+popover.awra-completion-popover listview.awra-completion-list > row {
+  min-height: 30px;
+  margin: 1px 0;
+  padding: 3px 10px;
+  border-radius: 9px;
+  transition: background-color 80ms ease-out;
+}
+
+popover.awra-completion-popover listview.awra-completion-list > row:selected {
+  color: @awra_foreground;
+  background-color: @awra_accent_soft;
+  box-shadow: inset 0 0 0 1px alpha(@awra_accent, .22);
+}
+
+popover.awra-completion-popover listview.awra-completion-list > row label {
+  color: inherit;
+}
+
+popover.awra-completion-popover scrolledwindow > scrollbar {
+  min-width: 6px;
+  margin: 4px 2px;
+  opacity: .6;
+}
+
+.awra-reduced-motion popover.awra-completion-popover listview.awra-completion-list > row {
+  transition: none;
+}
+
+/* Dividers draw their line in their own colour; the label carries the
+ * meaning: a muted day, an accent marker, or a pill for unread messages. */
+awradivider {
+  min-height: 1px;
+  padding: 6px 0;
+  color: @awra_separator;
+}
+
+awradivider > label {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background-color: transparent;
+  background-image: none;
+  box-shadow: none;
+  color: @awra_muted;
+  font-size: .84em;
+  font-weight: 600;
+}
+
+awradivider.awra-divider-accent {
+  color: alpha(@awra_accent, .55);
+}
+
+awradivider.awra-divider-accent > label {
+  color: @awra_accent_content;
+}
+
+awradivider.awra-divider-danger {
+  color: @awra_danger;
+}
+
+awradivider.awra-divider-danger > label {
+  padding: 1px 7px;
+  border-radius: 999px;
+  color: @awra_on_accent;
+  background-color: @awra_danger;
+  font-size: .72em;
+  font-weight: 700;
+}
+
+.awra-high-contrast awradivider.awra-divider-neutral {
+  color: @awra_outline;
+}
+
+/* Emoji picker: the search and the tabs on top, a quiet grid whose cells
+ * answer the pointer, and a preview of the item about to be picked. */
+awraemojipicker {
+  min-width: 0;
+  color: @awra_foreground;
+}
+
+awraemojipicker > .awra-emoji-header {
+  padding: 10px 10px 4px;
+}
+
+awraemojipicker scrolledwindow,
+awraemojipicker scrolledwindow > undershoot,
+awraemojipicker scrolledwindow > overshoot,
+awraemojipicker overlay,
+awraemojipicker listview.awra-emoji-grid,
+awraemojipicker listview.awra-emoji-grid > row,
+awraemojipicker listview.awra-emoji-grid > header,
+awraemojipicker .awra-emoji-row,
+awraemojipicker .awra-emoji-tabs {
+  min-width: 0;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  color: @awra_foreground;
+  background-color: transparent;
+  background-image: none;
+  box-shadow: none;
+  outline: 0;
+  opacity: 1;
+  filter: none;
+}
+
+awraemojipicker listview.awra-emoji-grid {
+  padding: 0 6px 6px;
+}
+
+awraemojipicker listview.awra-emoji-grid > header {
+  padding: 10px 6px 4px;
+}
+
+awraemojipicker .awra-emoji-section-title {
+  color: @awra_muted;
+}
+
+awraemojipicker .awra-emoji-cell {
+  min-width: 36px;
+  min-height: 36px;
+  margin: 2px;
+  border-radius: 9px;
+  background-color: transparent;
+  transition: background-color 90ms ease-out, transform 90ms ease-out;
+}
+
+awraemojipicker .awra-emoji-cell:hover {
+  background-color: @awra_control_hover;
+}
+
+awraemojipicker .awra-emoji-cell:active {
+  background-color: @awra_control_pressed;
+  transform: scale(.92);
+}
+
+/* The keyboard cursor reads as chosen, like a selected row. */
+awraemojipicker .awra-emoji-cell.awra-emoji-cursor {
+  background-color: @awra_accent_soft;
+  box-shadow: inset 0 0 0 1px alpha(@awra_accent, .35);
+}
+
+awraemojipicker .awra-emoji-glyph {
+  font-size: 22px;
+  color: @awra_foreground;
+}
+
+awraemojipicker .awra-emoji-image {
+  margin: 5px;
+}
+
+awraemojipicker .awra-button.awra-emoji-tab {
+  min-width: 26px;
+  min-height: 26px;
+  padding: 2px 4px;
+  border-radius: 8px;
+  color: @awra_muted;
+  font-size: 16px;
+}
+
+awraemojipicker .awra-button.awra-emoji-tab.awra-emoji-tab-current {
+  color: @awra_accent_content;
+  background-color: @awra_accent_soft;
+}
+
+awraemojipicker .awra-emoji-empty {
+  color: @awra_muted;
+}
+
+awraemojipicker > .awra-emoji-preview {
+  min-height: 44px;
+  padding: 6px 12px;
+  border-top: 1px solid @awra_separator;
+}
+
+awraemojipicker .awra-emoji-preview-glyph {
+  font-size: 30px;
+}
+
+awraemojipicker .awra-emoji-preview-image {
+  min-width: 32px;
+  min-height: 32px;
+}
+
+awraemojipicker .awra-emoji-preview-name {
+  color: @awra_muted;
+  font-weight: 600;
+}
+
+awraemojipicker scrolledwindow > scrollbar {
+  min-width: 6px;
+  margin: 4px 2px;
+  opacity: .6;
+}
+
+.awra-reduced-motion awraemojipicker .awra-emoji-cell {
+  transition: none;
+}
+
+.awra-reduced-motion awraemojipicker .awra-emoji-cell:active {
+  transform: none;
 }
 
 /* A filter bar is structural chrome rather than another content card. Its

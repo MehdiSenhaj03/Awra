@@ -265,3 +265,42 @@ msgstr "Chronologie"
 #: src/navigation/awra-path-bar.c
 msgid "Location"
 msgstr "Emplacement"
+
+#: src/widgets/awra-conversation-view.c
+#, c-format
+msgid "%u new message"
+msgid_plural "%u new messages"
+msgstr[0] "%u nouveau message"
+msgstr[1] "%u nouveaux messages"
+
+#: src/widgets/awra-conversation-view.c
+msgid "Jump to present"
+msgstr "Revenir au présent"
+
+#: src/widgets/awra-composer.c
+msgid "Send"
+msgstr "Envoyer"
+
+#: src/widgets/awra-composer.c
+msgid "Close"
+msgstr "Fermer"
+
+#: src/overlays/awra-completion-popover.c
+msgid "Suggestions"
+msgstr "Suggestions"
+
+#: src/widgets/awra-emoji-picker.c
+msgid "Search emoji"
+msgstr "Rechercher un emoji"
+
+#: src/widgets/awra-emoji-picker.c
+msgid "Emoji"
+msgstr "Emoji"
+
+#: src/widgets/awra-emoji-picker.c
+msgid "No emoji found"
+msgstr "Aucun emoji trouvé"
+
+#: src/widgets/awra-emoji-picker.c
+msgid "Recent"
+msgstr "Récents"

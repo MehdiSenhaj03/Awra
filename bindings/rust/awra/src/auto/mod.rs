@@ -75,8 +75,29 @@ pub use self::choice_group::ChoiceGroup;
 mod command_palette;
 pub use self::command_palette::CommandPalette;
 
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+mod completion_popover;
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+pub use self::completion_popover::CompletionPopover;
+
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+mod composer;
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+pub use self::composer::Composer;
+
 mod context;
 pub use self::context::Context;
+
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+mod conversation_view;
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+pub use self::conversation_view::ConversationView;
 
 mod data_column;
 pub use self::data_column::DataColumn;
@@ -93,6 +114,13 @@ pub use self::diagnostics::Diagnostics;
 mod dialog;
 pub use self::dialog::Dialog;
 
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+mod divider;
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+pub use self::divider::Divider;
+
 mod drag_preview;
 pub use self::drag_preview::DragPreview;
 
@@ -108,6 +136,20 @@ pub use self::dropdown::Dropdown;
 
 mod edge_panel;
 pub use self::edge_panel::EdgePanel;
+
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+mod emoji_item;
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+pub use self::emoji_item::EmojiItem;
+
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+mod emoji_picker;
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+pub use self::emoji_picker::EmojiPicker;
 
 mod empty_state;
 pub use self::empty_state::EmptyState;
@@ -397,7 +439,16 @@ pub use self::enums::CardAppearance;
 #[cfg(feature = "v1_1")]
 #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
 pub use self::enums::ChipAppearance;
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+pub use self::enums::ConversationAlign;
 pub use self::enums::DataViewState;
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+pub use self::enums::DividerAppearance;
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+pub use self::enums::DividerLabelPosition;
 #[cfg(feature = "v1_1")]
 #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
 pub use self::enums::Easing;
@@ -453,16 +504,34 @@ pub(crate) mod builders {
     pub use super::chip::ChipBuilder;
     pub use super::choice_group::ChoiceGroupBuilder;
     pub use super::command_palette::CommandPaletteBuilder;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub use super::completion_popover::CompletionPopoverBuilder;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub use super::composer::ComposerBuilder;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub use super::conversation_view::ConversationViewBuilder;
     pub use super::data_column::DataColumnBuilder;
     pub use super::data_view::DataViewBuilder;
     pub use super::detail_pane::DetailPaneBuilder;
     pub use super::dialog::DialogBuilder;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub use super::divider::DividerBuilder;
     pub use super::drag_preview::DragPreviewBuilder;
     #[cfg(feature = "v1_1")]
     #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
     pub use super::drop_zone::DropZoneBuilder;
     pub use super::dropdown::DropdownBuilder;
     pub use super::edge_panel::EdgePanelBuilder;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub use super::emoji_item::EmojiItemBuilder;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub use super::emoji_picker::EmojiPickerBuilder;
     pub use super::empty_state::EmptyStateBuilder;
     pub use super::entry::EntryBuilder;
     pub use super::error_state::ErrorStateBuilder;

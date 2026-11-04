@@ -47,6 +47,33 @@ unchanged (checked against the frozen 1.0.0 contract).
   quieter `subtitle` line, `emphasized` for a destination with something
   new (full contrast and weight) and `muted` for a silenced one, which
   recedes until hovered or selected.
+### Conversations
+
+- `AwraConversationView` is a virtualized timeline for chats, comment threads,
+  logs and consoles. It starts at the end and follows appended items, which
+  glide into place and rise in; scrolling up stops following and a pill offers
+  to jump back, counting unread items. Older history inserted above never moves
+  what is on screen, `edge-reached` asks for more at either end, and
+  `awra_conversation_view_scroll_to_item()` brings an item into view and can
+  flash it.
+- `AwraComposer` is the field where a message is written: one well with an
+  optional banner ("Replying to…"), attachments, start and end widgets and a
+  send button that grows in when there is something to send. The text grows
+  to `max-lines` with a smooth change of height; Enter sends, Shift+Enter
+  starts a new line, and an input method composing keeps Enter.
+- `AwraCompletionPopover` shows suggestions at the caret of a text view or an
+  entry (mentions, emoji shortcodes, commands) without taking the focus: the
+  arrows move through them, Tab and Enter choose, Escape dismisses.
+- `AwraDivider` separates content with a line and an optional label, centred
+  or at the end, in a neutral, accent or danger appearance: day separators and
+  the line where unread messages start.
+- `AwraEmojiPicker` and `AwraEmojiItem` pick emoji, custom emoji and stickers
+  from sections the application provides, with a search across sections,
+  tabs that follow the scrolling, a virtualized grid with section titles,
+  keyboard navigation, a large preview and a recent section.
+- Rust bindings cover `AwraConversationView`, `AwraComposer`,
+  `AwraCompletionPopover`, `AwraDivider`, `AwraEmojiPicker` and
+  `AwraEmojiItem`.
 
 ### Desktop workspace composition
 

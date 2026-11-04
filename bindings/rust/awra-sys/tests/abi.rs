@@ -350,10 +350,38 @@ const RUST_LAYOUTS: &[(&str, Layout)] = &[
         },
     ),
     (
+        "AwraCompletionPopoverClass",
+        Layout {
+            size: size_of::<AwraCompletionPopoverClass>(),
+            alignment: align_of::<AwraCompletionPopoverClass>(),
+        },
+    ),
+    (
+        "AwraComposerClass",
+        Layout {
+            size: size_of::<AwraComposerClass>(),
+            alignment: align_of::<AwraComposerClass>(),
+        },
+    ),
+    (
         "AwraContextClass",
         Layout {
             size: size_of::<AwraContextClass>(),
             alignment: align_of::<AwraContextClass>(),
+        },
+    ),
+    (
+        "AwraConversationAlign",
+        Layout {
+            size: size_of::<AwraConversationAlign>(),
+            alignment: align_of::<AwraConversationAlign>(),
+        },
+    ),
+    (
+        "AwraConversationViewClass",
+        Layout {
+            size: size_of::<AwraConversationViewClass>(),
+            alignment: align_of::<AwraConversationViewClass>(),
         },
     ),
     (
@@ -396,6 +424,27 @@ const RUST_LAYOUTS: &[(&str, Layout)] = &[
         Layout {
             size: size_of::<AwraDialogClass>(),
             alignment: align_of::<AwraDialogClass>(),
+        },
+    ),
+    (
+        "AwraDividerAppearance",
+        Layout {
+            size: size_of::<AwraDividerAppearance>(),
+            alignment: align_of::<AwraDividerAppearance>(),
+        },
+    ),
+    (
+        "AwraDividerClass",
+        Layout {
+            size: size_of::<AwraDividerClass>(),
+            alignment: align_of::<AwraDividerClass>(),
+        },
+    ),
+    (
+        "AwraDividerLabelPosition",
+        Layout {
+            size: size_of::<AwraDividerLabelPosition>(),
+            alignment: align_of::<AwraDividerLabelPosition>(),
         },
     ),
     (
@@ -445,6 +494,20 @@ const RUST_LAYOUTS: &[(&str, Layout)] = &[
         Layout {
             size: size_of::<AwraElevation>(),
             alignment: align_of::<AwraElevation>(),
+        },
+    ),
+    (
+        "AwraEmojiItemClass",
+        Layout {
+            size: size_of::<AwraEmojiItemClass>(),
+            alignment: align_of::<AwraEmojiItemClass>(),
+        },
+    ),
+    (
+        "AwraEmojiPickerClass",
+        Layout {
+            size: size_of::<AwraEmojiPickerClass>(),
+            alignment: align_of::<AwraEmojiPickerClass>(),
         },
     ),
     (
@@ -1066,10 +1129,18 @@ const RUST_CONSTANTS: &[(&str, &str)] = &[
     ("(gint) AWRA_CARD_APPEARANCE_TINTED", "1"),
     ("(gint) AWRA_CHIP_APPEARANCE_ACCENT", "1"),
     ("(gint) AWRA_CHIP_APPEARANCE_NEUTRAL", "0"),
+    ("(gint) AWRA_CONVERSATION_ALIGN_CENTER", "1"),
+    ("(gint) AWRA_CONVERSATION_ALIGN_END", "2"),
+    ("(gint) AWRA_CONVERSATION_ALIGN_TOP", "0"),
     ("(gint) AWRA_DATA_VIEW_STATE_CONTENT", "0"),
     ("(gint) AWRA_DATA_VIEW_STATE_EMPTY", "1"),
     ("(gint) AWRA_DATA_VIEW_STATE_ERROR", "3"),
     ("(gint) AWRA_DATA_VIEW_STATE_LOADING", "2"),
+    ("(gint) AWRA_DIVIDER_APPEARANCE_ACCENT", "1"),
+    ("(gint) AWRA_DIVIDER_APPEARANCE_DANGER", "2"),
+    ("(gint) AWRA_DIVIDER_APPEARANCE_NEUTRAL", "0"),
+    ("(gint) AWRA_DIVIDER_LABEL_POSITION_CENTER", "0"),
+    ("(gint) AWRA_DIVIDER_LABEL_POSITION_END", "1"),
     ("AWRA_DURATION_INFINITE", "4294967295"),
     ("(gint) AWRA_EASING_EASE_IN_OUT_CUBIC", "3"),
     ("(gint) AWRA_EASING_EASE_IN_OUT_SINE", "7"),
