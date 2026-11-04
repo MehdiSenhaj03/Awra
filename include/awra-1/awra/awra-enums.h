@@ -410,4 +410,56 @@ typedef enum {
  */
 GType awra_easing_get_type (void) G_GNUC_CONST;
 
+/**
+ * AwraAvatarShape:
+ * @AWRA_AVATAR_SHAPE_CIRCLE: a circle, for people
+ * @AWRA_AVATAR_SHAPE_ROUNDED: a rounded square, for places, groups and
+ *   workspaces
+ *
+ * The outline an #AwraAvatar clips its picture to.
+ *
+ * Since: 1.1
+ */
+typedef enum {
+  AWRA_AVATAR_SHAPE_CIRCLE,
+  AWRA_AVATAR_SHAPE_ROUNDED,
+} AwraAvatarShape;
+
+#define AWRA_TYPE_AVATAR_SHAPE (awra_avatar_shape_get_type ())
+/**
+ * awra_avatar_shape_get_type:
+ *
+ * Since: 1.1
+ */
+GType awra_avatar_shape_get_type (void) G_GNUC_CONST;
+
+/**
+ * AwraPresence:
+ * @AWRA_PRESENCE_NONE: no presence is shown
+ * @AWRA_PRESENCE_ONLINE: available
+ * @AWRA_PRESENCE_IDLE: away from the keyboard
+ * @AWRA_PRESENCE_BUSY: available but not to be disturbed
+ * @AWRA_PRESENCE_OFFLINE: not connected
+ *
+ * Whether a person can be reached. Each state has its own shape as well as
+ * its own colour, so it reads without colour vision.
+ *
+ * Since: 1.1
+ */
+typedef enum {
+  AWRA_PRESENCE_NONE,
+  AWRA_PRESENCE_ONLINE,
+  AWRA_PRESENCE_IDLE,
+  AWRA_PRESENCE_BUSY,
+  AWRA_PRESENCE_OFFLINE,
+} AwraPresence;
+
+#define AWRA_TYPE_PRESENCE (awra_presence_get_type ())
+/**
+ * awra_presence_get_type:
+ *
+ * Since: 1.1
+ */
+GType awra_presence_get_type (void) G_GNUC_CONST;
+
 G_END_DECLS

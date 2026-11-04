@@ -336,6 +336,8 @@ tile_view_test = executable('test-tile-view', 'widget/test-tile-view.c', depende
 test('tile-view', tile_view_test, env: ['G_DEBUG=fatal-warnings', 'GTK_A11Y=none'], is_parallel: false)
 animation_test = executable('test-animation', 'widget/test-animation.c', dependencies: [awra_dep, cc.find_library('m', required: false)])
 test('animation', animation_test, env: ['G_DEBUG=fatal-warnings', 'GTK_A11Y=none'], is_parallel: false)
+avatar_test = executable('test-avatar', 'widget/test-avatar.c', dependencies: awra_dep)
+test('avatar', avatar_test, env: ['G_DEBUG=fatal-warnings', 'GTK_A11Y=none'], is_parallel: false)
 drag_preview_test = executable('test-drag-preview', 'widget/test-drag-preview.c', dependencies: awra_dep)
 test('drag-preview', drag_preview_test, env: ['G_DEBUG=fatal-warnings', 'GTK_A11Y=none'], is_parallel: false)
 path_bar_test = executable('test-path-bar', 'widget/test-path-bar.c', dependencies: awra_dep)

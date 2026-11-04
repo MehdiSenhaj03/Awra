@@ -57,7 +57,8 @@ awrawaveformview,
 awratimeline,
 awravolumecontrol,
 awramediarow,
-awradropzone {
+awradropzone,
+awraavatar {
   min-width: 0;
   min-height: 0;
   margin: 0;

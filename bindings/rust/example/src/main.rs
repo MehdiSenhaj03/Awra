@@ -199,6 +199,16 @@ fn exercise_motion() {
     assert!((widget.opacity() - 0.25).abs() < 0.01);
 }
 
+fn exercise_messaging_components() {
+    let avatar = awra::Avatar::new(40, Some("Ada Lovelace"));
+    avatar.set_presence(awra::Presence::Idle);
+    avatar.set_shape(awra::AvatarShape::Rounded);
+    avatar.set_speaking(true);
+    avatar.set_custom_image(Some(&awra::gdk::Paintable::new_empty(64, 64)));
+    assert_eq!(avatar.text().as_deref(), Some("Ada Lovelace"));
+    assert_eq!(avatar.presence(), awra::Presence::Idle);
+}
+
 fn main() {
     assert_action_map::<awra::Window>();
     awra::gtk::init().expect("Rust Awra example requires a GTK display");
@@ -206,6 +216,7 @@ fn main() {
     exercise_projected_gtk_types();
     exercise_media_input_components();
     exercise_motion();
+    exercise_messaging_components();
 
     let window = awra::Window::builder().keep_rounded_corners(true).build();
     assert!(window.is_keep_rounded_corners());

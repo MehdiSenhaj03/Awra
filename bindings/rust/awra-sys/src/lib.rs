@@ -48,6 +48,10 @@ pub const AWRA_APPEARANCE_SYSTEM: AwraAppearance = 0;
 pub const AWRA_APPEARANCE_LIGHT: AwraAppearance = 1;
 pub const AWRA_APPEARANCE_DARK: AwraAppearance = 2;
 
+pub type AwraAvatarShape = c_int;
+pub const AWRA_AVATAR_SHAPE_CIRCLE: AwraAvatarShape = 0;
+pub const AWRA_AVATAR_SHAPE_ROUNDED: AwraAvatarShape = 1;
+
 pub type AwraBadgeAppearance = c_int;
 pub const AWRA_BADGE_APPEARANCE_NEUTRAL: AwraBadgeAppearance = 0;
 pub const AWRA_BADGE_APPEARANCE_ACCENT: AwraBadgeAppearance = 1;
@@ -136,6 +140,13 @@ pub const AWRA_MOTION_PRESET_SLOW: AwraMotionPreset = 3;
 pub type AwraPanelEdge = c_int;
 pub const AWRA_PANEL_EDGE_START: AwraPanelEdge = 0;
 pub const AWRA_PANEL_EDGE_END: AwraPanelEdge = 1;
+
+pub type AwraPresence = c_int;
+pub const AWRA_PRESENCE_NONE: AwraPresence = 0;
+pub const AWRA_PRESENCE_ONLINE: AwraPresence = 1;
+pub const AWRA_PRESENCE_IDLE: AwraPresence = 2;
+pub const AWRA_PRESENCE_BUSY: AwraPresence = 3;
+pub const AWRA_PRESENCE_OFFLINE: AwraPresence = 4;
 
 pub type AwraRadius = c_int;
 pub const AWRA_RADIUS_SMALL: AwraRadius = 0;
@@ -262,6 +273,20 @@ pub struct AwraAspectPaintableClass {
 impl ::std::fmt::Debug for AwraAspectPaintableClass {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
         f.debug_struct(&format!("AwraAspectPaintableClass @ {self:p}"))
+            .field("parent_class", &self.parent_class)
+            .finish()
+    }
+}
+
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub struct AwraAvatarClass {
+    pub parent_class: gtk::GtkWidgetClass,
+}
+
+impl ::std::fmt::Debug for AwraAvatarClass {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        f.debug_struct(&format!("AwraAvatarClass @ {self:p}"))
             .field("parent_class", &self.parent_class)
             .finish()
     }
@@ -1498,6 +1523,19 @@ impl ::std::fmt::Debug for AwraAspectPaintable {
 
 #[repr(C)]
 #[allow(dead_code)]
+pub struct AwraAvatar {
+    _data: [u8; 0],
+    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
+}
+
+impl ::std::fmt::Debug for AwraAvatar {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        f.debug_struct(&format!("AwraAvatar @ {self:p}")).finish()
+    }
+}
+
+#[repr(C)]
+#[allow(dead_code)]
 pub struct AwraBadge {
     _data: [u8; 0],
     _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
@@ -2671,6 +2709,13 @@ unsafe extern "C" {
     pub fn awra_appearance_get_type() -> GType;
 
     //=========================================================================
+    // AwraAvatarShape
+    //=========================================================================
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_avatar_shape_get_type() -> GType;
+
+    //=========================================================================
     // AwraBadgeAppearance
     //=========================================================================
     pub fn awra_badge_appearance_get_type() -> GType;
@@ -2746,6 +2791,13 @@ unsafe extern "C" {
     // AwraPanelEdge
     //=========================================================================
     pub fn awra_panel_edge_get_type() -> GType;
+
+    //=========================================================================
+    // AwraPresence
+    //=========================================================================
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_presence_get_type() -> GType;
 
     //=========================================================================
     // AwraRadius
@@ -2880,6 +2932,64 @@ unsafe extern "C" {
     pub fn awra_aspect_paintable_get_paintable(
         self_: *mut AwraAspectPaintable,
     ) -> *mut gdk::GdkPaintable;
+
+    //=========================================================================
+    // AwraAvatar
+    //=========================================================================
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_avatar_get_type() -> GType;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_avatar_new(size: c_int, text: *const c_char) -> *mut gtk::GtkWidget;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_avatar_get_custom_image(self_: *mut AwraAvatar) -> *mut gdk::GdkPaintable;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_avatar_get_icon_name(self_: *mut AwraAvatar) -> *const c_char;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_avatar_get_presence(self_: *mut AwraAvatar) -> AwraPresence;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_avatar_get_shape(self_: *mut AwraAvatar) -> AwraAvatarShape;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_avatar_get_show_initials(self_: *mut AwraAvatar) -> gboolean;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_avatar_get_size(self_: *mut AwraAvatar) -> c_int;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_avatar_get_speaking(self_: *mut AwraAvatar) -> gboolean;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_avatar_get_text(self_: *mut AwraAvatar) -> *const c_char;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_avatar_set_custom_image(self_: *mut AwraAvatar, image: *mut gdk::GdkPaintable);
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_avatar_set_icon_name(self_: *mut AwraAvatar, icon_name: *const c_char);
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_avatar_set_presence(self_: *mut AwraAvatar, presence: AwraPresence);
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_avatar_set_shape(self_: *mut AwraAvatar, shape: AwraAvatarShape);
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_avatar_set_show_initials(self_: *mut AwraAvatar, show_initials: gboolean);
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_avatar_set_size(self_: *mut AwraAvatar, size: c_int);
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_avatar_set_speaking(self_: *mut AwraAvatar, speaking: gboolean);
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_avatar_set_text(self_: *mut AwraAvatar, text: *const c_char);
 
     //=========================================================================
     // AwraBadge
@@ -5244,6 +5354,9 @@ unsafe extern "C" {
     pub fn awra_token_set_get_selection(self_: *mut AwraTokenSet) -> *const gdk::GdkRGBA;
     pub fn awra_token_set_get_separator(self_: *mut AwraTokenSet) -> *const gdk::GdkRGBA;
     pub fn awra_token_set_get_spacing(self_: *mut AwraTokenSet, spacing: AwraSpacing) -> c_double;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_token_set_get_success(self_: *mut AwraTokenSet) -> *const gdk::GdkRGBA;
     pub fn awra_token_set_get_surface_canvas(self_: *mut AwraTokenSet) -> *const gdk::GdkRGBA;
     pub fn awra_token_set_get_surface_chrome(self_: *mut AwraTokenSet) -> *const gdk::GdkRGBA;
     pub fn awra_token_set_get_surface_content(self_: *mut AwraTokenSet) -> *const gdk::GdkRGBA;
@@ -5251,6 +5364,9 @@ unsafe extern "C" {
     pub fn awra_token_set_get_surface_layer(self_: *mut AwraTokenSet) -> *const gdk::GdkRGBA;
     pub fn awra_token_set_get_surface_opacity(self_: *mut AwraTokenSet) -> c_double;
     pub fn awra_token_set_get_surface_opaque(self_: *mut AwraTokenSet) -> *const gdk::GdkRGBA;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_token_set_get_warning(self_: *mut AwraTokenSet) -> *const gdk::GdkRGBA;
     pub fn awra_token_set_get_window_opacity(self_: *mut AwraTokenSet) -> c_double;
 
     //=========================================================================

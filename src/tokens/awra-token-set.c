@@ -26,6 +26,8 @@ struct _AwraTokenSet {
   GdkRGBA disabled_foreground;
   GdkRGBA on_accent;
   GdkRGBA danger;
+  GdkRGBA success;
+  GdkRGBA warning;
   GdkRGBA accent_soft;
   GdkRGBA surface_canvas;
   GdkRGBA surface_content;
@@ -337,6 +339,11 @@ awra_token_set_new_with_tuning (gboolean       dark,
                       ? (GdkRGBA) { 0.04, 0.035, 0.05, 1.0 }
                       : (GdkRGBA) { 1.0, 1.0, 1.0, 1.0 };
   self->danger = (GdkRGBA) { 0.88, 0.22, 0.28, 1.0 };
+  /* Strong enough to read as a small dot on either canvas. */
+  self->success = dark ? (GdkRGBA) { 0.27, 0.76, 0.47, 1.0 }
+                       : (GdkRGBA) { 0.12, 0.58, 0.31, 1.0 };
+  self->warning = dark ? (GdkRGBA) { 0.96, 0.71, 0.26, 1.0 }
+                       : (GdkRGBA) { 0.84, 0.54, 0.06, 1.0 };
 
   self->material_tints[AWRA_MATERIAL_PROFILE_SOLID] = self->background;
   self->material_tints[AWRA_MATERIAL_PROFILE_SOLID].alpha = 1.0;
@@ -532,6 +539,8 @@ DEFINE_COLOR_GETTER (focus_ring, focus_ring)
 DEFINE_COLOR_GETTER (disabled_foreground, disabled_foreground)
 DEFINE_COLOR_GETTER (on_accent, on_accent)
 DEFINE_COLOR_GETTER (danger, danger)
+DEFINE_COLOR_GETTER (success, success)
+DEFINE_COLOR_GETTER (warning, warning)
 DEFINE_COLOR_GETTER (accent_soft, accent_soft)
 DEFINE_COLOR_GETTER (surface_canvas, surface_canvas)
 DEFINE_COLOR_GETTER (surface_content, surface_content)

@@ -238,6 +238,20 @@ const RUST_LAYOUTS: &[(&str, Layout)] = &[
         },
     ),
     (
+        "AwraAvatarClass",
+        Layout {
+            size: size_of::<AwraAvatarClass>(),
+            alignment: align_of::<AwraAvatarClass>(),
+        },
+    ),
+    (
+        "AwraAvatarShape",
+        Layout {
+            size: size_of::<AwraAvatarShape>(),
+            alignment: align_of::<AwraAvatarShape>(),
+        },
+    ),
+    (
         "AwraBadgeAppearance",
         Layout {
             size: size_of::<AwraBadgeAppearance>(),
@@ -686,6 +700,13 @@ const RUST_LAYOUTS: &[(&str, Layout)] = &[
         },
     ),
     (
+        "AwraPresence",
+        Layout {
+            size: size_of::<AwraPresence>(),
+            alignment: align_of::<AwraPresence>(),
+        },
+    ),
+    (
         "AwraProgressBarClass",
         Layout {
             size: size_of::<AwraProgressBarClass>(),
@@ -985,6 +1006,8 @@ const RUST_CONSTANTS: &[(&str, &str)] = &[
     ("(gint) AWRA_APPEARANCE_DARK", "2"),
     ("(gint) AWRA_APPEARANCE_LIGHT", "1"),
     ("(gint) AWRA_APPEARANCE_SYSTEM", "0"),
+    ("(gint) AWRA_AVATAR_SHAPE_CIRCLE", "0"),
+    ("(gint) AWRA_AVATAR_SHAPE_ROUNDED", "1"),
     ("(gint) AWRA_BADGE_APPEARANCE_ACCENT", "1"),
     ("(gint) AWRA_BADGE_APPEARANCE_DANGER", "5"),
     ("(gint) AWRA_BADGE_APPEARANCE_INFO", "2"),
@@ -1052,6 +1075,11 @@ const RUST_CONSTANTS: &[(&str, &str)] = &[
     ("(gint) AWRA_MOTION_PRESET_SLOW", "3"),
     ("(gint) AWRA_PANEL_EDGE_END", "1"),
     ("(gint) AWRA_PANEL_EDGE_START", "0"),
+    ("(gint) AWRA_PRESENCE_BUSY", "3"),
+    ("(gint) AWRA_PRESENCE_IDLE", "2"),
+    ("(gint) AWRA_PRESENCE_NONE", "0"),
+    ("(gint) AWRA_PRESENCE_OFFLINE", "4"),
+    ("(gint) AWRA_PRESENCE_ONLINE", "1"),
     ("(gint) AWRA_RADIUS_LARGE", "2"),
     ("(gint) AWRA_RADIUS_MEDIUM", "1"),
     ("(gint) AWRA_RADIUS_PILL", "4"),

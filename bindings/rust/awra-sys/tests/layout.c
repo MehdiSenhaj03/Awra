@@ -13,6 +13,8 @@ int main() {
     printf("%s;%zu;%zu\n", "AwraAnimationState", sizeof(AwraAnimationState), alignof(AwraAnimationState));
     printf("%s;%zu;%zu\n", "AwraAppearance", sizeof(AwraAppearance), alignof(AwraAppearance));
     printf("%s;%zu;%zu\n", "AwraAspectPaintableClass", sizeof(AwraAspectPaintableClass), alignof(AwraAspectPaintableClass));
+    printf("%s;%zu;%zu\n", "AwraAvatarClass", sizeof(AwraAvatarClass), alignof(AwraAvatarClass));
+    printf("%s;%zu;%zu\n", "AwraAvatarShape", sizeof(AwraAvatarShape), alignof(AwraAvatarShape));
     printf("%s;%zu;%zu\n", "AwraBadgeAppearance", sizeof(AwraBadgeAppearance), alignof(AwraBadgeAppearance));
     printf("%s;%zu;%zu\n", "AwraBadgeClass", sizeof(AwraBadgeClass), alignof(AwraBadgeClass));
     printf("%s;%zu;%zu\n", "AwraBadgeGroupClass", sizeof(AwraBadgeGroupClass), alignof(AwraBadgeGroupClass));
@@ -77,6 +79,7 @@ int main() {
     printf("%s;%zu;%zu\n", "AwraPasswordEntryClass", sizeof(AwraPasswordEntryClass), alignof(AwraPasswordEntryClass));
     printf("%s;%zu;%zu\n", "AwraPathBarClass", sizeof(AwraPathBarClass), alignof(AwraPathBarClass));
     printf("%s;%zu;%zu\n", "AwraPopoverClass", sizeof(AwraPopoverClass), alignof(AwraPopoverClass));
+    printf("%s;%zu;%zu\n", "AwraPresence", sizeof(AwraPresence), alignof(AwraPresence));
     printf("%s;%zu;%zu\n", "AwraProgressBarClass", sizeof(AwraProgressBarClass), alignof(AwraProgressBarClass));
     printf("%s;%zu;%zu\n", "AwraRadius", sizeof(AwraRadius), alignof(AwraRadius));
     printf("%s;%zu;%zu\n", "AwraResponsiveBinClass", sizeof(AwraResponsiveBinClass), alignof(AwraResponsiveBinClass));

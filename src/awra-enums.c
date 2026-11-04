@@ -327,3 +327,14 @@ DEFINE_ENUM_TYPE (awra_easing_get_type, "AwraEasing",
   { AWRA_EASING_EASE_OUT_EXPO, "AWRA_EASING_EASE_OUT_EXPO", "ease-out-expo" },
   { AWRA_EASING_EASE_OUT_BACK, "AWRA_EASING_EASE_OUT_BACK", "ease-out-back" },
   { AWRA_EASING_EASE_IN_OUT_SINE, "AWRA_EASING_EASE_IN_OUT_SINE", "ease-in-out-sine" })
+
+DEFINE_ENUM_TYPE (awra_avatar_shape_get_type, "AwraAvatarShape",
+  { AWRA_AVATAR_SHAPE_CIRCLE, "AWRA_AVATAR_SHAPE_CIRCLE", "circle" },
+  { AWRA_AVATAR_SHAPE_ROUNDED, "AWRA_AVATAR_SHAPE_ROUNDED", "rounded" })
+
+DEFINE_ENUM_TYPE (awra_presence_get_type, "AwraPresence",
+  { AWRA_PRESENCE_NONE, "AWRA_PRESENCE_NONE", "none" },
+  { AWRA_PRESENCE_ONLINE, "AWRA_PRESENCE_ONLINE", "online" },
+  { AWRA_PRESENCE_IDLE, "AWRA_PRESENCE_IDLE", "idle" },
+  { AWRA_PRESENCE_BUSY, "AWRA_PRESENCE_BUSY", "busy" },
+  { AWRA_PRESENCE_OFFLINE, "AWRA_PRESENCE_OFFLINE", "offline" })

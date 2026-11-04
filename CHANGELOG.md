@@ -17,6 +17,13 @@ unchanged (checked against the frozen 1.0.0 contract).
   destination in flight, keeping its value and velocity, so interrupted
   motion never jumps. `AwraEasing` names eight curves and
   `awra_easing_ease()` evaluates them. See [motion](docs/guides/motion.md).
+- `AwraAvatar` shows a person or a place: a picture cropped to a circle or a
+  rounded square, or initials on a colour derived from the name, so a name
+  always looks the same. A presence dot is cut into its corner, readable on
+  any background and by its shape as well as its colour; a ring breathes
+  around someone speaking, and a new picture cross-fades.
+- `AwraTokenSet` gains `success` and `warning` colours for states drawn by
+  widgets themselves.
 
 ### Desktop workspace composition
 

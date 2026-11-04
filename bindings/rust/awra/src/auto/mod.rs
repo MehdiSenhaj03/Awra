@@ -27,6 +27,13 @@ mod aspect_paintable;
 #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
 pub use self::aspect_paintable::AspectPaintable;
 
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+mod avatar;
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+pub use self::avatar::Avatar;
+
 mod badge;
 pub use self::badge::Badge;
 
@@ -346,6 +353,9 @@ pub use self::enums::AccentSource;
 #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
 pub use self::enums::AnimationState;
 pub use self::enums::Appearance;
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+pub use self::enums::AvatarShape;
 pub use self::enums::BadgeAppearance;
 pub use self::enums::ButtonAppearance;
 pub use self::enums::CardAppearance;
@@ -364,6 +374,9 @@ pub use self::enums::MaterialKind;
 pub use self::enums::MaterialPreset;
 pub use self::enums::MotionPreset;
 pub use self::enums::PanelEdge;
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+pub use self::enums::Presence;
 pub use self::enums::Radius;
 pub use self::enums::Spacing;
 pub use self::enums::StatusAppearance;
@@ -387,6 +400,9 @@ pub(crate) mod builders {
     #[cfg(feature = "v1_1")]
     #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
     pub use super::aspect_paintable::AspectPaintableBuilder;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub use super::avatar::AvatarBuilder;
     pub use super::badge::BadgeBuilder;
     pub use super::badge_group::BadgeGroupBuilder;
     pub use super::breadcrumb_bar::BreadcrumbBarBuilder;

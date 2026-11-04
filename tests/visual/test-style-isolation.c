@@ -23,7 +23,7 @@ static const char hostile_css[] =
   "awrakeycap, awrakeycap label, awrakeyboardview, awrashortcutcapture,"
   "awrashortcutcapture label, awrawaveformview, awratimeline, awravolumecontrol,"
   "awramediarow, awramediarow label, awradropzone, awradropzone label,"
-  "awradropzone box,"
+  "awradropzone box, awraavatar,"
   "awradataview columnview,"
   "awradataview columnview > header > button,"
   "awradataview columnview listview > row {"
@@ -374,6 +374,17 @@ make_probe_scene (void)
     awra_timeline_set_position (AWRA_TIMELINE (timeline), 24);
     awra_timeline_add_interval (AWRA_TIMELINE (timeline), 10, 20, "Cue");
     gtk_box_append (GTK_BOX (media), timeline);
+    {
+      GtkWidget *people = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 6);
+      GtkWidget *person = awra_avatar_new (32, "Ada Lovelace");
+      GtkWidget *place = awra_avatar_new (32, "Workshop");
+
+      awra_avatar_set_presence (AWRA_AVATAR (person), AWRA_PRESENCE_IDLE);
+      awra_avatar_set_shape (AWRA_AVATAR (place), AWRA_AVATAR_SHAPE_ROUNDED);
+      gtk_box_append (GTK_BOX (people), person);
+      gtk_box_append (GTK_BOX (people), place);
+      gtk_box_append (GTK_BOX (media), people);
+    }
     gtk_grid_attach (GTK_GRID (grid), media, 0, 14, 3, 1);
   }
   g_object_set_data (G_OBJECT (grid), "awra-probe-dropdown", dropdown);

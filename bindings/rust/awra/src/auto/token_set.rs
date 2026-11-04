@@ -265,6 +265,14 @@ impl TokenSet {
         unsafe { ffi::awra_token_set_get_spacing(self.to_glib_none().0, spacing.into_glib()) }
     }
 
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    #[doc(alias = "awra_token_set_get_success")]
+    #[doc(alias = "get_success")]
+    pub fn success(&self) -> gdk::RGBA {
+        unsafe { from_glib_none(ffi::awra_token_set_get_success(self.to_glib_none().0)) }
+    }
+
     #[doc(alias = "awra_token_set_get_surface_canvas")]
     #[doc(alias = "get_surface_canvas")]
     pub fn surface_canvas(&self) -> gdk::RGBA {
@@ -326,6 +334,14 @@ impl TokenSet {
                 self.to_glib_none().0,
             ))
         }
+    }
+
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    #[doc(alias = "awra_token_set_get_warning")]
+    #[doc(alias = "get_warning")]
+    pub fn warning(&self) -> gdk::RGBA {
+        unsafe { from_glib_none(ffi::awra_token_set_get_warning(self.to_glib_none().0)) }
     }
 
     #[doc(alias = "awra_token_set_get_window_opacity")]
