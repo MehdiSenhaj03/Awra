@@ -61,6 +61,7 @@ preferences as the rest of Awra.
 | `pane-caption` / `active-pane-caption` | GtkLabel | Quiet caption and focus indication in a divided workspace |
 | `drop-zone` | GtkWidget with GtkDropTarget | Destination highlight while GTK marks an accepted drop active |
 | `focused-pane` | AwraToolbar | Subtle focus feedback for independent panes |
+| `quiet-search` | AwraSearchEntry above a list outside a sidebar | The sidebar's quiet search: a light line until used |
 | `inline-search` | AwraSearchEntry | Quiet filter in a pane footer |
 | `location-search` | AwraSearchEntry | Search that takes over a location slot and keeps its proportions |
 | `prose-metadata` | AwraMetadataGroup | Metadata read as text rather than compared as figures |

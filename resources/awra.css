@@ -4004,24 +4004,31 @@ awrachip {
   -gtk-icon-size: 12px;
 }
 
-/* A sidebar's search is a quiet line rather than a well until it is used,
- * so it does not outweigh the places listed under it. */
-awrasidebar .awra-entry.awra-search-entry {
+/* A search field is as tall as the buttons beside it: its icon must not
+ * add its own height to the field's padding. */
+.awra-entry.awra-search-entry {
   min-height: 20px;
   padding: 5px 8px;
   border-radius: 9px;
+}
+
+.awra-search-entry image {
+  min-width: 16px;
+  min-height: 16px;
+  padding: 0 4px 0 0;
+}
+
+/* In a sidebar or a side panel, a search is a quiet line rather than a
+ * well until it is used, so it does not outweigh the list under it. */
+awrasidebar .awra-entry.awra-search-entry,
+.awra-role-quiet-search .awra-entry.awra-search-entry {
   background-color: @awra_control_hover;
   box-shadow: none;
 }
 
-awrasidebar .awra-entry.awra-search-entry:focus-within {
+awrasidebar .awra-entry.awra-search-entry:focus-within,
+.awra-role-quiet-search .awra-entry.awra-search-entry:focus-within {
   background-color: @awra_well;
-}
-
-awrasidebar .awra-search-entry image {
-  min-width: 16px;
-  min-height: 16px;
-  padding: 0 4px 0 0;
 }
 
 /* inline-action on any GTK button, not only on Awra's: a quiet action
@@ -4192,4 +4199,21 @@ button.awra-role-collection-tile:not(.awra-button):active {
 button.awra-role-collection-tile:not(.awra-button):focus-visible {
   outline: 2px solid @awra_focus;
   outline-offset: -2px;
+}
+
+/* A button that holds only an icon is square, whatever its appearance:
+ * the label padding would make it a wide pill and push what follows away.
+ * GTK marks such a button image-button by itself. */
+.awra-button.image-button,
+.awra-menu-button.image-button {
+  min-width: 22px;
+  min-height: 22px;
+  padding: 6px;
+}
+
+.awra-button.awra-toolbar-button.image-button,
+.awra-menu-button.awra-toolbar-button.image-button {
+  min-width: 22px;
+  min-height: 22px;
+  padding: 5px;
 }

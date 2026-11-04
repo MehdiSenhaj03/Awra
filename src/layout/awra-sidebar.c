@@ -88,6 +88,14 @@ void awra_sidebar_set_inset (AwraSidebar *self, guint inset) {
   gtk_widget_set_margin_bottom (GTK_WIDGET (self->surface), (int) inset);
   gtk_widget_set_margin_start (GTK_WIDGET (self->surface), (int) inset);
   gtk_widget_set_margin_end (GTK_WIDGET (self->surface), (int) inset);
+  /* Docked flush, the sidebar meets the window's edge under its titlebar
+   * with a square corner, follows the window's own bottom corner, and keeps
+   * its inner corners soft. Inset, it shows its whole rounded silhouette. */
+  awra_surface_set_corner_mask (self->surface,
+                                inset == 0 ? AWRA_SURFACE_CORNER_TOP_END |
+                                             AWRA_SURFACE_CORNER_BOTTOM_END |
+                                             AWRA_SURFACE_CORNER_BOTTOM_START
+                                           : AWRA_SURFACE_CORNER_ALL);
   g_object_notify_by_pspec (G_OBJECT (self), properties[PROP_INSET]);
 }
 
