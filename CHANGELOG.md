@@ -146,6 +146,8 @@ unchanged (checked against the frozen 1.0.0 contract).
   and a last swatch that opens the system's colour chooser; a colour from
   outside the palette shows as a swatch of its own. `chosen` reports only
   the person's choices, so setting the selection never loops back.
+- `AwraSearchEntry` gains `activate`, for Enter, and `search-changed`,
+  emitted once typing pauses.
 - `AwraButtonContent` puts an icon before a label in a button, and
   `awra_button_new_with_icon_and_label()` makes such a button.
 - `AwraButton:busy` shows a spinner in place of a button's content, keeps
@@ -173,6 +175,11 @@ unchanged (checked against the frozen 1.0.0 contract).
   end.
 - A wheel turned over an unfocused `AwraSlider` scrolls the page around it,
   rather than stopping the page and changing the value.
+- Beside its control, an `AwraFormRow` label sits level with the control's
+  first line: baseline to baseline, centred on a switch, near the top of a
+  text area. It was centred on the control and its help text.
+- A widget given a context menu unparents its popover as it's disposed;
+  recycled list rows left GTK a child to warn about at finalization.
 - A badge in a light custom colour takes dark text, where it always had
   white.
 - `AwraTextArea`'s text sits inside its border, level with its placeholder.

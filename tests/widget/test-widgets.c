@@ -1762,6 +1762,45 @@ test_color_palette (void)
   g_object_unref (widget);
 }
 
+/* A widget with a context menu lets its popover go as it's disposed, as
+ * a list's recycled rows are, without leaving GTK a child to warn about. */
+static void
+test_context_menu_released_with_widget (void)
+{
+  g_autoptr (GMenu) menu = g_menu_new ();
+  GtkWidget *box = g_object_ref_sink (gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 0));
+  GtkWidget *label = gtk_label_new ("Row");
+
+  g_menu_append (menu, "Copy", "row.copy");
+  gtk_box_append (GTK_BOX (box), label);
+  awra_widget_set_context_menu_model (label, G_MENU_MODEL (menu));
+  g_assert_nonnull (awra_widget_get_context_menu_popover (label));
+  /* Disposing the label with its parent must not warn. */
+  gtk_box_remove (GTK_BOX (box), label);
+  g_object_unref (box);
+}
+
+static void
+count_signal_cb (GtkWidget *widget,
+                 guint     *count)
+{
+  (void) widget;
+  (*count)++;
+}
+
+/* Enter in a search entry reaches its own activate signal. */
+static void
+test_search_entry_activate (void)
+{
+  GtkWidget *entry = g_object_ref_sink (awra_search_entry_new ());
+  guint activated = 0;
+
+  g_signal_connect (entry, "activate", G_CALLBACK (count_signal_cb), &activated);
+  g_signal_emit_by_name (awra_search_entry_get_delegate (AWRA_SEARCH_ENTRY (entry)), "activate");
+  g_assert_cmpuint (activated, ==, 1);
+  g_object_unref (entry);
+}
+
 /* A subtitle allowed more lines wraps onto them at a narrow width. */
 static void
 test_action_row_subtitle_lines (void)
@@ -3174,6 +3213,10 @@ main (int   argc,
                    test_dialog_responses);
   g_test_add_func ("/awra/widgets/dialog-response-stays",
                    test_dialog_response_stays);
+  g_test_add_func ("/awra/widgets/context-menu-released-with-widget",
+                   test_context_menu_released_with_widget);
+  g_test_add_func ("/awra/widgets/search-entry-activate",
+                   test_search_entry_activate);
   g_test_add_func ("/awra/widgets/color-palette",
                    test_color_palette);
   g_test_add_func ("/awra/widgets/page-wraps-its-content",

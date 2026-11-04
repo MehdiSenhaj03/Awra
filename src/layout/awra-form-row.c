@@ -11,6 +11,9 @@ struct _AwraFormRow {
   GtkWidget parent_instance;
   GtkBox *root;
   GtkLabel *label_widget;
+  /* Holds the label: beside the control, it places the label level with
+   * the control's first line (see label_offset()). */
+  GtkWidget *label_slot;
   GtkBox *field;
   GtkLabel *help_widget;
   GtkLabel *error_widget;
@@ -185,8 +188,7 @@ update_responsive_layout (AwraFormRow *self,
                         compact ? AWRA_SPACING_SM : AWRA_SPACING_LG);
   gtk_widget_set_size_request (GTK_WIDGET (self->label_widget),
                                compact ? -1 : LABEL_WIDTH, -1);
-  gtk_widget_set_valign (GTK_WIDGET (self->label_widget),
-                         compact ? GTK_ALIGN_START : GTK_ALIGN_CENTER);
+  gtk_widget_set_valign (self->label_slot, compact ? GTK_ALIGN_START : GTK_ALIGN_FILL);
   if (compact)
     gtk_widget_add_css_class (GTK_WIDGET (self), "awra-compact");
   else
@@ -194,6 +196,69 @@ update_responsive_layout (AwraFormRow *self,
 }
 
 /* Its height depends on its width at least through its layout. */
+/* How far below the row's top the label goes, beside its control: baseline
+ * to baseline when the control has one, centred on a one-line control
+ * such as a switch, and level with the first line of a tall one such as a
+ * text area, rather than centred on it and its help text. */
+static int
+label_offset (AwraFormRow *self,
+              int          label_height,
+              int          label_baseline)
+{
+  int control_height = 0;
+  int control_baseline = -1;
+
+  if (self->compact || self->control == NULL || !gtk_widget_should_layout (self->control))
+    return 0;
+  gtk_widget_measure (self->control, GTK_ORIENTATION_VERTICAL, -1,
+                      &control_height, NULL, &control_baseline, NULL);
+  if (control_height > 3 * label_height)
+    return awra_spacing_resolve (GTK_WIDGET (self), AWRA_SPACING_SM) + 2;
+  if (control_baseline >= 0 && label_baseline >= 0)
+    return MAX (0, control_baseline - label_baseline);
+  return MAX (0, (control_height - label_height) / 2);
+}
+
+static void
+label_slot_measure (GtkWidget      *slot,
+                    GtkOrientation  orientation,
+                    int             for_size,
+                    int            *minimum,
+                    int            *natural,
+                    int            *minimum_baseline,
+                    int            *natural_baseline)
+{
+  gtk_widget_measure (gtk_widget_get_first_child (slot), orientation, for_size,
+                      minimum, natural, minimum_baseline, natural_baseline);
+}
+
+static void
+label_slot_allocate (GtkWidget *slot,
+                     int        width,
+                     int        height,
+                     int        baseline)
+{
+  AwraFormRow *self = g_object_get_data (G_OBJECT (slot), "awra-form-row");
+  GtkWidget *label = gtk_widget_get_first_child (slot);
+  int label_height = 0;
+  int label_baseline = -1;
+  int offset;
+
+  (void) baseline;
+  gtk_widget_measure (label, GTK_ORIENTATION_VERTICAL, width, &label_height, NULL,
+                      &label_baseline, NULL);
+  offset = self != NULL ? label_offset (self, label_height, label_baseline) : 0;
+  offset = CLAMP (offset, 0, MAX (0, height - label_height));
+  gtk_widget_allocate (label, width, MIN (label_height, height), -1,
+                       gsk_transform_translate (NULL, &GRAPHENE_POINT_INIT (0, offset)));
+}
+
+static GtkSizeRequestMode
+label_slot_request_mode (GtkWidget *slot)
+{
+  return gtk_widget_get_request_mode (gtk_widget_get_first_child (slot));
+}
+
 static GtkSizeRequestMode
 awra_form_row_request_mode (G_GNUC_UNUSED GtkWidget *widget)
 {
@@ -320,6 +385,7 @@ awra_form_row_dispose (GObject *object)
     gtk_widget_unparent (GTK_WIDGET (self->root));
     self->root = NULL;
     self->label_widget = NULL;
+    self->label_slot = NULL;
     self->field = NULL;
     self->help_widget = NULL;
     self->error_widget = NULL;
@@ -444,11 +510,19 @@ awra_form_row_init (AwraFormRow *self)
   gtk_widget_set_hexpand (GTK_WIDGET (self->field), TRUE);
   /* Labels line up with the control, not with the control and its help text. */
   gtk_box_set_baseline_child (self->field, 0);
-  gtk_widget_set_valign (GTK_WIDGET (self->label_widget),
-                         GTK_ALIGN_BASELINE_FILL);
-  gtk_widget_set_valign (GTK_WIDGET (self->field), GTK_ALIGN_BASELINE_FILL);
+  gtk_widget_set_valign (GTK_WIDGET (self->field), GTK_ALIGN_START);
   gtk_widget_set_size_request (GTK_WIDGET (self->label_widget), LABEL_WIDTH, -1);
-  gtk_box_append (self->root, GTK_WIDGET (self->label_widget));
+  self->label_slot = gtk_box_new (GTK_ORIENTATION_VERTICAL, 0);
+  gtk_widget_set_layout_manager (self->label_slot,
+                                 gtk_custom_layout_new (label_slot_request_mode,
+                                                        label_slot_measure,
+                                                        label_slot_allocate));
+  g_object_set_data (G_OBJECT (self->label_slot), "awra-form-row", self);
+  gtk_widget_set_valign (self->label_slot, GTK_ALIGN_FILL);
+  gtk_box_append (GTK_BOX (self->label_slot), GTK_WIDGET (self->label_widget));
+  g_object_bind_property (self->label_widget, "visible", self->label_slot, "visible",
+                          G_BINDING_SYNC_CREATE);
+  gtk_box_append (self->root, self->label_slot);
   gtk_box_append (self->root, GTK_WIDGET (self->field));
   gtk_box_append (self->field, GTK_WIDGET (self->help_widget));
   gtk_box_append (self->field, GTK_WIDGET (self->error_widget));

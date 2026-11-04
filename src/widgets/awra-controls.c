@@ -187,6 +187,10 @@ static void awra_search_entry_set_property (GObject *object, guint id, const GVa
   else if (id == SEARCH_PROP_PLACEHOLDER) awra_search_entry_set_placeholder_text (AWRA_SEARCH_ENTRY (object), g_value_get_string (value));
   else G_OBJECT_WARN_INVALID_PROPERTY_ID (object, id, pspec);
 }
+enum { SEARCH_SIGNAL_ACTIVATE, SEARCH_SIGNAL_SEARCH_CHANGED, SEARCH_N_SIGNALS };
+static guint search_signals[SEARCH_N_SIGNALS];
+static void search_activate_cb (GtkSearchEntry *delegate, AwraSearchEntry *self) { (void) delegate; g_signal_emit (self, search_signals[SEARCH_SIGNAL_ACTIVATE], 0); }
+static void search_changed_cb (GtkSearchEntry *delegate, AwraSearchEntry *self) { (void) delegate; g_signal_emit (self, search_signals[SEARCH_SIGNAL_SEARCH_CHANGED], 0); }
 static gboolean awra_search_entry_grab_focus (GtkWidget *widget) { return gtk_widget_grab_focus (GTK_WIDGET (AWRA_SEARCH_ENTRY (widget)->delegate)); }
 static void awra_search_entry_class_init (AwraSearchEntryClass *klass) {
   GObjectClass *oc = G_OBJECT_CLASS (klass); GtkWidgetClass *wc = GTK_WIDGET_CLASS (klass);
@@ -195,6 +199,23 @@ static void awra_search_entry_class_init (AwraSearchEntryClass *klass) {
   search_properties[SEARCH_PROP_TEXT] = g_param_spec_string ("text", NULL, NULL, "", G_PARAM_READWRITE | G_PARAM_EXPLICIT_NOTIFY | G_PARAM_STATIC_STRINGS);
   search_properties[SEARCH_PROP_PLACEHOLDER] = g_param_spec_string ("placeholder-text", NULL, NULL, NULL, G_PARAM_READWRITE | G_PARAM_EXPLICIT_NOTIFY | G_PARAM_STATIC_STRINGS);
   g_object_class_install_properties (oc, SEARCH_N_PROPS, search_properties);
+  /**
+   * AwraSearchEntry::activate:
+   *
+   * Enter was pressed: search now, or open the first result.
+   *
+   * Since: 1.1
+   */
+  search_signals[SEARCH_SIGNAL_ACTIVATE] = g_signal_new ("activate", G_TYPE_FROM_CLASS (klass), G_SIGNAL_RUN_LAST, 0, NULL, NULL, NULL, G_TYPE_NONE, 0);
+  /**
+   * AwraSearchEntry::search-changed:
+   *
+   * The text changed and the person paused typing, so a search over the
+   * network or a large list runs once rather than at each key.
+   *
+   * Since: 1.1
+   */
+  search_signals[SEARCH_SIGNAL_SEARCH_CHANGED] = g_signal_new ("search-changed", G_TYPE_FROM_CLASS (klass), G_SIGNAL_RUN_LAST, 0, NULL, NULL, NULL, G_TYPE_NONE, 0);
   gtk_widget_class_set_layout_manager_type (wc, GTK_TYPE_BIN_LAYOUT); gtk_widget_class_set_css_name (wc, "awrasearchentry");
 }
 static void awra_search_entry_init (AwraSearchEntry *self) {
@@ -202,6 +223,8 @@ static void awra_search_entry_init (AwraSearchEntry *self) {
   gtk_widget_add_css_class (GTK_WIDGET (self->delegate), "awra-search-entry"); gtk_widget_set_parent (GTK_WIDGET (self->delegate), GTK_WIDGET (self));
   g_signal_connect (self->delegate, "notify::text", G_CALLBACK (search_notify_cb), self);
   g_signal_connect (self->delegate, "notify::placeholder-text", G_CALLBACK (search_notify_cb), self);
+  g_signal_connect (self->delegate, "activate", G_CALLBACK (search_activate_cb), self);
+  g_signal_connect (self->delegate, "search-changed", G_CALLBACK (search_changed_cb), self);
 }
 GtkWidget *awra_search_entry_new (void) { return g_object_new (AWRA_TYPE_SEARCH_ENTRY, NULL); }
 const char *awra_search_entry_get_text (AwraSearchEntry *self) { g_return_val_if_fail (AWRA_IS_SEARCH_ENTRY (self), NULL); return gtk_editable_get_text (GTK_EDITABLE (self->delegate)); }
