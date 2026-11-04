@@ -26,6 +26,10 @@ unchanged (checked against the frozen 1.0.0 contract).
 - A dialog body without an inset of its own lines up with the title and
   the responses at 16 px instead of touching the window's edges; menu
   items are 32 px; an action row's text centres on its icon.
+- `AWRA_BUTTON_APPEARANCE_SUCCESS` is a positive action that isn't the
+  view's main one, such as answering a call. The `quiet-destructive` role
+  keeps a destructive action quiet until hovered, and `danger-when-on`
+  tints a toggle that warns while on, such as a muted microphone.
 - `AwraCommandPalette` has a keyboard cursor: the first result is chosen,
   Up and Down move between results (headings skipped), Enter opens and
   Escape closes, before the search field takes the keys.

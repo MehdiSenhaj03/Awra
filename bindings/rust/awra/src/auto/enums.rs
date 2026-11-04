@@ -568,6 +568,8 @@ pub enum ButtonAppearance {
     Destructive,
     #[doc(alias = "AWRA_BUTTON_APPEARANCE_TOOLBAR")]
     Toolbar,
+    #[doc(alias = "AWRA_BUTTON_APPEARANCE_SUCCESS")]
+    Success,
     #[doc(hidden)]
     __Unknown(i32),
 }
@@ -584,6 +586,7 @@ impl IntoGlib for ButtonAppearance {
             Self::Ghost => ffi::AWRA_BUTTON_APPEARANCE_GHOST,
             Self::Destructive => ffi::AWRA_BUTTON_APPEARANCE_DESTRUCTIVE,
             Self::Toolbar => ffi::AWRA_BUTTON_APPEARANCE_TOOLBAR,
+            Self::Success => ffi::AWRA_BUTTON_APPEARANCE_SUCCESS,
             Self::__Unknown(value) => value,
         }
     }
@@ -601,6 +604,7 @@ impl FromGlib<ffi::AwraButtonAppearance> for ButtonAppearance {
             ffi::AWRA_BUTTON_APPEARANCE_GHOST => Self::Ghost,
             ffi::AWRA_BUTTON_APPEARANCE_DESTRUCTIVE => Self::Destructive,
             ffi::AWRA_BUTTON_APPEARANCE_TOOLBAR => Self::Toolbar,
+            ffi::AWRA_BUTTON_APPEARANCE_SUCCESS => Self::Success,
             value => Self::__Unknown(value),
         }
     }

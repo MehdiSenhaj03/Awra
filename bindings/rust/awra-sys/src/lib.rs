@@ -66,6 +66,7 @@ pub const AWRA_BUTTON_APPEARANCE_SECONDARY: AwraButtonAppearance = 1;
 pub const AWRA_BUTTON_APPEARANCE_GHOST: AwraButtonAppearance = 2;
 pub const AWRA_BUTTON_APPEARANCE_DESTRUCTIVE: AwraButtonAppearance = 3;
 pub const AWRA_BUTTON_APPEARANCE_TOOLBAR: AwraButtonAppearance = 4;
+pub const AWRA_BUTTON_APPEARANCE_SUCCESS: AwraButtonAppearance = 5;
 
 pub type AwraCardAppearance = c_int;
 pub const AWRA_CARD_APPEARANCE_PLAIN: AwraCardAppearance = 0;

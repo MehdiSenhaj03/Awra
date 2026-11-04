@@ -1232,6 +1232,42 @@ awratileview > .awra-tile-divider:active > separator {
   background-color: @awra_danger;
 }
 
+/* A positive action that isn't the view's main one, such as answering a
+ * call beside declining it. */
+.awra-button.awra-success,
+.awra-menu-button.awra-success {
+  color: #ffffff;
+  background-color: @awra_success;
+  box-shadow: inset 0 1px rgba(255, 255, 255, 0.18);
+}
+
+.awra-button.awra-success:hover,
+.awra-menu-button.awra-success:hover {
+  background-color: shade(@awra_success, 1.08);
+}
+
+.awra-button.awra-success:active,
+.awra-menu-button.awra-success:active {
+  background-color: shade(@awra_success, 0.9);
+}
+
+/* A destructive action that stays quiet until it's meant: ghost at rest,
+ * danger under the pointer, as hanging up beside other controls. */
+.awra-button.awra-ghost.awra-role-quiet-destructive:hover,
+.awra-button.awra-toolbar-button.awra-role-quiet-destructive:hover {
+  color: @awra_on_accent;
+  background-color: @awra_danger;
+  box-shadow: none;
+}
+
+/* A toggle that warns when on, such as a muted microphone: a danger tint
+ * rather than the full red of a destructive action. */
+.awra-toggle-button.awra-role-danger-when-on:checked {
+  color: @awra_danger;
+  background-color: alpha(@awra_danger, 0.16);
+  box-shadow: inset 0 1px @awra_rim;
+}
+
 /* Appearance rules share :disabled's specificity and come later; restate the
  * disabled look so an unavailable primary action does not look clickable. */
 .awra-button.awra-primary:disabled,

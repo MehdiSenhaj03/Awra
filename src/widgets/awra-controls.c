@@ -19,7 +19,7 @@ static GParamSpec *toggle_properties[TOGGLE_N_PROPS];
 G_DEFINE_FINAL_TYPE (AwraToggleButton, awra_toggle_button, GTK_TYPE_TOGGLE_BUTTON)
 static const char *toggle_appearance_classes[] = {
   "awra-primary", "awra-secondary", "awra-ghost", "awra-destructive",
-  "awra-toolbar-button",
+  "awra-toolbar-button", "awra-success",
 };
 static void update_toggle_appearance (AwraToggleButton *self) {
   for (guint i = 0; i < G_N_ELEMENTS (toggle_appearance_classes); i++)
@@ -66,7 +66,7 @@ AwraButtonAppearance awra_toggle_button_get_appearance (AwraToggleButton *self) 
 }
 void awra_toggle_button_set_appearance (AwraToggleButton *self, AwraButtonAppearance appearance) {
   g_return_if_fail (AWRA_IS_TOGGLE_BUTTON (self));
-  g_return_if_fail (appearance >= AWRA_BUTTON_APPEARANCE_PRIMARY && appearance <= AWRA_BUTTON_APPEARANCE_TOOLBAR);
+  g_return_if_fail (appearance >= AWRA_BUTTON_APPEARANCE_PRIMARY && appearance <= AWRA_BUTTON_APPEARANCE_SUCCESS);
   if (self->appearance == appearance) return;
   self->appearance = appearance; update_toggle_appearance (self);
   g_object_notify_by_pspec (G_OBJECT (self), toggle_properties[TOGGLE_PROP_APPEARANCE]);

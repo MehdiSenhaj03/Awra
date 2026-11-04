@@ -78975,6 +78975,15 @@
         },
         {
           "attributes": {
+            "identifier": "AWRA_BUTTON_APPEARANCE_SUCCESS",
+            "name": "AWRA_BUTTON_APPEARANCE_SUCCESS",
+            "nick": "success",
+            "value": "5"
+          },
+          "tag": "member"
+        },
+        {
+          "attributes": {
             "identifier": "AWRA_BUTTON_APPEARANCE_TOOLBAR",
             "name": "AWRA_BUTTON_APPEARANCE_TOOLBAR",
             "nick": "toolbar",

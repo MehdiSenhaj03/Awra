@@ -26,6 +26,7 @@ static const char *appearance_classes[] = {
   "awra-ghost",
   "awra-destructive",
   "awra-toolbar-button",
+  "awra-success",
 };
 
 static void
@@ -207,7 +208,7 @@ awra_button_set_appearance (AwraButton           *self,
 {
   g_return_if_fail (AWRA_IS_BUTTON (self));
   g_return_if_fail (appearance >= AWRA_BUTTON_APPEARANCE_PRIMARY &&
-                    appearance <= AWRA_BUTTON_APPEARANCE_TOOLBAR);
+                    appearance <= AWRA_BUTTON_APPEARANCE_SUCCESS);
   if (self->appearance == appearance)
     return;
   self->appearance = appearance;

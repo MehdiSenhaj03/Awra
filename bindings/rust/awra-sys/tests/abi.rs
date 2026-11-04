@@ -1151,6 +1151,7 @@ const RUST_CONSTANTS: &[(&str, &str)] = &[
     ("(gint) AWRA_BUTTON_APPEARANCE_GHOST", "2"),
     ("(gint) AWRA_BUTTON_APPEARANCE_PRIMARY", "0"),
     ("(gint) AWRA_BUTTON_APPEARANCE_SECONDARY", "1"),
+    ("(gint) AWRA_BUTTON_APPEARANCE_SUCCESS", "5"),
     ("(gint) AWRA_BUTTON_APPEARANCE_TOOLBAR", "4"),
     ("(gint) AWRA_CARD_APPEARANCE_PLAIN", "0"),
     ("(gint) AWRA_CARD_APPEARANCE_RAISED", "2"),
