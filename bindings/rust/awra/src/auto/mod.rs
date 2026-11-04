@@ -223,6 +223,27 @@ mod property_animation_target;
 #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
 pub use self::property_animation_target::PropertyAnimationTarget;
 
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+mod rail;
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+pub use self::rail::Rail;
+
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+mod rail_group;
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+pub use self::rail_group::RailGroup;
+
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+mod rail_item;
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+pub use self::rail_item::RailItem;
+
 mod responsive_bin;
 pub use self::responsive_bin::ResponsiveBin;
 
@@ -459,6 +480,15 @@ pub(crate) mod builders {
     #[cfg(feature = "v1_1")]
     #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
     pub use super::property_animation_target::PropertyAnimationTargetBuilder;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub use super::rail::RailBuilder;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub use super::rail_group::RailGroupBuilder;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub use super::rail_item::RailItemBuilder;
     pub use super::responsive_bin::ResponsiveBinBuilder;
     pub use super::search_entry::SearchEntryBuilder;
     pub use super::section::SectionBuilder;

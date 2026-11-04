@@ -23,7 +23,8 @@ static const char hostile_css[] =
   "awrakeycap, awrakeycap label, awrakeyboardview, awrashortcutcapture,"
   "awrashortcutcapture label, awrawaveformview, awratimeline, awravolumecontrol,"
   "awramediarow, awramediarow label, awradropzone, awradropzone label,"
-  "awradropzone box, awraavatar,"
+  "awradropzone box, awraavatar, awrarail, awraraillist, awrarailitem,"
+  "awrarailgroup, awrarailgroupface, awrarailseparator,"
   "awradataview columnview,"
   "awradataview columnview > header > button,"
   "awradataview columnview listview > row {"
@@ -384,6 +385,22 @@ make_probe_scene (void)
       gtk_box_append (GTK_BOX (people), person);
       gtk_box_append (GTK_BOX (people), place);
       gtk_box_append (GTK_BOX (media), people);
+    }
+    {
+      GtkWidget *rail = awra_rail_new ();
+      GtkWidget *group = awra_rail_group_new ("Folder");
+      GtkWidget *item = awra_rail_item_new ("Home");
+      GtkWidget *inner = awra_rail_item_new ("Inner");
+
+      awra_rail_item_set_icon_name (AWRA_RAIL_ITEM (item), "go-home-symbolic");
+      awra_rail_item_set_unread (AWRA_RAIL_ITEM (item), TRUE);
+      awra_rail_item_set_mention_count (AWRA_RAIL_ITEM (inner), 3);
+      awra_rail_group_append (AWRA_RAIL_GROUP (group), AWRA_RAIL_ITEM (inner));
+      awra_rail_append (AWRA_RAIL (rail), item);
+      awra_rail_add_separator (AWRA_RAIL (rail));
+      awra_rail_append (AWRA_RAIL (rail), group);
+      gtk_widget_set_size_request (rail, -1, 150);
+      gtk_box_append (GTK_BOX (media), rail);
     }
     gtk_grid_attach (GTK_GRID (grid), media, 0, 14, 3, 1);
   }

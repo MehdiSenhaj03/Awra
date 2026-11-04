@@ -721,6 +721,27 @@ const RUST_LAYOUTS: &[(&str, Layout)] = &[
         },
     ),
     (
+        "AwraRailClass",
+        Layout {
+            size: size_of::<AwraRailClass>(),
+            alignment: align_of::<AwraRailClass>(),
+        },
+    ),
+    (
+        "AwraRailGroupClass",
+        Layout {
+            size: size_of::<AwraRailGroupClass>(),
+            alignment: align_of::<AwraRailGroupClass>(),
+        },
+    ),
+    (
+        "AwraRailItemClass",
+        Layout {
+            size: size_of::<AwraRailItemClass>(),
+            alignment: align_of::<AwraRailItemClass>(),
+        },
+    ),
+    (
         "AwraResponsiveBinClass",
         Layout {
             size: size_of::<AwraResponsiveBinClass>(),

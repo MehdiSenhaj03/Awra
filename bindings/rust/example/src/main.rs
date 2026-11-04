@@ -207,6 +207,28 @@ fn exercise_messaging_components() {
     avatar.set_custom_image(Some(&awra::gdk::Paintable::new_empty(64, 64)));
     assert_eq!(avatar.text().as_deref(), Some("Ada Lovelace"));
     assert_eq!(avatar.presence(), awra::Presence::Idle);
+
+    let rail = awra::Rail::new();
+    let workspace = awra::RailItem::new(Some("Workshop"));
+    workspace.set_child(Some(&avatar));
+    workspace.set_mention_count(3);
+    let folder = awra::RailGroup::new(Some("Projects"));
+    folder.set_color(Some(&awra::gdk::RGBA::new(0.3, 0.5, 0.9, 1.0)));
+    folder.append(&awra::RailItem::new(Some("Atelier")));
+    rail.append(&workspace);
+    rail.add_separator();
+    rail.append(&folder);
+    rail.set_reorderable(true);
+    rail.connect_item_moved(|_, item, position| {
+        let _ = (item, position);
+    });
+    rail.connect_item_merged(|_, item, onto| {
+        let _ = (item, onto);
+    });
+    workspace.connect_activate(|item| assert_eq!(item.label().as_deref(), Some("Workshop")));
+    workspace.emit_by_name::<()>("activate", &[]);
+    assert_eq!(rail.selected_item(), Some(workspace.clone()));
+    assert_eq!(rail.n_entries(), 3);
 }
 
 fn main() {

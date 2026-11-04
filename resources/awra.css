@@ -58,7 +58,13 @@ awratimeline,
 awravolumecontrol,
 awramediarow,
 awradropzone,
-awraavatar {
+awraavatar,
+awrarail,
+awraraillist,
+awrarailitem,
+awrarailgroup,
+awrarailgroupface,
+awrarailseparator {
   min-width: 0;
   min-height: 0;
   margin: 0;
@@ -3260,3 +3266,46 @@ window.awra-window paned > separator {
   font-weight: 700;
   box-shadow: 0 2px 6px rgba(10, 8, 18, 0.35);
 }
+
+/* A rail item's name, beside the rail. */
+popover.awra-rail-tooltip,
+popover.awra-rail-tooltip.background {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  box-shadow: none;
+  outline: 0;
+  opacity: 1;
+  filter: none;
+}
+
+popover.awra-rail-tooltip > contents {
+  min-width: 0;
+  min-height: 0;
+  margin: 6px;
+  padding: 6px 11px;
+  border: 1px solid @awra_outline;
+  border-radius: 9px;
+  background-color: @awra_floating;
+  background-image: none;
+  color: @awra_foreground;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.22);
+  outline: 0;
+  font-weight: 650;
+  opacity: 1;
+  filter: none;
+  animation: awra-rail-tooltip-in 140ms cubic-bezier(.2, .8, .2, 1);
+}
+
+popover.awra-rail-tooltip > contents label {
+  color: inherit;
+  background: none;
+  text-shadow: none;
+}
+
+@keyframes awra-rail-tooltip-in {
+  from { opacity: 0; transform: translateX(-6px); }
+  to { opacity: 1; transform: none; }
+}
+.awra-reduced-motion popover.awra-rail-tooltip > contents { animation: none; }

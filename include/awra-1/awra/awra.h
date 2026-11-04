@@ -87,6 +87,9 @@
 #include <awra/awra-timed-animation.h>
 #include <awra/awra-spring-animation.h>
 #include <awra/awra-avatar.h>
+#include <awra/awra-rail-item.h>
+#include <awra/awra-rail-group.h>
+#include <awra/awra-rail.h>
 #include <awra/awra-tile-view.h>
 #include <awra/awra-aspect-paintable.h>
 #include <awra/awra-frame-pool.h>

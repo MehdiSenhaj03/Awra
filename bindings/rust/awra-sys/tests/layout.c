@@ -82,6 +82,9 @@ int main() {
     printf("%s;%zu;%zu\n", "AwraPresence", sizeof(AwraPresence), alignof(AwraPresence));
     printf("%s;%zu;%zu\n", "AwraProgressBarClass", sizeof(AwraProgressBarClass), alignof(AwraProgressBarClass));
     printf("%s;%zu;%zu\n", "AwraRadius", sizeof(AwraRadius), alignof(AwraRadius));
+    printf("%s;%zu;%zu\n", "AwraRailClass", sizeof(AwraRailClass), alignof(AwraRailClass));
+    printf("%s;%zu;%zu\n", "AwraRailGroupClass", sizeof(AwraRailGroupClass), alignof(AwraRailGroupClass));
+    printf("%s;%zu;%zu\n", "AwraRailItemClass", sizeof(AwraRailItemClass), alignof(AwraRailItemClass));
     printf("%s;%zu;%zu\n", "AwraResponsiveBinClass", sizeof(AwraResponsiveBinClass), alignof(AwraResponsiveBinClass));
     printf("%s;%zu;%zu\n", "AwraSearchEntryClass", sizeof(AwraSearchEntryClass), alignof(AwraSearchEntryClass));
     printf("%s;%zu;%zu\n", "AwraSectionClass", sizeof(AwraSectionClass), alignof(AwraSectionClass));

@@ -13,5 +13,6 @@
     <file compressed="true">icons/awra-status-warning-symbolic.svg</file>
     <file compressed="true">icons/awra-status-error-symbolic.svg</file>
     <file compressed="true">icons/awra-avatar-default-symbolic.svg</file>
+    <file compressed="true">icons/awra-folder-symbolic.svg</file>
   </gresource>
 </gresources>

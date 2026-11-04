@@ -195,7 +195,13 @@ carries as an image or a counted pile. `AwraTransitionBin` animates content
 replaced in place from its last frame. `AwraTimedAnimation` and
 `AwraSpringAnimation` animate any value on a widget's frame clock through an
 `AwraAnimationTarget`, follow reduced motion, and a spring can be retargeted
-in flight without a jump; see [motion](../guides/motion.md). `AwraTileView` divides a surface into
+in flight without a jump; see [motion](../guides/motion.md).
+
+Messaging applications compose `AwraAvatar` (a picture, initials on a stable
+colour, a presence dot and a speaking ring) and `AwraRail`, a vertical rail of
+`AwraRailItem` destinations and `AwraRailGroup` folders with unread pills,
+mention badges, keyboard navigation and drag reordering; see
+[messaging](../guides/messaging.md). `AwraTileView` divides a surface into
 as many tiles as the user wants; see
 [page composition](../guides/page-composition.md). Physical keys use `KeyboardEvent.code`
 identifiers; `awra_keyboard_code_from_hardware_keycode()`,

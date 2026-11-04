@@ -22,6 +22,15 @@ unchanged (checked against the frozen 1.0.0 contract).
   always looks the same. A presence dot is cut into its corner, readable on
   any background and by its shape as well as its colour; a ring breathes
   around someone speaking, and a new picture cross-fades.
+- `AwraRail` is a vertical rail of destinations, such as workspaces or
+  accounts, with a fixed header and footer around a scrolling column.
+  `AwraRailItem` tiles are round at rest and become rounded squares on hover
+  and selection; a pill on the start edge tells unread activity, hover and
+  selection, and a mention badge pops in, all on springs that retarget, so
+  quick pointer moves never jump. `AwraRailGroup` folds items into a folder
+  that previews them, sums up their activity, and unfolds on a tinted column.
+  A reorderable rail lets the user drag entries while the others make room,
+  and reports a drop onto another entry so the application can make a folder.
 - `AwraTokenSet` gains `success` and `warning` colours for states drawn by
   widgets themselves.
 
