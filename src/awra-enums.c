@@ -338,3 +338,7 @@ DEFINE_ENUM_TYPE (awra_presence_get_type, "AwraPresence",
   { AWRA_PRESENCE_IDLE, "AWRA_PRESENCE_IDLE", "idle" },
   { AWRA_PRESENCE_BUSY, "AWRA_PRESENCE_BUSY", "busy" },
   { AWRA_PRESENCE_OFFLINE, "AWRA_PRESENCE_OFFLINE", "offline" })
+
+DEFINE_ENUM_TYPE (awra_chip_appearance_get_type, "AwraChipAppearance",
+  { AWRA_CHIP_APPEARANCE_NEUTRAL, "AWRA_CHIP_APPEARANCE_NEUTRAL", "neutral" },
+  { AWRA_CHIP_APPEARANCE_ACCENT, "AWRA_CHIP_APPEARANCE_ACCENT", "accent" })

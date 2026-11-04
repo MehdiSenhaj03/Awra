@@ -25,7 +25,7 @@ static const char hostile_css[] =
   "awramediarow, awramediarow label, awradropzone, awradropzone label,"
   "awradropzone box, awraavatar, awrarail, awraraillist, awrarailitem,"
   "awrarailgroup, awrarailgroupface, awrarailseparator, awratypingindicator,"
-  "awratypingindicator label,"
+  "awratypingindicator label, awrachip,"
   "awradataview columnview,"
   "awradataview columnview > header > button,"
   "awradataview columnview listview > row {"
@@ -404,10 +404,19 @@ make_probe_scene (void)
       gtk_box_append (GTK_BOX (media), rail);
     }
     {
+      GtkWidget *chips = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 6);
+      GtkWidget *reaction = awra_chip_new (NULL);
+      GtkWidget *filter = awra_chip_new ("Mentions");
       GtkWidget *typing = awra_typing_indicator_new ();
 
+      awra_chip_set_icon_name (AWRA_CHIP (reaction), "starred-symbolic");
+      awra_chip_set_count (AWRA_CHIP (reaction), 12);
+      awra_chip_set_active (AWRA_CHIP (filter), TRUE);
       awra_typing_indicator_set_label (AWRA_TYPING_INDICATOR (typing), "Ada is typing");
-      gtk_box_append (GTK_BOX (media), typing);
+      gtk_box_append (GTK_BOX (chips), reaction);
+      gtk_box_append (GTK_BOX (chips), filter);
+      gtk_box_append (GTK_BOX (chips), typing);
+      gtk_box_append (GTK_BOX (media), chips);
     }
     gtk_grid_attach (GTK_GRID (grid), media, 0, 14, 3, 1);
   }

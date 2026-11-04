@@ -34,6 +34,8 @@ generate = [
   "Awra.Card",
   "Awra.CallbackAnimationTarget",
   "Awra.CardAppearance",
+  "Awra.Chip",
+  "Awra.ChipAppearance",
   "Awra.CheckButton",
   "Awra.ChoiceGroup",
   "Awra.CommandPalette",

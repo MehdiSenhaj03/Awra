@@ -25,6 +25,8 @@ int main() {
     printf("%s;%zu;%zu\n", "AwraCardAppearance", sizeof(AwraCardAppearance), alignof(AwraCardAppearance));
     printf("%s;%zu;%zu\n", "AwraCardClass", sizeof(AwraCardClass), alignof(AwraCardClass));
     printf("%s;%zu;%zu\n", "AwraCheckButtonClass", sizeof(AwraCheckButtonClass), alignof(AwraCheckButtonClass));
+    printf("%s;%zu;%zu\n", "AwraChipAppearance", sizeof(AwraChipAppearance), alignof(AwraChipAppearance));
+    printf("%s;%zu;%zu\n", "AwraChipClass", sizeof(AwraChipClass), alignof(AwraChipClass));
     printf("%s;%zu;%zu\n", "AwraChoiceGroupClass", sizeof(AwraChoiceGroupClass), alignof(AwraChoiceGroupClass));
     printf("%s;%zu;%zu\n", "AwraCommandPaletteClass", sizeof(AwraCommandPaletteClass), alignof(AwraCommandPaletteClass));
     printf("%s;%zu;%zu\n", "AwraContextClass", sizeof(AwraContextClass), alignof(AwraContextClass));

@@ -201,7 +201,8 @@ Messaging applications compose `AwraAvatar` (a picture, initials on a stable
 colour, a presence dot and a speaking ring) and `AwraRail`, a vertical rail of
 `AwraRailItem` destinations and `AwraRailGroup` folders with unread pills,
 mention badges, keyboard navigation and drag reordering, and
-`AwraTypingIndicator`, which keeps its height while it comes and goes; see
+`AwraTypingIndicator`, which keeps its height while it comes and goes, and
+`AwraChip` for reactions, filters and tags with a rolling count; see
 [messaging](../guides/messaging.md). `AwraTileView` divides a surface into
 as many tiles as the user wants; see
 [page composition](../guides/page-composition.md). Physical keys use `KeyboardEvent.code`

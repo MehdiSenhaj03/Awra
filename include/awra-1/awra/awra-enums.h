@@ -462,4 +462,28 @@ typedef enum {
  */
 GType awra_presence_get_type (void) G_GNUC_CONST;
 
+/**
+ * AwraChipAppearance:
+ * @AWRA_CHIP_APPEARANCE_NEUTRAL: a quiet chip that takes the accent when
+ *   active, as for reactions and filters
+ * @AWRA_CHIP_APPEARANCE_ACCENT: a chip tinted with the accent, filled when
+ *   active, as for a suggested choice
+ *
+ * The tone of an #AwraChip.
+ *
+ * Since: 1.1
+ */
+typedef enum {
+  AWRA_CHIP_APPEARANCE_NEUTRAL,
+  AWRA_CHIP_APPEARANCE_ACCENT,
+} AwraChipAppearance;
+
+#define AWRA_TYPE_CHIP_APPEARANCE (awra_chip_appearance_get_type ())
+/**
+ * awra_chip_appearance_get_type:
+ *
+ * Since: 1.1
+ */
+GType awra_chip_appearance_get_type (void) G_GNUC_CONST;
+
 G_END_DECLS

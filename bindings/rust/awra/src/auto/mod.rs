@@ -62,6 +62,13 @@ pub use self::card::Card;
 mod check_button;
 pub use self::check_button::CheckButton;
 
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+mod chip;
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+pub use self::chip::Chip;
+
 mod choice_group;
 pub use self::choice_group::ChoiceGroup;
 
@@ -387,6 +394,9 @@ pub use self::enums::AvatarShape;
 pub use self::enums::BadgeAppearance;
 pub use self::enums::ButtonAppearance;
 pub use self::enums::CardAppearance;
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+pub use self::enums::ChipAppearance;
 pub use self::enums::DataViewState;
 #[cfg(feature = "v1_1")]
 #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
@@ -438,6 +448,9 @@ pub(crate) mod builders {
     pub use super::button::ButtonBuilder;
     pub use super::card::CardBuilder;
     pub use super::check_button::CheckButtonBuilder;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub use super::chip::ChipBuilder;
     pub use super::choice_group::ChoiceGroupBuilder;
     pub use super::command_palette::CommandPaletteBuilder;
     pub use super::data_column::DataColumnBuilder;

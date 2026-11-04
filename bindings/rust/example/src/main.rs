@@ -234,6 +234,21 @@ fn exercise_messaging_components() {
     typing.set_label(Some("Ada is typing…"));
     typing.set_active(true);
     assert!(typing.is_active());
+
+    let reaction = awra::Chip::new(None);
+    reaction.set_emoji(Some("🎉"));
+    reaction.set_count(3);
+    reaction.connect_toggled(|chip| {
+        chip.set_count(chip.count() + if chip.is_active() { 1 } else { -1 });
+    });
+    reaction.emit_by_name::<()>("activate", &[]);
+    assert!(reaction.is_active());
+    assert_eq!(reaction.count(), 4);
+    let filter = awra::Chip::builder()
+        .label("Mentions")
+        .appearance(awra::ChipAppearance::Accent)
+        .build();
+    filter.set_toggleable(false);
 }
 
 fn main() {

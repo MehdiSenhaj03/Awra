@@ -35,6 +35,10 @@ unchanged (checked against the frozen 1.0.0 contract).
   wave beside a line of text. It keeps its height whether shown or not, so the
   conversation never moves when it appears, and its dots stay still under
   reduced motion.
+- `AwraChip` is a compact pill for reactions, filters and tags, with an icon,
+  a picture or an emoji, a label and a count. A click turns it on with a small
+  springy bounce, an active chip takes the accent, and when the count changes
+  only the digits that differ roll to the new value.
 - `AwraTokenSet` gains `success` and `warning` colours for states drawn by
   widgets themselves.
 

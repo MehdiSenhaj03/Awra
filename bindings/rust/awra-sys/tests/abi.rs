@@ -322,6 +322,20 @@ const RUST_LAYOUTS: &[(&str, Layout)] = &[
         },
     ),
     (
+        "AwraChipAppearance",
+        Layout {
+            size: size_of::<AwraChipAppearance>(),
+            alignment: align_of::<AwraChipAppearance>(),
+        },
+    ),
+    (
+        "AwraChipClass",
+        Layout {
+            size: size_of::<AwraChipClass>(),
+            alignment: align_of::<AwraChipClass>(),
+        },
+    ),
+    (
         "AwraChoiceGroupClass",
         Layout {
             size: size_of::<AwraChoiceGroupClass>(),
@@ -1050,6 +1064,8 @@ const RUST_CONSTANTS: &[(&str, &str)] = &[
     ("(gint) AWRA_CARD_APPEARANCE_PLAIN", "0"),
     ("(gint) AWRA_CARD_APPEARANCE_RAISED", "2"),
     ("(gint) AWRA_CARD_APPEARANCE_TINTED", "1"),
+    ("(gint) AWRA_CHIP_APPEARANCE_ACCENT", "1"),
+    ("(gint) AWRA_CHIP_APPEARANCE_NEUTRAL", "0"),
     ("(gint) AWRA_DATA_VIEW_STATE_CONTENT", "0"),
     ("(gint) AWRA_DATA_VIEW_STATE_EMPTY", "1"),
     ("(gint) AWRA_DATA_VIEW_STATE_ERROR", "3"),

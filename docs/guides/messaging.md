@@ -77,3 +77,22 @@ Place the indicator between the conversation and the composer, set its label
 — "Ada is typing…", "Ada and 2 others are typing…" — and turn it on and off
 with `active`. It keeps its height while hidden, so the conversation and the
 composer never move when someone starts or stops writing.
+
+## Reactions, filters and tags: `AwraChip`
+
+```c
+GtkWidget *reaction = awra_chip_new (NULL);
+
+awra_chip_set_emoji (AWRA_CHIP (reaction), "🎉");
+awra_chip_set_count (AWRA_CHIP (reaction), 3);
+awra_chip_set_active (AWRA_CHIP (reaction), user_reacted);
+g_signal_connect (reaction, "toggled", G_CALLBACK (react), message);
+```
+
+A click turns a toggleable chip on or off and emits `toggled`; changing
+`active` from code emits nothing, so the application can mirror a state
+confirmed by a server without loops. When the server must decide, turn
+`toggleable` off and listen to `activate` instead. A custom emoji goes in
+`paintable`, drawn at icon size. Update `count` as reactions arrive: the
+digits that change roll, up when the count grows and down when it shrinks.
+`AWRA_CHIP_APPEARANCE_ACCENT` tints a chip that suggests a choice.

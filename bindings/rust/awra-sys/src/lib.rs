@@ -72,6 +72,10 @@ pub const AWRA_CARD_APPEARANCE_PLAIN: AwraCardAppearance = 0;
 pub const AWRA_CARD_APPEARANCE_TINTED: AwraCardAppearance = 1;
 pub const AWRA_CARD_APPEARANCE_RAISED: AwraCardAppearance = 2;
 
+pub type AwraChipAppearance = c_int;
+pub const AWRA_CHIP_APPEARANCE_NEUTRAL: AwraChipAppearance = 0;
+pub const AWRA_CHIP_APPEARANCE_ACCENT: AwraChipAppearance = 1;
+
 pub type AwraDataViewState = c_int;
 pub const AWRA_DATA_VIEW_STATE_CONTENT: AwraDataViewState = 0;
 pub const AWRA_DATA_VIEW_STATE_EMPTY: AwraDataViewState = 1;
@@ -394,6 +398,20 @@ pub struct AwraCheckButtonClass {
 impl ::std::fmt::Debug for AwraCheckButtonClass {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
         f.debug_struct(&format!("AwraCheckButtonClass @ {self:p}"))
+            .field("parent_class", &self.parent_class)
+            .finish()
+    }
+}
+
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub struct AwraChipClass {
+    pub parent_class: gtk::GtkWidgetClass,
+}
+
+impl ::std::fmt::Debug for AwraChipClass {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        f.debug_struct(&format!("AwraChipClass @ {self:p}"))
             .field("parent_class", &self.parent_class)
             .finish()
     }
@@ -1701,6 +1719,19 @@ impl ::std::fmt::Debug for AwraCheckButton {
 
 #[repr(C)]
 #[allow(dead_code)]
+pub struct AwraChip {
+    _data: [u8; 0],
+    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
+}
+
+impl ::std::fmt::Debug for AwraChip {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        f.debug_struct(&format!("AwraChip @ {self:p}")).finish()
+    }
+}
+
+#[repr(C)]
+#[allow(dead_code)]
 pub struct AwraChoiceGroup {
     _data: [u8; 0],
     _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
@@ -2841,6 +2872,13 @@ unsafe extern "C" {
     pub fn awra_card_appearance_get_type() -> GType;
 
     //=========================================================================
+    // AwraChipAppearance
+    //=========================================================================
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_chip_appearance_get_type() -> GType;
+
+    //=========================================================================
     // AwraDataViewState
     //=========================================================================
     pub fn awra_data_view_state_get_type() -> GType;
@@ -3194,6 +3232,64 @@ unsafe extern "C" {
     pub fn awra_check_button_new() -> *mut gtk::GtkWidget;
     pub fn awra_check_button_new_with_label(label: *const c_char) -> *mut gtk::GtkWidget;
     pub fn awra_check_button_set_group(self_: *mut AwraCheckButton, group: *mut AwraCheckButton);
+
+    //=========================================================================
+    // AwraChip
+    //=========================================================================
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_chip_get_type() -> GType;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_chip_new(label: *const c_char) -> *mut gtk::GtkWidget;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_chip_get_active(self_: *mut AwraChip) -> gboolean;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_chip_get_appearance(self_: *mut AwraChip) -> AwraChipAppearance;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_chip_get_count(self_: *mut AwraChip) -> c_int;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_chip_get_emoji(self_: *mut AwraChip) -> *const c_char;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_chip_get_icon_name(self_: *mut AwraChip) -> *const c_char;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_chip_get_label(self_: *mut AwraChip) -> *const c_char;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_chip_get_paintable(self_: *mut AwraChip) -> *mut gdk::GdkPaintable;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_chip_get_toggleable(self_: *mut AwraChip) -> gboolean;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_chip_set_active(self_: *mut AwraChip, active: gboolean);
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_chip_set_appearance(self_: *mut AwraChip, appearance: AwraChipAppearance);
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_chip_set_count(self_: *mut AwraChip, count: c_int);
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_chip_set_emoji(self_: *mut AwraChip, emoji: *const c_char);
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_chip_set_icon_name(self_: *mut AwraChip, icon_name: *const c_char);
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_chip_set_label(self_: *mut AwraChip, label: *const c_char);
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_chip_set_paintable(self_: *mut AwraChip, paintable: *mut gdk::GdkPaintable);
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_chip_set_toggleable(self_: *mut AwraChip, toggleable: gboolean);
 
     //=========================================================================
     // AwraChoiceGroup
