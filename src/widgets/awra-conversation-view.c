@@ -23,6 +23,7 @@
 #define HIGHLIGHT_CLASS_MS 1500
 #define PILL_MARGIN 14
 #define PILL_RISE 10.0
+#define TOP_FADE 16.0f
 #define ALIGN_ATTEMPTS 12
 
 typedef struct {
@@ -1139,9 +1140,30 @@ awra_conversation_view_snapshot (GtkWidget   *widget,
                                  GtkSnapshot *snapshot)
 {
   AwraConversationView *self = AWRA_CONVERSATION_VIEW (widget);
+  float width = gtk_widget_get_width (widget);
+  float height = gtk_widget_get_height (widget);
   double shown;
 
-  gtk_widget_snapshot_child (widget, GTK_WIDGET (self->scroller), snapshot);
+  /* Content scrolled past the top edge fades out instead of being cut. */
+  if (gtk_adjustment_get_value (self->vadjustment) > 0.5 && height > 2 * TOP_FADE) {
+    static const GskColorStop stops[] = {
+      { 0.0f, { 0, 0, 0, 0 } },
+      { 1.0f, { 0, 0, 0, 1 } },
+    };
+
+    gtk_snapshot_push_mask (snapshot, GSK_MASK_MODE_ALPHA);
+    gtk_snapshot_append_linear_gradient (snapshot, &GRAPHENE_RECT_INIT (0, 0, width, TOP_FADE),
+                                         &GRAPHENE_POINT_INIT (0, 0),
+                                         &GRAPHENE_POINT_INIT (0, TOP_FADE),
+                                         stops, G_N_ELEMENTS (stops));
+    gtk_snapshot_append_color (snapshot, &(GdkRGBA) { 0, 0, 0, 1 },
+                               &GRAPHENE_RECT_INIT (0, TOP_FADE, width, height - TOP_FADE));
+    gtk_snapshot_pop (snapshot);
+    gtk_widget_snapshot_child (widget, GTK_WIDGET (self->scroller), snapshot);
+    gtk_snapshot_pop (snapshot);
+  } else {
+    gtk_widget_snapshot_child (widget, GTK_WIDGET (self->scroller), snapshot);
+  }
   if (self->pill_progress <= 0.0 || !gtk_widget_get_child_visible (self->pill))
     return;
   shown = awra_motion_ease_out_cubic (self->pill_progress);
