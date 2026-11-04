@@ -1098,3 +1098,44 @@ déposer des salons). Leurs contournements ont donné ces ajouts à Awra :
   plutôt qu'entourés d'un anneau de la couleur supposée du fond),
   `AwraSearchEntry::activate` et `search-changed`, et des libellés de
   `AwraFormRow` alignés sur la première ligne du contrôle.
+
+## 2026-11-04 — Yapfast sur le verre : ce que le thème du bureau révélait
+
+Yapfast, sous KWin avec un flou fort et un thème GTK personnel (WhiteSur,
+avec son propre `gtk.css`), paraissait lourd et mal espacé. Les causes
+tenaient pour moitié à Awra.
+
+- **Rôles qui ne stylent rien** : le contrat d'isolation ne couvre que les
+  nœuds portant une classe `awra-*`. Un `GtkButton` portant un rôle qu'Awra
+  ne définit que sur `AwraButton` (`inline-action`), ou pas du tout,
+  restait dessiné par le thème du bureau : un bandeau gris sous un titre de
+  section, des boutons blancs, des cartes autour de chaque participant
+  vocal. `inline-action` possède maintenant tout bouton GTK (et le bouton
+  interne d'un `GtkMenuButton`), et `row-action`, `search-launcher`,
+  `collection-tile` et `chosen-row` donnent les recettes qui manquaient.
+  Vérifier une composition sous un thème hostile, pas seulement sous le
+  thème par défaut.
+- **Densité de navigation** : 42 px par ligne dans une barre latérale, c'est
+  trop pour une longue liste de lieux. `compact-navigation` donne 32 px,
+  et sa sélection reste neutre, comme le reste de la navigation (elle
+  passait à la couleur d'accent).
+- **Lire sur le verre** : un message de 13 px posé sur le flou se lit mal.
+  `AWRA_TYPOGRAPHY_READING` est un cran plus grand, avec un interligne
+  ouvert. Le `line-height` de GTK multiplie la hauteur de ligne de la
+  police, qui contient déjà environ un cinquième d'interligne : 1,12 donne
+  le rythme qu'on attendrait de 1,4 ailleurs. Une couche teintée (`LAYER`)
+  sous la conversation a été essayée puis retirée : trop faible pour aider,
+  elle ajoutait une forme. Ce sont le corps et le rythme qui portent la
+  lecture, pas un fond.
+- **Pas de couture** : la vue de conversation fondait déjà son contenu au
+  bord du haut ; elle le fond aussi au bord du bas, au-dessus d'un
+  compositeur. Une application n'a plus besoin d'un séparateur sous son
+  en-tête.
+- **Survol** : quand une ligne de conversation porte aussi une date ou le
+  début de la conversation, toute la ligne se teintait au survol. Les rôles
+  `entry-hover` (sur la vue) et `conversation-entry` (sur l'entrée) donnent
+  la teinte à l'entrée seule.
+- **Outil** : un KWin imbriqué (`kwin_wayland --virtual`) avec la
+  configuration de flou de la personne, son fond d'écran dans une fenêtre
+  plein écran et `spectacle -b -f` montre le vrai rendu sur verre, ce que
+  Xvfb ne peut pas.
