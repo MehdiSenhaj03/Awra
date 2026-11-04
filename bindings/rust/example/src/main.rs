@@ -175,12 +175,37 @@ fn exercise_media_input_components() {
     assert!(awra::context_menu_model(&cap).is_none());
 }
 
+fn exercise_motion() {
+    use std::cell::Cell;
+    use std::rc::Rc;
+
+    let widget = awra::gtk::Label::new(Some("Animated"));
+    let received = Rc::new(Cell::new(0.0));
+    let sink = received.clone();
+    let target = awra::CallbackAnimationTarget::new(move |value| sink.set(value));
+    let timed =
+        awra::TimedAnimation::for_preset(&widget, 0.0, 8.0, awra::MotionPreset::Fast, target);
+    timed.set_easing(awra::Easing::EaseOutBack);
+    timed.connect_done(|animation| assert_eq!(animation.state(), awra::AnimationState::Finished));
+    // An unmapped widget has no frames to show: the animation jumps to its end.
+    timed.play();
+    assert_eq!(received.get(), 8.0);
+    assert_eq!(awra::Easing::Linear.ease(0.5), 0.5);
+
+    let property = awra::PropertyAnimationTarget::new(&widget, "opacity");
+    let spring = awra::SpringAnimation::new(&widget, 1.0, 0.5, 0.8, 400.0, property);
+    assert!(spring.estimated_duration() < awra::DURATION_INFINITE);
+    spring.retarget(0.25);
+    assert!((widget.opacity() - 0.25).abs() < 0.01);
+}
+
 fn main() {
     assert_action_map::<awra::Window>();
     awra::gtk::init().expect("Rust Awra example requires a GTK display");
     awra::init();
     exercise_projected_gtk_types();
     exercise_media_input_components();
+    exercise_motion();
 
     let window = awra::Window::builder().keep_rounded_corners(true).build();
     assert!(window.is_keep_rounded_corners());

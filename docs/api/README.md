@@ -192,7 +192,10 @@ The media and keyboard input family adds `AwraKeyCap`, `AwraKeyboardView`
 `AwraShortcutCapture`, `AwraWaveformView`, `AwraVolumeControl`,
 `AwraMediaRow`, `AwraDropZone` and `AwraDragPreview`, which shows what a drag
 carries as an image or a counted pile. `AwraTransitionBin` animates content
-replaced in place from its last frame. `AwraTileView` divides a surface into
+replaced in place from its last frame. `AwraTimedAnimation` and
+`AwraSpringAnimation` animate any value on a widget's frame clock through an
+`AwraAnimationTarget`, follow reduced motion, and a spring can be retargeted
+in flight without a jump; see [motion](../guides/motion.md). `AwraTileView` divides a surface into
 as many tiles as the user wants; see
 [page composition](../guides/page-composition.md). Physical keys use `KeyboardEvent.code`
 identifiers; `awra_keyboard_code_from_hardware_keycode()`,

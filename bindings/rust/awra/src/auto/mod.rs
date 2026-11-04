@@ -8,6 +8,20 @@ pub use self::action_row::ActionRow;
 
 #[cfg(feature = "v1_1")]
 #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+mod animation;
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+pub use self::animation::Animation;
+
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+mod animation_target;
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+pub use self::animation_target::AnimationTarget;
+
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
 mod aspect_paintable;
 #[cfg(feature = "v1_1")]
 #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
@@ -27,6 +41,13 @@ pub use self::breadcrumb_item::BreadcrumbItem;
 
 mod button;
 pub use self::button::Button;
+
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+mod callback_animation_target;
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+pub use self::callback_animation_target::CallbackAnimationTarget;
 
 mod card;
 pub use self::card::Card;
@@ -188,6 +209,13 @@ pub use self::popover::Popover;
 mod progress_bar;
 pub use self::progress_bar::ProgressBar;
 
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+mod property_animation_target;
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+pub use self::property_animation_target::PropertyAnimationTarget;
+
 mod responsive_bin;
 pub use self::responsive_bin::ResponsiveBin;
 
@@ -225,6 +253,13 @@ pub use self::spin_button::SpinButton;
 mod split_view;
 pub use self::split_view::SplitView;
 
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+mod spring_animation;
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+pub use self::spring_animation::SpringAnimation;
+
 mod stat_bar;
 pub use self::stat_bar::StatBar;
 
@@ -258,6 +293,13 @@ pub use self::texture_stream::TextureStream;
 
 mod tile_view;
 pub use self::tile_view::TileView;
+
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+mod timed_animation;
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+pub use self::timed_animation::TimedAnimation;
 
 #[cfg(feature = "v1_1")]
 #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
@@ -300,11 +342,17 @@ pub use self::window::Window;
 
 mod enums;
 pub use self::enums::AccentSource;
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+pub use self::enums::AnimationState;
 pub use self::enums::Appearance;
 pub use self::enums::BadgeAppearance;
 pub use self::enums::ButtonAppearance;
 pub use self::enums::CardAppearance;
 pub use self::enums::DataViewState;
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+pub use self::enums::Easing;
 pub use self::enums::Elevation;
 #[cfg(feature = "v1_1")]
 #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
@@ -329,6 +377,9 @@ pub use self::flags::SurfaceCorner;
 pub use self::flags::SurfaceEdge;
 
 pub(crate) mod traits {
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub use super::animation::AnimationExt;
     pub use super::window::WindowExt;
 }
 pub(crate) mod builders {
@@ -389,6 +440,9 @@ pub(crate) mod builders {
     pub use super::path_bar::PathBarBuilder;
     pub use super::popover::PopoverBuilder;
     pub use super::progress_bar::ProgressBarBuilder;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub use super::property_animation_target::PropertyAnimationTargetBuilder;
     pub use super::responsive_bin::ResponsiveBinBuilder;
     pub use super::search_entry::SearchEntryBuilder;
     pub use super::section::SectionBuilder;
@@ -402,6 +456,9 @@ pub(crate) mod builders {
     pub use super::slider::SliderBuilder;
     pub use super::spin_button::SpinButtonBuilder;
     pub use super::split_view::SplitViewBuilder;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub use super::spring_animation::SpringAnimationBuilder;
     pub use super::stat_bar::StatBarBuilder;
     pub use super::status_banner::StatusBannerBuilder;
     pub use super::style_manager::StyleManagerBuilder;
@@ -411,6 +468,9 @@ pub(crate) mod builders {
     pub use super::tag_entry::TagEntryBuilder;
     pub use super::text_area::TextAreaBuilder;
     pub use super::tile_view::TileViewBuilder;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub use super::timed_animation::TimedAnimationBuilder;
     #[cfg(feature = "v1_1")]
     #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
     pub use super::timeline::TimelineBuilder;

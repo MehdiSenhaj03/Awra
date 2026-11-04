@@ -348,4 +348,66 @@ typedef enum {
  */
 GType awra_keyboard_physical_layout_get_type (void) G_GNUC_CONST;
 
+/**
+ * AwraAnimationState:
+ * @AWRA_ANIMATION_STATE_IDLE: the animation has not started, or was reset
+ * @AWRA_ANIMATION_STATE_PAUSED: the animation was paused and can resume
+ * @AWRA_ANIMATION_STATE_PLAYING: the animation is running on the frame clock
+ * @AWRA_ANIMATION_STATE_FINISHED: the animation reached its end or was skipped
+ *
+ * Where an #AwraAnimation is in its lifecycle.
+ *
+ * Since: 1.1
+ */
+typedef enum {
+  AWRA_ANIMATION_STATE_IDLE,
+  AWRA_ANIMATION_STATE_PAUSED,
+  AWRA_ANIMATION_STATE_PLAYING,
+  AWRA_ANIMATION_STATE_FINISHED,
+} AwraAnimationState;
+
+#define AWRA_TYPE_ANIMATION_STATE (awra_animation_state_get_type ())
+/**
+ * awra_animation_state_get_type:
+ *
+ * Since: 1.1
+ */
+GType awra_animation_state_get_type (void) G_GNUC_CONST;
+
+/**
+ * AwraEasing:
+ * @AWRA_EASING_LINEAR: constant speed, for progress that maps to time
+ * @AWRA_EASING_EASE_OUT_QUAD: a gentle deceleration
+ * @AWRA_EASING_EASE_OUT_CUBIC: Awra's default deceleration for entering content
+ * @AWRA_EASING_EASE_IN_OUT_CUBIC: accelerates then decelerates, for moves
+ *   between two resting places
+ * @AWRA_EASING_EASE_OUT_QUART: a quick start that settles softly
+ * @AWRA_EASING_EASE_OUT_EXPO: a very fast start with a long, quiet tail
+ * @AWRA_EASING_EASE_OUT_BACK: overshoots the end slightly, then settles
+ * @AWRA_EASING_EASE_IN_OUT_SINE: the softest symmetric curve, for loops
+ *
+ * Curves an #AwraTimedAnimation can follow. Each maps progress in [0, 1] to
+ * an eased progress that starts at 0 and ends at 1.
+ *
+ * Since: 1.1
+ */
+typedef enum {
+  AWRA_EASING_LINEAR,
+  AWRA_EASING_EASE_OUT_QUAD,
+  AWRA_EASING_EASE_OUT_CUBIC,
+  AWRA_EASING_EASE_IN_OUT_CUBIC,
+  AWRA_EASING_EASE_OUT_QUART,
+  AWRA_EASING_EASE_OUT_EXPO,
+  AWRA_EASING_EASE_OUT_BACK,
+  AWRA_EASING_EASE_IN_OUT_SINE,
+} AwraEasing;
+
+#define AWRA_TYPE_EASING (awra_easing_get_type ())
+/**
+ * awra_easing_get_type:
+ *
+ * Since: 1.1
+ */
+GType awra_easing_get_type (void) G_GNUC_CONST;
+
 G_END_DECLS

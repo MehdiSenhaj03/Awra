@@ -10,6 +10,7 @@
 int main() {
     printf("%s;%zu;%zu\n", "AwraAccentSource", sizeof(AwraAccentSource), alignof(AwraAccentSource));
     printf("%s;%zu;%zu\n", "AwraActionRowClass", sizeof(AwraActionRowClass), alignof(AwraActionRowClass));
+    printf("%s;%zu;%zu\n", "AwraAnimationState", sizeof(AwraAnimationState), alignof(AwraAnimationState));
     printf("%s;%zu;%zu\n", "AwraAppearance", sizeof(AwraAppearance), alignof(AwraAppearance));
     printf("%s;%zu;%zu\n", "AwraAspectPaintableClass", sizeof(AwraAspectPaintableClass), alignof(AwraAspectPaintableClass));
     printf("%s;%zu;%zu\n", "AwraBadgeAppearance", sizeof(AwraBadgeAppearance), alignof(AwraBadgeAppearance));
@@ -34,6 +35,7 @@ int main() {
     printf("%s;%zu;%zu\n", "AwraDragPreviewClass", sizeof(AwraDragPreviewClass), alignof(AwraDragPreviewClass));
     printf("%s;%zu;%zu\n", "AwraDropZoneClass", sizeof(AwraDropZoneClass), alignof(AwraDropZoneClass));
     printf("%s;%zu;%zu\n", "AwraDropdownClass", sizeof(AwraDropdownClass), alignof(AwraDropdownClass));
+    printf("%s;%zu;%zu\n", "AwraEasing", sizeof(AwraEasing), alignof(AwraEasing));
     printf("%s;%zu;%zu\n", "AwraEdgePanelClass", sizeof(AwraEdgePanelClass), alignof(AwraEdgePanelClass));
     printf("%s;%zu;%zu\n", "AwraEffectCapability", sizeof(AwraEffectCapability), alignof(AwraEffectCapability));
     printf("%s;%zu;%zu\n", "AwraElevation", sizeof(AwraElevation), alignof(AwraElevation));

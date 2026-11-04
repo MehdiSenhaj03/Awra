@@ -2,12 +2,36 @@
 
 #include <awra/awra-motion.h>
 
+#include <awra/awra-context.h>
+
+#include "motion/awra-animation-private.h"
+
+static const guint nominal_durations[] = { 0, 110, 180, 260 };
+
+guint
+awra_motion_preset_get_nominal_duration (AwraMotionPreset preset)
+{
+  g_return_val_if_fail (preset >= AWRA_MOTION_PRESET_INSTANT &&
+                        preset <= AWRA_MOTION_PRESET_SLOW,
+                        0);
+  return nominal_durations[preset];
+}
+
+gboolean
+awra_motion_is_reduced_for_widget (GtkWidget *widget)
+{
+  AwraContext *context;
+
+  g_return_val_if_fail (GTK_IS_WIDGET (widget), FALSE);
+  context = awra_context_get_for_display (gtk_widget_get_display (widget));
+  return awra_style_manager_get_reduced_motion (
+    awra_context_get_style_manager (context));
+}
+
 guint
 awra_motion_get_duration (AwraStyleManager *manager,
                           AwraMotionPreset  preset)
 {
-  static const guint durations[] = { 0, 110, 180, 260 };
-
   g_return_val_if_fail (AWRA_IS_STYLE_MANAGER (manager), 0);
   g_return_val_if_fail (preset >= AWRA_MOTION_PRESET_INSTANT &&
                         preset <= AWRA_MOTION_PRESET_SLOW,
@@ -15,7 +39,7 @@ awra_motion_get_duration (AwraStyleManager *manager,
 
   if (awra_style_manager_get_reduced_motion (manager))
     return 0;
-  return durations[preset];
+  return nominal_durations[preset];
 }
 
 double

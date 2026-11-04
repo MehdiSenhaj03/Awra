@@ -37,6 +37,12 @@ pub const AWRA_ACCENT_SOURCE_SYSTEM: AwraAccentSource = 0;
 pub const AWRA_ACCENT_SOURCE_DEFAULT: AwraAccentSource = 1;
 pub const AWRA_ACCENT_SOURCE_CUSTOM: AwraAccentSource = 2;
 
+pub type AwraAnimationState = c_int;
+pub const AWRA_ANIMATION_STATE_IDLE: AwraAnimationState = 0;
+pub const AWRA_ANIMATION_STATE_PAUSED: AwraAnimationState = 1;
+pub const AWRA_ANIMATION_STATE_PLAYING: AwraAnimationState = 2;
+pub const AWRA_ANIMATION_STATE_FINISHED: AwraAnimationState = 3;
+
 pub type AwraAppearance = c_int;
 pub const AWRA_APPEARANCE_SYSTEM: AwraAppearance = 0;
 pub const AWRA_APPEARANCE_LIGHT: AwraAppearance = 1;
@@ -67,6 +73,16 @@ pub const AWRA_DATA_VIEW_STATE_CONTENT: AwraDataViewState = 0;
 pub const AWRA_DATA_VIEW_STATE_EMPTY: AwraDataViewState = 1;
 pub const AWRA_DATA_VIEW_STATE_LOADING: AwraDataViewState = 2;
 pub const AWRA_DATA_VIEW_STATE_ERROR: AwraDataViewState = 3;
+
+pub type AwraEasing = c_int;
+pub const AWRA_EASING_LINEAR: AwraEasing = 0;
+pub const AWRA_EASING_EASE_OUT_QUAD: AwraEasing = 1;
+pub const AWRA_EASING_EASE_OUT_CUBIC: AwraEasing = 2;
+pub const AWRA_EASING_EASE_IN_OUT_CUBIC: AwraEasing = 3;
+pub const AWRA_EASING_EASE_OUT_QUART: AwraEasing = 4;
+pub const AWRA_EASING_EASE_OUT_EXPO: AwraEasing = 5;
+pub const AWRA_EASING_EASE_OUT_BACK: AwraEasing = 6;
+pub const AWRA_EASING_EASE_IN_OUT_SINE: AwraEasing = 7;
 
 pub type AwraElevation = c_int;
 pub const AWRA_ELEVATION_FLAT: AwraElevation = 0;
@@ -174,6 +190,7 @@ pub const AWRA_VALIDATION_STATE_WARNING: AwraValidationState = 2;
 pub const AWRA_VALIDATION_STATE_ERROR: AwraValidationState = 3;
 
 // Constants
+pub const AWRA_DURATION_INFINITE: c_uint = 4294967295;
 pub const AWRA_MAJOR_VERSION: c_int = 1;
 pub const AWRA_MICRO_VERSION: c_int = 0;
 pub const AWRA_MINOR_VERSION: c_int = 1;
@@ -200,6 +217,9 @@ pub const AWRA_SURFACE_EDGE_BOTTOM: AwraSurfaceEdge = 4;
 pub const AWRA_SURFACE_EDGE_START: AwraSurfaceEdge = 8;
 pub const AWRA_SURFACE_EDGE_ALL: AwraSurfaceEdge = 15;
 
+// Callbacks
+pub type AwraAnimationTargetFunc = Option<unsafe extern "C" fn(c_double, gpointer)>;
+
 // Records
 #[derive(Copy, Clone)]
 #[repr(C)]
@@ -214,6 +234,24 @@ impl ::std::fmt::Debug for AwraActionRowClass {
             .finish()
     }
 }
+
+#[repr(C)]
+#[allow(dead_code)]
+pub struct _AwraAnimationClass {
+    _data: [u8; 0],
+    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
+}
+
+pub type AwraAnimationClass = _AwraAnimationClass;
+
+#[repr(C)]
+#[allow(dead_code)]
+pub struct _AwraAnimationTargetClass {
+    _data: [u8; 0],
+    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
+}
+
+pub type AwraAnimationTargetClass = _AwraAnimationTargetClass;
 
 #[derive(Copy, Clone)]
 #[repr(C)]
@@ -298,6 +336,15 @@ impl ::std::fmt::Debug for AwraButtonClass {
             .finish()
     }
 }
+
+#[repr(C)]
+#[allow(dead_code)]
+pub struct _AwraCallbackAnimationTargetClass {
+    _data: [u8; 0],
+    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
+}
+
+pub type AwraCallbackAnimationTargetClass = _AwraCallbackAnimationTargetClass;
 
 #[derive(Copy, Clone)]
 #[repr(C)]
@@ -929,6 +976,15 @@ impl ::std::fmt::Debug for AwraProgressBarClass {
     }
 }
 
+#[repr(C)]
+#[allow(dead_code)]
+pub struct _AwraPropertyAnimationTargetClass {
+    _data: [u8; 0],
+    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
+}
+
+pub type AwraPropertyAnimationTargetClass = _AwraPropertyAnimationTargetClass;
+
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub struct AwraResponsiveBinClass {
@@ -1083,6 +1139,15 @@ impl ::std::fmt::Debug for AwraSplitViewClass {
     }
 }
 
+#[repr(C)]
+#[allow(dead_code)]
+pub struct _AwraSpringAnimationClass {
+    _data: [u8; 0],
+    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
+}
+
+pub type AwraSpringAnimationClass = _AwraSpringAnimationClass;
+
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub struct AwraStatBarClass {
@@ -1222,6 +1287,15 @@ impl ::std::fmt::Debug for AwraTileViewClass {
             .finish()
     }
 }
+
+#[repr(C)]
+#[allow(dead_code)]
+pub struct _AwraTimedAnimationClass {
+    _data: [u8; 0],
+    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
+}
+
+pub type AwraTimedAnimationClass = _AwraTimedAnimationClass;
 
 #[derive(Copy, Clone)]
 #[repr(C)]
@@ -1382,6 +1456,34 @@ impl ::std::fmt::Debug for AwraActionRow {
 
 #[repr(C)]
 #[allow(dead_code)]
+pub struct AwraAnimation {
+    _data: [u8; 0],
+    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
+}
+
+impl ::std::fmt::Debug for AwraAnimation {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        f.debug_struct(&format!("AwraAnimation @ {self:p}"))
+            .finish()
+    }
+}
+
+#[repr(C)]
+#[allow(dead_code)]
+pub struct AwraAnimationTarget {
+    _data: [u8; 0],
+    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
+}
+
+impl ::std::fmt::Debug for AwraAnimationTarget {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        f.debug_struct(&format!("AwraAnimationTarget @ {self:p}"))
+            .finish()
+    }
+}
+
+#[repr(C)]
+#[allow(dead_code)]
 pub struct AwraAspectPaintable {
     _data: [u8; 0],
     _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
@@ -1459,6 +1561,20 @@ pub struct AwraButton {
 impl ::std::fmt::Debug for AwraButton {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
         f.debug_struct(&format!("AwraButton @ {self:p}")).finish()
+    }
+}
+
+#[repr(C)]
+#[allow(dead_code)]
+pub struct AwraCallbackAnimationTarget {
+    _data: [u8; 0],
+    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
+}
+
+impl ::std::fmt::Debug for AwraCallbackAnimationTarget {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        f.debug_struct(&format!("AwraCallbackAnimationTarget @ {self:p}"))
+            .finish()
     }
 }
 
@@ -2075,6 +2191,20 @@ impl ::std::fmt::Debug for AwraProgressBar {
 
 #[repr(C)]
 #[allow(dead_code)]
+pub struct AwraPropertyAnimationTarget {
+    _data: [u8; 0],
+    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
+}
+
+impl ::std::fmt::Debug for AwraPropertyAnimationTarget {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        f.debug_struct(&format!("AwraPropertyAnimationTarget @ {self:p}"))
+            .finish()
+    }
+}
+
+#[repr(C)]
+#[allow(dead_code)]
 pub struct AwraResponsiveBin {
     _data: [u8; 0],
     _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
@@ -2225,6 +2355,20 @@ impl ::std::fmt::Debug for AwraSplitView {
 
 #[repr(C)]
 #[allow(dead_code)]
+pub struct AwraSpringAnimation {
+    _data: [u8; 0],
+    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
+}
+
+impl ::std::fmt::Debug for AwraSpringAnimation {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        f.debug_struct(&format!("AwraSpringAnimation @ {self:p}"))
+            .finish()
+    }
+}
+
+#[repr(C)]
+#[allow(dead_code)]
 pub struct AwraStatBar {
     _data: [u8; 0],
     _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
@@ -2353,6 +2497,20 @@ pub struct AwraTileView {
 impl ::std::fmt::Debug for AwraTileView {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
         f.debug_struct(&format!("AwraTileView @ {self:p}")).finish()
+    }
+}
+
+#[repr(C)]
+#[allow(dead_code)]
+pub struct AwraTimedAnimation {
+    _data: [u8; 0],
+    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
+}
+
+impl ::std::fmt::Debug for AwraTimedAnimation {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        f.debug_struct(&format!("AwraTimedAnimation @ {self:p}"))
+            .finish()
     }
 }
 
@@ -2501,6 +2659,13 @@ unsafe extern "C" {
     pub fn awra_accent_source_get_type() -> GType;
 
     //=========================================================================
+    // AwraAnimationState
+    //=========================================================================
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_animation_state_get_type() -> GType;
+
+    //=========================================================================
     // AwraAppearance
     //=========================================================================
     pub fn awra_appearance_get_type() -> GType;
@@ -2524,6 +2689,16 @@ unsafe extern "C" {
     // AwraDataViewState
     //=========================================================================
     pub fn awra_data_view_state_get_type() -> GType;
+
+    //=========================================================================
+    // AwraEasing
+    //=========================================================================
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_easing_get_type() -> GType;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_easing_ease(self_: AwraEasing, value: c_double) -> c_double;
 
     //=========================================================================
     // AwraElevation
@@ -2636,6 +2811,56 @@ unsafe extern "C" {
     pub fn awra_action_row_set_title(self_: *mut AwraActionRow, title: *const c_char);
 
     //=========================================================================
+    // AwraAnimation
+    //=========================================================================
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_animation_get_type() -> GType;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_animation_get_follow_reduced_motion(self_: *mut AwraAnimation) -> gboolean;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_animation_get_state(self_: *mut AwraAnimation) -> AwraAnimationState;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_animation_get_target(self_: *mut AwraAnimation) -> *mut AwraAnimationTarget;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_animation_get_value(self_: *mut AwraAnimation) -> c_double;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_animation_get_widget(self_: *mut AwraAnimation) -> *mut gtk::GtkWidget;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_animation_pause(self_: *mut AwraAnimation);
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_animation_play(self_: *mut AwraAnimation);
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_animation_reset(self_: *mut AwraAnimation);
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_animation_resume(self_: *mut AwraAnimation);
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_animation_set_follow_reduced_motion(self_: *mut AwraAnimation, follow: gboolean);
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_animation_set_target(self_: *mut AwraAnimation, target: *mut AwraAnimationTarget);
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_animation_skip(self_: *mut AwraAnimation);
+
+    //=========================================================================
+    // AwraAnimationTarget
+    //=========================================================================
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_animation_target_get_type() -> GType;
+
+    //=========================================================================
     // AwraAspectPaintable
     //=========================================================================
     #[cfg(feature = "v1_1")]
@@ -2714,6 +2939,20 @@ unsafe extern "C" {
     pub fn awra_button_new_with_label(label: *const c_char) -> *mut gtk::GtkWidget;
     pub fn awra_button_get_appearance(self_: *mut AwraButton) -> AwraButtonAppearance;
     pub fn awra_button_set_appearance(self_: *mut AwraButton, appearance: AwraButtonAppearance);
+
+    //=========================================================================
+    // AwraCallbackAnimationTarget
+    //=========================================================================
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_callback_animation_target_get_type() -> GType;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_callback_animation_target_new(
+        callback: AwraAnimationTargetFunc,
+        user_data: gpointer,
+        destroy: glib::GDestroyNotify,
+    ) -> *mut AwraAnimationTarget;
 
     //=========================================================================
     // AwraCard
@@ -4013,6 +4252,29 @@ unsafe extern "C" {
     pub fn awra_progress_bar_set_text(self_: *mut AwraProgressBar, text: *const c_char);
 
     //=========================================================================
+    // AwraPropertyAnimationTarget
+    //=========================================================================
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_property_animation_target_get_type() -> GType;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_property_animation_target_new(
+        object: *mut gobject::GObject,
+        property_name: *const c_char,
+    ) -> *mut AwraAnimationTarget;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_property_animation_target_get_object(
+        self_: *mut AwraPropertyAnimationTarget,
+    ) -> *mut gobject::GObject;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_property_animation_target_get_property_name(
+        self_: *mut AwraPropertyAnimationTarget,
+    ) -> *const c_char;
+
+    //=========================================================================
     // AwraResponsiveBin
     //=========================================================================
     pub fn awra_responsive_bin_get_type() -> GType;
@@ -4251,6 +4513,89 @@ unsafe extern "C" {
     pub fn awra_split_view_set_expanded_width(self_: *mut AwraSplitView, width: c_uint);
     pub fn awra_split_view_set_show_sidebar(self_: *mut AwraSplitView, show_sidebar: gboolean);
     pub fn awra_split_view_set_sidebar(self_: *mut AwraSplitView, sidebar: *mut gtk::GtkWidget);
+
+    //=========================================================================
+    // AwraSpringAnimation
+    //=========================================================================
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_spring_animation_get_type() -> GType;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_spring_animation_new(
+        widget: *mut gtk::GtkWidget,
+        from: c_double,
+        to: c_double,
+        damping_ratio: c_double,
+        stiffness: c_double,
+        target: *mut AwraAnimationTarget,
+    ) -> *mut AwraAnimation;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_spring_animation_get_clamp(self_: *mut AwraSpringAnimation) -> gboolean;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_spring_animation_get_damping_ratio(self_: *mut AwraSpringAnimation) -> c_double;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_spring_animation_get_epsilon(self_: *mut AwraSpringAnimation) -> c_double;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_spring_animation_get_estimated_duration(self_: *mut AwraSpringAnimation) -> c_uint;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_spring_animation_get_initial_velocity(self_: *mut AwraSpringAnimation) -> c_double;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_spring_animation_get_mass(self_: *mut AwraSpringAnimation) -> c_double;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_spring_animation_get_stiffness(self_: *mut AwraSpringAnimation) -> c_double;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_spring_animation_get_value_from(self_: *mut AwraSpringAnimation) -> c_double;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_spring_animation_get_value_to(self_: *mut AwraSpringAnimation) -> c_double;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_spring_animation_get_velocity(self_: *mut AwraSpringAnimation) -> c_double;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_spring_animation_retarget(self_: *mut AwraSpringAnimation, value_to: c_double);
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_spring_animation_set_clamp(self_: *mut AwraSpringAnimation, clamp: gboolean);
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_spring_animation_set_damping_ratio(
+        self_: *mut AwraSpringAnimation,
+        damping_ratio: c_double,
+    );
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_spring_animation_set_epsilon(self_: *mut AwraSpringAnimation, epsilon: c_double);
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_spring_animation_set_initial_velocity(
+        self_: *mut AwraSpringAnimation,
+        velocity: c_double,
+    );
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_spring_animation_set_mass(self_: *mut AwraSpringAnimation, mass: c_double);
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_spring_animation_set_stiffness(
+        self_: *mut AwraSpringAnimation,
+        stiffness: c_double,
+    );
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_spring_animation_set_value_from(self_: *mut AwraSpringAnimation, value: c_double);
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_spring_animation_set_value_to(self_: *mut AwraSpringAnimation, value: c_double);
 
     //=========================================================================
     // AwraStatBar
@@ -4649,6 +4994,76 @@ unsafe extern "C" {
         child: *mut gtk::GtkWidget,
         side: gtk::GtkPositionType,
     ) -> gboolean;
+
+    //=========================================================================
+    // AwraTimedAnimation
+    //=========================================================================
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_timed_animation_get_type() -> GType;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_timed_animation_new(
+        widget: *mut gtk::GtkWidget,
+        from: c_double,
+        to: c_double,
+        duration: c_uint,
+        target: *mut AwraAnimationTarget,
+    ) -> *mut AwraAnimation;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_timed_animation_new_for_preset(
+        widget: *mut gtk::GtkWidget,
+        from: c_double,
+        to: c_double,
+        preset: AwraMotionPreset,
+        target: *mut AwraAnimationTarget,
+    ) -> *mut AwraAnimation;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_timed_animation_get_alternate(self_: *mut AwraTimedAnimation) -> gboolean;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_timed_animation_get_duration(self_: *mut AwraTimedAnimation) -> c_uint;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_timed_animation_get_easing(self_: *mut AwraTimedAnimation) -> AwraEasing;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_timed_animation_get_repeat_count(self_: *mut AwraTimedAnimation) -> c_uint;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_timed_animation_get_reverse(self_: *mut AwraTimedAnimation) -> gboolean;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_timed_animation_get_value_from(self_: *mut AwraTimedAnimation) -> c_double;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_timed_animation_get_value_to(self_: *mut AwraTimedAnimation) -> c_double;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_timed_animation_set_alternate(self_: *mut AwraTimedAnimation, alternate: gboolean);
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_timed_animation_set_duration(self_: *mut AwraTimedAnimation, duration: c_uint);
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_timed_animation_set_easing(self_: *mut AwraTimedAnimation, easing: AwraEasing);
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_timed_animation_set_repeat_count(
+        self_: *mut AwraTimedAnimation,
+        repeat_count: c_uint,
+    );
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_timed_animation_set_reverse(self_: *mut AwraTimedAnimation, reverse: gboolean);
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_timed_animation_set_value_from(self_: *mut AwraTimedAnimation, value: c_double);
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_timed_animation_set_value_to(self_: *mut AwraTimedAnimation, value: c_double);
 
     //=========================================================================
     // AwraTimeline

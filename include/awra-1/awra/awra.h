@@ -82,6 +82,10 @@
 #include <awra/awra-waveform-view.h>
 #include <awra/awra-timeline.h>
 #include <awra/awra-transition-bin.h>
+#include <awra/awra-animation-target.h>
+#include <awra/awra-animation.h>
+#include <awra/awra-timed-animation.h>
+#include <awra/awra-spring-animation.h>
 #include <awra/awra-tile-view.h>
 #include <awra/awra-aspect-paintable.h>
 #include <awra/awra-frame-pool.h>

@@ -217,6 +217,13 @@ const RUST_LAYOUTS: &[(&str, Layout)] = &[
         },
     ),
     (
+        "AwraAnimationState",
+        Layout {
+            size: size_of::<AwraAnimationState>(),
+            alignment: align_of::<AwraAnimationState>(),
+        },
+    ),
+    (
         "AwraAppearance",
         Layout {
             size: size_of::<AwraAppearance>(),
@@ -382,6 +389,13 @@ const RUST_LAYOUTS: &[(&str, Layout)] = &[
         Layout {
             size: size_of::<AwraDropdownClass>(),
             alignment: align_of::<AwraDropdownClass>(),
+        },
+    ),
+    (
+        "AwraEasing",
+        Layout {
+            size: size_of::<AwraEasing>(),
+            alignment: align_of::<AwraEasing>(),
         },
     ),
     (
@@ -964,6 +978,10 @@ const RUST_CONSTANTS: &[(&str, &str)] = &[
     ("(gint) AWRA_ACCENT_SOURCE_CUSTOM", "2"),
     ("(gint) AWRA_ACCENT_SOURCE_DEFAULT", "1"),
     ("(gint) AWRA_ACCENT_SOURCE_SYSTEM", "0"),
+    ("(gint) AWRA_ANIMATION_STATE_FINISHED", "3"),
+    ("(gint) AWRA_ANIMATION_STATE_IDLE", "0"),
+    ("(gint) AWRA_ANIMATION_STATE_PAUSED", "1"),
+    ("(gint) AWRA_ANIMATION_STATE_PLAYING", "2"),
     ("(gint) AWRA_APPEARANCE_DARK", "2"),
     ("(gint) AWRA_APPEARANCE_LIGHT", "1"),
     ("(gint) AWRA_APPEARANCE_SYSTEM", "0"),
@@ -985,6 +1003,15 @@ const RUST_CONSTANTS: &[(&str, &str)] = &[
     ("(gint) AWRA_DATA_VIEW_STATE_EMPTY", "1"),
     ("(gint) AWRA_DATA_VIEW_STATE_ERROR", "3"),
     ("(gint) AWRA_DATA_VIEW_STATE_LOADING", "2"),
+    ("AWRA_DURATION_INFINITE", "4294967295"),
+    ("(gint) AWRA_EASING_EASE_IN_OUT_CUBIC", "3"),
+    ("(gint) AWRA_EASING_EASE_IN_OUT_SINE", "7"),
+    ("(gint) AWRA_EASING_EASE_OUT_BACK", "6"),
+    ("(gint) AWRA_EASING_EASE_OUT_CUBIC", "2"),
+    ("(gint) AWRA_EASING_EASE_OUT_EXPO", "5"),
+    ("(gint) AWRA_EASING_EASE_OUT_QUAD", "1"),
+    ("(gint) AWRA_EASING_EASE_OUT_QUART", "4"),
+    ("(gint) AWRA_EASING_LINEAR", "0"),
     ("(guint) AWRA_EFFECT_CAPABILITY_BLUR", "1"),
     ("(guint) AWRA_EFFECT_CAPABILITY_NONE", "0"),
     ("(gint) AWRA_ELEVATION_FLAT", "0"),

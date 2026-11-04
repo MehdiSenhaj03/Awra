@@ -7,6 +7,17 @@
 API added in this release is documented `Since: 1.1`; every 1.0.0 API is
 unchanged (checked against the frozen 1.0.0 contract).
 
+### Motion and messaging components
+
+- `AwraTimedAnimation` and `AwraSpringAnimation` animate any value on a
+  widget's frame clock, through an `AwraCallbackAnimationTarget` (a closure in
+  Rust) or an `AwraPropertyAnimationTarget`. They follow reduced motion, jump
+  to their end when the widget is not on screen, and keep themselves alive
+  while they play. `awra_spring_animation_retarget()` sends a spring to a new
+  destination in flight, keeping its value and velocity, so interrupted
+  motion never jumps. `AwraEasing` names eight curves and
+  `awra_easing_ease()` evaluates them. See [motion](docs/guides/motion.md).
+
 ### Desktop workspace composition
 
 - `AwraFormRow` asks for its side-by-side width as natural width, so a container

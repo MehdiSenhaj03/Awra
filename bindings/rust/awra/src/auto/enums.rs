@@ -106,6 +106,128 @@ impl From<AccentSource> for glib::Value {
     }
 }
 
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+#[derive(Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Clone, Copy)]
+#[non_exhaustive]
+#[doc(alias = "AwraAnimationState")]
+pub enum AnimationState {
+    #[doc(alias = "AWRA_ANIMATION_STATE_IDLE")]
+    Idle,
+    #[doc(alias = "AWRA_ANIMATION_STATE_PAUSED")]
+    Paused,
+    #[doc(alias = "AWRA_ANIMATION_STATE_PLAYING")]
+    Playing,
+    #[doc(alias = "AWRA_ANIMATION_STATE_FINISHED")]
+    Finished,
+    #[doc(hidden)]
+    __Unknown(i32),
+}
+
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+#[doc(hidden)]
+impl IntoGlib for AnimationState {
+    type GlibType = ffi::AwraAnimationState;
+
+    #[inline]
+    fn into_glib(self) -> ffi::AwraAnimationState {
+        match self {
+            Self::Idle => ffi::AWRA_ANIMATION_STATE_IDLE,
+            Self::Paused => ffi::AWRA_ANIMATION_STATE_PAUSED,
+            Self::Playing => ffi::AWRA_ANIMATION_STATE_PLAYING,
+            Self::Finished => ffi::AWRA_ANIMATION_STATE_FINISHED,
+            Self::__Unknown(value) => value,
+        }
+    }
+}
+
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+#[doc(hidden)]
+impl FromGlib<ffi::AwraAnimationState> for AnimationState {
+    #[inline]
+    unsafe fn from_glib(value: ffi::AwraAnimationState) -> Self {
+        skip_assert_initialized!();
+
+        match value {
+            ffi::AWRA_ANIMATION_STATE_IDLE => Self::Idle,
+            ffi::AWRA_ANIMATION_STATE_PAUSED => Self::Paused,
+            ffi::AWRA_ANIMATION_STATE_PLAYING => Self::Playing,
+            ffi::AWRA_ANIMATION_STATE_FINISHED => Self::Finished,
+            value => Self::__Unknown(value),
+        }
+    }
+}
+
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+impl StaticType for AnimationState {
+    #[inline]
+    #[doc(alias = "awra_animation_state_get_type")]
+    fn static_type() -> glib::Type {
+        unsafe { from_glib(ffi::awra_animation_state_get_type()) }
+    }
+}
+
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+impl glib::HasParamSpec for AnimationState {
+    type ParamSpec = glib::ParamSpecEnum;
+    type SetValue = Self;
+    type BuilderFn = fn(&str, Self) -> glib::ParamSpecEnumBuilder<Self>;
+
+    fn param_spec_builder() -> Self::BuilderFn {
+        Self::ParamSpec::builder_with_default
+    }
+}
+
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+impl glib::value::ValueType for AnimationState {
+    type Type = Self;
+}
+
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+unsafe impl<'a> glib::value::FromValue<'a> for AnimationState {
+    type Checker = glib::value::GenericValueTypeChecker<Self>;
+
+    #[inline]
+    unsafe fn from_value(value: &'a glib::Value) -> Self {
+        skip_assert_initialized!();
+        unsafe { from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0)) }
+    }
+}
+
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+impl ToValue for AnimationState {
+    #[inline]
+    fn to_value(&self) -> glib::Value {
+        let mut value = glib::Value::for_value_type::<Self>();
+        unsafe {
+            glib::gobject_ffi::g_value_set_enum(value.to_glib_none_mut().0, self.into_glib());
+        }
+        value
+    }
+
+    #[inline]
+    fn value_type(&self) -> glib::Type {
+        Self::static_type()
+    }
+}
+
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+impl From<AnimationState> for glib::Value {
+    #[inline]
+    fn from(v: AnimationState) -> Self {
+        skip_assert_initialized!();
+        ToValue::to_value(&v)
+    }
+}
+
 #[derive(Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Clone, Copy)]
 #[non_exhaustive]
 #[doc(alias = "AwraAppearance")]
@@ -625,6 +747,154 @@ impl ToValue for DataViewState {
 impl From<DataViewState> for glib::Value {
     #[inline]
     fn from(v: DataViewState) -> Self {
+        skip_assert_initialized!();
+        ToValue::to_value(&v)
+    }
+}
+
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+#[derive(Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Clone, Copy)]
+#[non_exhaustive]
+#[doc(alias = "AwraEasing")]
+pub enum Easing {
+    #[doc(alias = "AWRA_EASING_LINEAR")]
+    Linear,
+    #[doc(alias = "AWRA_EASING_EASE_OUT_QUAD")]
+    EaseOutQuad,
+    #[doc(alias = "AWRA_EASING_EASE_OUT_CUBIC")]
+    EaseOutCubic,
+    #[doc(alias = "AWRA_EASING_EASE_IN_OUT_CUBIC")]
+    EaseInOutCubic,
+    #[doc(alias = "AWRA_EASING_EASE_OUT_QUART")]
+    EaseOutQuart,
+    #[doc(alias = "AWRA_EASING_EASE_OUT_EXPO")]
+    EaseOutExpo,
+    #[doc(alias = "AWRA_EASING_EASE_OUT_BACK")]
+    EaseOutBack,
+    #[doc(alias = "AWRA_EASING_EASE_IN_OUT_SINE")]
+    EaseInOutSine,
+    #[doc(hidden)]
+    __Unknown(i32),
+}
+
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+impl Easing {
+    #[doc(alias = "awra_easing_ease")]
+    pub fn ease(self, value: f64) -> f64 {
+        skip_assert_initialized!();
+        unsafe { ffi::awra_easing_ease(self.into_glib(), value) }
+    }
+}
+
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+#[doc(hidden)]
+impl IntoGlib for Easing {
+    type GlibType = ffi::AwraEasing;
+
+    #[inline]
+    fn into_glib(self) -> ffi::AwraEasing {
+        match self {
+            Self::Linear => ffi::AWRA_EASING_LINEAR,
+            Self::EaseOutQuad => ffi::AWRA_EASING_EASE_OUT_QUAD,
+            Self::EaseOutCubic => ffi::AWRA_EASING_EASE_OUT_CUBIC,
+            Self::EaseInOutCubic => ffi::AWRA_EASING_EASE_IN_OUT_CUBIC,
+            Self::EaseOutQuart => ffi::AWRA_EASING_EASE_OUT_QUART,
+            Self::EaseOutExpo => ffi::AWRA_EASING_EASE_OUT_EXPO,
+            Self::EaseOutBack => ffi::AWRA_EASING_EASE_OUT_BACK,
+            Self::EaseInOutSine => ffi::AWRA_EASING_EASE_IN_OUT_SINE,
+            Self::__Unknown(value) => value,
+        }
+    }
+}
+
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+#[doc(hidden)]
+impl FromGlib<ffi::AwraEasing> for Easing {
+    #[inline]
+    unsafe fn from_glib(value: ffi::AwraEasing) -> Self {
+        skip_assert_initialized!();
+
+        match value {
+            ffi::AWRA_EASING_LINEAR => Self::Linear,
+            ffi::AWRA_EASING_EASE_OUT_QUAD => Self::EaseOutQuad,
+            ffi::AWRA_EASING_EASE_OUT_CUBIC => Self::EaseOutCubic,
+            ffi::AWRA_EASING_EASE_IN_OUT_CUBIC => Self::EaseInOutCubic,
+            ffi::AWRA_EASING_EASE_OUT_QUART => Self::EaseOutQuart,
+            ffi::AWRA_EASING_EASE_OUT_EXPO => Self::EaseOutExpo,
+            ffi::AWRA_EASING_EASE_OUT_BACK => Self::EaseOutBack,
+            ffi::AWRA_EASING_EASE_IN_OUT_SINE => Self::EaseInOutSine,
+            value => Self::__Unknown(value),
+        }
+    }
+}
+
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+impl StaticType for Easing {
+    #[inline]
+    #[doc(alias = "awra_easing_get_type")]
+    fn static_type() -> glib::Type {
+        unsafe { from_glib(ffi::awra_easing_get_type()) }
+    }
+}
+
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+impl glib::HasParamSpec for Easing {
+    type ParamSpec = glib::ParamSpecEnum;
+    type SetValue = Self;
+    type BuilderFn = fn(&str, Self) -> glib::ParamSpecEnumBuilder<Self>;
+
+    fn param_spec_builder() -> Self::BuilderFn {
+        Self::ParamSpec::builder_with_default
+    }
+}
+
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+impl glib::value::ValueType for Easing {
+    type Type = Self;
+}
+
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+unsafe impl<'a> glib::value::FromValue<'a> for Easing {
+    type Checker = glib::value::GenericValueTypeChecker<Self>;
+
+    #[inline]
+    unsafe fn from_value(value: &'a glib::Value) -> Self {
+        skip_assert_initialized!();
+        unsafe { from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0)) }
+    }
+}
+
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+impl ToValue for Easing {
+    #[inline]
+    fn to_value(&self) -> glib::Value {
+        let mut value = glib::Value::for_value_type::<Self>();
+        unsafe {
+            glib::gobject_ffi::g_value_set_enum(value.to_glib_none_mut().0, self.into_glib());
+        }
+        value
+    }
+
+    #[inline]
+    fn value_type(&self) -> glib::Type {
+        Self::static_type()
+    }
+}
+
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+impl From<Easing> for glib::Value {
+    #[inline]
+    fn from(v: Easing) -> Self {
         skip_assert_initialized!();
         ToValue::to_value(&v)
     }

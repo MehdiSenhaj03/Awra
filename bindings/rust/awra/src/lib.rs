@@ -114,6 +114,11 @@ pub fn motion_ease_in_out_cubic(progress: f64) -> f64 {
     unsafe { ffi::awra_motion_ease_in_out_cubic(progress) }
 }
 
+/// The duration, in milliseconds, of an animation that never ends on its
+/// own, such as a timed animation that repeats forever.
+#[cfg(feature = "v1_1")]
+pub const DURATION_INFINITE: u32 = ffi::AWRA_DURATION_INFINITE;
+
 /// Attaches Awra's secondary-click context menu to any widget, or removes it
 /// with `None`.
 pub fn set_context_menu_model(

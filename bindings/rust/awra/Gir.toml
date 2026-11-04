@@ -16,6 +16,9 @@ generate_builder = true
 generate = [
   "Awra.AccentSource",
   "Awra.ActionRow",
+  "Awra.Animation",
+  "Awra.AnimationState",
+  "Awra.AnimationTarget",
   "Awra.Appearance",
   "Awra.AspectPaintable",
   "Awra.TextureStream",
@@ -27,6 +30,7 @@ generate = [
   "Awra.Button",
   "Awra.ButtonAppearance",
   "Awra.Card",
+  "Awra.CallbackAnimationTarget",
   "Awra.CardAppearance",
   "Awra.CheckButton",
   "Awra.ChoiceGroup",
@@ -79,6 +83,7 @@ generate = [
   "Awra.PathBar",
   "Awra.Popover",
   "Awra.ProgressBar",
+  "Awra.PropertyAnimationTarget",
   "Awra.Radius",
   "Awra.ResponsiveBin",
   "Awra.SearchEntry",
@@ -92,6 +97,7 @@ generate = [
   "Awra.Spacing",
   "Awra.SpinButton",
   "Awra.SplitView",
+  "Awra.SpringAnimation",
   "Awra.StatBar",
   "Awra.StatusAppearance",
   "Awra.StatusBanner",
@@ -105,6 +111,7 @@ generate = [
   "Awra.TagEntry",
   "Awra.TextArea",
   "Awra.ToastOverlay",
+  "Awra.TimedAnimation",
   "Awra.Timeline",
   "Awra.TileView",
   "Awra.TransitionBin",
@@ -180,6 +187,13 @@ manual = [
   "Gtk.SelectionMode",
   "Gio.File",
 ]
+
+[[object]]
+name = "Awra.Easing"
+status = "generate"
+    [[object.function]]
+    name = "ease"
+    assertion = "skip"
 
 [[object]]
 name = "Awra.FramePool"
