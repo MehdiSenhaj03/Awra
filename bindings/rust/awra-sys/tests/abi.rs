@@ -966,6 +966,13 @@ const RUST_LAYOUTS: &[(&str, Layout)] = &[
         },
     ),
     (
+        "AwraTypingIndicatorClass",
+        Layout {
+            size: size_of::<AwraTypingIndicatorClass>(),
+            alignment: align_of::<AwraTypingIndicatorClass>(),
+        },
+    ),
+    (
         "AwraTypography",
         Layout {
             size: size_of::<AwraTypography>(),

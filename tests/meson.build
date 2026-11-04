@@ -340,6 +340,8 @@ avatar_test = executable('test-avatar', 'widget/test-avatar.c', dependencies: aw
 test('avatar', avatar_test, env: ['G_DEBUG=fatal-warnings', 'GTK_A11Y=none'], is_parallel: false)
 rail_test = executable('test-rail', 'widget/test-rail.c', dependencies: awra_dep)
 test('rail', rail_test, env: ['G_DEBUG=fatal-warnings', 'GTK_A11Y=none'], is_parallel: false)
+typing_indicator_test = executable('test-typing-indicator', 'widget/test-typing-indicator.c', dependencies: awra_dep)
+test('typing-indicator', typing_indicator_test, env: ['G_DEBUG=fatal-warnings', 'GTK_A11Y=none'], is_parallel: false)
 drag_preview_test = executable('test-drag-preview', 'widget/test-drag-preview.c', dependencies: awra_dep)
 test('drag-preview', drag_preview_test, env: ['G_DEBUG=fatal-warnings', 'GTK_A11Y=none'], is_parallel: false)
 path_bar_test = executable('test-path-bar', 'widget/test-path-bar.c', dependencies: awra_dep)

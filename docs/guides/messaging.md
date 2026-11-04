@@ -70,3 +70,10 @@ to a folder it was dropped on.
 
 Up and Down move the focus between items, Enter and Space activate. The label
 of an item is its accessible name and the tooltip shown beside the rail.
+
+## Someone is writing: `AwraTypingIndicator`
+
+Place the indicator between the conversation and the composer, set its label
+— "Ada is typing…", "Ada and 2 others are typing…" — and turn it on and off
+with `active`. It keeps its height while hidden, so the conversation and the
+composer never move when someone starts or stops writing.

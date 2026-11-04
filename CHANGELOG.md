@@ -31,6 +31,10 @@ unchanged (checked against the frozen 1.0.0 contract).
   that previews them, sums up their activity, and unfolds on a tinted column.
   A reorderable rail lets the user drag entries while the others make room,
   and reports a drop onto another entry so the application can make a folder.
+- `AwraTypingIndicator` tells that someone is writing: three dots rise in a
+  wave beside a line of text. It keeps its height whether shown or not, so the
+  conversation never moves when it appears, and its dots stay still under
+  reduced motion.
 - `AwraTokenSet` gains `success` and `warning` colours for states drawn by
   widgets themselves.
 

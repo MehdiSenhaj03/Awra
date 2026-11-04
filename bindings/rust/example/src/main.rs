@@ -229,6 +229,11 @@ fn exercise_messaging_components() {
     workspace.emit_by_name::<()>("activate", &[]);
     assert_eq!(rail.selected_item(), Some(workspace.clone()));
     assert_eq!(rail.n_entries(), 3);
+
+    let typing = awra::TypingIndicator::new();
+    typing.set_label(Some("Ada is typing…"));
+    typing.set_active(true);
+    assert!(typing.is_active());
 }
 
 fn main() {

@@ -24,7 +24,8 @@ static const char hostile_css[] =
   "awrashortcutcapture label, awrawaveformview, awratimeline, awravolumecontrol,"
   "awramediarow, awramediarow label, awradropzone, awradropzone label,"
   "awradropzone box, awraavatar, awrarail, awraraillist, awrarailitem,"
-  "awrarailgroup, awrarailgroupface, awrarailseparator,"
+  "awrarailgroup, awrarailgroupface, awrarailseparator, awratypingindicator,"
+  "awratypingindicator label,"
   "awradataview columnview,"
   "awradataview columnview > header > button,"
   "awradataview columnview listview > row {"
@@ -401,6 +402,12 @@ make_probe_scene (void)
       awra_rail_append (AWRA_RAIL (rail), group);
       gtk_widget_set_size_request (rail, -1, 150);
       gtk_box_append (GTK_BOX (media), rail);
+    }
+    {
+      GtkWidget *typing = awra_typing_indicator_new ();
+
+      awra_typing_indicator_set_label (AWRA_TYPING_INDICATOR (typing), "Ada is typing");
+      gtk_box_append (GTK_BOX (media), typing);
     }
     gtk_grid_attach (GTK_GRID (grid), media, 0, 14, 3, 1);
   }

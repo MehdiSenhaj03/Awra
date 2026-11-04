@@ -117,6 +117,7 @@ int main() {
     printf("%s;%zu;%zu\n", "AwraTokenSetClass", sizeof(AwraTokenSetClass), alignof(AwraTokenSetClass));
     printf("%s;%zu;%zu\n", "AwraToolbarClass", sizeof(AwraToolbarClass), alignof(AwraToolbarClass));
     printf("%s;%zu;%zu\n", "AwraTransitionBinClass", sizeof(AwraTransitionBinClass), alignof(AwraTransitionBinClass));
+    printf("%s;%zu;%zu\n", "AwraTypingIndicatorClass", sizeof(AwraTypingIndicatorClass), alignof(AwraTypingIndicatorClass));
     printf("%s;%zu;%zu\n", "AwraTypography", sizeof(AwraTypography), alignof(AwraTypography));
     printf("%s;%zu;%zu\n", "AwraValidationState", sizeof(AwraValidationState), alignof(AwraValidationState));
     printf("%s;%zu;%zu\n", "AwraVolumeControlClass", sizeof(AwraVolumeControlClass), alignof(AwraVolumeControlClass));

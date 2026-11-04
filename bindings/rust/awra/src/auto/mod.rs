@@ -353,6 +353,13 @@ pub use self::transition_bin::TransitionBin;
 
 #[cfg(feature = "v1_1")]
 #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+mod typing_indicator;
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+pub use self::typing_indicator::TypingIndicator;
+
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
 mod volume_control;
 #[cfg(feature = "v1_1")]
 #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
@@ -524,6 +531,9 @@ pub(crate) mod builders {
     pub use super::toggle_button::ToggleButtonBuilder;
     pub use super::toolbar::ToolbarBuilder;
     pub use super::transition_bin::TransitionBinBuilder;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub use super::typing_indicator::TypingIndicatorBuilder;
     #[cfg(feature = "v1_1")]
     #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
     pub use super::volume_control::VolumeControlBuilder;

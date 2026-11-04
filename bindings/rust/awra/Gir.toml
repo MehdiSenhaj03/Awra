@@ -121,6 +121,7 @@ generate = [
   "Awra.Timeline",
   "Awra.TileView",
   "Awra.TransitionBin",
+  "Awra.TypingIndicator",
   "Awra.ToggleButton",
   "Awra.TokenSet",
   "Awra.Toolbar",

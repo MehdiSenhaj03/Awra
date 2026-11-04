@@ -1450,6 +1450,20 @@ impl ::std::fmt::Debug for AwraTransitionBinClass {
 
 #[derive(Copy, Clone)]
 #[repr(C)]
+pub struct AwraTypingIndicatorClass {
+    pub parent_class: gtk::GtkWidgetClass,
+}
+
+impl ::std::fmt::Debug for AwraTypingIndicatorClass {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        f.debug_struct(&format!("AwraTypingIndicatorClass @ {self:p}"))
+            .field("parent_class", &self.parent_class)
+            .finish()
+    }
+}
+
+#[derive(Copy, Clone)]
+#[repr(C)]
 pub struct AwraVolumeControlClass {
     pub parent_class: gtk::GtkWidgetClass,
 }
@@ -2711,6 +2725,20 @@ pub struct AwraTransitionBin {
 impl ::std::fmt::Debug for AwraTransitionBin {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
         f.debug_struct(&format!("AwraTransitionBin @ {self:p}"))
+            .finish()
+    }
+}
+
+#[repr(C)]
+#[allow(dead_code)]
+pub struct AwraTypingIndicator {
+    _data: [u8; 0],
+    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
+}
+
+impl ::std::fmt::Debug for AwraTypingIndicator {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        f.debug_struct(&format!("AwraTypingIndicator @ {self:p}"))
             .finish()
     }
 }
@@ -5654,6 +5682,28 @@ unsafe extern "C" {
     #[cfg(feature = "v1_1")]
     #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
     pub fn awra_transition_bin_set_fixed_top(self_: *mut AwraTransitionBin, height: c_int);
+
+    //=========================================================================
+    // AwraTypingIndicator
+    //=========================================================================
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_typing_indicator_get_type() -> GType;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_typing_indicator_new() -> *mut gtk::GtkWidget;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_typing_indicator_get_active(self_: *mut AwraTypingIndicator) -> gboolean;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_typing_indicator_get_label(self_: *mut AwraTypingIndicator) -> *const c_char;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_typing_indicator_set_active(self_: *mut AwraTypingIndicator, active: gboolean);
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_typing_indicator_set_label(self_: *mut AwraTypingIndicator, label: *const c_char);
 
     //=========================================================================
     // AwraVolumeControl
