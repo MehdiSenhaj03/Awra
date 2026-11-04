@@ -49,3 +49,30 @@ Rows carry no card: they get a quiet hover and the view's own marks. Page Up,
 Page Down, Home and End scroll the view while it has the focus. Everything
 follows the reduced-motion preference: glides jump, rows appear in place and
 a highlight stays still for the same time.
+
+## Writing: `AwraComposer`
+
+```c
+GtkWidget *composer = awra_composer_new ();
+
+awra_composer_set_placeholder_text (AWRA_COMPOSER (composer), "Message #general");
+awra_composer_set_start_widget (AWRA_COMPOSER (composer), add_button);
+awra_composer_set_end_widget (AWRA_COMPOSER (composer), emoji_button);
+g_signal_connect (composer, "submit", G_CALLBACK (send_cb), app);
+```
+
+One rounded well holds an optional banner (`awra_composer_show_banner()` makes
+a line of text with a close button, which emits `banner-closed`), an optional
+`attachments` widget, then the start widget, the text, the end widget and a
+send button. Banner and attachments slide in and out; the send button grows in
+when there is something to send (`can-send` forces it, for attachments alone).
+
+The text grows from one line to `max-lines`, then scrolls, and the well glides
+to each new height. Enter emits `submit` and Shift+Enter inserts a new line;
+with `send-on-enter` off, Ctrl+Enter sends. Enter never submits while an input
+method is composing or an `AwraCompletionPopover` attached to the text is
+shown. The `submit` handler reads `awra_composer_get_text()` and clears it with
+`awra_composer_set_text (composer, NULL)`. `busy` shows progress on the send
+button. `awra_composer_get_view()` returns the `GtkTextView` for tags, inline
+images (child anchors) and further key handling.
+

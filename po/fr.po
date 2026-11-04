@@ -276,3 +276,11 @@ msgstr[1] "%u nouveaux messages"
 #: src/widgets/awra-conversation-view.c
 msgid "Jump to present"
 msgstr "Revenir au présent"
+
+#: src/widgets/awra-composer.c
+msgid "Send"
+msgstr "Envoyer"
+
+#: src/widgets/awra-composer.c
+msgid "Close"
+msgstr "Fermer"

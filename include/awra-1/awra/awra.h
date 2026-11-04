@@ -91,6 +91,7 @@
 #include <awra/awra-drag-preview.h>
 #include <awra/awra-drop-zone.h>
 #include <awra/awra-conversation-view.h>
+#include <awra/awra-composer.h>
 
 G_BEGIN_DECLS
 

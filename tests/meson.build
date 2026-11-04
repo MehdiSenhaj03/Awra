@@ -336,6 +336,8 @@ tile_view_test = executable('test-tile-view', 'widget/test-tile-view.c', depende
 test('tile-view', tile_view_test, env: ['G_DEBUG=fatal-warnings', 'GTK_A11Y=none'], is_parallel: false)
 conversation_view_test = executable('test-conversation-view', 'widget/test-conversation-view.c', dependencies: awra_dep)
 test('conversation-view', conversation_view_test, env: ['G_DEBUG=fatal-warnings', 'GTK_A11Y=none'], is_parallel: false)
+composer_test = executable('test-composer', 'widget/test-composer.c', dependencies: awra_dep)
+test('composer', composer_test, env: ['G_DEBUG=fatal-warnings', 'GTK_A11Y=none'], is_parallel: false)
 drag_preview_test = executable('test-drag-preview', 'widget/test-drag-preview.c', dependencies: awra_dep)
 test('drag-preview', drag_preview_test, env: ['G_DEBUG=fatal-warnings', 'GTK_A11Y=none'], is_parallel: false)
 path_bar_test = executable('test-path-bar', 'widget/test-path-bar.c', dependencies: awra_dep)

@@ -315,6 +315,13 @@ const RUST_LAYOUTS: &[(&str, Layout)] = &[
         },
     ),
     (
+        "AwraComposerClass",
+        Layout {
+            size: size_of::<AwraComposerClass>(),
+            alignment: align_of::<AwraComposerClass>(),
+        },
+    ),
+    (
         "AwraContextClass",
         Layout {
             size: size_of::<AwraContextClass>(),

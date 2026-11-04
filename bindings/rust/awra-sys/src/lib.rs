@@ -362,6 +362,20 @@ impl ::std::fmt::Debug for AwraCommandPaletteClass {
 
 #[derive(Copy, Clone)]
 #[repr(C)]
+pub struct AwraComposerClass {
+    pub parent_class: gtk::GtkWidgetClass,
+}
+
+impl ::std::fmt::Debug for AwraComposerClass {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        f.debug_struct(&format!("AwraComposerClass @ {self:p}"))
+            .field("parent_class", &self.parent_class)
+            .finish()
+    }
+}
+
+#[derive(Copy, Clone)]
+#[repr(C)]
 pub struct AwraContextClass {
     pub parent_class: gobject::GObjectClass,
 }
@@ -1533,6 +1547,19 @@ impl ::std::fmt::Debug for AwraCommandPalette {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
         f.debug_struct(&format!("AwraCommandPalette @ {self:p}"))
             .finish()
+    }
+}
+
+#[repr(C)]
+#[allow(dead_code)]
+pub struct AwraComposer {
+    _data: [u8; 0],
+    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
+}
+
+impl ::std::fmt::Debug for AwraComposer {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        f.debug_struct(&format!("AwraComposer @ {self:p}")).finish()
     }
 }
 
@@ -2828,6 +2855,92 @@ unsafe extern "C" {
     );
     pub fn awra_command_palette_set_query(self_: *mut AwraCommandPalette, query: *const c_char);
     pub fn awra_command_palette_set_title(self_: *mut AwraCommandPalette, title: *const c_char);
+
+    //=========================================================================
+    // AwraComposer
+    //=========================================================================
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_composer_get_type() -> GType;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_composer_new() -> *mut gtk::GtkWidget;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_composer_get_attachments(self_: *mut AwraComposer) -> *mut gtk::GtkWidget;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_composer_get_banner(self_: *mut AwraComposer) -> *mut gtk::GtkWidget;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_composer_get_buffer(self_: *mut AwraComposer) -> *mut gtk::GtkTextBuffer;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_composer_get_busy(self_: *mut AwraComposer) -> gboolean;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_composer_get_can_send(self_: *mut AwraComposer) -> gboolean;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_composer_get_end_widget(self_: *mut AwraComposer) -> *mut gtk::GtkWidget;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_composer_get_max_lines(self_: *mut AwraComposer) -> c_uint;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_composer_get_placeholder_text(self_: *mut AwraComposer) -> *const c_char;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_composer_get_send_on_enter(self_: *mut AwraComposer) -> gboolean;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_composer_get_start_widget(self_: *mut AwraComposer) -> *mut gtk::GtkWidget;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_composer_get_text(self_: *mut AwraComposer) -> *const c_char;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_composer_get_view(self_: *mut AwraComposer) -> *mut gtk::GtkTextView;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_composer_set_attachments(
+        self_: *mut AwraComposer,
+        attachments: *mut gtk::GtkWidget,
+    );
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_composer_set_banner(self_: *mut AwraComposer, banner: *mut gtk::GtkWidget);
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_composer_set_busy(self_: *mut AwraComposer, busy: gboolean);
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_composer_set_can_send(self_: *mut AwraComposer, can_send: gboolean);
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_composer_set_end_widget(self_: *mut AwraComposer, widget: *mut gtk::GtkWidget);
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_composer_set_max_lines(self_: *mut AwraComposer, lines: c_uint);
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_composer_set_placeholder_text(self_: *mut AwraComposer, text: *const c_char);
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_composer_set_send_on_enter(self_: *mut AwraComposer, send_on_enter: gboolean);
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_composer_set_start_widget(self_: *mut AwraComposer, widget: *mut gtk::GtkWidget);
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_composer_set_text(self_: *mut AwraComposer, text: *const c_char);
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_composer_show_banner(
+        self_: *mut AwraComposer,
+        text: *const c_char,
+        closable: gboolean,
+    );
 
     //=========================================================================
     // AwraContext

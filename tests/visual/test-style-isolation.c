@@ -23,7 +23,7 @@ static const char hostile_css[] =
   "awrakeycap, awrakeycap label, awrakeyboardview, awrashortcutcapture,"
   "awrashortcutcapture label, awrawaveformview, awratimeline, awravolumecontrol,"
   "awramediarow, awramediarow label, awradropzone, awradropzone label,"
-  "awradropzone box, awraconversationview,"
+  "awradropzone box, awraconversationview, awracomposer,"
   "awradataview columnview,"
   "awradataview columnview > header > button,"
   "awradataview columnview listview > row {"
@@ -394,6 +394,14 @@ make_probe_scene (void)
 
     gtk_widget_set_size_request (conversation, -1, 72);
     gtk_box_append (GTK_BOX (chat), conversation);
+    {
+      GtkWidget *composer = awra_composer_new ();
+
+      awra_composer_set_placeholder_text (AWRA_COMPOSER (composer), "Message");
+      awra_composer_set_text (AWRA_COMPOSER (composer), "Hello");
+      awra_composer_show_banner (AWRA_COMPOSER (composer), "Replying", TRUE);
+      gtk_box_append (GTK_BOX (chat), composer);
+    }
     gtk_grid_attach (GTK_GRID (grid), chat, 0, 15, 3, 1);
   }
   g_object_set_data (G_OBJECT (grid), "awra-probe-dropdown", dropdown);

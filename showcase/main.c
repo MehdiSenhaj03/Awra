@@ -1382,6 +1382,7 @@ make_edge_workspace (ShowcaseState *state,
 typedef struct {
   GtkStringList *messages;
   AwraConversationView *view;
+  AwraComposer *composer;
   guint older_loaded;
   guint received;
 } ConversationDemo;
@@ -1524,6 +1525,39 @@ conversation_at_bottom_cb (AwraConversationView *view,
 }
 
 static void
+conversation_submit_cb (AwraComposer     *composer,
+                        ConversationDemo *demo)
+{
+  g_autofree char *message = g_strdup_printf ("You\t%s", awra_composer_get_text (composer));
+
+  gtk_string_list_append (demo->messages, message);
+  awra_composer_set_text (composer, NULL);
+  if (awra_composer_get_banner (composer) != NULL)
+    awra_composer_set_banner (composer, NULL);
+  awra_conversation_view_scroll_to_end (demo->view, TRUE);
+}
+
+static void
+conversation_reply_cb (GtkButton        *button,
+                       ConversationDemo *demo)
+{
+  (void) button;
+  awra_composer_show_banner (demo->composer, "Replying to Malik", TRUE);
+  gtk_widget_grab_focus (GTK_WIDGET (demo->composer));
+}
+
+static GtkWidget *
+conversation_icon_button (const char *icon_name,
+                          const char *tooltip)
+{
+  GtkWidget *button = awra_button_new_from_icon_name (icon_name);
+
+  awra_button_set_appearance (AWRA_BUTTON (button), AWRA_BUTTON_APPEARANCE_GHOST);
+  gtk_widget_set_tooltip_text (button, tooltip);
+  return button;
+}
+
+static void
 conversation_demo_free (gpointer data)
 {
   ConversationDemo *demo = data;
@@ -1543,6 +1577,8 @@ make_conversation_workspace (void)
   GtkWidget *receive = make_button ("Receive a message", AWRA_BUTTON_APPEARANCE_SECONDARY);
   GtkWidget *burst = make_button ("Receive four", AWRA_BUTTON_APPEARANCE_GHOST);
   GtkWidget *find = make_button ("Find an older message", AWRA_BUTTON_APPEARANCE_GHOST);
+  GtkWidget *reply = make_button ("Reply", AWRA_BUTTON_APPEARANCE_GHOST);
+  GtkWidget *composer = awra_composer_new ();
   GtkWidget *timeline;
   GtkWidget *card;
 
@@ -1568,6 +1604,19 @@ make_conversation_workspace (void)
   gtk_box_append (GTK_BOX (actions), burst);
   gtk_box_append (GTK_BOX (actions), find);
   gtk_box_append (GTK_BOX (box), timeline);
+  demo->composer = AWRA_COMPOSER (composer);
+  awra_composer_set_placeholder_text (demo->composer, "Message #design-review");
+  awra_composer_set_start_widget (demo->composer,
+                                  conversation_icon_button ("list-add-symbolic", "Attach"));
+  awra_composer_set_end_widget (demo->composer,
+                                conversation_icon_button ("face-smile-symbolic", "Emoji"));
+  gtk_widget_set_margin_start (composer, 12);
+  gtk_widget_set_margin_end (composer, 12);
+  gtk_widget_set_margin_bottom (composer, 12);
+  g_signal_connect (composer, "submit", G_CALLBACK (conversation_submit_cb), demo);
+  g_signal_connect (reply, "clicked", G_CALLBACK (conversation_reply_cb), demo);
+  gtk_box_append (GTK_BOX (actions), reply);
+  gtk_box_append (GTK_BOX (box), composer);
   card = make_card (box);
   awra_card_set_content_inset (AWRA_CARD (card), AWRA_SPACING_NONE);
   gtk_widget_set_overflow (card, GTK_OVERFLOW_HIDDEN);

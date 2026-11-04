@@ -16,6 +16,11 @@ unchanged (checked against the frozen 1.0.0 contract).
   what is on screen, `edge-reached` asks for more at either end, and
   `awra_conversation_view_scroll_to_item()` brings an item into view and can
   flash it.
+- `AwraComposer` is the field where a message is written: one well with an
+  optional banner ("Replying to…"), attachments, start and end widgets and a
+  send button that grows in when there is something to send. The text grows
+  to `max-lines` with a smooth change of height; Enter sends, Shift+Enter
+  starts a new line, and an input method composing keeps Enter.
 
 ### Desktop workspace composition
 

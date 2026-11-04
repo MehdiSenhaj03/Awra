@@ -921,3 +921,20 @@ elle-même en réancrant ne sont jamais prises pour un défilement de
 l’utilisateur. Les tests couvrent 50 000 éléments, les ajouts en rafale, le
 chargement au début et le mouvement réduit.
 
+## 2026-11-04 — Yapfast — Un champ de saisie de message
+
+Le champ de message de Yapfast cumulait des besoins que chaque client de
+discussion réécrit : bandeau « Réponse à … » avec fermeture, aperçu des pièces
+jointes, boutons avant et après le texte, bouton d’envoi, texte qui grandit
+jusqu’à une limite puis défile, Entrée pour envoyer et Maj+Entrée pour un saut
+de ligne, sans jamais envoyer pendant une composition IME.
+
+`AwraComposer` regroupe tout cela dans un seul puits arrondi. La hauteur suit le
+texte en glissant (la rangée est découpée pendant la croissance plutôt que
+relayoutée ligne à ligne), le bandeau et les pièces jointes glissent en entrée
+et en sortie, le bouton d’envoi grandit depuis rien. Le `GtkTextView` reste
+accessible pour les balises, les ancres d’images et les raccourcis propres à
+l’application. Un `GtkTextView` ne connaît sa hauteur qu’après sa première
+allocation : une ligne sert de plancher dès le départ, sinon le champ démarrait
+à la hauteur minimale de la barre de défilement du thème.
+

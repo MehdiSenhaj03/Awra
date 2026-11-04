@@ -40,6 +40,13 @@ pub use self::choice_group::ChoiceGroup;
 mod command_palette;
 pub use self::command_palette::CommandPalette;
 
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+mod composer;
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+pub use self::composer::Composer;
+
 mod context;
 pub use self::context::Context;
 
@@ -355,6 +362,9 @@ pub(crate) mod builders {
     pub use super::check_button::CheckButtonBuilder;
     pub use super::choice_group::ChoiceGroupBuilder;
     pub use super::command_palette::CommandPaletteBuilder;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub use super::composer::ComposerBuilder;
     #[cfg(feature = "v1_1")]
     #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
     pub use super::conversation_view::ConversationViewBuilder;
