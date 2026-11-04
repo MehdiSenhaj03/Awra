@@ -50,6 +50,7 @@ int main() {
     printf("%s;%zu;%zu\n", "AwraDropdownClass", sizeof(AwraDropdownClass), alignof(AwraDropdownClass));
     printf("%s;%zu;%zu\n", "AwraEasing", sizeof(AwraEasing), alignof(AwraEasing));
     printf("%s;%zu;%zu\n", "AwraEdgePanelClass", sizeof(AwraEdgePanelClass), alignof(AwraEdgePanelClass));
+    printf("%s;%zu;%zu\n", "AwraEdgeStatus", sizeof(AwraEdgeStatus), alignof(AwraEdgeStatus));
     printf("%s;%zu;%zu\n", "AwraEffectCapability", sizeof(AwraEffectCapability), alignof(AwraEffectCapability));
     printf("%s;%zu;%zu\n", "AwraElevation", sizeof(AwraElevation), alignof(AwraElevation));
     printf("%s;%zu;%zu\n", "AwraEmojiItemClass", sizeof(AwraEmojiItemClass), alignof(AwraEmojiItemClass));

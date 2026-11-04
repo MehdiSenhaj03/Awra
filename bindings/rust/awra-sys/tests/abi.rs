@@ -497,6 +497,13 @@ const RUST_LAYOUTS: &[(&str, Layout)] = &[
         },
     ),
     (
+        "AwraEdgeStatus",
+        Layout {
+            size: size_of::<AwraEdgeStatus>(),
+            alignment: align_of::<AwraEdgeStatus>(),
+        },
+    ),
+    (
         "AwraEffectCapability",
         Layout {
             size: size_of::<AwraEffectCapability>(),
@@ -1164,6 +1171,9 @@ const RUST_CONSTANTS: &[(&str, &str)] = &[
     ("(gint) AWRA_EASING_EASE_OUT_QUAD", "1"),
     ("(gint) AWRA_EASING_EASE_OUT_QUART", "4"),
     ("(gint) AWRA_EASING_LINEAR", "0"),
+    ("(gint) AWRA_EDGE_STATUS_FAILED", "2"),
+    ("(gint) AWRA_EDGE_STATUS_LOADING", "1"),
+    ("(gint) AWRA_EDGE_STATUS_NONE", "0"),
     ("(guint) AWRA_EFFECT_CAPABILITY_BLUR", "1"),
     ("(guint) AWRA_EFFECT_CAPABILITY_NONE", "0"),
     ("(gint) AWRA_ELEVATION_FLAT", "0"),

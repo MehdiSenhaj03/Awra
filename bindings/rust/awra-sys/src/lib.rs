@@ -106,6 +106,11 @@ pub const AWRA_EASING_EASE_OUT_EXPO: AwraEasing = 5;
 pub const AWRA_EASING_EASE_OUT_BACK: AwraEasing = 6;
 pub const AWRA_EASING_EASE_IN_OUT_SINE: AwraEasing = 7;
 
+pub type AwraEdgeStatus = c_int;
+pub const AWRA_EDGE_STATUS_NONE: AwraEdgeStatus = 0;
+pub const AWRA_EDGE_STATUS_LOADING: AwraEdgeStatus = 1;
+pub const AWRA_EDGE_STATUS_FAILED: AwraEdgeStatus = 2;
+
 pub type AwraElevation = c_int;
 pub const AWRA_ELEVATION_FLAT: AwraElevation = 0;
 pub const AWRA_ELEVATION_RAISED: AwraElevation = 1;
@@ -3151,6 +3156,13 @@ unsafe extern "C" {
     pub fn awra_easing_ease(self_: AwraEasing, value: c_double) -> c_double;
 
     //=========================================================================
+    // AwraEdgeStatus
+    //=========================================================================
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_edge_status_get_type() -> GType;
+
+    //=========================================================================
     // AwraElevation
     //=========================================================================
     pub fn awra_elevation_get_type() -> GType;
@@ -3869,6 +3881,12 @@ unsafe extern "C" {
     ) -> *mut gtk::GtkListView;
     #[cfg(feature = "v1_1")]
     #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_conversation_view_get_edge_status(
+        self_: *mut AwraConversationView,
+        edge: gtk::GtkPositionType,
+    ) -> AwraEdgeStatus;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
     pub fn awra_conversation_view_get_edge_threshold(self_: *mut AwraConversationView) -> c_int;
     #[cfg(feature = "v1_1")]
     #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
@@ -3915,6 +3933,14 @@ unsafe extern "C" {
         position: c_uint,
         align: AwraConversationAlign,
         highlight: gboolean,
+    );
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_conversation_view_set_edge_status(
+        self_: *mut AwraConversationView,
+        edge: gtk::GtkPositionType,
+        status: AwraEdgeStatus,
+        label: *const c_char,
     );
     #[cfg(feature = "v1_1")]
     #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]

@@ -54,6 +54,7 @@ generate = [
   "Awra.EmojiPicker",
   "Awra.DividerAppearance",
   "Awra.DividerLabelPosition",
+  "Awra.EdgeStatus",
   "Awra.Diagnostics",
   "Awra.Dialog",
   "Awra.DragPreview",

@@ -243,5 +243,37 @@ void                awra_conversation_view_scroll_to_item     (AwraConversationV
 gboolean            awra_conversation_view_get_visible_range  (AwraConversationView *self,
                                                                guint                *first,
                                                                guint                *last);
+/**
+ * awra_conversation_view_get_edge_status:
+ * @self: an Awra conversation view
+ * @edge: %GTK_POS_TOP or %GTK_POS_BOTTOM
+ *
+ * Returns: what is happening at @edge
+ *
+ * Since: 1.1
+ */
+AwraEdgeStatus awra_conversation_view_get_edge_status (AwraConversationView *self,
+                                                        GtkPositionType       edge);
+/**
+ * awra_conversation_view_set_edge_status:
+ * @self: an Awra conversation view
+ * @edge: %GTK_POS_TOP for older items, %GTK_POS_BOTTOM for newer ones
+ * @status: what is happening there
+ * @label: (nullable): what to say, such as "Loading earlier messages…",
+ *   or %NULL to show only a spinner or a retry
+ *
+ * Shows a small floating status at @edge while more items load, or after
+ * loading them failed, with a retry that emits
+ * #AwraConversationView::retry. While an edge isn't idle,
+ * #AwraConversationView::edge-reached isn't emitted for it, so a failed
+ * load waits to be retried instead of being asked for again on every
+ * scroll.
+ *
+ * Since: 1.1
+ */
+void           awra_conversation_view_set_edge_status (AwraConversationView *self,
+                                                        GtkPositionType       edge,
+                                                        AwraEdgeStatus        status,
+                                                        const char           *label);
 
 G_END_DECLS

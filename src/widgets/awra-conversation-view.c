@@ -40,6 +40,14 @@ struct _AwraConversationView {
   GtkAdjustment *vadjustment;
   GtkWidget *pill;
   GtkLabel *pill_label;
+  /* What is happening at the top and at the bottom: a revealer each, over
+   * the list, with a spinner or a warning, a label and a retry. */
+  GtkWidget *edges[2];
+  GtkWidget *edge_spinners[2];
+  GtkWidget *edge_icons[2];
+  GtkLabel *edge_labels[2];
+  GtkWidget *edge_retries[2];
+  AwraEdgeStatus edge_status[2];
 
   GListModel *model;
   GtkNoSelection *selection;
@@ -131,6 +139,7 @@ enum {
   SIGNAL_EDGE_REACHED,
   SIGNAL_VISIBLE_RANGE_CHANGED,
   SIGNAL_JUMP_ACTIVATED,
+  SIGNAL_RETRY,
   N_SIGNALS,
 };
 
@@ -1024,9 +1033,10 @@ frame_paint_cb (GdkFrameClock        *clock,
   g_object_ref (self);
   if (emit_range)
     g_signal_emit (self, signals[SIGNAL_VISIBLE_RANGE_CHANGED], 0);
-  if (emit_top)
+  /* A loading or failed edge waits: no second load, nor one per scroll. */
+  if (emit_top && self->edge_status[0] == AWRA_EDGE_STATUS_NONE)
     g_signal_emit (self, signals[SIGNAL_EDGE_REACHED], 0, GTK_POS_TOP);
-  if (emit_bottom)
+  if (emit_bottom && self->edge_status[1] == AWRA_EDGE_STATUS_NONE)
     g_signal_emit (self, signals[SIGNAL_EDGE_REACHED], 0, GTK_POS_BOTTOM);
   g_object_unref (self);
 }
@@ -1099,6 +1109,45 @@ jump_activated_default (AwraConversationView *self)
 /* Widget. */
 
 static void
+edge_retry_cb (GtkButton            *button,
+               AwraConversationView *self)
+{
+  GtkPositionType edge = button == GTK_BUTTON (self->edge_retries[0]) ? GTK_POS_TOP : GTK_POS_BOTTOM;
+
+  g_signal_emit (self, signals[SIGNAL_RETRY], 0, edge);
+}
+
+static void
+make_edge (AwraConversationView *self,
+           guint                 index)
+{
+  GtkWidget *line = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 8);
+  GtkWidget *revealer = gtk_revealer_new ();
+
+  self->edge_spinners[index] = gtk_spinner_new ();
+  self->edge_icons[index] = gtk_image_new_from_icon_name ("dialog-warning-symbolic");
+  self->edge_labels[index] = GTK_LABEL (gtk_label_new (NULL));
+  gtk_label_set_ellipsize (self->edge_labels[index], PANGO_ELLIPSIZE_END);
+  self->edge_retries[index] = awra_button_new_with_label (_("Try again"));
+  awra_button_set_appearance (AWRA_BUTTON (self->edge_retries[index]), AWRA_BUTTON_APPEARANCE_GHOST);
+  gtk_widget_add_css_class (self->edge_retries[index], "awra-conversation-edge-retry");
+  g_signal_connect (self->edge_retries[index], "clicked", G_CALLBACK (edge_retry_cb), self);
+  gtk_box_append (GTK_BOX (line), self->edge_spinners[index]);
+  gtk_box_append (GTK_BOX (line), self->edge_icons[index]);
+  gtk_box_append (GTK_BOX (line), GTK_WIDGET (self->edge_labels[index]));
+  gtk_box_append (GTK_BOX (line), self->edge_retries[index]);
+  gtk_widget_add_css_class (line, "awra-conversation-edge");
+  gtk_accessible_update_property (GTK_ACCESSIBLE (line), GTK_ACCESSIBLE_PROPERTY_LABEL, "", -1);
+  gtk_revealer_set_transition_type (GTK_REVEALER (revealer),
+                                    index == 0 ? GTK_REVEALER_TRANSITION_TYPE_SLIDE_DOWN
+                                               : GTK_REVEALER_TRANSITION_TYPE_SLIDE_UP);
+  gtk_revealer_set_transition_duration (GTK_REVEALER (revealer), 180);
+  gtk_revealer_set_child (GTK_REVEALER (revealer), line);
+  gtk_widget_set_parent (revealer, GTK_WIDGET (self));
+  self->edges[index] = revealer;
+}
+
+static void
 awra_conversation_view_measure (GtkWidget      *widget,
                                 GtkOrientation  orientation,
                                 int             for_size,
@@ -1133,6 +1182,20 @@ awra_conversation_view_size_allocate (GtkWidget *widget,
                        gsk_transform_translate (NULL, &GRAPHENE_POINT_INIT (
                          (width - pill_width) / 2.0f,
                          MAX (0, height - pill_height - PILL_MARGIN))));
+  for (guint i = 0; i < 2; i++) {
+    int edge_min = 0;
+    int edge_width = 0;
+    int edge_height = 0;
+    float y;
+
+    gtk_widget_measure (self->edges[i], GTK_ORIENTATION_HORIZONTAL, -1, &edge_min, &edge_width, NULL, NULL);
+    edge_width = CLAMP (edge_width, edge_min, MAX (edge_min, width - 2 * PILL_MARGIN));
+    gtk_widget_measure (self->edges[i], GTK_ORIENTATION_VERTICAL, edge_width, NULL, &edge_height, NULL, NULL);
+    /* The bottom one sits above the jump pill's place, clear of it. */
+    y = i == 0 ? PILL_MARGIN : MAX (0, height - edge_height - pill_height - 2 * PILL_MARGIN);
+    gtk_widget_allocate (self->edges[i], edge_width, edge_height, -1,
+                         gsk_transform_translate (NULL, &GRAPHENE_POINT_INIT ((width - edge_width) / 2.0f, y)));
+  }
 }
 
 static void
@@ -1164,6 +1227,8 @@ awra_conversation_view_snapshot (GtkWidget   *widget,
   } else {
     gtk_widget_snapshot_child (widget, GTK_WIDGET (self->scroller), snapshot);
   }
+  gtk_widget_snapshot_child (widget, self->edges[0], snapshot);
+  gtk_widget_snapshot_child (widget, self->edges[1], snapshot);
   if (self->pill_progress <= 0.0 || !gtk_widget_get_child_visible (self->pill))
     return;
   shown = awra_motion_ease_out_cubic (self->pill_progress);
@@ -1260,6 +1325,8 @@ awra_conversation_view_dispose (GObject *object)
     self->delegate = NULL;
   }
   g_clear_pointer (&self->pill, gtk_widget_unparent);
+  g_clear_pointer (&self->edges[0], gtk_widget_unparent);
+  g_clear_pointer (&self->edges[1], gtk_widget_unparent);
   G_OBJECT_CLASS (awra_conversation_view_parent_class)->dispose (object);
 }
 
@@ -1466,6 +1533,18 @@ awra_conversation_view_class_init (AwraConversationViewClass *klass)
     g_signal_new ("edge-reached", G_TYPE_FROM_CLASS (klass), G_SIGNAL_RUN_LAST,
                   0, NULL, NULL, NULL, G_TYPE_NONE, 1, GTK_TYPE_POSITION_TYPE);
   /**
+   * AwraConversationView::retry:
+   * @self: the conversation view
+   * @edge: %GTK_POS_TOP or %GTK_POS_BOTTOM
+   *
+   * The person asked to load the failed edge again.
+   *
+   * Since: 1.1
+   */
+  signals[SIGNAL_RETRY] =
+    g_signal_new ("retry", G_TYPE_FROM_CLASS (klass), G_SIGNAL_RUN_LAST,
+                  0, NULL, NULL, NULL, G_TYPE_NONE, 1, GTK_TYPE_POSITION_TYPE);
+  /**
    * AwraConversationView::visible-range-changed:
    * @self: the conversation view
    *
@@ -1544,6 +1623,8 @@ awra_conversation_view_init (AwraConversationView *self)
   gtk_widget_set_child_visible (self->pill, FALSE);
   g_signal_connect (self->pill, "clicked", G_CALLBACK (pill_clicked_cb), self);
   update_pill_label (self);
+  for (guint i = 0; i < 2; i++)
+    make_edge (self, i);
 
   gtk_event_controller_set_propagation_phase (keys, GTK_PHASE_CAPTURE);
   g_signal_connect (keys, "key-pressed", G_CALLBACK (key_pressed_cb), self);
@@ -1831,4 +1912,54 @@ awra_conversation_view_get_visible_range (AwraConversationView *self,
   if (last != NULL)
     *last = valid ? high : GTK_INVALID_LIST_POSITION;
   return valid;
+}
+
+AwraEdgeStatus
+awra_conversation_view_get_edge_status (AwraConversationView *self,
+                                        GtkPositionType       edge)
+{
+  g_return_val_if_fail (AWRA_IS_CONVERSATION_VIEW (self), AWRA_EDGE_STATUS_NONE);
+  g_return_val_if_fail (edge == GTK_POS_TOP || edge == GTK_POS_BOTTOM, AWRA_EDGE_STATUS_NONE);
+  return self->edge_status[edge == GTK_POS_TOP ? 0 : 1];
+}
+
+void
+awra_conversation_view_set_edge_status (AwraConversationView *self,
+                                        GtkPositionType       edge,
+                                        AwraEdgeStatus        status,
+                                        const char           *label)
+{
+  guint i;
+  gboolean failed;
+
+  g_return_if_fail (AWRA_IS_CONVERSATION_VIEW (self));
+  g_return_if_fail (edge == GTK_POS_TOP || edge == GTK_POS_BOTTOM);
+  g_return_if_fail (status <= AWRA_EDGE_STATUS_FAILED);
+  i = edge == GTK_POS_TOP ? 0 : 1;
+  failed = status == AWRA_EDGE_STATUS_FAILED;
+  if (status != AWRA_EDGE_STATUS_NONE) {
+    gtk_label_set_text (self->edge_labels[i], label != NULL ? label : "");
+    gtk_widget_set_visible (GTK_WIDGET (self->edge_labels[i]), label != NULL && *label != '\0');
+    gtk_widget_set_visible (self->edge_spinners[i], !failed);
+    gtk_spinner_set_spinning (GTK_SPINNER (self->edge_spinners[i]), !failed);
+    gtk_widget_set_visible (self->edge_icons[i], failed);
+    gtk_widget_set_visible (self->edge_retries[i], failed);
+    gtk_accessible_update_property (GTK_ACCESSIBLE (gtk_revealer_get_child (GTK_REVEALER (self->edges[i]))),
+                                    GTK_ACCESSIBLE_PROPERTY_LABEL, label != NULL ? label : "", -1);
+  } else {
+    gtk_spinner_set_spinning (GTK_SPINNER (self->edge_spinners[i]), FALSE);
+  }
+  if (failed)
+    gtk_widget_add_css_class (self->edges[i], "awra-failed");
+  else
+    gtk_widget_remove_css_class (self->edges[i], "awra-failed");
+  gtk_revealer_set_reveal_child (GTK_REVEALER (self->edges[i]), status != AWRA_EDGE_STATUS_NONE);
+  /* Idle again: reaching the edge from here loads, as after leaving it. */
+  if (self->edge_status[i] != AWRA_EDGE_STATUS_NONE && status == AWRA_EDGE_STATUS_NONE) {
+    if (i == 0)
+      self->top_armed = TRUE;
+    else
+      self->bottom_armed = TRUE;
+  }
+  self->edge_status[i] = status;
 }

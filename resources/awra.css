@@ -2785,6 +2785,35 @@ awraconversationview > .awra-button.awra-conversation-jump image {
   -gtk-icon-size: 14px;
 }
 
+/* A floating status at an edge of the conversation: opaque, so the
+ * messages under it never show through. */
+awraconversationview > revealer > .awra-conversation-edge {
+  min-height: 20px;
+  margin: 2px 8px 10px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  color: @awra_foreground;
+  background-color: @awra_background;
+  background-image: linear-gradient(@awra_cap, @awra_cap);
+  box-shadow:
+    0 0 0 1px @awra_outline,
+    0 6px 16px -4px rgba(0, 0, 0, .30),
+    inset 0 1px @awra_rim;
+  font-size: .92em;
+  font-weight: 600;
+}
+
+awraconversationview > revealer.awra-failed > .awra-conversation-edge image {
+  color: @awra_danger;
+}
+
+awraconversationview > revealer > .awra-conversation-edge .awra-conversation-edge-retry {
+  min-height: 0;
+  margin: -3px -8px -3px 0;
+  padding: 3px 10px;
+  color: @awra_accent_content;
+}
+
 /* The composer is one well: banner, attachments and the row of text and
  * actions share its matter, and the focus ring surrounds all of them. */
 awracomposer {

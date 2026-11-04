@@ -1801,6 +1801,56 @@ test_search_entry_activate (void)
   g_object_unref (entry);
 }
 
+static GtkWidget *
+find_css_class (GtkWidget  *widget,
+                const char *name)
+{
+  if (gtk_widget_has_css_class (widget, name))
+    return widget;
+  for (GtkWidget *child = gtk_widget_get_first_child (widget); child != NULL;
+       child = gtk_widget_get_next_sibling (child)) {
+    GtkWidget *found = find_css_class (child, name);
+
+    if (found != NULL)
+      return found;
+  }
+  return NULL;
+}
+
+static void
+edge_retry_cb (AwraConversationView *view,
+               GtkPositionType       edge,
+               int                  *retried)
+{
+  (void) view;
+  *retried = edge == GTK_POS_TOP ? 1 : 2;
+}
+
+/* An edge says what it's doing, and a failed one offers to retry. */
+static void
+test_conversation_edge_status (void)
+{
+  GtkWidget *view = g_object_ref_sink (awra_conversation_view_new (NULL, NULL));
+  int retried = 0;
+
+  g_assert_cmpint (awra_conversation_view_get_edge_status (AWRA_CONVERSATION_VIEW (view), GTK_POS_TOP),
+                   ==, AWRA_EDGE_STATUS_NONE);
+  awra_conversation_view_set_edge_status (AWRA_CONVERSATION_VIEW (view), GTK_POS_TOP,
+                                          AWRA_EDGE_STATUS_LOADING, "Loading earlier messages…");
+  g_assert_cmpint (awra_conversation_view_get_edge_status (AWRA_CONVERSATION_VIEW (view), GTK_POS_TOP),
+                   ==, AWRA_EDGE_STATUS_LOADING);
+  g_signal_connect (view, "retry", G_CALLBACK (edge_retry_cb), &retried);
+  awra_conversation_view_set_edge_status (AWRA_CONVERSATION_VIEW (view), GTK_POS_TOP,
+                                          AWRA_EDGE_STATUS_FAILED, "Couldn't load earlier messages");
+  g_signal_emit_by_name (find_css_class (view, "awra-conversation-edge-retry"), "clicked");
+  g_assert_cmpint (retried, ==, 1);
+  awra_conversation_view_set_edge_status (AWRA_CONVERSATION_VIEW (view), GTK_POS_TOP,
+                                          AWRA_EDGE_STATUS_NONE, NULL);
+  g_assert_cmpint (awra_conversation_view_get_edge_status (AWRA_CONVERSATION_VIEW (view), GTK_POS_BOTTOM),
+                   ==, AWRA_EDGE_STATUS_NONE);
+  g_object_unref (view);
+}
+
 /* A subtitle allowed more lines wraps onto them at a narrow width. */
 static void
 test_action_row_subtitle_lines (void)
@@ -3217,6 +3267,8 @@ main (int   argc,
                    test_context_menu_released_with_widget);
   g_test_add_func ("/awra/widgets/search-entry-activate",
                    test_search_entry_activate);
+  g_test_add_func ("/awra/widgets/conversation-edge-status",
+                   test_conversation_edge_status);
   g_test_add_func ("/awra/widgets/color-palette",
                    test_color_palette);
   g_test_add_func ("/awra/widgets/page-wraps-its-content",

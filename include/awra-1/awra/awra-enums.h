@@ -557,5 +557,30 @@ typedef enum {
  */
 GType awra_divider_appearance_get_type (void) G_GNUC_CONST;
 
+/**
+ * AwraEdgeStatus:
+ * @AWRA_EDGE_STATUS_NONE: nothing is happening at the edge
+ * @AWRA_EDGE_STATUS_LOADING: more items are on their way
+ * @AWRA_EDGE_STATUS_FAILED: loading more failed; the edge offers to retry
+ *
+ * What is happening at an edge of a list that loads more as it is
+ * scrolled, such as an #AwraConversationView.
+ *
+ * Since: 1.1
+ */
+typedef enum {
+  AWRA_EDGE_STATUS_NONE,
+  AWRA_EDGE_STATUS_LOADING,
+  AWRA_EDGE_STATUS_FAILED,
+} AwraEdgeStatus;
+
+#define AWRA_TYPE_EDGE_STATUS (awra_edge_status_get_type ())
+/**
+ * awra_edge_status_get_type:
+ *
+ * Since: 1.1
+ */
+GType awra_edge_status_get_type (void) G_GNUC_CONST;
+
 
 G_END_DECLS

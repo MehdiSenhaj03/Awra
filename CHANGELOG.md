@@ -146,6 +146,10 @@ unchanged (checked against the frozen 1.0.0 contract).
   and a last swatch that opens the system's colour chooser; a colour from
   outside the palette shows as a swatch of its own. `chosen` reports only
   the person's choices, so setting the selection never loops back.
+- `awra_conversation_view_set_edge_status()` shows, at either end of a
+  conversation, a floating pill while older or newer items load, or a
+  warning with a retry (`retry` signal) once loading failed; a busy edge
+  stops emitting `edge-reached`, so a failed load waits to be retried.
 - `AwraSearchEntry` gains `activate`, for Enter, and `search-changed`,
   emitted once typing pauses.
 - `AwraButtonContent` puts an icon before a label in a button, and

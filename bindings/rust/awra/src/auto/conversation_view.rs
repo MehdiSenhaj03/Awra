@@ -3,7 +3,7 @@
 // from subprojects/gir-files
 // DO NOT EDIT
 
-use crate::{ffi, ConversationAlign};
+use crate::{ffi, ConversationAlign, EdgeStatus};
 use glib::{
     object::ObjectType as _,
     prelude::*,
@@ -74,6 +74,17 @@ impl ConversationView {
         unsafe {
             from_glib_none(ffi::awra_conversation_view_get_delegate(
                 self.to_glib_none().0,
+            ))
+        }
+    }
+
+    #[doc(alias = "awra_conversation_view_get_edge_status")]
+    #[doc(alias = "get_edge_status")]
+    pub fn edge_status(&self, edge: gtk::PositionType) -> EdgeStatus {
+        unsafe {
+            from_glib(ffi::awra_conversation_view_get_edge_status(
+                self.to_glib_none().0,
+                edge.into_glib(),
             ))
         }
     }
@@ -175,6 +186,23 @@ impl ConversationView {
                 position,
                 align.into_glib(),
                 highlight.into_glib(),
+            );
+        }
+    }
+
+    #[doc(alias = "awra_conversation_view_set_edge_status")]
+    pub fn set_edge_status(
+        &self,
+        edge: gtk::PositionType,
+        status: EdgeStatus,
+        label: Option<&str>,
+    ) {
+        unsafe {
+            ffi::awra_conversation_view_set_edge_status(
+                self.to_glib_none().0,
+                edge.into_glib(),
+                status.into_glib(),
+                label.to_glib_none().0,
             );
         }
     }
@@ -394,6 +422,36 @@ impl ConversationView {
                 c"jump-activated".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     jump_activated_trampoline::<F> as *const (),
+                )),
+                Box_::into_raw(f),
+            )
+        }
+    }
+
+    #[doc(alias = "retry")]
+    pub fn connect_retry<F: Fn(&Self, gtk::PositionType) + 'static>(
+        &self,
+        f: F,
+    ) -> SignalHandlerId {
+        unsafe extern "C" fn retry_trampoline<
+            F: Fn(&ConversationView, gtk::PositionType) + 'static,
+        >(
+            this: *mut ffi::AwraConversationView,
+            object: gtk::ffi::GtkPositionType,
+            f: glib::ffi::gpointer,
+        ) {
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this), from_glib(object))
+            }
+        }
+        unsafe {
+            let f: Box_<F> = Box_::new(f);
+            connect_raw(
+                self.as_ptr() as *mut _,
+                c"retry".as_ptr(),
+                Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
+                    retry_trampoline::<F> as *const (),
                 )),
                 Box_::into_raw(f),
             )
