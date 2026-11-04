@@ -14,6 +14,7 @@
 #include <awra/awra-context.h>
 #include <awra/awra-surface.h>
 #include <awra/awra-button.h>
+#include <awra/awra-button-content.h>
 #include <awra/awra-window.h>
 #include <awra/awra-popover.h>
 #include <awra/awra-menu-button.h>

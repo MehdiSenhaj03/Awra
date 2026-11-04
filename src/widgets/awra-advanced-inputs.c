@@ -126,6 +126,12 @@ awra_text_area_init (AwraTextArea *self)
   self->delegate = GTK_TEXT_VIEW (gtk_text_view_new ());
   self->placeholder = GTK_LABEL (gtk_label_new (NULL));
   gtk_text_view_set_wrap_mode (self->delegate, GTK_WRAP_WORD_CHAR);
+  /* The text sits inside the field's border, where the placeholder sits:
+   * GtkTextView ignores CSS padding on its text node, so it's set here. */
+  gtk_text_view_set_left_margin (self->delegate, 12);
+  gtk_text_view_set_right_margin (self->delegate, 12);
+  gtk_text_view_set_top_margin (self->delegate, 10);
+  gtk_text_view_set_bottom_margin (self->delegate, 10);
   gtk_widget_add_css_class (GTK_WIDGET (self->delegate), "awra-text-area-delegate");
   gtk_scrolled_window_set_child (self->scroller, GTK_WIDGET (self->delegate));
   gtk_overlay_set_child (self->overlay, GTK_WIDGET (self->scroller));

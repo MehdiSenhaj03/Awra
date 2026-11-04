@@ -385,7 +385,6 @@ awratextarea textview {
 }
 
 awratextarea textview text {
-  padding: 10px 12px;
   color: @awra_foreground;
   caret-color: @awra_accent_content;
 }
@@ -1250,6 +1249,10 @@ awratileview > .awra-tile-divider:active > separator {
   text-shadow: none;
   opacity: 1;
   filter: none;
+}
+
+awrabuttoncontent {
+  border-spacing: 6px;
 }
 
 .awra-menu-button-content {

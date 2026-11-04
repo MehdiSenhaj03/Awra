@@ -91,6 +91,19 @@ impl NavigationItem {
 
     #[cfg(feature = "v1_1")]
     #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    #[doc(alias = "awra_navigation_item_get_label_color")]
+    #[doc(alias = "get_label_color")]
+    #[doc(alias = "label-color")]
+    pub fn label_color(&self) -> Option<gdk::RGBA> {
+        unsafe {
+            from_glib_none(ffi::awra_navigation_item_get_label_color(
+                self.to_glib_none().0,
+            ))
+        }
+    }
+
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
     #[doc(alias = "awra_navigation_item_get_muted")]
     #[doc(alias = "get_muted")]
     #[doc(alias = "muted")]
@@ -175,6 +188,19 @@ impl NavigationItem {
 
     #[cfg(feature = "v1_1")]
     #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    #[doc(alias = "awra_navigation_item_set_label_color")]
+    #[doc(alias = "label-color")]
+    pub fn set_label_color(&self, color: Option<&gdk::RGBA>) {
+        unsafe {
+            ffi::awra_navigation_item_set_label_color(
+                self.to_glib_none().0,
+                color.to_glib_none().0,
+            );
+        }
+    }
+
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
     #[doc(alias = "awra_navigation_item_set_muted")]
     #[doc(alias = "muted")]
     pub fn set_muted(&self, muted: bool) {
@@ -244,6 +270,20 @@ impl NavigationItem {
 
     #[cfg(not(feature = "v1_1"))]
     #[cfg_attr(docsrs, doc(cfg(not(feature = "v1_1"))))]
+    #[doc(alias = "label-color")]
+    pub fn label_color(&self) -> Option<gdk::RGBA> {
+        ObjectExt::property(self, "label-color")
+    }
+
+    #[cfg(not(feature = "v1_1"))]
+    #[cfg_attr(docsrs, doc(cfg(not(feature = "v1_1"))))]
+    #[doc(alias = "label-color")]
+    pub fn set_label_color(&self, label_color: Option<&gdk::RGBA>) {
+        ObjectExt::set_property(self, "label-color", label_color)
+    }
+
+    #[cfg(not(feature = "v1_1"))]
+    #[cfg_attr(docsrs, doc(cfg(not(feature = "v1_1"))))]
     pub fn is_muted(&self) -> bool {
         ObjectExt::property(self, "muted")
     }
@@ -309,6 +349,31 @@ impl NavigationItem {
                 c"notify::emphasized".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_emphasized_trampoline::<F> as *const (),
+                )),
+                Box_::into_raw(f),
+            )
+        }
+    }
+
+    #[doc(alias = "label-color")]
+    pub fn connect_label_color_notify<F: Fn(&Self) + 'static>(&self, f: F) -> SignalHandlerId {
+        unsafe extern "C" fn notify_label_color_trampoline<F: Fn(&NavigationItem) + 'static>(
+            this: *mut ffi::AwraNavigationItem,
+            _param_spec: glib::ffi::gpointer,
+            f: glib::ffi::gpointer,
+        ) {
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this))
+            }
+        }
+        unsafe {
+            let f: Box_<F> = Box_::new(f);
+            connect_raw(
+                self.as_ptr() as *mut _,
+                c"notify::label-color".as_ptr(),
+                Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
+                    notify_label_color_trampoline::<F> as *const (),
                 )),
                 Box_::into_raw(f),
             )
@@ -478,6 +543,12 @@ impl NavigationItemBuilder {
     pub fn label(self, label: impl Into<glib::GString>) -> Self {
         Self {
             builder: self.builder.property("label", label.into()),
+        }
+    }
+
+    pub fn label_color(self, label_color: &gdk::RGBA) -> Self {
+        Self {
+            builder: self.builder.property("label-color", label_color),
         }
     }
 

@@ -71,6 +71,15 @@ impl Dialog {
 
     #[cfg(feature = "v1_1")]
     #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    #[doc(alias = "awra_dialog_close")]
+    pub fn close(&self) {
+        unsafe {
+            ffi::awra_dialog_close(self.to_glib_none().0);
+        }
+    }
+
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
     #[doc(alias = "awra_dialog_get_body")]
     #[doc(alias = "get_body")]
     pub fn body(&self) -> Option<gtk::Widget> {
@@ -93,6 +102,19 @@ impl Dialog {
     #[doc(alias = "default-response")]
     pub fn default_response(&self) -> Option<glib::GString> {
         unsafe { from_glib_none(ffi::awra_dialog_get_default_response(self.to_glib_none().0)) }
+    }
+
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    #[doc(alias = "awra_dialog_get_response_closes")]
+    #[doc(alias = "get_response_closes")]
+    pub fn is_response_closes(&self, id: &str) -> bool {
+        unsafe {
+            from_glib(ffi::awra_dialog_get_response_closes(
+                self.to_glib_none().0,
+                id.to_glib_none().0,
+            ))
+        }
     }
 
     #[cfg(feature = "v1_1")]
@@ -146,6 +168,32 @@ impl Dialog {
                 self.to_glib_none().0,
                 id.to_glib_none().0,
                 appearance.into_glib(),
+            );
+        }
+    }
+
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    #[doc(alias = "awra_dialog_set_response_busy")]
+    pub fn set_response_busy(&self, id: &str, busy: bool) {
+        unsafe {
+            ffi::awra_dialog_set_response_busy(
+                self.to_glib_none().0,
+                id.to_glib_none().0,
+                busy.into_glib(),
+            );
+        }
+    }
+
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    #[doc(alias = "awra_dialog_set_response_closes")]
+    pub fn set_response_closes(&self, id: &str, closes: bool) {
+        unsafe {
+            ffi::awra_dialog_set_response_closes(
+                self.to_glib_none().0,
+                id.to_glib_none().0,
+                closes.into_glib(),
             );
         }
     }

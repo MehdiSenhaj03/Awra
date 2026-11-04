@@ -139,8 +139,33 @@ unchanged (checked against the frozen 1.0.0 contract).
   slot and metadata read as text rather than compared as figures. Toolbar
   buttons in a compact header match its control height.
 
+### Forms, actions and lists
+
+- `AwraButtonContent` puts an icon before a label in a button, and
+  `awra_button_new_with_icon_and_label()` makes such a button.
+- `AwraButton:busy` shows a spinner in place of a button's content, keeps
+  its size and look, and ignores clicks while the work it started runs.
+- `awra_dialog_set_response_closes()` keeps a dialog open after a response,
+  so it can show the work under way (`awra_dialog_set_response_busy()`) or an
+  error, then close with `awra_dialog_close()`, which gives no response.
+- `AwraActionRow:subtitle-lines` lets a subtitle wrap onto more lines, or as
+  many as it needs, instead of being cut off.
+- `AwraNavigationItem:label-color` colours a label with a colour of the
+  destination, such as a role colour, moved towards white or black as the
+  appearance needs so it always reads.
+- The Rust binding gains `set_margin`, `set_horizontal_margin`,
+  `set_vertical_margin`, `set_spacing` and `set_grid_spacing`.
+
 ### Framework updates
 
+- `AwraPage` measures its content for the width it gets: wrapped text had
+  the height of fewer lines than it took, and the page couldn't scroll to its
+  end.
+- A wheel turned over an unfocused `AwraSlider` scrolls the page around it,
+  rather than stopping the page and changing the value.
+- `AwraTextArea`'s text sits inside its border, level with its placeholder.
+- `awra_status_banner_get_title()` and `get_description()` return an empty
+  string, not %NULL, before they're set, as their bindings expect.
 - `AwraGridView` adds a public C/GI virtualized grid with shared GTK selection
   models, item factories, rubberband selection and semantic interaction styles.
 - `AwraTextArea` applies its semantic foreground directly to GtkTextView so

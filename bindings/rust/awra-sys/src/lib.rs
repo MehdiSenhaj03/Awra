@@ -380,6 +380,20 @@ impl ::std::fmt::Debug for AwraButtonClass {
     }
 }
 
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub struct AwraButtonContentClass {
+    pub parent_class: gtk::GtkWidgetClass,
+}
+
+impl ::std::fmt::Debug for AwraButtonContentClass {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        f.debug_struct(&format!("AwraButtonContentClass @ {self:p}"))
+            .field("parent_class", &self.parent_class)
+            .finish()
+    }
+}
+
 #[repr(C)]
 #[allow(dead_code)]
 pub struct _AwraCallbackAnimationTargetClass {
@@ -1771,6 +1785,20 @@ pub struct AwraButton {
 impl ::std::fmt::Debug for AwraButton {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
         f.debug_struct(&format!("AwraButton @ {self:p}")).finish()
+    }
+}
+
+#[repr(C)]
+#[allow(dead_code)]
+pub struct AwraButtonContent {
+    _data: [u8; 0],
+    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
+}
+
+impl ::std::fmt::Debug for AwraButtonContent {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        f.debug_struct(&format!("AwraButtonContent @ {self:p}"))
+            .finish()
     }
 }
 
@@ -3204,10 +3232,16 @@ unsafe extern "C" {
     ) -> *mut gtk::GtkWidget;
     pub fn awra_action_row_get_icon_name(self_: *mut AwraActionRow) -> *const c_char;
     pub fn awra_action_row_get_subtitle(self_: *mut AwraActionRow) -> *const c_char;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_action_row_get_subtitle_lines(self_: *mut AwraActionRow) -> c_int;
     pub fn awra_action_row_get_suffix(self_: *mut AwraActionRow) -> *mut gtk::GtkWidget;
     pub fn awra_action_row_get_title(self_: *mut AwraActionRow) -> *const c_char;
     pub fn awra_action_row_set_icon_name(self_: *mut AwraActionRow, icon_name: *const c_char);
     pub fn awra_action_row_set_subtitle(self_: *mut AwraActionRow, subtitle: *const c_char);
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_action_row_set_subtitle_lines(self_: *mut AwraActionRow, lines: c_int);
     pub fn awra_action_row_set_suffix(self_: *mut AwraActionRow, suffix: *mut gtk::GtkWidget);
     pub fn awra_action_row_set_title(self_: *mut AwraActionRow, title: *const c_char);
 
@@ -3395,9 +3429,47 @@ unsafe extern "C" {
     pub fn awra_button_get_type() -> GType;
     pub fn awra_button_new() -> *mut gtk::GtkWidget;
     pub fn awra_button_new_from_icon_name(icon_name: *const c_char) -> *mut gtk::GtkWidget;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_button_new_with_icon_and_label(
+        icon_name: *const c_char,
+        label: *const c_char,
+    ) -> *mut gtk::GtkWidget;
     pub fn awra_button_new_with_label(label: *const c_char) -> *mut gtk::GtkWidget;
     pub fn awra_button_get_appearance(self_: *mut AwraButton) -> AwraButtonAppearance;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_button_get_busy(self_: *mut AwraButton) -> gboolean;
     pub fn awra_button_set_appearance(self_: *mut AwraButton, appearance: AwraButtonAppearance);
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_button_set_busy(self_: *mut AwraButton, busy: gboolean);
+
+    //=========================================================================
+    // AwraButtonContent
+    //=========================================================================
+    pub fn awra_button_content_get_type() -> GType;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_button_content_new(
+        icon_name: *const c_char,
+        label: *const c_char,
+    ) -> *mut gtk::GtkWidget;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_button_content_get_icon_name(self_: *mut AwraButtonContent) -> *const c_char;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_button_content_get_label(self_: *mut AwraButtonContent) -> *const c_char;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_button_content_set_icon_name(
+        self_: *mut AwraButtonContent,
+        icon_name: *const c_char,
+    );
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_button_content_set_label(self_: *mut AwraButtonContent, label: *const c_char);
 
     //=========================================================================
     // AwraCallbackAnimationTarget
@@ -3924,6 +3996,9 @@ unsafe extern "C" {
     );
     #[cfg(feature = "v1_1")]
     #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_dialog_close(self_: *mut AwraDialog);
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
     pub fn awra_dialog_get_body(self_: *mut AwraDialog) -> *mut gtk::GtkWidget;
     #[cfg(feature = "v1_1")]
     #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
@@ -3931,6 +4006,9 @@ unsafe extern "C" {
     #[cfg(feature = "v1_1")]
     #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
     pub fn awra_dialog_get_default_response(self_: *mut AwraDialog) -> *const c_char;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_dialog_get_response_closes(self_: *mut AwraDialog, id: *const c_char) -> gboolean;
     #[cfg(feature = "v1_1")]
     #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
     pub fn awra_dialog_respond(self_: *mut AwraDialog, id: *const c_char);
@@ -3949,6 +4027,16 @@ unsafe extern "C" {
         self_: *mut AwraDialog,
         id: *const c_char,
         appearance: AwraButtonAppearance,
+    );
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_dialog_set_response_busy(self_: *mut AwraDialog, id: *const c_char, busy: gboolean);
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_dialog_set_response_closes(
+        self_: *mut AwraDialog,
+        id: *const c_char,
+        closes: gboolean,
     );
     #[cfg(feature = "v1_1")]
     #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
@@ -4884,6 +4972,11 @@ unsafe extern "C" {
     pub fn awra_navigation_item_get_label(self_: *mut AwraNavigationItem) -> *const c_char;
     #[cfg(feature = "v1_1")]
     #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_navigation_item_get_label_color(
+        self_: *mut AwraNavigationItem,
+    ) -> *const gdk::GdkRGBA;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
     pub fn awra_navigation_item_get_muted(self_: *mut AwraNavigationItem) -> gboolean;
     #[cfg(feature = "v1_1")]
     #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
@@ -4910,6 +5003,12 @@ unsafe extern "C" {
         icon_name: *const c_char,
     );
     pub fn awra_navigation_item_set_label(self_: *mut AwraNavigationItem, label: *const c_char);
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_navigation_item_set_label_color(
+        self_: *mut AwraNavigationItem,
+        color: *const gdk::GdkRGBA,
+    );
     #[cfg(feature = "v1_1")]
     #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
     pub fn awra_navigation_item_set_muted(self_: *mut AwraNavigationItem, muted: gboolean);

@@ -11,6 +11,7 @@ struct _AwraActionRow {
   GtkLabel *subtitle;
   GtkWidget *suffix;
   char *icon_name;
+  int subtitle_lines;
 };
 
 enum {
@@ -19,6 +20,7 @@ enum {
   PROP_SUBTITLE,
   PROP_ICON_NAME,
   PROP_SUFFIX,
+  PROP_SUBTITLE_LINES,
   N_PROPS,
 };
 
@@ -53,6 +55,7 @@ awra_action_row_get_property (GObject    *object,
   case PROP_SUBTITLE: g_value_set_string (value, awra_action_row_get_subtitle (self)); break;
   case PROP_ICON_NAME: g_value_set_string (value, self->icon_name); break;
   case PROP_SUFFIX: g_value_set_object (value, self->suffix); break;
+  case PROP_SUBTITLE_LINES: g_value_set_int (value, self->subtitle_lines); break;
   default: G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
   }
 }
@@ -70,6 +73,7 @@ awra_action_row_set_property (GObject      *object,
   case PROP_SUBTITLE: awra_action_row_set_subtitle (self, g_value_get_string (value)); break;
   case PROP_ICON_NAME: awra_action_row_set_icon_name (self, g_value_get_string (value)); break;
   case PROP_SUFFIX: awra_action_row_set_suffix (self, g_value_get_object (value)); break;
+  case PROP_SUBTITLE_LINES: awra_action_row_set_subtitle_lines (self, g_value_get_int (value)); break;
   default: G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
   }
 }
@@ -95,6 +99,17 @@ awra_action_row_class_init (AwraActionRowClass *klass)
     G_PARAM_READWRITE | G_PARAM_EXPLICIT_NOTIFY | G_PARAM_STATIC_STRINGS);
   properties[PROP_SUFFIX] = g_param_spec_object (
     "suffix", NULL, NULL, GTK_TYPE_WIDGET,
+    G_PARAM_READWRITE | G_PARAM_EXPLICIT_NOTIFY | G_PARAM_STATIC_STRINGS);
+  /**
+   * AwraActionRow:subtitle-lines:
+   *
+   * How many lines the subtitle may take before it's ellipsized: 1 keeps
+   * it on one line, 0 lets it wrap onto as many as it needs.
+   *
+   * Since: 1.1
+   */
+  properties[PROP_SUBTITLE_LINES] = g_param_spec_int (
+    "subtitle-lines", NULL, NULL, 0, G_MAXINT, 1,
     G_PARAM_READWRITE | G_PARAM_EXPLICIT_NOTIFY | G_PARAM_STATIC_STRINGS);
   g_object_class_install_properties (object_class, N_PROPS, properties);
   gtk_widget_class_set_css_name (widget_class, "button");
@@ -145,6 +160,7 @@ awra_action_row_init (AwraActionRow *self)
   gtk_label_set_xalign (self->subtitle, 0.0f);
   gtk_label_set_ellipsize (self->title, PANGO_ELLIPSIZE_END);
   gtk_label_set_ellipsize (self->subtitle, PANGO_ELLIPSIZE_END);
+  self->subtitle_lines = 1;
   gtk_box_append (GTK_BOX (labels), GTK_WIDGET (self->title));
   gtk_box_append (GTK_BOX (labels), GTK_WIDGET (self->subtitle));
   gtk_box_append (self->content, GTK_WIDGET (self->icon));
@@ -172,3 +188,29 @@ const char *awra_action_row_get_icon_name (AwraActionRow *self) { g_return_val_i
 void awra_action_row_set_icon_name (AwraActionRow *self, const char *icon_name) { g_return_if_fail (AWRA_IS_ACTION_ROW (self)); if (g_strcmp0 (self->icon_name, icon_name) == 0) return; g_free (self->icon_name); self->icon_name = g_strdup (icon_name); if (icon_name != NULL && *icon_name != '\0') { gtk_image_set_from_icon_name (self->icon, icon_name); gtk_widget_set_visible (GTK_WIDGET (self->icon), TRUE); } else { gtk_image_clear (self->icon); gtk_widget_set_visible (GTK_WIDGET (self->icon), FALSE); } g_object_notify_by_pspec (G_OBJECT (self), properties[PROP_ICON_NAME]); }
 GtkWidget *awra_action_row_get_suffix (AwraActionRow *self) { g_return_val_if_fail (AWRA_IS_ACTION_ROW (self), NULL); return self->suffix; }
 void awra_action_row_set_suffix (AwraActionRow *self, GtkWidget *suffix) { g_return_if_fail (AWRA_IS_ACTION_ROW (self)); g_return_if_fail (suffix == NULL || GTK_IS_WIDGET (suffix)); if (self->suffix == suffix) return; if (self->suffix != NULL) gtk_box_remove (self->content, self->suffix); self->suffix = suffix; if (suffix != NULL) gtk_box_append (self->content, suffix); g_object_notify_by_pspec (G_OBJECT (self), properties[PROP_SUFFIX]); }
+
+int
+awra_action_row_get_subtitle_lines (AwraActionRow *self)
+{
+  g_return_val_if_fail (AWRA_IS_ACTION_ROW (self), 1);
+  return self->subtitle_lines;
+}
+
+void
+awra_action_row_set_subtitle_lines (AwraActionRow *self,
+                                    int            lines)
+{
+  g_return_if_fail (AWRA_IS_ACTION_ROW (self));
+  g_return_if_fail (lines >= 0);
+  if (self->subtitle_lines == lines)
+    return;
+  self->subtitle_lines = lines;
+  gtk_label_set_wrap (self->subtitle, lines != 1);
+  gtk_label_set_wrap_mode (self->subtitle, PANGO_WRAP_WORD_CHAR);
+  gtk_label_set_lines (self->subtitle, lines > 1 ? lines : -1);
+  gtk_label_set_ellipsize (self->subtitle, lines == 0 ? PANGO_ELLIPSIZE_NONE : PANGO_ELLIPSIZE_END);
+  /* A wrapping label asks for its natural width; let the row's width decide. */
+  gtk_label_set_max_width_chars (self->subtitle, lines != 1 ? 1 : -1);
+  gtk_widget_set_hexpand (GTK_WIDGET (self->subtitle), lines != 1);
+  g_object_notify_by_pspec (G_OBJECT (self), properties[PROP_SUBTITLE_LINES]);
+}

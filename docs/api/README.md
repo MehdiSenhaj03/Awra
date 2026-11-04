@@ -113,8 +113,13 @@ The extended set includes `AwraActionRow`, `AwraDropdown`, `AwraListView`,
 `AwraSegmentedControl`, `AwraTabView`, `AwraNavigationView`,
 `AwraNavigationItem`, `AwraBadge` and `AwraProgressBar`. A navigation item
 can lead with any widget (`prefix`, such as an `AwraAvatar`), carry a quieter
-`subtitle`, and mark a destination `emphasized` (something new) or `muted`. Buttons expose Primary,
-Secondary, Ghost, Destructive and Toolbar appearances.
+`subtitle`, and mark a destination `emphasized` (something new) or `muted`;
+its `label-color` takes a colour of the destination, such as a role colour,
+made readable on the current appearance. An action row's `subtitle-lines`
+lets its subtitle wrap. Buttons expose Primary,
+Secondary, Ghost, Destructive and Toolbar appearances. An `AwraButtonContent`
+child shows an icon before the label, and a `busy` button shows a spinner,
+keeping its size, while the work it started runs.
 Use Secondary for ordinary dismissive dialog actions: it remains identifiable
 at rest and strengthens its material plane on hover. Ghost is intentionally
 backgroundless at rest for quiet inline actions, but still exposes explicit
@@ -252,6 +257,10 @@ content-driven. Compose a short form or action group with
 `AWRA_LAYOUT_PRESET_OVERLAY`; its token-based inset and gap avoid both cramped
 headers and dead space below the final action. The shared `AwraHeader` centers
 its title stack against end controls even when it contains only one title.
+A response closes the dialog unless `awra_dialog_set_response_closes()` keeps
+it open, for a form that waits on the network: mark the response busy while
+the work runs, show an error in the body if it fails, and close with
+`awra_dialog_close()`, which gives no response.
 
 `AwraResponsiveBin` exposes observable size classes. `AwraBreadcrumbBar` and
 `AwraCommandPalette` complete the typed navigation family; the latter consumes

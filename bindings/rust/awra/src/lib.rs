@@ -84,6 +84,58 @@ pub fn apply_layout_preset(box_: &gtk::Box, preset: LayoutPreset) {
     }
 }
 
+/// Sets every margin of `widget` to a semantic spacing token.
+pub fn set_margin(widget: &impl glib::object::IsA<gtk::Widget>, spacing: Spacing) {
+    use glib::translate::{IntoGlib, ToGlibPtr};
+
+    unsafe {
+        ffi::awra_widget_set_margin(widget.as_ref().to_glib_none().0, spacing.into_glib());
+    }
+}
+
+/// Sets the start and end margins of `widget` to a semantic spacing token.
+pub fn set_horizontal_margin(widget: &impl glib::object::IsA<gtk::Widget>, spacing: Spacing) {
+    use glib::translate::{IntoGlib, ToGlibPtr};
+
+    unsafe {
+        ffi::awra_widget_set_horizontal_margin(
+            widget.as_ref().to_glib_none().0,
+            spacing.into_glib(),
+        );
+    }
+}
+
+/// Sets the top and bottom margins of `widget` to a semantic spacing token.
+pub fn set_vertical_margin(widget: &impl glib::object::IsA<gtk::Widget>, spacing: Spacing) {
+    use glib::translate::{IntoGlib, ToGlibPtr};
+
+    unsafe {
+        ffi::awra_widget_set_vertical_margin(widget.as_ref().to_glib_none().0, spacing.into_glib());
+    }
+}
+
+/// Sets the gap between a box's children to a semantic spacing token.
+pub fn set_spacing(box_: &impl glib::object::IsA<gtk::Box>, spacing: Spacing) {
+    use glib::translate::{IntoGlib, ToGlibPtr};
+
+    unsafe {
+        ffi::awra_box_set_spacing(box_.as_ref().to_glib_none().0, spacing.into_glib());
+    }
+}
+
+/// Sets a grid's row and column gaps to semantic spacing tokens.
+pub fn set_grid_spacing(grid: &impl glib::object::IsA<gtk::Grid>, rows: Spacing, columns: Spacing) {
+    use glib::translate::{IntoGlib, ToGlibPtr};
+
+    unsafe {
+        ffi::awra_grid_set_spacing(
+            grid.as_ref().to_glib_none().0,
+            rows.into_glib(),
+            columns.into_glib(),
+        );
+    }
+}
+
 /// Applies an Awra typography token without exposing CSS classes to consumers.
 pub fn set_typography(widget: &impl glib::object::IsA<gtk::Widget>, typography: Typography) {
     use glib::translate::{IntoGlib, ToGlibPtr};

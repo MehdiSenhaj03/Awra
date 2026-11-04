@@ -1021,3 +1021,30 @@ données Unicode de GTK vivent dans une ressource privée dont le chemin et le
 format ne sont pas une API : Awra ne les lit pas, l’application fournit sa base
 d’emoji.
 
+
+## 2026-11-04 — Yapfast — Formulaires qui attendent le serveur
+
+Rejoindre un serveur, créer un fil ou envoyer une invitation part au réseau :
+le dialogue doit rester ouvert, montrer que le travail est en cours, afficher
+une erreur s’il échoue, puis se fermer. `AwraDialog` fermait sur chaque
+réponse, donc Yapfast mettait ses propres boutons dans le corps. Une réponse
+peut désormais rester ouverte (`awra_dialog_set_response_closes()`), son
+bouton passe en état « occupé » (`AwraButton:busy`, un spinner à taille
+constante qui ignore les clics, plutôt qu’un bouton grisé qui laisse croire à
+une erreur), et `awra_dialog_close()` ferme sans réponse, là où
+`gtk_window_close()` donne la réponse de fermeture comme Échap.
+
+Autres manques rencontrés en portant les réglages et les listes :
+- Un bouton avec icône et libellé (`AwraButtonContent`), comme
+  `AdwButtonContent`.
+- Un sous-titre de ligne qui se replie (`AwraActionRow:subtitle-lines`) : les
+  réglages s’expliquent en une phrase entière.
+- La couleur d’un rôle sur le nom d’un membre
+  (`AwraNavigationItem:label-color`) : Awra garde la teinte et l’éclaircit ou
+  l’assombrit jusqu’à un contraste de texte (4,5:1) selon l’apparence, au lieu
+  de laisser l’application deviner le fond.
+- Deux bogues : `AwraPage` ne mesurait pas son contenu pour sa largeur (un
+  widget sans gestionnaire de mise en page est « de taille constante » pour
+  GTK, donc le texte replié était trop court et la page ne défilait pas
+  jusqu’au bout) ; un `AwraSlider` sous le pointeur volait la molette à la page
+  qui défilait. Il ne la prend plus que s’il a le focus.

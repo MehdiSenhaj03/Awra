@@ -113,5 +113,27 @@ gboolean    awra_navigation_item_get_muted     (AwraNavigationItem *self);
  */
 void        awra_navigation_item_set_muted     (AwraNavigationItem *self,
                                                  gboolean            muted);
+/**
+ * awra_navigation_item_get_label_color:
+ * @self: an Awra navigation item
+ *
+ * Returns: (transfer none) (nullable): the colour of the label, as set
+ *
+ * Since: 1.1
+ */
+const GdkRGBA *awra_navigation_item_get_label_color (AwraNavigationItem *self);
+/**
+ * awra_navigation_item_set_label_color:
+ * @self: an Awra navigation item
+ * @color: (nullable): a colour belonging to the destination, such as a
+ *   role colour, or %NULL for the theme's
+ *
+ * Awra keeps the colour's hue and moves it towards white or black as the
+ * appearance needs, so the label always reads.
+ *
+ * Since: 1.1
+ */
+void        awra_navigation_item_set_label_color (AwraNavigationItem *self,
+                                                   const GdkRGBA      *color);
 
 G_END_DECLS

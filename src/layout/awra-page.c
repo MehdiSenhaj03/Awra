@@ -50,6 +50,19 @@ awra_page_viewport_measure (GtkWidget      *widget,
   }
 }
 
+/* Without this, GTK takes a widget with no layout manager for one of
+ * constant size and measures it once, at its natural width: wrapped text
+ * then got the height of fewer lines than it takes, and the page couldn't
+ * scroll to its end. */
+static GtkSizeRequestMode
+awra_page_viewport_get_request_mode (GtkWidget *widget)
+{
+  AwraPageViewport *self = (AwraPageViewport *) widget;
+
+  return self->child != NULL ? gtk_widget_get_request_mode (self->child)
+                             : GTK_SIZE_REQUEST_CONSTANT_SIZE;
+}
+
 static void
 awra_page_viewport_size_allocate (GtkWidget *widget,
                                   int        width,
@@ -102,6 +115,7 @@ awra_page_viewport_class_init (AwraPageViewportClass *klass)
 
   object_class->dispose = awra_page_viewport_dispose;
   widget_class->measure = awra_page_viewport_measure;
+  widget_class->get_request_mode = awra_page_viewport_get_request_mode;
   widget_class->size_allocate = awra_page_viewport_size_allocate;
   widget_class->snapshot = awra_page_viewport_snapshot;
   gtk_widget_class_set_css_name (widget_class, "awrapageviewport");

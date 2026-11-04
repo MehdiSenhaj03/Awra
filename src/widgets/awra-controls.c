@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <string.h>
+#include <math.h>
 #include <awra/awra-check-button.h>
 #include <awra/awra-entry.h>
 #include <awra/awra-search-entry.h>
@@ -88,9 +89,47 @@ static void awra_slider_class_init (AwraSliderClass *klass) {
   gtk_widget_class_set_css_name (GTK_WIDGET_CLASS (klass), "scale");
   gtk_widget_class_set_accessible_role (GTK_WIDGET_CLASS (klass), GTK_ACCESSIBLE_ROLE_SLIDER);
 }
+/* A wheel turned over a slider the person isn't using scrolls the page
+ * around it, as it would anywhere else on the page: a long settings page
+ * otherwise stops scrolling, and changes a value, whenever a slider passes
+ * under the pointer. A focused slider takes the wheel itself. */
+static gboolean
+slider_scroll_cb (GtkEventControllerScroll *controller,
+                  double                    dx,
+                  double                    dy,
+                  AwraSlider               *self)
+{
+  GtkWidget *scroller;
+  GtkAdjustment *adjustment;
+  double page;
+  double step;
+
+  (void) dx;
+  if (gtk_widget_has_focus (GTK_WIDGET (self)) || dy == 0.0)
+    return FALSE;
+  scroller = gtk_widget_get_ancestor (GTK_WIDGET (self), GTK_TYPE_SCROLLED_WINDOW);
+  if (scroller == NULL)
+    return FALSE;
+  adjustment = gtk_scrolled_window_get_vadjustment (GTK_SCROLLED_WINDOW (scroller));
+  page = gtk_adjustment_get_page_size (adjustment);
+  if (gtk_adjustment_get_upper (adjustment) - gtk_adjustment_get_lower (adjustment) <= page)
+    return FALSE;
+  /* GtkScrolledWindow's own step for a wheel notch; pixels for touchpads. */
+  step = gtk_event_controller_scroll_get_unit (controller) == GDK_SCROLL_UNIT_WHEEL
+           ? pow (page, 2.0 / 3.0)
+           : 1.0;
+  gtk_adjustment_set_value (adjustment, gtk_adjustment_get_value (adjustment) + dy * step);
+  return TRUE;
+}
+
 static void awra_slider_init (AwraSlider *self) {
+  GtkEventController *scroll = gtk_event_controller_scroll_new (GTK_EVENT_CONTROLLER_SCROLL_VERTICAL);
+
   gtk_widget_add_css_class (GTK_WIDGET (self), "awra-slider");
   gtk_scale_set_draw_value (GTK_SCALE (self), FALSE);
+  gtk_event_controller_set_propagation_phase (scroll, GTK_PHASE_CAPTURE);
+  g_signal_connect (scroll, "scroll", G_CALLBACK (slider_scroll_cb), self);
+  gtk_widget_add_controller (GTK_WIDGET (self), scroll);
 }
 GtkWidget *awra_slider_new_with_range (GtkOrientation orientation, double minimum, double maximum, double step) {
   GtkWidget *slider;

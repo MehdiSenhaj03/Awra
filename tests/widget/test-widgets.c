@@ -5,6 +5,7 @@
 #include <math.h>
 
 #include "layout/awra-split-view-private.h"
+#include "widgets/awra-widget-style-private.h"
 
 static guint click_count;
 
@@ -1620,6 +1621,144 @@ test_dialog_responses (void)
   g_free (saved.last);
 }
 
+/* A response that stays: it answers, the dialog stays open and shows the
+ * work under way, and closing it afterwards gives no other response. */
+static void
+test_dialog_response_stays (void)
+{
+  ResponseLog log = { 0 };
+  GtkWidget *dialog = g_object_ref_sink (awra_dialog_new (NULL));
+  GtkWidget *button;
+
+  awra_dialog_add_response (AWRA_DIALOG (dialog), "cancel", "Cancel");
+  awra_dialog_add_response (AWRA_DIALOG (dialog), "join", "Join");
+  awra_dialog_set_close_response (AWRA_DIALOG (dialog), "cancel");
+  g_assert_true (awra_dialog_get_response_closes (AWRA_DIALOG (dialog), "join"));
+  awra_dialog_set_response_closes (AWRA_DIALOG (dialog), "join", FALSE);
+  g_assert_false (awra_dialog_get_response_closes (AWRA_DIALOG (dialog), "join"));
+  g_signal_connect (dialog, "response", G_CALLBACK (dialog_response_cb), &log);
+  gtk_window_present (GTK_WINDOW (dialog));
+
+  awra_dialog_respond (AWRA_DIALOG (dialog), "join");
+  g_assert_cmpuint (log.count, ==, 1);
+  g_assert_cmpstr (log.last, ==, "join");
+  g_assert_true (gtk_widget_get_visible (dialog));
+
+  awra_dialog_set_default_response (AWRA_DIALOG (dialog), "join");
+  button = gtk_window_get_default_widget (GTK_WINDOW (dialog));
+  awra_dialog_set_response_busy (AWRA_DIALOG (dialog), "join", TRUE);
+  g_assert_true (awra_button_get_busy (AWRA_BUTTON (button)));
+  awra_dialog_close (AWRA_DIALOG (dialog));
+  g_assert_cmpuint (log.count, ==, 1);
+  g_assert_false (gtk_widget_get_visible (dialog));
+  g_object_unref (dialog);
+  g_free (log.last);
+}
+
+static void
+count_clicks_cb (GtkButton *button,
+                 guint     *clicks)
+{
+  (void) button;
+  (*clicks)++;
+}
+
+static GtkWidget *
+find_css_name (GtkWidget  *widget,
+               const char *name)
+{
+  if (g_str_equal (gtk_widget_get_css_name (widget), name))
+    return widget;
+  for (GtkWidget *child = gtk_widget_get_first_child (widget); child != NULL;
+       child = gtk_widget_get_next_sibling (child)) {
+    GtkWidget *found = find_css_name (child, name);
+
+    if (found != NULL)
+      return found;
+  }
+  return NULL;
+}
+
+/* A page's content is measured for the width it gets, so wrapped text
+ * gets the height of all its lines and the page scrolls to its end. */
+static void
+test_page_wraps_its_content (void)
+{
+  GtkWidget *page = g_object_ref_sink (awra_page_new ());
+  GtkWidget *label = gtk_label_new (
+    "A long explanation that wraps onto many lines when the page is narrow, "
+    "and onto few when it is wide, so its height depends on its width.");
+  GtkWidget *viewport;
+  int narrow = 0;
+  int wide = 0;
+
+  gtk_label_set_wrap (GTK_LABEL (label), TRUE);
+  awra_page_set_child (AWRA_PAGE (page), label);
+  viewport = find_css_name (page, "awrapageviewport");
+  g_assert_nonnull (viewport);
+  g_assert_cmpint (gtk_widget_get_request_mode (viewport), ==, GTK_SIZE_REQUEST_HEIGHT_FOR_WIDTH);
+  gtk_widget_measure (viewport, GTK_ORIENTATION_VERTICAL, 220, &narrow, NULL, NULL, NULL);
+  gtk_widget_measure (viewport, GTK_ORIENTATION_VERTICAL, 900, &wide, NULL, NULL, NULL);
+  g_assert_cmpint (narrow, >, wide);
+  g_object_unref (page);
+}
+
+/* A subtitle allowed more lines wraps onto them at a narrow width. */
+static void
+test_action_row_subtitle_lines (void)
+{
+  GtkWidget *row = g_object_ref_sink (awra_action_row_new (
+    "Notifications", "Shows a notification for every message in the channels you follow, even muted ones"));
+  int one_line = 0;
+  int wrapped = 0;
+
+  g_assert_cmpint (awra_action_row_get_subtitle_lines (AWRA_ACTION_ROW (row)), ==, 1);
+  gtk_widget_measure (row, GTK_ORIENTATION_VERTICAL, 160, &one_line, NULL, NULL, NULL);
+  awra_action_row_set_subtitle_lines (AWRA_ACTION_ROW (row), 0);
+  gtk_widget_measure (row, GTK_ORIENTATION_VERTICAL, 160, &wrapped, NULL, NULL, NULL);
+  g_assert_cmpint (wrapped, >, one_line);
+  awra_action_row_set_subtitle_lines (AWRA_ACTION_ROW (row), 1);
+  gtk_widget_measure (row, GTK_ORIENTATION_VERTICAL, 160, &wrapped, NULL, NULL, NULL);
+  g_assert_cmpint (wrapped, ==, one_line);
+  g_object_unref (row);
+}
+
+/* A busy button keeps its size, hides its content and ignores clicks; an
+ * icon and label content names it by its label. */
+static void
+test_button_busy_and_content (void)
+{
+  GtkWidget *button = g_object_ref_sink (awra_button_new_with_icon_and_label ("edit-copy-symbolic", "Copy"));
+  GtkWidget *content = gtk_button_get_child (GTK_BUTTON (button));
+  guint clicks = 0;
+  int idle_width = 0;
+  int busy_width = 0;
+
+  g_assert_true (AWRA_IS_BUTTON_CONTENT (content));
+  g_assert_cmpstr (awra_button_content_get_icon_name (AWRA_BUTTON_CONTENT (content)), ==, "edit-copy-symbolic");
+  g_assert_cmpstr (awra_button_content_get_label (AWRA_BUTTON_CONTENT (content)), ==, "Copy");
+  awra_button_content_set_label (AWRA_BUTTON_CONTENT (content), "");
+  g_assert_null (awra_button_content_get_label (AWRA_BUTTON_CONTENT (content)));
+  awra_button_content_set_label (AWRA_BUTTON_CONTENT (content), "Copy link");
+
+  g_signal_connect (button, "clicked", G_CALLBACK (count_clicks_cb), &clicks);
+  gtk_widget_measure (button, GTK_ORIENTATION_HORIZONTAL, -1, &idle_width, NULL, NULL, NULL);
+  awra_button_set_busy (AWRA_BUTTON (button), TRUE);
+  g_assert_true (awra_button_get_busy (AWRA_BUTTON (button)));
+  g_assert_true (gtk_widget_has_css_class (button, "awra-busy"));
+  g_assert_cmpfloat (gtk_widget_get_opacity (content), ==, 0.0);
+  gtk_widget_measure (button, GTK_ORIENTATION_HORIZONTAL, -1, &busy_width, NULL, NULL, NULL);
+  g_assert_cmpint (busy_width, ==, idle_width);
+  g_signal_emit_by_name (button, "clicked");
+  g_assert_cmpuint (clicks, ==, 0);
+
+  awra_button_set_busy (AWRA_BUTTON (button), FALSE);
+  g_assert_cmpfloat (gtk_widget_get_opacity (content), ==, 1.0);
+  g_signal_emit_by_name (button, "clicked");
+  g_assert_cmpuint (clicks, ==, 1);
+  g_object_unref (button);
+}
+
 static GtkWidget *
 find_role (GtkWidget         *widget,
            GtkAccessibleRole  role)
@@ -1933,8 +2072,52 @@ test_navigation_item_details (void)
   g_assert_false (gtk_widget_has_css_class (item, "awra-muted"));
   g_assert_false (gtk_widget_has_css_class (item, "awra-emphasized"));
 
+  /* A label colour is kept as given and drawn readable. */
+  {
+    GdkRGBA navy = { 0.05, 0.05, 0.3, 1.0 };
+    GtkWidget *label = NULL;
+    PangoAttrList *attributes;
+
+    g_assert_null (awra_navigation_item_get_label_color (AWRA_NAVIGATION_ITEM (item)));
+    awra_navigation_item_set_label_color (AWRA_NAVIGATION_ITEM (item), &navy);
+    g_assert_true (gdk_rgba_equal (awra_navigation_item_get_label_color (AWRA_NAVIGATION_ITEM (item)), &navy));
+    for (GtkWidget *child = gtk_widget_get_first_child (item); child != NULL && label == NULL;) {
+      if (GTK_IS_LABEL (child) && g_str_equal (gtk_label_get_text (GTK_LABEL (child)), "Ada"))
+        label = child;
+      else if (gtk_widget_get_first_child (child) != NULL)
+        child = gtk_widget_get_first_child (child);
+      else {
+        while (child != NULL && gtk_widget_get_next_sibling (child) == NULL)
+          child = child != item ? gtk_widget_get_parent (child) : NULL;
+        child = child != NULL && child != item ? gtk_widget_get_next_sibling (child) : NULL;
+      }
+    }
+    g_assert_nonnull (label);
+    attributes = gtk_label_get_attributes (GTK_LABEL (label));
+    g_assert_nonnull (attributes);
+    awra_navigation_item_set_label_color (AWRA_NAVIGATION_ITEM (item), NULL);
+    g_assert_null (gtk_label_get_attributes (GTK_LABEL (label)));
+  }
+
   g_object_unref (prefix);
   g_object_unref (item);
+}
+
+/* A colour made readable keeps its hue and reaches text contrast. */
+static void
+test_readable_colors (void)
+{
+  GdkRGBA navy = { 0.05, 0.05, 0.3, 1.0 };
+  GdkRGBA pale = { 1.0, 0.95, 0.6, 1.0 };
+  GdkRGBA on_dark = awra_rgba_readable (&navy, TRUE);
+  GdkRGBA on_light = awra_rgba_readable (&pale, FALSE);
+  GdkRGBA kept = awra_rgba_readable (&navy, FALSE);
+
+  g_assert_cmpfloat (on_dark.blue, >, navy.blue);
+  g_assert_cmpfloat (on_dark.blue, >, on_dark.red);
+  g_assert_cmpfloat (on_light.red, <, pale.red);
+  g_assert_cmpfloat (on_light.red, >, on_light.blue);
+  g_assert_true (gdk_rgba_equal (&kept, &navy));
 }
 
 static void
@@ -2914,6 +3097,14 @@ main (int   argc,
                    test_navigation_direction);
   g_test_add_func ("/awra/widgets/dialog-responses",
                    test_dialog_responses);
+  g_test_add_func ("/awra/widgets/dialog-response-stays",
+                   test_dialog_response_stays);
+  g_test_add_func ("/awra/widgets/page-wraps-its-content",
+                   test_page_wraps_its_content);
+  g_test_add_func ("/awra/widgets/action-row-subtitle-lines",
+                   test_action_row_subtitle_lines);
+  g_test_add_func ("/awra/widgets/button-busy-and-content",
+                   test_button_busy_and_content);
   g_test_add_func ("/awra/widgets/accessibility-semantics",
                    test_accessibility_semantics);
   g_test_add_func ("/awra/widgets/action-row-suffix-receives-clicks",
@@ -2924,6 +3115,8 @@ main (int   argc,
   g_test_add_func ("/awra/widgets/dialog", test_dialog);
   g_test_add_func ("/awra/widgets/navigation-item-details",
                    test_navigation_item_details);
+  g_test_add_func ("/awra/widgets/readable-colors",
+                   test_readable_colors);
   g_test_add_func ("/awra/widgets/command-palette", test_command_palette);
   g_test_add_func ("/awra/widgets/extended-components",
                    test_extended_components);

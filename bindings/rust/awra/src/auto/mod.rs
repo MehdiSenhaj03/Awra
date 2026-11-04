@@ -49,6 +49,9 @@ pub use self::breadcrumb_item::BreadcrumbItem;
 mod button;
 pub use self::button::Button;
 
+mod button_content;
+pub use self::button_content::ButtonContent;
+
 #[cfg(feature = "v1_1")]
 #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
 mod callback_animation_target;
@@ -497,6 +500,7 @@ pub(crate) mod builders {
     pub use super::breadcrumb_bar::BreadcrumbBarBuilder;
     pub use super::breadcrumb_item::BreadcrumbItemBuilder;
     pub use super::button::ButtonBuilder;
+    pub use super::button_content::ButtonContentBuilder;
     pub use super::card::CardBuilder;
     pub use super::check_button::CheckButtonBuilder;
     #[cfg(feature = "v1_1")]

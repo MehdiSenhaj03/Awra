@@ -301,6 +301,13 @@ const RUST_LAYOUTS: &[(&str, Layout)] = &[
         },
     ),
     (
+        "AwraButtonContentClass",
+        Layout {
+            size: size_of::<AwraButtonContentClass>(),
+            alignment: align_of::<AwraButtonContentClass>(),
+        },
+    ),
+    (
         "AwraCardAppearance",
         Layout {
             size: size_of::<AwraCardAppearance>(),

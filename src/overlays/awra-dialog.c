@@ -11,6 +11,7 @@
 typedef struct {
   char *id;
   GtkWidget *button;
+  gboolean stays;
 } Response;
 
 struct _AwraDialog {
@@ -444,15 +445,70 @@ awra_dialog_set_close_response (AwraDialog *self,
   g_object_notify_by_pspec (G_OBJECT (self), properties[PROP_CLOSE_RESPONSE]);
 }
 
+gboolean
+awra_dialog_get_response_closes (AwraDialog *self,
+                                 const char *id)
+{
+  Response *response;
+
+  g_return_val_if_fail (AWRA_IS_DIALOG (self), TRUE);
+  response = find_response (self, id);
+  g_return_val_if_fail (response != NULL, TRUE);
+  return !response->stays;
+}
+
+void
+awra_dialog_set_response_closes (AwraDialog *self,
+                                 const char *id,
+                                 gboolean    closes)
+{
+  Response *response;
+
+  g_return_if_fail (AWRA_IS_DIALOG (self));
+  response = find_response (self, id);
+  g_return_if_fail (response != NULL);
+  response->stays = !closes;
+}
+
+void
+awra_dialog_set_response_busy (AwraDialog *self,
+                               const char *id,
+                               gboolean    busy)
+{
+  Response *response;
+
+  g_return_if_fail (AWRA_IS_DIALOG (self));
+  response = find_response (self, id);
+  g_return_if_fail (response != NULL);
+  awra_button_set_busy (AWRA_BUTTON (response->button), busy);
+}
+
 void
 awra_dialog_respond (AwraDialog *self,
                      const char *id)
 {
+  Response *response;
+  gboolean closes;
+
   g_return_if_fail (AWRA_IS_DIALOG (self));
   g_return_if_fail (id != NULL);
+  response = find_response (self, id);
+  closes = response == NULL || !response->stays;
   g_object_ref (self);
   self->responding = TRUE;
   g_signal_emit (self, signals[SIGNAL_RESPONSE], g_quark_from_string (id), id);
+  if (closes)
+    gtk_window_close (GTK_WINDOW (self));
+  self->responding = FALSE;
+  g_object_unref (self);
+}
+
+void
+awra_dialog_close (AwraDialog *self)
+{
+  g_return_if_fail (AWRA_IS_DIALOG (self));
+  g_object_ref (self);
+  self->responding = TRUE;
   gtk_window_close (GTK_WINDOW (self));
   self->responding = FALSE;
   g_object_unref (self);

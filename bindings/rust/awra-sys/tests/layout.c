@@ -22,6 +22,7 @@ int main() {
     printf("%s;%zu;%zu\n", "AwraBreadcrumbItemClass", sizeof(AwraBreadcrumbItemClass), alignof(AwraBreadcrumbItemClass));
     printf("%s;%zu;%zu\n", "AwraButtonAppearance", sizeof(AwraButtonAppearance), alignof(AwraButtonAppearance));
     printf("%s;%zu;%zu\n", "AwraButtonClass", sizeof(AwraButtonClass), alignof(AwraButtonClass));
+    printf("%s;%zu;%zu\n", "AwraButtonContentClass", sizeof(AwraButtonContentClass), alignof(AwraButtonContentClass));
     printf("%s;%zu;%zu\n", "AwraCardAppearance", sizeof(AwraCardAppearance), alignof(AwraCardAppearance));
     printf("%s;%zu;%zu\n", "AwraCardClass", sizeof(AwraCardClass), alignof(AwraCardClass));
     printf("%s;%zu;%zu\n", "AwraCheckButtonClass", sizeof(AwraCheckButtonClass), alignof(AwraCheckButtonClass));

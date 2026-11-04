@@ -30,4 +30,9 @@ gboolean      awra_widget_get_reduced_motion (GtkWidget          *widget);
 GdkRGBA       awra_rgba_with_alpha           (const GdkRGBA      *color,
                                               double              alpha);
 
+/* @color moved towards white on dark surfaces, or black on light ones,
+ * until it reads as text (4.5:1 against the surface), keeping its hue. */
+GdkRGBA       awra_rgba_readable             (const GdkRGBA      *color,
+                                              gboolean            dark);
+
 G_END_DECLS
