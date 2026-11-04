@@ -2967,6 +2967,22 @@ test_badge_appearances (void)
   g_assert_nonnull (node);
   g_assert_false (render_node_contains_type (node, GSK_BORDER_NODE));
 
+  /* A light colour takes dark text. */
+  {
+    GdkRGBA yellow = { 1.0, 0.9, 0.3, 1.0 };
+    GtkWidget *label = gtk_widget_get_first_child (badge);
+    PangoAttrIterator *iterator;
+    PangoAttrColor *foreground;
+
+    awra_badge_set_custom_color (AWRA_BADGE (badge), &yellow);
+    g_assert_true (GTK_IS_LABEL (label));
+    iterator = pango_attr_list_get_iterator (gtk_label_get_attributes (GTK_LABEL (label)));
+    foreground = (PangoAttrColor *) pango_attr_iterator_get (iterator, PANGO_ATTR_FOREGROUND);
+    g_assert_nonnull (foreground);
+    g_assert_cmpuint (foreground->color.red, <, 0x8000);
+    pango_attr_iterator_destroy (iterator);
+  }
+
   awra_badge_set_custom_color (AWRA_BADGE (badge), NULL);
   g_assert_null (awra_badge_get_custom_color (AWRA_BADGE (badge)));
   g_assert_false (gtk_widget_has_css_class (badge, "awra-badge-custom"));

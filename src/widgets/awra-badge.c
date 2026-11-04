@@ -28,14 +28,31 @@ static const char *appearance_classes[] = {
   "awra-badge-danger",
 };
 
+/* White text on a dark custom colour, near-black on a light one, so a
+ * badge in any colour reads in both appearances. */
 static void
 update_custom_color_classes (AwraBadge *self)
 {
+  PangoAttrList *attributes;
+  double luminance;
+  guint16 level;
+
   if (!self->custom_color_set) {
     gtk_widget_remove_css_class (GTK_WIDGET (self), "awra-badge-custom");
+    if (self->label != NULL)
+      gtk_label_set_attributes (self->label, NULL);
     return;
   }
   gtk_widget_add_css_class (GTK_WIDGET (self), "awra-badge-custom");
+  if (self->label == NULL)
+    return;
+  luminance = 0.2126 * self->custom_color.red + 0.7152 * self->custom_color.green +
+              0.0722 * self->custom_color.blue;
+  level = luminance > 0.6 ? 0x1c1c : 0xffff;
+  attributes = pango_attr_list_new ();
+  pango_attr_list_insert (attributes, pango_attr_foreground_new (level, level, level));
+  gtk_label_set_attributes (self->label, attributes);
+  pango_attr_list_unref (attributes);
 }
 
 G_DEFINE_FINAL_TYPE (AwraBadge, awra_badge, GTK_TYPE_WIDGET)

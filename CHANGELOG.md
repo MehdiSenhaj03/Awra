@@ -168,6 +168,8 @@ unchanged (checked against the frozen 1.0.0 contract).
   end.
 - A wheel turned over an unfocused `AwraSlider` scrolls the page around it,
   rather than stopping the page and changing the value.
+- A badge in a light custom colour takes dark text, where it always had
+  white.
 - `AwraTextArea`'s text sits inside its border, level with its placeholder.
 - `awra_status_banner_get_title()` and `get_description()` return an empty
   string, not %NULL, before they're set, as their bindings expect.
