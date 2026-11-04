@@ -23,7 +23,7 @@ static const char hostile_css[] =
   "awrakeycap, awrakeycap label, awrakeyboardview, awrashortcutcapture,"
   "awrashortcutcapture label, awrawaveformview, awratimeline, awravolumecontrol,"
   "awramediarow, awramediarow label, awradropzone, awradropzone label,"
-  "awradropzone box,"
+  "awradropzone box, awraconversationview,"
   "awradataview columnview,"
   "awradataview columnview > header > button,"
   "awradataview columnview listview > row {"
@@ -375,6 +375,26 @@ make_probe_scene (void)
     awra_timeline_add_interval (AWRA_TIMELINE (timeline), 10, 20, "Cue");
     gtk_box_append (GTK_BOX (media), timeline);
     gtk_grid_attach (GTK_GRID (grid), media, 0, 14, 3, 1);
+  }
+  {
+    static const char *messages[] = { "First", "Second", "Third", NULL };
+    static const char row_ui[] =
+      "<interface><template class=\"GtkListItem\"><property name=\"child\">"
+      "<object class=\"GtkLabel\"><style><class name=\"awra-body\"/></style>"
+      "<binding name=\"label\">"
+      "<lookup name=\"string\" type=\"GtkStringObject\">"
+      "<lookup name=\"item\">GtkListItem</lookup></lookup></binding>"
+      "</object></property></template></interface>";
+    g_autoptr (GBytes) row_bytes = g_bytes_new_static (row_ui, sizeof row_ui - 1);
+    GtkWidget *chat = gtk_box_new (GTK_ORIENTATION_VERTICAL, 6);
+    GtkListItemFactory *factory =
+      gtk_builder_list_item_factory_new_from_bytes (NULL, row_bytes);
+    GtkWidget *conversation = awra_conversation_view_new (
+      G_LIST_MODEL (gtk_string_list_new (messages)), factory);
+
+    gtk_widget_set_size_request (conversation, -1, 72);
+    gtk_box_append (GTK_BOX (chat), conversation);
+    gtk_grid_attach (GTK_GRID (grid), chat, 0, 15, 3, 1);
   }
   g_object_set_data (G_OBJECT (grid), "awra-probe-dropdown", dropdown);
   g_object_set_data (G_OBJECT (grid), "awra-probe-menu-button", menu_button);

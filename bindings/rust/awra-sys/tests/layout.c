@@ -25,6 +25,8 @@ int main() {
     printf("%s;%zu;%zu\n", "AwraChoiceGroupClass", sizeof(AwraChoiceGroupClass), alignof(AwraChoiceGroupClass));
     printf("%s;%zu;%zu\n", "AwraCommandPaletteClass", sizeof(AwraCommandPaletteClass), alignof(AwraCommandPaletteClass));
     printf("%s;%zu;%zu\n", "AwraContextClass", sizeof(AwraContextClass), alignof(AwraContextClass));
+    printf("%s;%zu;%zu\n", "AwraConversationAlign", sizeof(AwraConversationAlign), alignof(AwraConversationAlign));
+    printf("%s;%zu;%zu\n", "AwraConversationViewClass", sizeof(AwraConversationViewClass), alignof(AwraConversationViewClass));
     printf("%s;%zu;%zu\n", "AwraDataColumnClass", sizeof(AwraDataColumnClass), alignof(AwraDataColumnClass));
     printf("%s;%zu;%zu\n", "AwraDataViewClass", sizeof(AwraDataViewClass), alignof(AwraDataViewClass));
     printf("%s;%zu;%zu\n", "AwraDataViewState", sizeof(AwraDataViewState), alignof(AwraDataViewState));

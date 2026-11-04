@@ -348,4 +348,28 @@ typedef enum {
  */
 GType awra_keyboard_physical_layout_get_type (void) G_GNUC_CONST;
 
+/**
+ * AwraConversationAlign:
+ * @AWRA_CONVERSATION_ALIGN_TOP: the item's top meets the top of the view
+ * @AWRA_CONVERSATION_ALIGN_CENTER: the item is centred in the view
+ * @AWRA_CONVERSATION_ALIGN_END: the item's bottom meets the bottom of the view
+ *
+ * Where awra_conversation_view_scroll_to_item() places an item.
+ *
+ * Since: 1.1
+ */
+typedef enum {
+  AWRA_CONVERSATION_ALIGN_TOP,
+  AWRA_CONVERSATION_ALIGN_CENTER,
+  AWRA_CONVERSATION_ALIGN_END,
+} AwraConversationAlign;
+
+#define AWRA_TYPE_CONVERSATION_ALIGN (awra_conversation_align_get_type ())
+/**
+ * awra_conversation_align_get_type:
+ *
+ * Since: 1.1
+ */
+GType awra_conversation_align_get_type (void) G_GNUC_CONST;
+
 G_END_DECLS

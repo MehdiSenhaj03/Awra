@@ -31,6 +31,8 @@ generate = [
   "Awra.CheckButton",
   "Awra.ChoiceGroup",
   "Awra.CommandPalette",
+  "Awra.ConversationAlign",
+  "Awra.ConversationView",
   "Awra.Context",
   "Awra.DataColumn",
   "Awra.DataView",

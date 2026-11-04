@@ -57,7 +57,8 @@ awrawaveformview,
 awratimeline,
 awravolumecontrol,
 awramediarow,
-awradropzone {
+awradropzone,
+awraconversationview {
   min-width: 0;
   min-height: 0;
   margin: 0;
@@ -2578,6 +2579,165 @@ awralistview scrollbar.dragging {
   filter: none;
   transition: none;
   animation: none;
+}
+
+/* A conversation is the page itself: rows carry no card, only a quiet hover
+ * and the two short-lived marks the view adds (arrival and highlight). */
+awraconversationview {
+  min-width: 0;
+  min-height: 0;
+  color: @awra_foreground;
+  background-color: transparent;
+  background-image: none;
+}
+
+awraconversationview > scrolledwindow,
+awraconversationview > scrolledwindow > undershoot,
+awraconversationview > scrolledwindow > overshoot,
+awraconversationview > scrolledwindow > awraconversationport,
+awraconversationview > scrolledwindow > awraconversationport > listview.awra-conversation-list,
+awraconversationview > scrolledwindow > awraconversationport > listview.awra-conversation-list > header {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  color: @awra_foreground;
+  background-color: transparent;
+  background-image: none;
+  box-shadow: none;
+  outline: 0;
+  opacity: 1;
+  filter: none;
+}
+
+awraconversationview > scrolledwindow > awraconversationport > listview.awra-conversation-list {
+  padding: 8px 0;
+}
+
+awraconversationview > scrolledwindow > awraconversationport > listview.awra-conversation-list > row {
+  min-width: 0;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  color: @awra_foreground;
+  background-color: transparent;
+  background-image: none;
+  box-shadow: none;
+  outline: 0;
+  opacity: 1;
+  filter: none;
+  transition: background-color 90ms ease-out;
+}
+
+awraconversationview > scrolledwindow > awraconversationport > listview.awra-conversation-list > row:hover {
+  background-color: alpha(@awra_foreground, .035);
+}
+
+awraconversationview > scrolledwindow > awraconversationport > listview.awra-conversation-list > row:selected {
+  background-color: transparent;
+}
+
+awraconversationview > scrolledwindow > awraconversationport > listview.awra-conversation-list > row:focus-visible {
+  outline: 2px solid @awra_focus;
+  outline-offset: -2px;
+}
+
+awraconversationview > scrolledwindow > scrollbar {
+  min-width: 8px;
+  min-height: 8px;
+  margin: 3px;
+  opacity: 0;
+  transition: opacity 120ms ease;
+}
+
+awraconversationview:hover > scrolledwindow > scrollbar,
+awraconversationview > scrolledwindow > scrollbar:hover,
+awraconversationview > scrolledwindow > scrollbar.dragging {
+  opacity: 1;
+}
+
+@keyframes awra-conversation-arrive {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: none; }
+}
+
+/* Two identical highlights, so highlighting the same row again replays. */
+@keyframes awra-conversation-highlight {
+  from { background-color: @awra_accent_soft; box-shadow: inset 3px 0 @awra_accent; }
+  35% { background-color: @awra_accent_soft; box-shadow: inset 3px 0 @awra_accent; }
+  to { background-color: alpha(@awra_accent_soft, 0); box-shadow: inset 3px 0 alpha(@awra_accent, 0); }
+}
+
+@keyframes awra-conversation-highlight-again {
+  from { background-color: @awra_accent_soft; box-shadow: inset 3px 0 @awra_accent; }
+  35% { background-color: @awra_accent_soft; box-shadow: inset 3px 0 @awra_accent; }
+  to { background-color: alpha(@awra_accent_soft, 0); box-shadow: inset 3px 0 alpha(@awra_accent, 0); }
+}
+
+awraconversationview .awra-conversation-arriving {
+  animation: awra-conversation-arrive 220ms cubic-bezier(.2, .8, .2, 1);
+}
+
+awraconversationview .awra-conversation-highlight {
+  animation: awra-conversation-highlight 1500ms ease-out;
+}
+
+awraconversationview .awra-conversation-highlight-again {
+  animation: awra-conversation-highlight-again 1500ms ease-out;
+}
+
+.awra-reduced-motion awraconversationview .awra-conversation-arriving {
+  animation: none;
+}
+
+/* Without motion, the highlight still says where to look, then leaves. */
+.awra-reduced-motion awraconversationview .awra-conversation-highlight,
+.awra-reduced-motion awraconversationview .awra-conversation-highlight-again {
+  animation: none;
+  background-color: @awra_accent_soft;
+  box-shadow: inset 3px 0 @awra_accent;
+}
+
+awraconversationview > .awra-button.awra-conversation-jump {
+  min-height: 20px;
+  padding: 6px 15px 6px 11px;
+  border-radius: 999px;
+  color: @awra_foreground;
+  background-color: @awra_background;
+  background-image: linear-gradient(@awra_cap, @awra_cap);
+  box-shadow:
+    0 0 0 1px @awra_outline,
+    0 6px 16px -4px rgba(0, 0, 0, .30),
+    inset 0 1px @awra_rim;
+  font-size: .92em;
+  font-weight: 600;
+}
+
+awraconversationview > .awra-button.awra-conversation-jump:hover {
+  background-image: linear-gradient(@awra_cap_hover, @awra_cap_hover);
+}
+
+awraconversationview > .awra-button.awra-conversation-jump:active {
+  background-image: linear-gradient(@awra_control_pressed, @awra_control_pressed);
+}
+
+awraconversationview > .awra-button.awra-conversation-jump.awra-conversation-jump-unread {
+  color: @awra_on_accent;
+  background-color: @awra_accent;
+  background-image: none;
+  box-shadow:
+    0 6px 16px -4px alpha(@awra_accent, .55),
+    inset 0 1px rgba(255, 255, 255, .20);
+}
+
+awraconversationview > .awra-button.awra-conversation-jump.awra-conversation-jump-unread:hover {
+  background-image: linear-gradient(alpha(@awra_on_accent, .10), alpha(@awra_on_accent, .10));
+}
+
+awraconversationview > .awra-button.awra-conversation-jump image {
+  -gtk-icon-size: 14px;
 }
 
 /* A filter bar is structural chrome rather than another content card. Its

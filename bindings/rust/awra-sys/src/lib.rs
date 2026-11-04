@@ -62,6 +62,11 @@ pub const AWRA_CARD_APPEARANCE_PLAIN: AwraCardAppearance = 0;
 pub const AWRA_CARD_APPEARANCE_TINTED: AwraCardAppearance = 1;
 pub const AWRA_CARD_APPEARANCE_RAISED: AwraCardAppearance = 2;
 
+pub type AwraConversationAlign = c_int;
+pub const AWRA_CONVERSATION_ALIGN_TOP: AwraConversationAlign = 0;
+pub const AWRA_CONVERSATION_ALIGN_CENTER: AwraConversationAlign = 1;
+pub const AWRA_CONVERSATION_ALIGN_END: AwraConversationAlign = 2;
+
 pub type AwraDataViewState = c_int;
 pub const AWRA_DATA_VIEW_STATE_CONTENT: AwraDataViewState = 0;
 pub const AWRA_DATA_VIEW_STATE_EMPTY: AwraDataViewState = 1;
@@ -364,6 +369,20 @@ pub struct AwraContextClass {
 impl ::std::fmt::Debug for AwraContextClass {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
         f.debug_struct(&format!("AwraContextClass @ {self:p}"))
+            .field("parent_class", &self.parent_class)
+            .finish()
+    }
+}
+
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub struct AwraConversationViewClass {
+    pub parent_class: gtk::GtkWidgetClass,
+}
+
+impl ::std::fmt::Debug for AwraConversationViewClass {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        f.debug_struct(&format!("AwraConversationViewClass @ {self:p}"))
             .field("parent_class", &self.parent_class)
             .finish()
     }
@@ -1532,6 +1551,20 @@ impl ::std::fmt::Debug for AwraContext {
 
 #[repr(C)]
 #[allow(dead_code)]
+pub struct AwraConversationView {
+    _data: [u8; 0],
+    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
+}
+
+impl ::std::fmt::Debug for AwraConversationView {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        f.debug_struct(&format!("AwraConversationView @ {self:p}"))
+            .finish()
+    }
+}
+
+#[repr(C)]
+#[allow(dead_code)]
 pub struct AwraDataColumn {
     _data: [u8; 0],
     _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
@@ -2521,6 +2554,13 @@ unsafe extern "C" {
     pub fn awra_card_appearance_get_type() -> GType;
 
     //=========================================================================
+    // AwraConversationAlign
+    //=========================================================================
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_conversation_align_get_type() -> GType;
+
+    //=========================================================================
     // AwraDataViewState
     //=========================================================================
     pub fn awra_data_view_state_get_type() -> GType;
@@ -2804,6 +2844,112 @@ unsafe extern "C" {
         window_active: gboolean,
         elevation: c_uint,
     ) -> *mut AwraMaterialResolution;
+
+    //=========================================================================
+    // AwraConversationView
+    //=========================================================================
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_conversation_view_get_type() -> GType;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_conversation_view_new(
+        model: *mut gio::GListModel,
+        factory: *mut gtk::GtkListItemFactory,
+    ) -> *mut gtk::GtkWidget;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_conversation_view_get_at_bottom(self_: *mut AwraConversationView) -> gboolean;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_conversation_view_get_delegate(
+        self_: *mut AwraConversationView,
+    ) -> *mut gtk::GtkListView;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_conversation_view_get_edge_threshold(self_: *mut AwraConversationView) -> c_int;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_conversation_view_get_factory(
+        self_: *mut AwraConversationView,
+    ) -> *mut gtk::GtkListItemFactory;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_conversation_view_get_follow(self_: *mut AwraConversationView) -> gboolean;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_conversation_view_get_header_factory(
+        self_: *mut AwraConversationView,
+    ) -> *mut gtk::GtkListItemFactory;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_conversation_view_get_jump_label(self_: *mut AwraConversationView)
+        -> *const c_char;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_conversation_view_get_model(
+        self_: *mut AwraConversationView,
+    ) -> *mut gio::GListModel;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_conversation_view_get_unread_count(self_: *mut AwraConversationView) -> c_uint;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_conversation_view_get_visible_range(
+        self_: *mut AwraConversationView,
+        first: *mut c_uint,
+        last: *mut c_uint,
+    ) -> gboolean;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_conversation_view_scroll_to_end(
+        self_: *mut AwraConversationView,
+        animate: gboolean,
+    );
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_conversation_view_scroll_to_item(
+        self_: *mut AwraConversationView,
+        position: c_uint,
+        align: AwraConversationAlign,
+        highlight: gboolean,
+    );
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_conversation_view_set_edge_threshold(
+        self_: *mut AwraConversationView,
+        threshold: c_int,
+    );
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_conversation_view_set_factory(
+        self_: *mut AwraConversationView,
+        factory: *mut gtk::GtkListItemFactory,
+    );
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_conversation_view_set_follow(self_: *mut AwraConversationView, follow: gboolean);
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_conversation_view_set_header_factory(
+        self_: *mut AwraConversationView,
+        factory: *mut gtk::GtkListItemFactory,
+    );
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_conversation_view_set_jump_label(
+        self_: *mut AwraConversationView,
+        label: *const c_char,
+    );
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_conversation_view_set_model(
+        self_: *mut AwraConversationView,
+        model: *mut gio::GListModel,
+    );
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_conversation_view_set_unread_count(self_: *mut AwraConversationView, count: c_uint);
 
     //=========================================================================
     // AwraDataColumn

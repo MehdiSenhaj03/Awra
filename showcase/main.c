@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <awra/awra.h>
+#include <string.h>
 #include <math.h>
 
 #define SHOWCASE_PAGE_COUNT 11
@@ -1375,6 +1376,211 @@ make_edge_workspace (ShowcaseState *state,
   return edge;
 }
 
+/* A conversation: authors and messages are generated, everything else is the
+ * public timeline API. Items are "author\ttext" strings. */
+
+typedef struct {
+  GtkStringList *messages;
+  AwraConversationView *view;
+  guint older_loaded;
+  guint received;
+} ConversationDemo;
+
+static const char *conversation_authors[] = {
+  "Ines", "Malik", "Sora", "Ada", "Théo",
+};
+
+static const char *conversation_lines[] = {
+  "Pushed the new build, can someone check the release notes?",
+  "Looks good on my side.",
+  "The sidebar flickers when I resize the window quickly, is that known?",
+  "Yes, there is a fix in review. It should land tonight.",
+  "Lunch?",
+  "I moved the meeting to 3 pm so everyone can make it, and added the agenda "
+  "to the shared document. Please add anything you want to discuss.",
+  "👍",
+  "Benchmarks are in: startup is 18% faster and memory went down by 40 MB.",
+  "Nice work!",
+  "Can we keep the old shortcut for one more release? People rely on it.",
+};
+
+static char *
+conversation_message (guint index,
+                      const char *prefix)
+{
+  return g_strdup_printf ("%s\t%s%s",
+                          conversation_authors[(index * 7 + index / 3) % G_N_ELEMENTS (conversation_authors)],
+                          prefix,
+                          conversation_lines[(index * 3) % G_N_ELEMENTS (conversation_lines)]);
+}
+
+static void
+conversation_setup_cb (GtkSignalListItemFactory *factory,
+                       GtkListItem              *item,
+                       gpointer                  user_data)
+{
+  GtkWidget *box = make_box (GTK_ORIENTATION_VERTICAL, AWRA_SPACING_XS);
+  GtkWidget *author = make_label (NULL, AWRA_TYPOGRAPHY_LABEL);
+  GtkWidget *text = make_label (NULL, AWRA_TYPOGRAPHY_BODY);
+
+  (void) factory;
+  (void) user_data;
+  gtk_label_set_selectable (GTK_LABEL (text), FALSE);
+  gtk_widget_set_margin_start (box, 20);
+  gtk_widget_set_margin_end (box, 20);
+  gtk_widget_set_margin_top (box, 6);
+  gtk_widget_set_margin_bottom (box, 6);
+  gtk_box_append (GTK_BOX (box), author);
+  gtk_box_append (GTK_BOX (box), text);
+  gtk_list_item_set_child (item, box);
+  gtk_list_item_set_activatable (item, FALSE);
+}
+
+static void
+conversation_bind_cb (GtkSignalListItemFactory *factory,
+                      GtkListItem              *item,
+                      gpointer                  user_data)
+{
+  GtkWidget *box = gtk_list_item_get_child (item);
+  const char *message = gtk_string_object_get_string (gtk_list_item_get_item (item));
+  const char *tab = strchr (message, '\t');
+  g_autofree char *author = g_strndup (message, tab - message);
+
+  (void) factory;
+  (void) user_data;
+  gtk_label_set_text (GTK_LABEL (gtk_widget_get_first_child (box)), author);
+  gtk_label_set_text (GTK_LABEL (gtk_widget_get_last_child (box)), tab + 1);
+}
+
+static void
+conversation_edge_cb (AwraConversationView *view,
+                      GtkPositionType       edge,
+                      ConversationDemo     *demo)
+{
+  g_autoptr (GPtrArray) older = NULL;
+
+  (void) view;
+  if (edge != GTK_POS_TOP || demo->older_loaded >= 2000)
+    return;
+  older = g_ptr_array_new_with_free_func (g_free);
+  for (guint i = 0; i < 100; i++)
+    g_ptr_array_add (older, conversation_message (demo->older_loaded + i, ""));
+  g_ptr_array_add (older, NULL);
+  demo->older_loaded += 100;
+  gtk_string_list_splice (demo->messages, 0, 0, (const char * const *) older->pdata);
+}
+
+static void
+conversation_receive (ConversationDemo *demo,
+                      guint             count)
+{
+  for (guint i = 0; i < count; i++) {
+    g_autofree char *message = conversation_message (demo->received++ * 5 + 1, "");
+
+    gtk_string_list_append (demo->messages, message);
+  }
+  if (!awra_conversation_view_get_at_bottom (demo->view))
+    awra_conversation_view_set_unread_count (
+      demo->view, awra_conversation_view_get_unread_count (demo->view) + count);
+}
+
+static void
+conversation_receive_cb (GtkButton        *button,
+                         ConversationDemo *demo)
+{
+  (void) button;
+  conversation_receive (demo, 1);
+}
+
+static void
+conversation_burst_cb (GtkButton        *button,
+                       ConversationDemo *demo)
+{
+  (void) button;
+  conversation_receive (demo, 4);
+}
+
+static void
+conversation_find_cb (GtkButton        *button,
+                      ConversationDemo *demo)
+{
+  guint n = g_list_model_get_n_items (G_LIST_MODEL (demo->messages));
+
+  (void) button;
+  if (n > 40)
+    awra_conversation_view_scroll_to_item (demo->view, n - 37,
+                                           AWRA_CONVERSATION_ALIGN_CENTER, TRUE);
+}
+
+static void
+conversation_at_bottom_cb (AwraConversationView *view,
+                           GParamSpec           *pspec,
+                           ConversationDemo     *demo)
+{
+  (void) pspec;
+  (void) demo;
+  if (awra_conversation_view_get_at_bottom (view))
+    awra_conversation_view_set_unread_count (view, 0);
+}
+
+static void
+conversation_demo_free (gpointer data)
+{
+  ConversationDemo *demo = data;
+
+  g_clear_object (&demo->messages);
+  g_free (demo);
+}
+
+static GtkWidget *
+make_conversation_workspace (void)
+{
+  ConversationDemo *demo = g_new0 (ConversationDemo, 1);
+  g_autoptr (GPtrArray) initial = g_ptr_array_new_with_free_func (g_free);
+  GtkListItemFactory *factory = gtk_signal_list_item_factory_new ();
+  GtkWidget *box = make_box (GTK_ORIENTATION_VERTICAL, AWRA_SPACING_SM);
+  GtkWidget *actions = make_box (GTK_ORIENTATION_HORIZONTAL, AWRA_SPACING_XS);
+  GtkWidget *receive = make_button ("Receive a message", AWRA_BUTTON_APPEARANCE_SECONDARY);
+  GtkWidget *burst = make_button ("Receive four", AWRA_BUTTON_APPEARANCE_GHOST);
+  GtkWidget *find = make_button ("Find an older message", AWRA_BUTTON_APPEARANCE_GHOST);
+  GtkWidget *timeline;
+  GtkWidget *card;
+
+  for (guint i = 0; i < 400; i++)
+    g_ptr_array_add (initial, conversation_message (5000 + i, ""));
+  g_ptr_array_add (initial, NULL);
+  demo->messages = gtk_string_list_new ((const char * const *) initial->pdata);
+  g_signal_connect (factory, "setup", G_CALLBACK (conversation_setup_cb), NULL);
+  g_signal_connect (factory, "bind", G_CALLBACK (conversation_bind_cb), NULL);
+  timeline = awra_conversation_view_new (G_LIST_MODEL (g_object_ref (demo->messages)), factory);
+  demo->view = AWRA_CONVERSATION_VIEW (timeline);
+  gtk_widget_set_size_request (timeline, -1, 420);
+  gtk_widget_set_vexpand (timeline, TRUE);
+  g_object_set_data_full (G_OBJECT (timeline), "showcase-conversation", demo,
+                          conversation_demo_free);
+  g_signal_connect (timeline, "edge-reached", G_CALLBACK (conversation_edge_cb), demo);
+  g_signal_connect (timeline, "notify::at-bottom",
+                    G_CALLBACK (conversation_at_bottom_cb), demo);
+  g_signal_connect (receive, "clicked", G_CALLBACK (conversation_receive_cb), demo);
+  g_signal_connect (burst, "clicked", G_CALLBACK (conversation_burst_cb), demo);
+  g_signal_connect (find, "clicked", G_CALLBACK (conversation_find_cb), demo);
+  gtk_box_append (GTK_BOX (actions), receive);
+  gtk_box_append (GTK_BOX (actions), burst);
+  gtk_box_append (GTK_BOX (actions), find);
+  gtk_box_append (GTK_BOX (box), timeline);
+  card = make_card (box);
+  awra_card_set_content_inset (AWRA_CARD (card), AWRA_SPACING_NONE);
+  gtk_widget_set_overflow (card, GTK_OVERFLOW_HIDDEN);
+  {
+    GtkWidget *outer = make_box (GTK_ORIENTATION_VERTICAL, AWRA_SPACING_SM);
+
+    gtk_box_append (GTK_BOX (outer), actions);
+    gtk_box_append (GTK_BOX (outer), card);
+    g_object_set_data (G_OBJECT (outer), "showcase-conversation-box", box);
+    return outer;
+  }
+}
+
 static GtkWidget *
 make_patterns_page (ShowcaseState *state,
                     GMenuModel    *context_menu)
@@ -1385,6 +1591,12 @@ make_patterns_page (ShowcaseState *state,
     "These are intentionally fake products, but every surface, control, menu "
     "and interaction is composed from public Awra APIs with no local CSS.",
     &body);
+
+  append_section (body, "Conversation",
+                  "A virtualized timeline that follows new messages, keeps "
+                  "its place while older ones load above, and offers a way "
+                  "back to the present when scrolled up.");
+  gtk_box_append (GTK_BOX (body), make_conversation_workspace ());
 
   {
     static const char *records[] = {

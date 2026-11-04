@@ -43,6 +43,13 @@ pub use self::command_palette::CommandPalette;
 mod context;
 pub use self::context::Context;
 
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+mod conversation_view;
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+pub use self::conversation_view::ConversationView;
+
 mod data_column;
 pub use self::data_column::DataColumn;
 
@@ -304,6 +311,9 @@ pub use self::enums::Appearance;
 pub use self::enums::BadgeAppearance;
 pub use self::enums::ButtonAppearance;
 pub use self::enums::CardAppearance;
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+pub use self::enums::ConversationAlign;
 pub use self::enums::DataViewState;
 pub use self::enums::Elevation;
 #[cfg(feature = "v1_1")]
@@ -345,6 +355,9 @@ pub(crate) mod builders {
     pub use super::check_button::CheckButtonBuilder;
     pub use super::choice_group::ChoiceGroupBuilder;
     pub use super::command_palette::CommandPaletteBuilder;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub use super::conversation_view::ConversationViewBuilder;
     pub use super::data_column::DataColumnBuilder;
     pub use super::data_view::DataViewBuilder;
     pub use super::detail_pane::DetailPaneBuilder;

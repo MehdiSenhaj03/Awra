@@ -322,6 +322,20 @@ const RUST_LAYOUTS: &[(&str, Layout)] = &[
         },
     ),
     (
+        "AwraConversationAlign",
+        Layout {
+            size: size_of::<AwraConversationAlign>(),
+            alignment: align_of::<AwraConversationAlign>(),
+        },
+    ),
+    (
+        "AwraConversationViewClass",
+        Layout {
+            size: size_of::<AwraConversationViewClass>(),
+            alignment: align_of::<AwraConversationViewClass>(),
+        },
+    ),
+    (
         "AwraDataColumnClass",
         Layout {
             size: size_of::<AwraDataColumnClass>(),
@@ -981,6 +995,9 @@ const RUST_CONSTANTS: &[(&str, &str)] = &[
     ("(gint) AWRA_CARD_APPEARANCE_PLAIN", "0"),
     ("(gint) AWRA_CARD_APPEARANCE_RAISED", "2"),
     ("(gint) AWRA_CARD_APPEARANCE_TINTED", "1"),
+    ("(gint) AWRA_CONVERSATION_ALIGN_CENTER", "1"),
+    ("(gint) AWRA_CONVERSATION_ALIGN_END", "2"),
+    ("(gint) AWRA_CONVERSATION_ALIGN_TOP", "0"),
     ("(gint) AWRA_DATA_VIEW_STATE_CONTENT", "0"),
     ("(gint) AWRA_DATA_VIEW_STATE_EMPTY", "1"),
     ("(gint) AWRA_DATA_VIEW_STATE_ERROR", "3"),

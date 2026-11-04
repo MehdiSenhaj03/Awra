@@ -90,6 +90,7 @@
 #include <awra/awra-media-row.h>
 #include <awra/awra-drag-preview.h>
 #include <awra/awra-drop-zone.h>
+#include <awra/awra-conversation-view.h>
 
 G_BEGIN_DECLS
 

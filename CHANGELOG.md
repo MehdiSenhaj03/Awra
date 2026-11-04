@@ -7,6 +7,16 @@
 API added in this release is documented `Since: 1.1`; every 1.0.0 API is
 unchanged (checked against the frozen 1.0.0 contract).
 
+### Conversations
+
+- `AwraConversationView` is a virtualized timeline for chats, comment threads,
+  logs and consoles. It starts at the end and follows appended items, which
+  glide into place and rise in; scrolling up stops following and a pill offers
+  to jump back, counting unread items. Older history inserted above never moves
+  what is on screen, `edge-reached` asks for more at either end, and
+  `awra_conversation_view_scroll_to_item()` brings an item into view and can
+  flash it.
+
 ### Desktop workspace composition
 
 - `AwraFormRow` asks for its side-by-side width as natural width, so a container

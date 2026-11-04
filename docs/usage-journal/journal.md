@@ -898,3 +898,26 @@ deux modes et l’absence de recouvrement avec les commandes latérales.
 Le dépôt de fichiers sur un dossier utilise GtkDropTarget. Le rôle générique
 `drop-zone` exprime la destination acceptée ; la décision d’accepter un dossier,
 le presse-papiers et les opérations restent dans l’application.
+
+## 2026-11-04 — Yapfast — Une chronologie de conversation
+
+Yapfast, client de discussion Discord et Matrix, affiche des salons de dizaines
+de milliers de messages. Sous Slint, il recalculait lui-même la position de
+défilement à chaque message reçu et à chaque page d’historique chargée, avec des
+sauts visibles. Le besoin est générique : toute application de messagerie, fil
+de commentaires ou visionneuse de journaux lit une chronologie qui grandit vers
+le bas.
+
+`AwraConversationView` enveloppe un `GtkListView` virtualisé et part de la fin.
+Il suit les nouveaux éléments tant que la fin est visible (glissement doux,
+apparition des seuls éléments ajoutés), cesse de suivre quand l’utilisateur
+remonte, et propose une pastille « revenir au présent » qui peut compter les
+non-lus. L’historique inséré au début ne déplace pas ce qui est à l’écran ;
+`edge-reached` demande la page suivante. Pour savoir quelle rangée montre quelle
+position sans lire les rangées privées de GTK, la vue s’intercale entre la liste
+et la fabrique de l’application (signal ou modèle GtkBuilder). Un `GtkScrollable`
+privé encadre l’allocation de la liste : les positions que la liste fixe
+elle-même en réancrant ne sont jamais prises pour un défilement de
+l’utilisateur. Les tests couvrent 50 000 éléments, les ajouts en rafale, le
+chargement au début et le mouvement réduit.
+

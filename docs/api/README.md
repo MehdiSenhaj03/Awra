@@ -194,7 +194,9 @@ The media and keyboard input family adds `AwraKeyCap`, `AwraKeyboardView`
 carries as an image or a counted pile. `AwraTransitionBin` animates content
 replaced in place from its last frame. `AwraTileView` divides a surface into
 as many tiles as the user wants; see
-[page composition](../guides/page-composition.md). Physical keys use `KeyboardEvent.code`
+[page composition](../guides/page-composition.md). `AwraConversationView` is
+a bottom-anchored, virtualized timeline for chats, comment threads and logs;
+see [conversations](../guides/conversations.md). Physical keys use `KeyboardEvent.code`
 identifiers; `awra_keyboard_code_from_hardware_keycode()`,
 `awra_keyboard_code_to_hardware_keycode()` and
 `awra_keyboard_code_get_label()` bridge them to GDK hardware keycodes and the
