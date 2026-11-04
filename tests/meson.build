@@ -342,6 +342,8 @@ rail_test = executable('test-rail', 'widget/test-rail.c', dependencies: awra_dep
 test('rail', rail_test, env: ['G_DEBUG=fatal-warnings', 'GTK_A11Y=none'], is_parallel: false)
 typing_indicator_test = executable('test-typing-indicator', 'widget/test-typing-indicator.c', dependencies: awra_dep)
 test('typing-indicator', typing_indicator_test, env: ['G_DEBUG=fatal-warnings', 'GTK_A11Y=none'], is_parallel: false)
+rich_label_test = executable('test-rich-label', 'widget/test-rich-label.c', dependencies: awra_dep)
+test('rich-label', rich_label_test, env: ['G_DEBUG=fatal-warnings', 'GTK_A11Y=none'], is_parallel: false)
 chip_test = executable('test-chip', 'widget/test-chip.c', dependencies: awra_dep)
 test('chip', chip_test, env: ['G_DEBUG=fatal-warnings', 'GTK_A11Y=none'], is_parallel: false)
 conversation_view_test = executable('test-conversation-view', 'widget/test-conversation-view.c', dependencies: awra_dep)

@@ -101,6 +101,7 @@ int main() {
     printf("%s;%zu;%zu\n", "AwraRailGroupClass", sizeof(AwraRailGroupClass), alignof(AwraRailGroupClass));
     printf("%s;%zu;%zu\n", "AwraRailItemClass", sizeof(AwraRailItemClass), alignof(AwraRailItemClass));
     printf("%s;%zu;%zu\n", "AwraResponsiveBinClass", sizeof(AwraResponsiveBinClass), alignof(AwraResponsiveBinClass));
+    printf("%s;%zu;%zu\n", "AwraRichLabelClass", sizeof(AwraRichLabelClass), alignof(AwraRichLabelClass));
     printf("%s;%zu;%zu\n", "AwraSearchEntryClass", sizeof(AwraSearchEntryClass), alignof(AwraSearchEntryClass));
     printf("%s;%zu;%zu\n", "AwraSectionClass", sizeof(AwraSectionClass), alignof(AwraSectionClass));
     printf("%s;%zu;%zu\n", "AwraSegmentedControlClass", sizeof(AwraSegmentedControlClass), alignof(AwraSegmentedControlClass));

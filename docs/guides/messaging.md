@@ -78,6 +78,28 @@ Place the indicator between the conversation and the composer, set its label
 with `active`. It keeps its height while hidden, so the conversation and the
 composer never move when someone starts or stops writing.
 
+## Pictures among the words: `AwraRichLabel`
+
+A message's custom emoji sit on its lines like letters. Put the text on the
+rich label's `GtkLabel`, with a U+FFFC OBJECT REPLACEMENT CHARACTER where each
+picture goes, and give the pictures in the same order:
+
+```c
+GtkWidget *text = awra_rich_label_new ();
+GtkLabel *label = awra_rich_label_get_label (AWRA_RICH_LABEL (text));
+
+gtk_label_set_markup (label, "Nice work \xef\xbf\xbc!");
+awra_rich_label_clear_paintables (AWRA_RICH_LABEL (text));
+awra_rich_label_append_paintable (AWRA_RICH_LABEL (text), party);
+```
+
+The label keeps wrapping, links, selection and typography; each picture is
+as tall as the text unless `inline-size` says otherwise, as for a message of
+nothing but emoji. Give %NULL for a picture still loading: its room is kept,
+and appending again after `clear_paintables` fills it without moving a line.
+A picture that changes (an animation, a texture that arrives) redraws the
+text. No widget is made per picture.
+
 ## Reactions, filters and tags: `AwraChip`
 
 ```c

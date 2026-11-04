@@ -76,6 +76,11 @@ unchanged (checked against the frozen 1.0.0 contract).
   destination in flight, keeping its value and velocity, so interrupted
   motion never jumps. `AwraEasing` names eight curves and
   `awra_easing_ease()` evaluates them. See [motion](docs/guides/motion.md).
+- `AwraRichLabel` draws pictures among a label's words, such as a message's
+  custom emoji: each U+FFFC in the text keeps a square the size of a letter
+  (or `inline-size`) and the next paintable is drawn there, through the
+  label's own layout, so wrapping, links and selection are unchanged and no
+  widget is made per picture.
 - `AwraAvatar` shows a person or a place: a picture cropped to a circle or a
   rounded square, or initials on a colour derived from the name, so a name
   always looks the same. A presence dot is cut into its corner, readable on

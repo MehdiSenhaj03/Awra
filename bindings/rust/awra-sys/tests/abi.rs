@@ -854,6 +854,13 @@ const RUST_LAYOUTS: &[(&str, Layout)] = &[
         },
     ),
     (
+        "AwraRichLabelClass",
+        Layout {
+            size: size_of::<AwraRichLabelClass>(),
+            alignment: align_of::<AwraRichLabelClass>(),
+        },
+    ),
+    (
         "AwraSearchEntryClass",
         Layout {
             size: size_of::<AwraSearchEntryClass>(),

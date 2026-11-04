@@ -1233,6 +1233,20 @@ impl ::std::fmt::Debug for AwraResponsiveBinClass {
 
 #[derive(Copy, Clone)]
 #[repr(C)]
+pub struct AwraRichLabelClass {
+    pub parent_class: gtk::GtkWidgetClass,
+}
+
+impl ::std::fmt::Debug for AwraRichLabelClass {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        f.debug_struct(&format!("AwraRichLabelClass @ {self:p}"))
+            .field("parent_class", &self.parent_class)
+            .finish()
+    }
+}
+
+#[derive(Copy, Clone)]
+#[repr(C)]
 pub struct AwraSearchEntryClass {
     pub parent_class: gtk::GtkWidgetClass,
 }
@@ -2649,6 +2663,20 @@ pub struct AwraResponsiveBin {
 impl ::std::fmt::Debug for AwraResponsiveBin {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
         f.debug_struct(&format!("AwraResponsiveBin @ {self:p}"))
+            .finish()
+    }
+}
+
+#[repr(C)]
+#[allow(dead_code)]
+pub struct AwraRichLabel {
+    _data: [u8; 0],
+    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
+}
+
+impl ::std::fmt::Debug for AwraRichLabel {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        f.debug_struct(&format!("AwraRichLabel @ {self:p}"))
             .finish()
     }
 }
@@ -5601,6 +5629,32 @@ unsafe extern "C" {
     pub fn awra_responsive_bin_set_child(self_: *mut AwraResponsiveBin, child: *mut gtk::GtkWidget);
     pub fn awra_responsive_bin_set_compact_width(self_: *mut AwraResponsiveBin, width: c_uint);
     pub fn awra_responsive_bin_set_expanded_width(self_: *mut AwraResponsiveBin, width: c_uint);
+
+    //=========================================================================
+    // AwraRichLabel
+    //=========================================================================
+    pub fn awra_rich_label_get_type() -> GType;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_rich_label_new() -> *mut gtk::GtkWidget;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_rich_label_append_paintable(
+        self_: *mut AwraRichLabel,
+        paintable: *mut gdk::GdkPaintable,
+    );
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_rich_label_clear_paintables(self_: *mut AwraRichLabel);
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_rich_label_get_inline_size(self_: *mut AwraRichLabel) -> c_int;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_rich_label_get_label(self_: *mut AwraRichLabel) -> *mut gtk::GtkLabel;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_rich_label_set_inline_size(self_: *mut AwraRichLabel, size: c_int);
 
     //=========================================================================
     // AwraSearchEntry

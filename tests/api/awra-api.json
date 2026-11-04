@@ -51692,6 +51692,355 @@
     {
       "attributes": {
         "final": "1",
+        "get-type": "awra_rich_label_get_type",
+        "name": "RichLabel",
+        "parent": "Gtk.Widget",
+        "symbol-prefix": "rich_label",
+        "type": "AwraRichLabel",
+        "type-name": "AwraRichLabel",
+        "type-struct": "RichLabelClass"
+      },
+      "children": [
+        {
+          "attributes": {
+            "identifier": "awra_rich_label_new",
+            "name": "new",
+            "version": "1.1"
+          },
+          "children": [
+            {
+              "attributes": {
+                "transfer-ownership": "none"
+              },
+              "children": [
+                {
+                  "attributes": {
+                    "name": "Gtk.Widget",
+                    "type": "GtkWidget*"
+                  },
+                  "tag": "type"
+                }
+              ],
+              "tag": "return-value"
+            }
+          ],
+          "tag": "constructor"
+        },
+        {
+          "attributes": {
+            "name": "Gtk.Accessible"
+          },
+          "tag": "implements"
+        },
+        {
+          "attributes": {
+            "name": "Gtk.Buildable"
+          },
+          "tag": "implements"
+        },
+        {
+          "attributes": {
+            "name": "Gtk.ConstraintTarget"
+          },
+          "tag": "implements"
+        },
+        {
+          "attributes": {
+            "identifier": "awra_rich_label_append_paintable",
+            "name": "append_paintable",
+            "version": "1.1"
+          },
+          "children": [
+            {
+              "attributes": {},
+              "children": [
+                {
+                  "attributes": {
+                    "name": "self",
+                    "transfer-ownership": "none"
+                  },
+                  "children": [
+                    {
+                      "attributes": {
+                        "name": "RichLabel",
+                        "type": "AwraRichLabel*"
+                      },
+                      "tag": "type"
+                    }
+                  ],
+                  "tag": "instance-parameter"
+                },
+                {
+                  "attributes": {
+                    "allow-none": "1",
+                    "name": "paintable",
+                    "nullable": "1",
+                    "transfer-ownership": "none"
+                  },
+                  "children": [
+                    {
+                      "attributes": {
+                        "name": "Gdk.Paintable",
+                        "type": "GdkPaintable*"
+                      },
+                      "tag": "type"
+                    }
+                  ],
+                  "tag": "parameter"
+                }
+              ],
+              "tag": "parameters"
+            },
+            {
+              "attributes": {
+                "transfer-ownership": "none"
+              },
+              "children": [
+                {
+                  "attributes": {
+                    "name": "none",
+                    "type": "void"
+                  },
+                  "tag": "type"
+                }
+              ],
+              "tag": "return-value"
+            }
+          ],
+          "tag": "method"
+        },
+        {
+          "attributes": {
+            "identifier": "awra_rich_label_clear_paintables",
+            "name": "clear_paintables",
+            "version": "1.1"
+          },
+          "children": [
+            {
+              "attributes": {},
+              "children": [
+                {
+                  "attributes": {
+                    "name": "self",
+                    "transfer-ownership": "none"
+                  },
+                  "children": [
+                    {
+                      "attributes": {
+                        "name": "RichLabel",
+                        "type": "AwraRichLabel*"
+                      },
+                      "tag": "type"
+                    }
+                  ],
+                  "tag": "instance-parameter"
+                }
+              ],
+              "tag": "parameters"
+            },
+            {
+              "attributes": {
+                "transfer-ownership": "none"
+              },
+              "children": [
+                {
+                  "attributes": {
+                    "name": "none",
+                    "type": "void"
+                  },
+                  "tag": "type"
+                }
+              ],
+              "tag": "return-value"
+            }
+          ],
+          "tag": "method"
+        },
+        {
+          "attributes": {
+            "get-property": "inline-size",
+            "identifier": "awra_rich_label_get_inline_size",
+            "name": "get_inline_size",
+            "version": "1.1"
+          },
+          "children": [
+            {
+              "attributes": {},
+              "children": [
+                {
+                  "attributes": {
+                    "name": "self",
+                    "transfer-ownership": "none"
+                  },
+                  "children": [
+                    {
+                      "attributes": {
+                        "name": "RichLabel",
+                        "type": "AwraRichLabel*"
+                      },
+                      "tag": "type"
+                    }
+                  ],
+                  "tag": "instance-parameter"
+                }
+              ],
+              "tag": "parameters"
+            },
+            {
+              "attributes": {
+                "transfer-ownership": "none"
+              },
+              "children": [
+                {
+                  "attributes": {
+                    "name": "gint",
+                    "type": "int"
+                  },
+                  "tag": "type"
+                }
+              ],
+              "tag": "return-value"
+            }
+          ],
+          "tag": "method"
+        },
+        {
+          "attributes": {
+            "identifier": "awra_rich_label_get_label",
+            "name": "get_label",
+            "version": "1.1"
+          },
+          "children": [
+            {
+              "attributes": {},
+              "children": [
+                {
+                  "attributes": {
+                    "name": "self",
+                    "transfer-ownership": "none"
+                  },
+                  "children": [
+                    {
+                      "attributes": {
+                        "name": "RichLabel",
+                        "type": "AwraRichLabel*"
+                      },
+                      "tag": "type"
+                    }
+                  ],
+                  "tag": "instance-parameter"
+                }
+              ],
+              "tag": "parameters"
+            },
+            {
+              "attributes": {
+                "transfer-ownership": "none"
+              },
+              "children": [
+                {
+                  "attributes": {
+                    "name": "Gtk.Label",
+                    "type": "GtkLabel*"
+                  },
+                  "tag": "type"
+                }
+              ],
+              "tag": "return-value"
+            }
+          ],
+          "tag": "method"
+        },
+        {
+          "attributes": {
+            "identifier": "awra_rich_label_set_inline_size",
+            "name": "set_inline_size",
+            "set-property": "inline-size",
+            "version": "1.1"
+          },
+          "children": [
+            {
+              "attributes": {},
+              "children": [
+                {
+                  "attributes": {
+                    "name": "self",
+                    "transfer-ownership": "none"
+                  },
+                  "children": [
+                    {
+                      "attributes": {
+                        "name": "RichLabel",
+                        "type": "AwraRichLabel*"
+                      },
+                      "tag": "type"
+                    }
+                  ],
+                  "tag": "instance-parameter"
+                },
+                {
+                  "attributes": {
+                    "name": "size",
+                    "transfer-ownership": "none"
+                  },
+                  "children": [
+                    {
+                      "attributes": {
+                        "name": "gint",
+                        "type": "int"
+                      },
+                      "tag": "type"
+                    }
+                  ],
+                  "tag": "parameter"
+                }
+              ],
+              "tag": "parameters"
+            },
+            {
+              "attributes": {
+                "transfer-ownership": "none"
+              },
+              "children": [
+                {
+                  "attributes": {
+                    "name": "none",
+                    "type": "void"
+                  },
+                  "tag": "type"
+                }
+              ],
+              "tag": "return-value"
+            }
+          ],
+          "tag": "method"
+        },
+        {
+          "attributes": {
+            "default-value": "0",
+            "getter": "get_inline_size",
+            "name": "inline-size",
+            "setter": "set_inline_size",
+            "transfer-ownership": "none",
+            "writable": "1"
+          },
+          "children": [
+            {
+              "attributes": {
+                "name": "gint",
+                "type": "gint"
+              },
+              "tag": "type"
+            }
+          ],
+          "tag": "property"
+        }
+      ],
+      "tag": "class"
+    },
+    {
+      "attributes": {
+        "final": "1",
         "get-type": "awra_search_entry_get_type",
         "name": "SearchEntry",
         "parent": "Gtk.Widget",
@@ -83520,6 +83869,31 @@
         "is-gtype-struct-for": "ResponsiveBin",
         "name": "ResponsiveBinClass",
         "type": "AwraResponsiveBinClass"
+      },
+      "children": [
+        {
+          "attributes": {
+            "name": "parent_class"
+          },
+          "children": [
+            {
+              "attributes": {
+                "name": "Gtk.WidgetClass",
+                "type": "GtkWidgetClass"
+              },
+              "tag": "type"
+            }
+          ],
+          "tag": "field"
+        }
+      ],
+      "tag": "record"
+    },
+    {
+      "attributes": {
+        "is-gtype-struct-for": "RichLabel",
+        "name": "RichLabelClass",
+        "type": "AwraRichLabelClass"
       },
       "children": [
         {

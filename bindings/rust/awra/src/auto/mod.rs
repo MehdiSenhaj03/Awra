@@ -305,6 +305,9 @@ pub use self::rail_item::RailItem;
 mod responsive_bin;
 pub use self::responsive_bin::ResponsiveBin;
 
+mod rich_label;
+pub use self::rich_label::RichLabel;
+
 mod search_entry;
 pub use self::search_entry::SearchEntry;
 
@@ -594,6 +597,7 @@ pub(crate) mod builders {
     #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
     pub use super::rail_item::RailItemBuilder;
     pub use super::responsive_bin::ResponsiveBinBuilder;
+    pub use super::rich_label::RichLabelBuilder;
     pub use super::search_entry::SearchEntryBuilder;
     pub use super::section::SectionBuilder;
     pub use super::segmented_control::SegmentedControlBuilder;
