@@ -1063,3 +1063,38 @@ fermeture. Mémoire anonyme de Yapfast au démarrage : 90 → 39 Mio.
 Leçon générale : une liste virtualisée dans un popover fermé n’est pas
 gratuite. Tout composant Awra à base de `GtkListView` caché devrait faire de
 même.
+
+## 2026-11-04 — Yapfast — Ce que trois portages parallèles ont révélé
+
+Trois agents ont porté en parallèle le reste de l'interface Slint de Yapfast
+(sondages, fils, forums, profils, réactions, navigateur de salons, glisser-
+déposer des salons). Leurs contournements ont donné ces ajouts à Awra :
+
+- **Bords d'une conversation** : chaque application superposait ses propres
+  cartes « Chargement des messages… », à travers lesquelles les messages se
+  voyaient. `awra_conversation_view_set_edge_status()` affiche une pastille
+  opaque (chargement, ou échec avec « Réessayer » et le signal `retry`) et
+  suspend `edge-reached` pour ce bord tant qu'il n'est pas revenu au repos.
+- **Menus contextuels invisibles** : GTK ne présente les popovers d'un widget
+  que par son gestionnaire de mise en page. Les widgets d'Awra qui allouent
+  eux-mêmes leurs enfants (élément et groupe du rail, rail, séparateur,
+  tuiles, conversation) ne montraient donc jamais de menu contextuel.
+  `awra_widget_present_popovers()` (privé) est appelé à la fin de leur
+  allocation. Une règle à suivre pour tout nouveau widget à allocation
+  manuelle.
+- **Popover orphelin** : le popover d'un menu contextuel n'était détaché
+  qu'à la finalisation du widget, trop tard (« Finalizing … still has
+  children left »), sur chaque ligne recyclée d'une liste. Il l'est
+  maintenant au signal `destroy`.
+- **Références flottantes** : trois nouveaux constructeurs annonçaient
+  `(transfer full)` en rendant la référence flottante de GTK ; la liaison
+  Rust relâchait alors la référence que le parent avait prise, et le widget
+  était détruit encore dans son parent. Seules les fenêtres, que GTK
+  possède, rendent une référence à elles ; les autres widgets gardent
+  l'annotation par défaut.
+- **Composants** : `AwraColorPalette` (pastilles, choix automatique, couleur
+  libre, signal `chosen` distinct de la sélection posée par l'application),
+  `AwraAvatarGroup` (visages qui se chevauchent, découpés par un masque
+  plutôt qu'entourés d'un anneau de la couleur supposée du fond),
+  `AwraSearchEntry::activate` et `search-changed`, et des libellés de
+  `AwraFormRow` alignés sur la première ligne du contrôle.
