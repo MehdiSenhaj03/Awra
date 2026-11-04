@@ -25,6 +25,12 @@ GMenuModel *awra_command_palette_get_menu_model       (AwraCommandPalette *self)
  * awra_command_palette_set_menu_model:
  * @self: a command palette
  * @model: (nullable): commands represented as a #GMenuModel
+ *
+ * Sections become headings. An item's `icon` shows before its label, an
+ * `accel` attribute (an accelerator string) and an `awra-detail` attribute
+ * (any short text, such as where the item belongs or how many unread it
+ * holds) show after it, muted. The first result is chosen; Up and Down
+ * choose another, Enter opens it and Escape closes the palette.
  */
 void        awra_command_palette_set_menu_model       (AwraCommandPalette *self,
                                                         GMenuModel         *model);

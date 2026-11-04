@@ -14,6 +14,7 @@ typedef struct {
   GVariant *target;
   GIcon *icon;
   char *accel;
+  char *detail;
   const char *section; /* owned by AwraCommandPalette.sections */
 } PaletteCommand;
 
@@ -52,6 +53,7 @@ palette_command_free (gpointer data)
   g_clear_pointer (&command->target, g_variant_unref);
   g_clear_object (&command->icon);
   g_free (command->accel);
+  g_free (command->detail);
   g_free (command);
 }
 
@@ -102,6 +104,7 @@ collect_commands (AwraCommandPalette *self,
         command->icon = g_icon_deserialize (icon);
     }
     g_menu_model_get_item_attribute (model, i, "accel", "s", &command->accel);
+    g_menu_model_get_item_attribute (model, i, "awra-detail", "s", &command->detail);
     command->section = section_label;
     g_ptr_array_add (self->commands, command);
   }
@@ -150,6 +153,13 @@ create_command_content (PaletteCommand *command)
   gtk_label_set_ellipsize (GTK_LABEL (label), PANGO_ELLIPSIZE_END);
   gtk_widget_set_hexpand (label, TRUE);
   gtk_box_append (GTK_BOX (box), label);
+  if (command->detail != NULL) {
+    GtkWidget *detail = gtk_label_new (command->detail);
+
+    gtk_label_set_ellipsize (GTK_LABEL (detail), PANGO_ELLIPSIZE_END);
+    gtk_widget_add_css_class (detail, "awra-command-accel");
+    gtk_box_append (GTK_BOX (box), detail);
+  }
   if (command->accel != NULL) {
     guint key = 0;
     GdkModifierType mods = 0;
