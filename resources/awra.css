@@ -59,7 +59,8 @@ awravolumecontrol,
 awramediarow,
 awradropzone,
 awraconversationview,
-awracomposer {
+awracomposer,
+awradivider {
   min-width: 0;
   min-height: 0;
   margin: 0;
@@ -2936,6 +2937,51 @@ popover.awra-completion-popover scrolledwindow > scrollbar {
 
 .awra-reduced-motion popover.awra-completion-popover listview.awra-completion-list > row {
   transition: none;
+}
+
+/* Dividers draw their line in their own colour; the label carries the
+ * meaning: a muted day, an accent marker, or a pill for unread messages. */
+awradivider {
+  min-height: 1px;
+  padding: 6px 0;
+  color: @awra_separator;
+}
+
+awradivider > label {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background-color: transparent;
+  background-image: none;
+  box-shadow: none;
+  color: @awra_muted;
+  font-size: .84em;
+  font-weight: 600;
+}
+
+awradivider.awra-divider-accent {
+  color: alpha(@awra_accent, .55);
+}
+
+awradivider.awra-divider-accent > label {
+  color: @awra_accent_content;
+}
+
+awradivider.awra-divider-danger {
+  color: @awra_danger;
+}
+
+awradivider.awra-divider-danger > label {
+  padding: 1px 7px;
+  border-radius: 999px;
+  color: @awra_on_accent;
+  background-color: @awra_danger;
+  font-size: .72em;
+  font-weight: 700;
+}
+
+.awra-high-contrast awradivider.awra-divider-neutral {
+  color: @awra_outline;
 }
 
 /* A filter bar is structural chrome rather than another content card. Its

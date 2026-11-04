@@ -41,8 +41,8 @@ thousands of items cost a screenful of rows) and starts at the end.
   first and last visible positions; `visible-range-changed` is emitted at most
   once per frame.
 - **Sections.** When the model implements `GtkSectionModel`, the
-  `header-factory` builds a header above each section, such as a separator
-  for each day.
+  `header-factory` builds a header above each section, such as an
+  `AwraDivider` for each day.
 
 Rows come from a `GtkSignalListItemFactory` or a `GtkBuilderListItemFactory`.
 Rows carry no card: they get a quiet hover and the view's own marks. Page Up,
@@ -97,4 +97,20 @@ activates. An `AwraComposer` never sends on Enter while a completion attached
 to its text view is shown. The popover works with a `GtkTextView` or any
 `GtkEditable`, belongs to the widget it is attached to, and hides when the
 model empties or the text loses the focus.
+
+## Separating: `AwraDivider`
+
+`awra_divider_new ("Today")` draws a line with a centred label, for the day
+above a group of messages. `label-position` END puts the label at the end of
+the line; `appearance` ACCENT colours it, and DANGER makes it the line where
+unread messages start, with its label in a small pill:
+
+```c
+GtkWidget *unread = awra_divider_new (_("New"));
+
+awra_divider_set_appearance (AWRA_DIVIDER (unread), AWRA_DIVIDER_APPEARANCE_DANGER);
+awra_divider_set_label_position (AWRA_DIVIDER (unread), AWRA_DIVIDER_LABEL_POSITION_END);
+```
+
+A divider is a separator for assistive technologies, named by its label.
 

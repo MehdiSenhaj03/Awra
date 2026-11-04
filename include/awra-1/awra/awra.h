@@ -93,6 +93,7 @@
 #include <awra/awra-conversation-view.h>
 #include <awra/awra-composer.h>
 #include <awra/awra-completion-popover.h>
+#include <awra/awra-divider.h>
 
 G_BEGIN_DECLS
 

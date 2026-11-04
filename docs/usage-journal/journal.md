@@ -955,3 +955,15 @@ enfant qu’il ne connaît pas, d’où un rattachement qui suit l’entrée et 
 du widget dans une fenêtre. Le composeur consulte une marque privée pour ne pas
 envoyer quand Entrée choisit une suggestion.
 
+## 2026-11-04 — Yapfast — Séparateurs de jours et ligne des non-lus
+
+Un salon de discussion sépare les messages par jour et marque l’endroit où
+commencent les messages non lus. Yapfast dessinait ces lignes à la main dans
+chaque délégué de message. `AwraDivider` est une ligne avec une étiquette
+facultative (au centre ou au bout), neutre, accentuée ou « danger » (étiquette
+dans une pastille, pour les non-lus). La ligne prend la couleur CSS du widget,
+donc le thème à fort contraste et les apparences restent possédés par Awra ; le
+rôle accessible est celui d’un séparateur nommé par son étiquette. Dans la
+vitrine, la chronologie l’emploie comme en-tête de section d’un
+`GtkSortListModel` trié par jour.
+

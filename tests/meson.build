@@ -340,6 +340,8 @@ composer_test = executable('test-composer', 'widget/test-composer.c', dependenci
 test('composer', composer_test, env: ['G_DEBUG=fatal-warnings', 'GTK_A11Y=none'], is_parallel: false)
 completion_popover_test = executable('test-completion-popover', 'widget/test-completion-popover.c', dependencies: awra_dep)
 test('completion-popover', completion_popover_test, env: ['G_DEBUG=fatal-warnings', 'GTK_A11Y=none'], is_parallel: false)
+divider_test = executable('test-divider', 'widget/test-divider.c', dependencies: awra_dep)
+test('divider', divider_test, env: ['G_DEBUG=fatal-warnings', 'GTK_A11Y=none'], is_parallel: false)
 drag_preview_test = executable('test-drag-preview', 'widget/test-drag-preview.c', dependencies: awra_dep)
 test('drag-preview', drag_preview_test, env: ['G_DEBUG=fatal-warnings', 'GTK_A11Y=none'], is_parallel: false)
 path_bar_test = executable('test-path-bar', 'widget/test-path-bar.c', dependencies: awra_dep)

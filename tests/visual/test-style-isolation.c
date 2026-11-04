@@ -23,7 +23,7 @@ static const char hostile_css[] =
   "awrakeycap, awrakeycap label, awrakeyboardview, awrashortcutcapture,"
   "awrashortcutcapture label, awrawaveformview, awratimeline, awravolumecontrol,"
   "awramediarow, awramediarow label, awradropzone, awradropzone label,"
-  "awradropzone box, awraconversationview, awracomposer,"
+  "awradropzone box, awraconversationview, awracomposer, awradivider,"
   "awradataview columnview,"
   "awradataview columnview > header > button,"
   "awradataview columnview listview > row {"
@@ -401,6 +401,15 @@ make_probe_scene (void)
       awra_composer_set_text (AWRA_COMPOSER (composer), "Hello");
       awra_composer_show_banner (AWRA_COMPOSER (composer), "Replying", TRUE);
       gtk_box_append (GTK_BOX (chat), composer);
+    }
+    {
+      GtkWidget *day = awra_divider_new ("Today");
+      GtkWidget *unread = awra_divider_new ("New");
+
+      awra_divider_set_appearance (AWRA_DIVIDER (unread), AWRA_DIVIDER_APPEARANCE_DANGER);
+      awra_divider_set_label_position (AWRA_DIVIDER (unread), AWRA_DIVIDER_LABEL_POSITION_END);
+      gtk_box_append (GTK_BOX (chat), day);
+      gtk_box_append (GTK_BOX (chat), unread);
     }
     gtk_grid_attach (GTK_GRID (grid), chat, 0, 15, 3, 1);
   }

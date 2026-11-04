@@ -392,6 +392,27 @@ const RUST_LAYOUTS: &[(&str, Layout)] = &[
         },
     ),
     (
+        "AwraDividerAppearance",
+        Layout {
+            size: size_of::<AwraDividerAppearance>(),
+            alignment: align_of::<AwraDividerAppearance>(),
+        },
+    ),
+    (
+        "AwraDividerClass",
+        Layout {
+            size: size_of::<AwraDividerClass>(),
+            alignment: align_of::<AwraDividerClass>(),
+        },
+    ),
+    (
+        "AwraDividerLabelPosition",
+        Layout {
+            size: size_of::<AwraDividerLabelPosition>(),
+            alignment: align_of::<AwraDividerLabelPosition>(),
+        },
+    ),
+    (
         "AwraDragPreviewClass",
         Layout {
             size: size_of::<AwraDragPreviewClass>(),
@@ -1016,6 +1037,11 @@ const RUST_CONSTANTS: &[(&str, &str)] = &[
     ("(gint) AWRA_DATA_VIEW_STATE_EMPTY", "1"),
     ("(gint) AWRA_DATA_VIEW_STATE_ERROR", "3"),
     ("(gint) AWRA_DATA_VIEW_STATE_LOADING", "2"),
+    ("(gint) AWRA_DIVIDER_APPEARANCE_ACCENT", "1"),
+    ("(gint) AWRA_DIVIDER_APPEARANCE_DANGER", "2"),
+    ("(gint) AWRA_DIVIDER_APPEARANCE_NEUTRAL", "0"),
+    ("(gint) AWRA_DIVIDER_LABEL_POSITION_CENTER", "0"),
+    ("(gint) AWRA_DIVIDER_LABEL_POSITION_END", "1"),
     ("(guint) AWRA_EFFECT_CAPABILITY_BLUR", "1"),
     ("(guint) AWRA_EFFECT_CAPABILITY_NONE", "0"),
     ("(gint) AWRA_ELEVATION_FLAT", "0"),

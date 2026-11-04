@@ -35,6 +35,9 @@ int main() {
     printf("%s;%zu;%zu\n", "AwraDetailPaneClass", sizeof(AwraDetailPaneClass), alignof(AwraDetailPaneClass));
     printf("%s;%zu;%zu\n", "AwraDiagnosticsClass", sizeof(AwraDiagnosticsClass), alignof(AwraDiagnosticsClass));
     printf("%s;%zu;%zu\n", "AwraDialogClass", sizeof(AwraDialogClass), alignof(AwraDialogClass));
+    printf("%s;%zu;%zu\n", "AwraDividerAppearance", sizeof(AwraDividerAppearance), alignof(AwraDividerAppearance));
+    printf("%s;%zu;%zu\n", "AwraDividerClass", sizeof(AwraDividerClass), alignof(AwraDividerClass));
+    printf("%s;%zu;%zu\n", "AwraDividerLabelPosition", sizeof(AwraDividerLabelPosition), alignof(AwraDividerLabelPosition));
     printf("%s;%zu;%zu\n", "AwraDragPreviewClass", sizeof(AwraDragPreviewClass), alignof(AwraDragPreviewClass));
     printf("%s;%zu;%zu\n", "AwraDropZoneClass", sizeof(AwraDropZoneClass), alignof(AwraDropZoneClass));
     printf("%s;%zu;%zu\n", "AwraDropdownClass", sizeof(AwraDropdownClass), alignof(AwraDropdownClass));

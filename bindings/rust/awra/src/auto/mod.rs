@@ -79,6 +79,13 @@ pub use self::diagnostics::Diagnostics;
 mod dialog;
 pub use self::dialog::Dialog;
 
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+mod divider;
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+pub use self::divider::Divider;
+
 mod drag_preview;
 pub use self::drag_preview::DragPreview;
 
@@ -329,6 +336,12 @@ pub use self::enums::CardAppearance;
 #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
 pub use self::enums::ConversationAlign;
 pub use self::enums::DataViewState;
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+pub use self::enums::DividerAppearance;
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+pub use self::enums::DividerLabelPosition;
 pub use self::enums::Elevation;
 #[cfg(feature = "v1_1")]
 #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
@@ -382,6 +395,9 @@ pub(crate) mod builders {
     pub use super::data_view::DataViewBuilder;
     pub use super::detail_pane::DetailPaneBuilder;
     pub use super::dialog::DialogBuilder;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub use super::divider::DividerBuilder;
     pub use super::drag_preview::DragPreviewBuilder;
     #[cfg(feature = "v1_1")]
     #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]

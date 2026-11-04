@@ -24,6 +24,9 @@ unchanged (checked against the frozen 1.0.0 contract).
 - `AwraCompletionPopover` shows suggestions at the caret of a text view or an
   entry (mentions, emoji shortcodes, commands) without taking the focus: the
   arrows move through them, Tab and Enter choose, Escape dismisses.
+- `AwraDivider` separates content with a line and an optional label, centred
+  or at the end, in a neutral, accent or danger appearance: day separators and
+  the line where unread messages start.
 
 ### Desktop workspace composition
 

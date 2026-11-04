@@ -1383,6 +1383,8 @@ typedef struct {
   GtkStringList *messages;
   AwraConversationView *view;
   AwraComposer *composer;
+  GtkSortListModel *sections;
+  gpointer first_unread;
   AwraCompletionPopover *mentions;
   GtkStringFilter *mention_filter;
   GtkFilterListModel *mention_model;
@@ -1408,14 +1410,68 @@ static const char *conversation_lines[] = {
   "Can we keep the old shortcut for one more release? People rely on it.",
 };
 
+/* Items are "days ago\tauthor\ttext". */
 static char *
-conversation_message (guint index,
+conversation_message (guint       index,
+                      guint       days_ago,
                       const char *prefix)
 {
-  return g_strdup_printf ("%s\t%s%s",
+  return g_strdup_printf ("%u\t%s\t%s%s", days_ago,
                           conversation_authors[(index * 7 + index / 3) % (G_N_ELEMENTS (conversation_authors) - 1)],
                           prefix,
                           conversation_lines[(index * 3) % G_N_ELEMENTS (conversation_lines)]);
+}
+
+static guint
+conversation_days_ago (gpointer item)
+{
+  return (guint) g_ascii_strtoull (gtk_string_object_get_string (item), NULL, 10);
+}
+
+static int
+conversation_section_compare (gconstpointer a,
+                              gconstpointer b,
+                              gpointer      user_data)
+{
+  guint days_a = conversation_days_ago ((gpointer) a);
+  guint days_b = conversation_days_ago ((gpointer) b);
+
+  (void) user_data;
+  /* Older days first; messages keep their order within a day. */
+  return days_a == days_b ? GTK_ORDERING_EQUAL
+                          : days_a > days_b ? GTK_ORDERING_SMALLER : GTK_ORDERING_LARGER;
+}
+
+static void
+conversation_header_setup_cb (GtkSignalListItemFactory *factory,
+                              GtkListHeader            *header,
+                              gpointer                  user_data)
+{
+  GtkWidget *divider = awra_divider_new (NULL);
+
+  (void) factory;
+  (void) user_data;
+  gtk_widget_set_margin_start (divider, 20);
+  gtk_widget_set_margin_end (divider, 20);
+  gtk_widget_set_margin_top (divider, 8);
+  gtk_list_header_set_child (header, divider);
+}
+
+static void
+conversation_header_bind_cb (GtkSignalListItemFactory *factory,
+                             GtkListHeader            *header,
+                             gpointer                  user_data)
+{
+  static const char *days[] = {
+    "Today", "Yesterday", "Sunday", "Saturday", "Friday", "Thursday", "Wednesday",
+  };
+  guint days_ago = conversation_days_ago (gtk_list_header_get_item (header));
+  g_autofree char *older = g_strdup_printf ("%u days ago", days_ago);
+
+  (void) factory;
+  (void) user_data;
+  awra_divider_set_label (AWRA_DIVIDER (gtk_list_header_get_child (header)),
+                          days_ago < G_N_ELEMENTS (days) ? days[days_ago] : older);
 }
 
 static void
@@ -1424,6 +1480,7 @@ conversation_setup_cb (GtkSignalListItemFactory *factory,
                        gpointer                  user_data)
 {
   GtkWidget *box = make_box (GTK_ORIENTATION_VERTICAL, AWRA_SPACING_XS);
+  GtkWidget *unread = awra_divider_new ("NEW");
   GtkWidget *author = make_label (NULL, AWRA_TYPOGRAPHY_LABEL);
   GtkWidget *text = make_label (NULL, AWRA_TYPOGRAPHY_BODY);
 
@@ -1434,6 +1491,10 @@ conversation_setup_cb (GtkSignalListItemFactory *factory,
   gtk_widget_set_margin_end (box, 20);
   gtk_widget_set_margin_top (box, 6);
   gtk_widget_set_margin_bottom (box, 6);
+  awra_divider_set_appearance (AWRA_DIVIDER (unread), AWRA_DIVIDER_APPEARANCE_DANGER);
+  awra_divider_set_label_position (AWRA_DIVIDER (unread), AWRA_DIVIDER_LABEL_POSITION_END);
+  gtk_widget_set_visible (unread, FALSE);
+  gtk_box_append (GTK_BOX (box), unread);
   gtk_box_append (GTK_BOX (box), author);
   gtk_box_append (GTK_BOX (box), text);
   gtk_list_item_set_child (item, box);
@@ -1445,14 +1506,17 @@ conversation_bind_cb (GtkSignalListItemFactory *factory,
                       GtkListItem              *item,
                       gpointer                  user_data)
 {
+  ConversationDemo *demo = user_data;
   GtkWidget *box = gtk_list_item_get_child (item);
-  const char *message = gtk_string_object_get_string (gtk_list_item_get_item (item));
+  GtkWidget *unread = gtk_widget_get_first_child (box);
+  gpointer string = gtk_list_item_get_item (item);
+  const char *message = strchr (gtk_string_object_get_string (string), '\t') + 1;
   const char *tab = strchr (message, '\t');
   g_autofree char *author = g_strndup (message, tab - message);
 
   (void) factory;
-  (void) user_data;
-  gtk_label_set_text (GTK_LABEL (gtk_widget_get_first_child (box)), author);
+  gtk_widget_set_visible (unread, string == demo->first_unread);
+  gtk_label_set_text (GTK_LABEL (gtk_widget_get_next_sibling (unread)), author);
   gtk_label_set_text (GTK_LABEL (gtk_widget_get_last_child (box)), tab + 1);
 }
 
@@ -1468,7 +1532,8 @@ conversation_edge_cb (AwraConversationView *view,
     return;
   older = g_ptr_array_new_with_free_func (g_free);
   for (guint i = 0; i < 100; i++)
-    g_ptr_array_add (older, conversation_message (demo->older_loaded + i, ""));
+    g_ptr_array_add (older, conversation_message (demo->older_loaded + i,
+                                                  5 + (demo->older_loaded + 99 - i) / 120, ""));
   g_ptr_array_add (older, NULL);
   demo->older_loaded += 100;
   gtk_string_list_splice (demo->messages, 0, 0, (const char * const *) older->pdata);
@@ -1479,9 +1544,12 @@ conversation_receive (ConversationDemo *demo,
                       guint             count)
 {
   for (guint i = 0; i < count; i++) {
-    g_autofree char *message = conversation_message (demo->received++ * 5 + 1, "");
+    g_autofree char *message = conversation_message (demo->received++ * 5 + 1, 0, "");
+    guint n = g_list_model_get_n_items (G_LIST_MODEL (demo->sections));
 
     gtk_string_list_append (demo->messages, message);
+    if (demo->first_unread == NULL && !awra_conversation_view_get_at_bottom (demo->view))
+      demo->first_unread = g_list_model_get_item (G_LIST_MODEL (demo->messages), n);
   }
   if (!awra_conversation_view_get_at_bottom (demo->view))
     awra_conversation_view_set_unread_count (
@@ -1531,7 +1599,10 @@ static void
 conversation_submit_cb (AwraComposer     *composer,
                         ConversationDemo *demo)
 {
-  g_autofree char *message = g_strdup_printf ("You\t%s", awra_composer_get_text (composer));
+  g_autofree char *message = g_strdup_printf ("0\tYou\t%s", awra_composer_get_text (composer));
+
+  /* Writing reads everything above. */
+  g_clear_object (&demo->first_unread);
 
   gtk_string_list_append (demo->messages, message);
   awra_composer_set_text (composer, NULL);
@@ -1647,6 +1718,8 @@ conversation_demo_free (gpointer data)
   ConversationDemo *demo = data;
 
   g_clear_object (&demo->messages);
+  g_clear_object (&demo->sections);
+  g_clear_object (&demo->first_unread);
   g_clear_object (&demo->mention_model);
   g_free (demo);
 }
@@ -1668,14 +1741,26 @@ make_conversation_workspace (void)
   GtkWidget *card;
 
   for (guint i = 0; i < 400; i++)
-    g_ptr_array_add (initial, conversation_message (5000 + i, ""));
+    g_ptr_array_add (initial, conversation_message (5000 + i, (399 - i) / 90, ""));
   g_ptr_array_add (initial, NULL);
   demo->messages = gtk_string_list_new ((const char * const *) initial->pdata);
   g_signal_connect (factory, "setup", G_CALLBACK (conversation_setup_cb), NULL);
-  g_signal_connect (factory, "bind", G_CALLBACK (conversation_bind_cb), NULL);
-  timeline = awra_conversation_view_new (G_LIST_MODEL (g_object_ref (demo->messages)), factory);
+  g_signal_connect (factory, "bind", G_CALLBACK (conversation_bind_cb), demo);
+  demo->sections = gtk_sort_list_model_new (G_LIST_MODEL (g_object_ref (demo->messages)), NULL);
+  gtk_sort_list_model_set_section_sorter (
+    demo->sections,
+    GTK_SORTER (gtk_custom_sorter_new (conversation_section_compare, NULL, NULL)));
+  timeline = awra_conversation_view_new (G_LIST_MODEL (g_object_ref (demo->sections)), factory);
+  {
+    GtkListItemFactory *headers = gtk_signal_list_item_factory_new ();
+
+    g_signal_connect (headers, "setup", G_CALLBACK (conversation_header_setup_cb), NULL);
+    g_signal_connect (headers, "bind", G_CALLBACK (conversation_header_bind_cb), NULL);
+    awra_conversation_view_set_header_factory (AWRA_CONVERSATION_VIEW (timeline), headers);
+    g_object_unref (headers);
+  }
   demo->view = AWRA_CONVERSATION_VIEW (timeline);
-  gtk_widget_set_size_request (timeline, -1, 420);
+  gtk_widget_set_size_request (timeline, -1, 330);
   gtk_widget_set_vexpand (timeline, TRUE);
   g_object_set_data_full (G_OBJECT (timeline), "showcase-conversation", demo,
                           conversation_demo_free);

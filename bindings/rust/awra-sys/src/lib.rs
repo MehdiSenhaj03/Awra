@@ -73,6 +73,15 @@ pub const AWRA_DATA_VIEW_STATE_EMPTY: AwraDataViewState = 1;
 pub const AWRA_DATA_VIEW_STATE_LOADING: AwraDataViewState = 2;
 pub const AWRA_DATA_VIEW_STATE_ERROR: AwraDataViewState = 3;
 
+pub type AwraDividerAppearance = c_int;
+pub const AWRA_DIVIDER_APPEARANCE_NEUTRAL: AwraDividerAppearance = 0;
+pub const AWRA_DIVIDER_APPEARANCE_ACCENT: AwraDividerAppearance = 1;
+pub const AWRA_DIVIDER_APPEARANCE_DANGER: AwraDividerAppearance = 2;
+
+pub type AwraDividerLabelPosition = c_int;
+pub const AWRA_DIVIDER_LABEL_POSITION_CENTER: AwraDividerLabelPosition = 0;
+pub const AWRA_DIVIDER_LABEL_POSITION_END: AwraDividerLabelPosition = 1;
+
 pub type AwraElevation = c_int;
 pub const AWRA_ELEVATION_FLAT: AwraElevation = 0;
 pub const AWRA_ELEVATION_RAISED: AwraElevation = 1;
@@ -481,6 +490,20 @@ pub struct AwraDialogClass {
 impl ::std::fmt::Debug for AwraDialogClass {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
         f.debug_struct(&format!("AwraDialogClass @ {self:p}"))
+            .field("parent_class", &self.parent_class)
+            .finish()
+    }
+}
+
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub struct AwraDividerClass {
+    pub parent_class: gtk::GtkWidgetClass,
+}
+
+impl ::std::fmt::Debug for AwraDividerClass {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        f.debug_struct(&format!("AwraDividerClass @ {self:p}"))
             .field("parent_class", &self.parent_class)
             .finish()
     }
@@ -1688,6 +1711,19 @@ impl ::std::fmt::Debug for AwraDialog {
 
 #[repr(C)]
 #[allow(dead_code)]
+pub struct AwraDivider {
+    _data: [u8; 0],
+    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
+}
+
+impl ::std::fmt::Debug for AwraDivider {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        f.debug_struct(&format!("AwraDivider @ {self:p}")).finish()
+    }
+}
+
+#[repr(C)]
+#[allow(dead_code)]
 pub struct AwraDragPreview {
     _data: [u8; 0],
     _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
@@ -2621,6 +2657,20 @@ unsafe extern "C" {
     pub fn awra_data_view_state_get_type() -> GType;
 
     //=========================================================================
+    // AwraDividerAppearance
+    //=========================================================================
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_divider_appearance_get_type() -> GType;
+
+    //=========================================================================
+    // AwraDividerLabelPosition
+    //=========================================================================
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_divider_label_position_get_type() -> GType;
+
+    //=========================================================================
     // AwraElevation
     //=========================================================================
     pub fn awra_elevation_get_type() -> GType;
@@ -3295,6 +3345,37 @@ unsafe extern "C" {
         self_: *mut AwraDialog,
         id: *const c_char,
         enabled: gboolean,
+    );
+
+    //=========================================================================
+    // AwraDivider
+    //=========================================================================
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_divider_get_type() -> GType;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_divider_new(label: *const c_char) -> *mut gtk::GtkWidget;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_divider_get_appearance(self_: *mut AwraDivider) -> AwraDividerAppearance;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_divider_get_label(self_: *mut AwraDivider) -> *const c_char;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_divider_get_label_position(self_: *mut AwraDivider) -> AwraDividerLabelPosition;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_divider_set_appearance(self_: *mut AwraDivider, appearance: AwraDividerAppearance);
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_divider_set_label(self_: *mut AwraDivider, label: *const c_char);
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_divider_set_label_position(
+        self_: *mut AwraDivider,
+        position: AwraDividerLabelPosition,
     );
 
     //=========================================================================

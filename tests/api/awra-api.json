@@ -13900,6 +13900,486 @@
     {
       "attributes": {
         "final": "1",
+        "get-type": "awra_divider_get_type",
+        "name": "Divider",
+        "parent": "Gtk.Widget",
+        "symbol-prefix": "divider",
+        "type": "AwraDivider",
+        "type-name": "AwraDivider",
+        "type-struct": "DividerClass",
+        "version": "1.1"
+      },
+      "children": [
+        {
+          "attributes": {
+            "identifier": "awra_divider_new",
+            "name": "new",
+            "version": "1.1"
+          },
+          "children": [
+            {
+              "attributes": {},
+              "children": [
+                {
+                  "attributes": {
+                    "allow-none": "1",
+                    "name": "label",
+                    "nullable": "1",
+                    "transfer-ownership": "none"
+                  },
+                  "children": [
+                    {
+                      "attributes": {
+                        "name": "utf8",
+                        "type": "const char*"
+                      },
+                      "tag": "type"
+                    }
+                  ],
+                  "tag": "parameter"
+                }
+              ],
+              "tag": "parameters"
+            },
+            {
+              "attributes": {
+                "transfer-ownership": "none"
+              },
+              "children": [
+                {
+                  "attributes": {
+                    "name": "Gtk.Widget",
+                    "type": "GtkWidget*"
+                  },
+                  "tag": "type"
+                }
+              ],
+              "tag": "return-value"
+            }
+          ],
+          "tag": "constructor"
+        },
+        {
+          "attributes": {
+            "name": "Gtk.Accessible"
+          },
+          "tag": "implements"
+        },
+        {
+          "attributes": {
+            "name": "Gtk.Buildable"
+          },
+          "tag": "implements"
+        },
+        {
+          "attributes": {
+            "name": "Gtk.ConstraintTarget"
+          },
+          "tag": "implements"
+        },
+        {
+          "attributes": {
+            "get-property": "appearance",
+            "identifier": "awra_divider_get_appearance",
+            "name": "get_appearance",
+            "version": "1.1"
+          },
+          "children": [
+            {
+              "attributes": {},
+              "children": [
+                {
+                  "attributes": {
+                    "name": "self",
+                    "transfer-ownership": "none"
+                  },
+                  "children": [
+                    {
+                      "attributes": {
+                        "name": "Divider",
+                        "type": "AwraDivider*"
+                      },
+                      "tag": "type"
+                    }
+                  ],
+                  "tag": "instance-parameter"
+                }
+              ],
+              "tag": "parameters"
+            },
+            {
+              "attributes": {
+                "transfer-ownership": "none"
+              },
+              "children": [
+                {
+                  "attributes": {
+                    "name": "DividerAppearance",
+                    "type": "AwraDividerAppearance"
+                  },
+                  "tag": "type"
+                }
+              ],
+              "tag": "return-value"
+            }
+          ],
+          "tag": "method"
+        },
+        {
+          "attributes": {
+            "get-property": "label",
+            "identifier": "awra_divider_get_label",
+            "name": "get_label",
+            "version": "1.1"
+          },
+          "children": [
+            {
+              "attributes": {},
+              "children": [
+                {
+                  "attributes": {
+                    "name": "self",
+                    "transfer-ownership": "none"
+                  },
+                  "children": [
+                    {
+                      "attributes": {
+                        "name": "Divider",
+                        "type": "AwraDivider*"
+                      },
+                      "tag": "type"
+                    }
+                  ],
+                  "tag": "instance-parameter"
+                }
+              ],
+              "tag": "parameters"
+            },
+            {
+              "attributes": {
+                "nullable": "1",
+                "transfer-ownership": "none"
+              },
+              "children": [
+                {
+                  "attributes": {
+                    "name": "utf8",
+                    "type": "const char*"
+                  },
+                  "tag": "type"
+                }
+              ],
+              "tag": "return-value"
+            }
+          ],
+          "tag": "method"
+        },
+        {
+          "attributes": {
+            "get-property": "label-position",
+            "identifier": "awra_divider_get_label_position",
+            "name": "get_label_position",
+            "version": "1.1"
+          },
+          "children": [
+            {
+              "attributes": {},
+              "children": [
+                {
+                  "attributes": {
+                    "name": "self",
+                    "transfer-ownership": "none"
+                  },
+                  "children": [
+                    {
+                      "attributes": {
+                        "name": "Divider",
+                        "type": "AwraDivider*"
+                      },
+                      "tag": "type"
+                    }
+                  ],
+                  "tag": "instance-parameter"
+                }
+              ],
+              "tag": "parameters"
+            },
+            {
+              "attributes": {
+                "transfer-ownership": "none"
+              },
+              "children": [
+                {
+                  "attributes": {
+                    "name": "DividerLabelPosition",
+                    "type": "AwraDividerLabelPosition"
+                  },
+                  "tag": "type"
+                }
+              ],
+              "tag": "return-value"
+            }
+          ],
+          "tag": "method"
+        },
+        {
+          "attributes": {
+            "identifier": "awra_divider_set_appearance",
+            "name": "set_appearance",
+            "set-property": "appearance",
+            "version": "1.1"
+          },
+          "children": [
+            {
+              "attributes": {},
+              "children": [
+                {
+                  "attributes": {
+                    "name": "self",
+                    "transfer-ownership": "none"
+                  },
+                  "children": [
+                    {
+                      "attributes": {
+                        "name": "Divider",
+                        "type": "AwraDivider*"
+                      },
+                      "tag": "type"
+                    }
+                  ],
+                  "tag": "instance-parameter"
+                },
+                {
+                  "attributes": {
+                    "name": "appearance",
+                    "transfer-ownership": "none"
+                  },
+                  "children": [
+                    {
+                      "attributes": {
+                        "name": "DividerAppearance",
+                        "type": "AwraDividerAppearance"
+                      },
+                      "tag": "type"
+                    }
+                  ],
+                  "tag": "parameter"
+                }
+              ],
+              "tag": "parameters"
+            },
+            {
+              "attributes": {
+                "transfer-ownership": "none"
+              },
+              "children": [
+                {
+                  "attributes": {
+                    "name": "none",
+                    "type": "void"
+                  },
+                  "tag": "type"
+                }
+              ],
+              "tag": "return-value"
+            }
+          ],
+          "tag": "method"
+        },
+        {
+          "attributes": {
+            "identifier": "awra_divider_set_label",
+            "name": "set_label",
+            "set-property": "label",
+            "version": "1.1"
+          },
+          "children": [
+            {
+              "attributes": {},
+              "children": [
+                {
+                  "attributes": {
+                    "name": "self",
+                    "transfer-ownership": "none"
+                  },
+                  "children": [
+                    {
+                      "attributes": {
+                        "name": "Divider",
+                        "type": "AwraDivider*"
+                      },
+                      "tag": "type"
+                    }
+                  ],
+                  "tag": "instance-parameter"
+                },
+                {
+                  "attributes": {
+                    "allow-none": "1",
+                    "name": "label",
+                    "nullable": "1",
+                    "transfer-ownership": "none"
+                  },
+                  "children": [
+                    {
+                      "attributes": {
+                        "name": "utf8",
+                        "type": "const char*"
+                      },
+                      "tag": "type"
+                    }
+                  ],
+                  "tag": "parameter"
+                }
+              ],
+              "tag": "parameters"
+            },
+            {
+              "attributes": {
+                "transfer-ownership": "none"
+              },
+              "children": [
+                {
+                  "attributes": {
+                    "name": "none",
+                    "type": "void"
+                  },
+                  "tag": "type"
+                }
+              ],
+              "tag": "return-value"
+            }
+          ],
+          "tag": "method"
+        },
+        {
+          "attributes": {
+            "identifier": "awra_divider_set_label_position",
+            "name": "set_label_position",
+            "set-property": "label-position",
+            "version": "1.1"
+          },
+          "children": [
+            {
+              "attributes": {},
+              "children": [
+                {
+                  "attributes": {
+                    "name": "self",
+                    "transfer-ownership": "none"
+                  },
+                  "children": [
+                    {
+                      "attributes": {
+                        "name": "Divider",
+                        "type": "AwraDivider*"
+                      },
+                      "tag": "type"
+                    }
+                  ],
+                  "tag": "instance-parameter"
+                },
+                {
+                  "attributes": {
+                    "name": "position",
+                    "transfer-ownership": "none"
+                  },
+                  "children": [
+                    {
+                      "attributes": {
+                        "name": "DividerLabelPosition",
+                        "type": "AwraDividerLabelPosition"
+                      },
+                      "tag": "type"
+                    }
+                  ],
+                  "tag": "parameter"
+                }
+              ],
+              "tag": "parameters"
+            },
+            {
+              "attributes": {
+                "transfer-ownership": "none"
+              },
+              "children": [
+                {
+                  "attributes": {
+                    "name": "none",
+                    "type": "void"
+                  },
+                  "tag": "type"
+                }
+              ],
+              "tag": "return-value"
+            }
+          ],
+          "tag": "method"
+        },
+        {
+          "attributes": {
+            "default-value": "AWRA_DIVIDER_APPEARANCE_NEUTRAL",
+            "getter": "get_appearance",
+            "name": "appearance",
+            "setter": "set_appearance",
+            "transfer-ownership": "none",
+            "writable": "1"
+          },
+          "children": [
+            {
+              "attributes": {
+                "name": "DividerAppearance"
+              },
+              "tag": "type"
+            }
+          ],
+          "tag": "property"
+        },
+        {
+          "attributes": {
+            "default-value": "NULL",
+            "getter": "get_label",
+            "name": "label",
+            "setter": "set_label",
+            "transfer-ownership": "none",
+            "writable": "1"
+          },
+          "children": [
+            {
+              "attributes": {
+                "name": "utf8",
+                "type": "gchar*"
+              },
+              "tag": "type"
+            }
+          ],
+          "tag": "property"
+        },
+        {
+          "attributes": {
+            "default-value": "AWRA_DIVIDER_LABEL_POSITION_CENTER",
+            "getter": "get_label_position",
+            "name": "label-position",
+            "setter": "set_label_position",
+            "transfer-ownership": "none",
+            "writable": "1"
+          },
+          "children": [
+            {
+              "attributes": {
+                "name": "DividerLabelPosition"
+              },
+              "tag": "type"
+            }
+          ],
+          "tag": "property"
+        }
+      ],
+      "tag": "class"
+    },
+    {
+      "attributes": {
+        "final": "1",
         "get-type": "awra_drag_preview_get_type",
         "name": "DragPreview",
         "parent": "Gtk.Widget",
@@ -65046,6 +65526,75 @@
     },
     {
       "attributes": {
+        "get-type": "awra_divider_appearance_get_type",
+        "name": "DividerAppearance",
+        "type": "AwraDividerAppearance",
+        "type-name": "AwraDividerAppearance",
+        "version": "1.1"
+      },
+      "children": [
+        {
+          "attributes": {
+            "identifier": "AWRA_DIVIDER_APPEARANCE_ACCENT",
+            "name": "AWRA_DIVIDER_APPEARANCE_ACCENT",
+            "nick": "accent",
+            "value": "1"
+          },
+          "tag": "member"
+        },
+        {
+          "attributes": {
+            "identifier": "AWRA_DIVIDER_APPEARANCE_DANGER",
+            "name": "AWRA_DIVIDER_APPEARANCE_DANGER",
+            "nick": "danger",
+            "value": "2"
+          },
+          "tag": "member"
+        },
+        {
+          "attributes": {
+            "identifier": "AWRA_DIVIDER_APPEARANCE_NEUTRAL",
+            "name": "AWRA_DIVIDER_APPEARANCE_NEUTRAL",
+            "nick": "neutral",
+            "value": "0"
+          },
+          "tag": "member"
+        }
+      ],
+      "tag": "enumeration"
+    },
+    {
+      "attributes": {
+        "get-type": "awra_divider_label_position_get_type",
+        "name": "DividerLabelPosition",
+        "type": "AwraDividerLabelPosition",
+        "type-name": "AwraDividerLabelPosition",
+        "version": "1.1"
+      },
+      "children": [
+        {
+          "attributes": {
+            "identifier": "AWRA_DIVIDER_LABEL_POSITION_CENTER",
+            "name": "AWRA_DIVIDER_LABEL_POSITION_CENTER",
+            "nick": "center",
+            "value": "0"
+          },
+          "tag": "member"
+        },
+        {
+          "attributes": {
+            "identifier": "AWRA_DIVIDER_LABEL_POSITION_END",
+            "name": "AWRA_DIVIDER_LABEL_POSITION_END",
+            "nick": "end",
+            "value": "1"
+          },
+          "tag": "member"
+        }
+      ],
+      "tag": "enumeration"
+    },
+    {
+      "attributes": {
         "get-type": "awra_elevation_get_type",
         "name": "Elevation",
         "type": "AwraElevation",
@@ -67827,6 +68376,31 @@
               "attributes": {
                 "name": "WindowClass",
                 "type": "AwraWindowClass"
+              },
+              "tag": "type"
+            }
+          ],
+          "tag": "field"
+        }
+      ],
+      "tag": "record"
+    },
+    {
+      "attributes": {
+        "is-gtype-struct-for": "Divider",
+        "name": "DividerClass",
+        "type": "AwraDividerClass"
+      },
+      "children": [
+        {
+          "attributes": {
+            "name": "parent_class"
+          },
+          "children": [
+            {
+              "attributes": {
+                "name": "Gtk.WidgetClass",
+                "type": "GtkWidgetClass"
               },
               "tag": "type"
             }
