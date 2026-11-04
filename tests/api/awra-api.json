@@ -4961,6 +4961,705 @@
     {
       "attributes": {
         "final": "1",
+        "get-type": "awra_completion_popover_get_type",
+        "name": "CompletionPopover",
+        "parent": "Gtk.Popover",
+        "symbol-prefix": "completion_popover",
+        "type": "AwraCompletionPopover",
+        "type-name": "AwraCompletionPopover",
+        "type-struct": "CompletionPopoverClass",
+        "version": "1.1"
+      },
+      "children": [
+        {
+          "attributes": {
+            "identifier": "awra_completion_popover_new",
+            "name": "new",
+            "version": "1.1"
+          },
+          "children": [
+            {
+              "attributes": {
+                "transfer-ownership": "none"
+              },
+              "children": [
+                {
+                  "attributes": {
+                    "name": "Gtk.Widget",
+                    "type": "GtkWidget*"
+                  },
+                  "tag": "type"
+                }
+              ],
+              "tag": "return-value"
+            }
+          ],
+          "tag": "constructor"
+        },
+        {
+          "attributes": {
+            "name": "Gtk.Accessible"
+          },
+          "tag": "implements"
+        },
+        {
+          "attributes": {
+            "name": "Gtk.Buildable"
+          },
+          "tag": "implements"
+        },
+        {
+          "attributes": {
+            "name": "Gtk.ConstraintTarget"
+          },
+          "tag": "implements"
+        },
+        {
+          "attributes": {
+            "name": "Gtk.Native"
+          },
+          "tag": "implements"
+        },
+        {
+          "attributes": {
+            "name": "Gtk.ShortcutManager"
+          },
+          "tag": "implements"
+        },
+        {
+          "attributes": {
+            "identifier": "awra_completion_popover_attach",
+            "name": "attach",
+            "version": "1.1"
+          },
+          "children": [
+            {
+              "attributes": {},
+              "children": [
+                {
+                  "attributes": {
+                    "name": "self",
+                    "transfer-ownership": "none"
+                  },
+                  "children": [
+                    {
+                      "attributes": {
+                        "name": "CompletionPopover",
+                        "type": "AwraCompletionPopover*"
+                      },
+                      "tag": "type"
+                    }
+                  ],
+                  "tag": "instance-parameter"
+                },
+                {
+                  "attributes": {
+                    "allow-none": "1",
+                    "name": "text_widget",
+                    "nullable": "1",
+                    "transfer-ownership": "none"
+                  },
+                  "children": [
+                    {
+                      "attributes": {
+                        "name": "Gtk.Widget",
+                        "type": "GtkWidget*"
+                      },
+                      "tag": "type"
+                    }
+                  ],
+                  "tag": "parameter"
+                }
+              ],
+              "tag": "parameters"
+            },
+            {
+              "attributes": {
+                "transfer-ownership": "none"
+              },
+              "children": [
+                {
+                  "attributes": {
+                    "name": "none",
+                    "type": "void"
+                  },
+                  "tag": "type"
+                }
+              ],
+              "tag": "return-value"
+            }
+          ],
+          "tag": "method"
+        },
+        {
+          "attributes": {
+            "identifier": "awra_completion_popover_get_attached_widget",
+            "name": "get_attached_widget",
+            "version": "1.1"
+          },
+          "children": [
+            {
+              "attributes": {},
+              "children": [
+                {
+                  "attributes": {
+                    "name": "self",
+                    "transfer-ownership": "none"
+                  },
+                  "children": [
+                    {
+                      "attributes": {
+                        "name": "CompletionPopover",
+                        "type": "AwraCompletionPopover*"
+                      },
+                      "tag": "type"
+                    }
+                  ],
+                  "tag": "instance-parameter"
+                }
+              ],
+              "tag": "parameters"
+            },
+            {
+              "attributes": {
+                "nullable": "1",
+                "transfer-ownership": "none"
+              },
+              "children": [
+                {
+                  "attributes": {
+                    "name": "Gtk.Widget",
+                    "type": "GtkWidget*"
+                  },
+                  "tag": "type"
+                }
+              ],
+              "tag": "return-value"
+            }
+          ],
+          "tag": "method"
+        },
+        {
+          "attributes": {
+            "get-property": "factory",
+            "identifier": "awra_completion_popover_get_factory",
+            "name": "get_factory",
+            "version": "1.1"
+          },
+          "children": [
+            {
+              "attributes": {},
+              "children": [
+                {
+                  "attributes": {
+                    "name": "self",
+                    "transfer-ownership": "none"
+                  },
+                  "children": [
+                    {
+                      "attributes": {
+                        "name": "CompletionPopover",
+                        "type": "AwraCompletionPopover*"
+                      },
+                      "tag": "type"
+                    }
+                  ],
+                  "tag": "instance-parameter"
+                }
+              ],
+              "tag": "parameters"
+            },
+            {
+              "attributes": {
+                "nullable": "1",
+                "transfer-ownership": "none"
+              },
+              "children": [
+                {
+                  "attributes": {
+                    "name": "Gtk.ListItemFactory",
+                    "type": "GtkListItemFactory*"
+                  },
+                  "tag": "type"
+                }
+              ],
+              "tag": "return-value"
+            }
+          ],
+          "tag": "method"
+        },
+        {
+          "attributes": {
+            "get-property": "model",
+            "identifier": "awra_completion_popover_get_model",
+            "name": "get_model",
+            "version": "1.1"
+          },
+          "children": [
+            {
+              "attributes": {},
+              "children": [
+                {
+                  "attributes": {
+                    "name": "self",
+                    "transfer-ownership": "none"
+                  },
+                  "children": [
+                    {
+                      "attributes": {
+                        "name": "CompletionPopover",
+                        "type": "AwraCompletionPopover*"
+                      },
+                      "tag": "type"
+                    }
+                  ],
+                  "tag": "instance-parameter"
+                }
+              ],
+              "tag": "parameters"
+            },
+            {
+              "attributes": {
+                "nullable": "1",
+                "transfer-ownership": "none"
+              },
+              "children": [
+                {
+                  "attributes": {
+                    "name": "Gio.ListModel",
+                    "type": "GListModel*"
+                  },
+                  "tag": "type"
+                }
+              ],
+              "tag": "return-value"
+            }
+          ],
+          "tag": "method"
+        },
+        {
+          "attributes": {
+            "get-property": "selected",
+            "identifier": "awra_completion_popover_get_selected",
+            "name": "get_selected",
+            "version": "1.1"
+          },
+          "children": [
+            {
+              "attributes": {},
+              "children": [
+                {
+                  "attributes": {
+                    "name": "self",
+                    "transfer-ownership": "none"
+                  },
+                  "children": [
+                    {
+                      "attributes": {
+                        "name": "CompletionPopover",
+                        "type": "AwraCompletionPopover*"
+                      },
+                      "tag": "type"
+                    }
+                  ],
+                  "tag": "instance-parameter"
+                }
+              ],
+              "tag": "parameters"
+            },
+            {
+              "attributes": {
+                "transfer-ownership": "none"
+              },
+              "children": [
+                {
+                  "attributes": {
+                    "name": "guint",
+                    "type": "guint"
+                  },
+                  "tag": "type"
+                }
+              ],
+              "tag": "return-value"
+            }
+          ],
+          "tag": "method"
+        },
+        {
+          "attributes": {
+            "identifier": "awra_completion_popover_present_at_cursor",
+            "name": "present_at_cursor",
+            "version": "1.1"
+          },
+          "children": [
+            {
+              "attributes": {},
+              "children": [
+                {
+                  "attributes": {
+                    "name": "self",
+                    "transfer-ownership": "none"
+                  },
+                  "children": [
+                    {
+                      "attributes": {
+                        "name": "CompletionPopover",
+                        "type": "AwraCompletionPopover*"
+                      },
+                      "tag": "type"
+                    }
+                  ],
+                  "tag": "instance-parameter"
+                }
+              ],
+              "tag": "parameters"
+            },
+            {
+              "attributes": {
+                "transfer-ownership": "none"
+              },
+              "children": [
+                {
+                  "attributes": {
+                    "name": "none",
+                    "type": "void"
+                  },
+                  "tag": "type"
+                }
+              ],
+              "tag": "return-value"
+            }
+          ],
+          "tag": "method"
+        },
+        {
+          "attributes": {
+            "identifier": "awra_completion_popover_set_factory",
+            "name": "set_factory",
+            "set-property": "factory",
+            "version": "1.1"
+          },
+          "children": [
+            {
+              "attributes": {},
+              "children": [
+                {
+                  "attributes": {
+                    "name": "self",
+                    "transfer-ownership": "none"
+                  },
+                  "children": [
+                    {
+                      "attributes": {
+                        "name": "CompletionPopover",
+                        "type": "AwraCompletionPopover*"
+                      },
+                      "tag": "type"
+                    }
+                  ],
+                  "tag": "instance-parameter"
+                },
+                {
+                  "attributes": {
+                    "allow-none": "1",
+                    "name": "factory",
+                    "nullable": "1",
+                    "transfer-ownership": "none"
+                  },
+                  "children": [
+                    {
+                      "attributes": {
+                        "name": "Gtk.ListItemFactory",
+                        "type": "GtkListItemFactory*"
+                      },
+                      "tag": "type"
+                    }
+                  ],
+                  "tag": "parameter"
+                }
+              ],
+              "tag": "parameters"
+            },
+            {
+              "attributes": {
+                "transfer-ownership": "none"
+              },
+              "children": [
+                {
+                  "attributes": {
+                    "name": "none",
+                    "type": "void"
+                  },
+                  "tag": "type"
+                }
+              ],
+              "tag": "return-value"
+            }
+          ],
+          "tag": "method"
+        },
+        {
+          "attributes": {
+            "identifier": "awra_completion_popover_set_model",
+            "name": "set_model",
+            "set-property": "model",
+            "version": "1.1"
+          },
+          "children": [
+            {
+              "attributes": {},
+              "children": [
+                {
+                  "attributes": {
+                    "name": "self",
+                    "transfer-ownership": "none"
+                  },
+                  "children": [
+                    {
+                      "attributes": {
+                        "name": "CompletionPopover",
+                        "type": "AwraCompletionPopover*"
+                      },
+                      "tag": "type"
+                    }
+                  ],
+                  "tag": "instance-parameter"
+                },
+                {
+                  "attributes": {
+                    "allow-none": "1",
+                    "name": "model",
+                    "nullable": "1",
+                    "transfer-ownership": "none"
+                  },
+                  "children": [
+                    {
+                      "attributes": {
+                        "name": "Gio.ListModel",
+                        "type": "GListModel*"
+                      },
+                      "tag": "type"
+                    }
+                  ],
+                  "tag": "parameter"
+                }
+              ],
+              "tag": "parameters"
+            },
+            {
+              "attributes": {
+                "transfer-ownership": "none"
+              },
+              "children": [
+                {
+                  "attributes": {
+                    "name": "none",
+                    "type": "void"
+                  },
+                  "tag": "type"
+                }
+              ],
+              "tag": "return-value"
+            }
+          ],
+          "tag": "method"
+        },
+        {
+          "attributes": {
+            "identifier": "awra_completion_popover_set_selected",
+            "name": "set_selected",
+            "set-property": "selected",
+            "version": "1.1"
+          },
+          "children": [
+            {
+              "attributes": {},
+              "children": [
+                {
+                  "attributes": {
+                    "name": "self",
+                    "transfer-ownership": "none"
+                  },
+                  "children": [
+                    {
+                      "attributes": {
+                        "name": "CompletionPopover",
+                        "type": "AwraCompletionPopover*"
+                      },
+                      "tag": "type"
+                    }
+                  ],
+                  "tag": "instance-parameter"
+                },
+                {
+                  "attributes": {
+                    "name": "position",
+                    "transfer-ownership": "none"
+                  },
+                  "children": [
+                    {
+                      "attributes": {
+                        "name": "guint",
+                        "type": "guint"
+                      },
+                      "tag": "type"
+                    }
+                  ],
+                  "tag": "parameter"
+                }
+              ],
+              "tag": "parameters"
+            },
+            {
+              "attributes": {
+                "transfer-ownership": "none"
+              },
+              "children": [
+                {
+                  "attributes": {
+                    "name": "none",
+                    "type": "void"
+                  },
+                  "tag": "type"
+                }
+              ],
+              "tag": "return-value"
+            }
+          ],
+          "tag": "method"
+        },
+        {
+          "attributes": {
+            "getter": "get_factory",
+            "name": "factory",
+            "setter": "set_factory",
+            "transfer-ownership": "none",
+            "writable": "1"
+          },
+          "children": [
+            {
+              "attributes": {
+                "name": "Gtk.ListItemFactory"
+              },
+              "tag": "type"
+            }
+          ],
+          "tag": "property"
+        },
+        {
+          "attributes": {
+            "getter": "get_model",
+            "name": "model",
+            "setter": "set_model",
+            "transfer-ownership": "none",
+            "writable": "1"
+          },
+          "children": [
+            {
+              "attributes": {
+                "name": "Gio.ListModel"
+              },
+              "tag": "type"
+            }
+          ],
+          "tag": "property"
+        },
+        {
+          "attributes": {
+            "default-value": "4294967295",
+            "getter": "get_selected",
+            "name": "selected",
+            "setter": "set_selected",
+            "transfer-ownership": "none",
+            "writable": "1"
+          },
+          "children": [
+            {
+              "attributes": {
+                "name": "guint",
+                "type": "guint"
+              },
+              "tag": "type"
+            }
+          ],
+          "tag": "property"
+        },
+        {
+          "attributes": {
+            "name": "activated",
+            "when": "last"
+          },
+          "children": [
+            {
+              "attributes": {},
+              "children": [
+                {
+                  "attributes": {
+                    "name": "object",
+                    "transfer-ownership": "none"
+                  },
+                  "children": [
+                    {
+                      "attributes": {
+                        "name": "guint",
+                        "type": "guint"
+                      },
+                      "tag": "type"
+                    }
+                  ],
+                  "tag": "parameter"
+                }
+              ],
+              "tag": "parameters"
+            },
+            {
+              "attributes": {
+                "transfer-ownership": "none"
+              },
+              "children": [
+                {
+                  "attributes": {
+                    "name": "none",
+                    "type": "void"
+                  },
+                  "tag": "type"
+                }
+              ],
+              "tag": "return-value"
+            }
+          ],
+          "tag": "signal"
+        },
+        {
+          "attributes": {
+            "name": "dismissed",
+            "when": "last"
+          },
+          "children": [
+            {
+              "attributes": {
+                "transfer-ownership": "none"
+              },
+              "children": [
+                {
+                  "attributes": {
+                    "name": "none",
+                    "type": "void"
+                  },
+                  "tag": "type"
+                }
+              ],
+              "tag": "return-value"
+            }
+          ],
+          "tag": "signal"
+        }
+      ],
+      "tag": "class"
+    },
+    {
+      "attributes": {
+        "final": "1",
         "get-type": "awra_composer_get_type",
         "name": "Composer",
         "parent": "Gtk.Widget",
@@ -66903,6 +67602,31 @@
               "attributes": {
                 "name": "WindowClass",
                 "type": "AwraWindowClass"
+              },
+              "tag": "type"
+            }
+          ],
+          "tag": "field"
+        }
+      ],
+      "tag": "record"
+    },
+    {
+      "attributes": {
+        "is-gtype-struct-for": "CompletionPopover",
+        "name": "CompletionPopoverClass",
+        "type": "AwraCompletionPopoverClass"
+      },
+      "children": [
+        {
+          "attributes": {
+            "name": "parent_class"
+          },
+          "children": [
+            {
+              "attributes": {
+                "name": "Gtk.PopoverClass",
+                "type": "GtkPopoverClass"
               },
               "tag": "type"
             }

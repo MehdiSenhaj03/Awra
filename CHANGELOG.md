@@ -21,6 +21,9 @@ unchanged (checked against the frozen 1.0.0 contract).
   send button that grows in when there is something to send. The text grows
   to `max-lines` with a smooth change of height; Enter sends, Shift+Enter
   starts a new line, and an input method composing keeps Enter.
+- `AwraCompletionPopover` shows suggestions at the caret of a text view or an
+  entry (mentions, emoji shortcodes, commands) without taking the focus: the
+  arrows move through them, Tab and Enter choose, Escape dismisses.
 
 ### Desktop workspace composition
 

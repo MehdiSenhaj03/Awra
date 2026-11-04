@@ -92,6 +92,7 @@
 #include <awra/awra-drop-zone.h>
 #include <awra/awra-conversation-view.h>
 #include <awra/awra-composer.h>
+#include <awra/awra-completion-popover.h>
 
 G_BEGIN_DECLS
 

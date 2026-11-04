@@ -24,6 +24,7 @@ int main() {
     printf("%s;%zu;%zu\n", "AwraCheckButtonClass", sizeof(AwraCheckButtonClass), alignof(AwraCheckButtonClass));
     printf("%s;%zu;%zu\n", "AwraChoiceGroupClass", sizeof(AwraChoiceGroupClass), alignof(AwraChoiceGroupClass));
     printf("%s;%zu;%zu\n", "AwraCommandPaletteClass", sizeof(AwraCommandPaletteClass), alignof(AwraCommandPaletteClass));
+    printf("%s;%zu;%zu\n", "AwraCompletionPopoverClass", sizeof(AwraCompletionPopoverClass), alignof(AwraCompletionPopoverClass));
     printf("%s;%zu;%zu\n", "AwraComposerClass", sizeof(AwraComposerClass), alignof(AwraComposerClass));
     printf("%s;%zu;%zu\n", "AwraContextClass", sizeof(AwraContextClass), alignof(AwraContextClass));
     printf("%s;%zu;%zu\n", "AwraConversationAlign", sizeof(AwraConversationAlign), alignof(AwraConversationAlign));

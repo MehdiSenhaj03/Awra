@@ -284,3 +284,7 @@ msgstr "Envoyer"
 #: src/widgets/awra-composer.c
 msgid "Close"
 msgstr "Fermer"
+
+#: src/overlays/awra-completion-popover.c
+msgid "Suggestions"
+msgstr "Suggestions"

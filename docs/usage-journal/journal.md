@@ -938,3 +938,20 @@ l’application. Un `GtkTextView` ne connaît sa hauteur qu’après sa premièr
 allocation : une ligne sert de plancher dès le départ, sinon le champ démarrait
 à la hauteur minimale de la barre de défilement du thème.
 
+## 2026-11-04 — Yapfast — Des suggestions au curseur
+
+Mentionner quelqu’un avec `@`, insérer un emoji avec `:nom:` ou lancer une
+commande avec `/` demandent tous une liste de suggestions au curseur qui ne
+vole pas le focus du texte. `GtkEntryCompletion` est dépréciée et ne couvre pas
+`GtkTextView`.
+
+`AwraCompletionPopover` se rattache à un `GtkTextView` ou à un `GtkEditable`,
+se place au-dessus de la ligne du curseur (en dessous s’il manque de place) et
+intercepte seulement Haut, Bas, Tab, Entrée et Échap tant qu’il est visible.
+L’application garde le filtrage et l’insertion. Deux pièges rencontrés : un
+popover dont la taille minimale grandit après son affichage est refermé par GTK,
+d’où une largeur minimale fixe ; et un `GtkTextView` détruit se plaint de tout
+enfant qu’il ne connaît pas, d’où un rattachement qui suit l’entrée et la sortie
+du widget dans une fenêtre. Le composeur consulte une marque privée pour ne pas
+envoyer quand Entrée choisit une suggestion.
+

@@ -76,3 +76,25 @@ shown. The `submit` handler reads `awra_composer_get_text()` and clears it with
 button. `awra_composer_get_view()` returns the `GtkTextView` for tags, inline
 images (child anchors) and further key handling.
 
+## Suggestions while typing: `AwraCompletionPopover`
+
+```c
+AwraCompletionPopover *mentions = AWRA_COMPLETION_POPOVER (awra_completion_popover_new ());
+
+awra_completion_popover_set_model (mentions, G_LIST_MODEL (filtered_people));
+awra_completion_popover_set_factory (mentions, person_factory);
+awra_completion_popover_attach (mentions, GTK_WIDGET (awra_composer_get_view (composer)));
+g_signal_connect (mentions, "activated", G_CALLBACK (insert_mention_cb), app);
+```
+
+The application decides when a word deserves suggestions (after `@`, `:` or
+`/`), filters the model, and calls
+`awra_completion_popover_present_at_cursor()`; it follows the caret when
+called again. While shown, the text keeps the focus: Up and Down move the
+selection and wrap around, Tab and Enter emit `activated` with the position,
+Escape closes it and emits `dismissed`. Hovering selects and clicking
+activates. An `AwraComposer` never sends on Enter while a completion attached
+to its text view is shown. The popover works with a `GtkTextView` or any
+`GtkEditable`, belongs to the widget it is attached to, and hides when the
+model empties or the text loses the focus.
+

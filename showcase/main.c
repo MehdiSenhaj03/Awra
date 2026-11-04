@@ -1383,12 +1383,15 @@ typedef struct {
   GtkStringList *messages;
   AwraConversationView *view;
   AwraComposer *composer;
+  AwraCompletionPopover *mentions;
+  GtkStringFilter *mention_filter;
+  GtkFilterListModel *mention_model;
   guint older_loaded;
   guint received;
 } ConversationDemo;
 
 static const char *conversation_authors[] = {
-  "Ines", "Malik", "Sora", "Ada", "Théo",
+  "Ines", "Malik", "Sora", "Ada", "Théo", NULL,
 };
 
 static const char *conversation_lines[] = {
@@ -1410,7 +1413,7 @@ conversation_message (guint index,
                       const char *prefix)
 {
   return g_strdup_printf ("%s\t%s%s",
-                          conversation_authors[(index * 7 + index / 3) % G_N_ELEMENTS (conversation_authors)],
+                          conversation_authors[(index * 7 + index / 3) % (G_N_ELEMENTS (conversation_authors) - 1)],
                           prefix,
                           conversation_lines[(index * 3) % G_N_ELEMENTS (conversation_lines)]);
 }
@@ -1557,12 +1560,94 @@ conversation_icon_button (const char *icon_name,
   return button;
 }
 
+/* The "@word" just before the caret, if the caret ends one. */
+static gboolean
+conversation_mention_bounds (AwraComposer *composer,
+                             GtkTextIter  *start,
+                             GtkTextIter  *end)
+{
+  GtkTextBuffer *buffer = awra_composer_get_buffer (composer);
+
+  gtk_text_buffer_get_iter_at_mark (buffer, end, gtk_text_buffer_get_insert (buffer));
+  *start = *end;
+  while (gtk_text_iter_backward_char (start)) {
+    gunichar c = gtk_text_iter_get_char (start);
+
+    if (c == '@')
+      return TRUE;
+    if (!g_unichar_isalnum (c))
+      return FALSE;
+  }
+  return FALSE;
+}
+
+static void
+conversation_text_changed_cb (GtkTextBuffer    *buffer,
+                              ConversationDemo *demo)
+{
+  GtkTextIter start;
+  GtkTextIter end;
+  g_autofree char *word = NULL;
+
+  (void) buffer;
+  if (!conversation_mention_bounds (demo->composer, &start, &end)) {
+    gtk_popover_popdown (GTK_POPOVER (demo->mentions));
+    return;
+  }
+  gtk_text_iter_forward_char (&start);
+  word = gtk_text_iter_get_text (&start, &end);
+  gtk_string_filter_set_search (demo->mention_filter, word);
+  awra_completion_popover_present_at_cursor (demo->mentions);
+}
+
+static void
+conversation_mention_cb (AwraCompletionPopover *mentions,
+                         guint                  position,
+                         ConversationDemo      *demo)
+{
+  GtkTextBuffer *buffer = awra_composer_get_buffer (demo->composer);
+  g_autoptr (GtkStringObject) name = g_list_model_get_item (G_LIST_MODEL (demo->mention_model), position);
+  g_autofree char *mention = g_strdup_printf ("@%s ", gtk_string_object_get_string (name));
+  GtkTextIter start;
+  GtkTextIter end;
+
+  if (!conversation_mention_bounds (demo->composer, &start, &end))
+    return;
+  gtk_popover_popdown (GTK_POPOVER (mentions));
+  g_signal_handlers_block_by_func (buffer, conversation_text_changed_cb, demo);
+  gtk_text_buffer_delete (buffer, &start, &end);
+  gtk_text_buffer_insert (buffer, &start, mention, -1);
+  g_signal_handlers_unblock_by_func (buffer, conversation_text_changed_cb, demo);
+}
+
+static void
+conversation_mention_setup_cb (GtkSignalListItemFactory *factory,
+                               GtkListItem              *item,
+                               gpointer                  user_data)
+{
+  (void) factory;
+  (void) user_data;
+  gtk_list_item_set_child (item, make_label (NULL, AWRA_TYPOGRAPHY_BODY));
+}
+
+static void
+conversation_mention_bind_cb (GtkSignalListItemFactory *factory,
+                              GtkListItem              *item,
+                              gpointer                  user_data)
+{
+  (void) factory;
+  (void) user_data;
+  gtk_label_set_text (GTK_LABEL (gtk_list_item_get_child (item)),
+                      gtk_string_object_get_string (gtk_list_item_get_item (item)));
+}
+
 static void
 conversation_demo_free (gpointer data)
 {
   ConversationDemo *demo = data;
 
   g_clear_object (&demo->messages);
+  g_clear_object (&demo->mention_model);
   g_free (demo);
 }
 
@@ -1605,7 +1690,7 @@ make_conversation_workspace (void)
   gtk_box_append (GTK_BOX (actions), find);
   gtk_box_append (GTK_BOX (box), timeline);
   demo->composer = AWRA_COMPOSER (composer);
-  awra_composer_set_placeholder_text (demo->composer, "Message #design-review");
+  awra_composer_set_placeholder_text (demo->composer, "Message #design-review — type @ to mention");
   awra_composer_set_start_widget (demo->composer,
                                   conversation_icon_button ("list-add-symbolic", "Attach"));
   awra_composer_set_end_widget (demo->composer,
@@ -1614,6 +1699,27 @@ make_conversation_workspace (void)
   gtk_widget_set_margin_end (composer, 12);
   gtk_widget_set_margin_bottom (composer, 12);
   g_signal_connect (composer, "submit", G_CALLBACK (conversation_submit_cb), demo);
+  {
+    GtkListItemFactory *mention_factory = gtk_signal_list_item_factory_new ();
+    GtkStringList *people = gtk_string_list_new (conversation_authors);
+
+    demo->mention_filter = gtk_string_filter_new (
+      gtk_property_expression_new (GTK_TYPE_STRING_OBJECT, NULL, "string"));
+    gtk_string_filter_set_match_mode (demo->mention_filter, GTK_STRING_FILTER_MATCH_MODE_PREFIX);
+    demo->mention_model = gtk_filter_list_model_new (G_LIST_MODEL (people),
+                                                     GTK_FILTER (demo->mention_filter));
+    g_signal_connect (mention_factory, "setup", G_CALLBACK (conversation_mention_setup_cb), NULL);
+    g_signal_connect (mention_factory, "bind", G_CALLBACK (conversation_mention_bind_cb), NULL);
+    demo->mentions = AWRA_COMPLETION_POPOVER (awra_completion_popover_new ());
+    awra_completion_popover_set_model (demo->mentions, G_LIST_MODEL (demo->mention_model));
+    awra_completion_popover_set_factory (demo->mentions, mention_factory);
+    g_object_unref (mention_factory);
+    awra_completion_popover_attach (demo->mentions,
+                                    GTK_WIDGET (awra_composer_get_view (demo->composer)));
+    g_signal_connect (demo->mentions, "activated", G_CALLBACK (conversation_mention_cb), demo);
+    g_signal_connect (awra_composer_get_buffer (demo->composer), "changed",
+                      G_CALLBACK (conversation_text_changed_cb), demo);
+  }
   g_signal_connect (reply, "clicked", G_CALLBACK (conversation_reply_cb), demo);
   gtk_box_append (GTK_BOX (actions), reply);
   gtk_box_append (GTK_BOX (box), composer);

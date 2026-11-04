@@ -315,6 +315,13 @@ const RUST_LAYOUTS: &[(&str, Layout)] = &[
         },
     ),
     (
+        "AwraCompletionPopoverClass",
+        Layout {
+            size: size_of::<AwraCompletionPopoverClass>(),
+            alignment: align_of::<AwraCompletionPopoverClass>(),
+        },
+    ),
+    (
         "AwraComposerClass",
         Layout {
             size: size_of::<AwraComposerClass>(),

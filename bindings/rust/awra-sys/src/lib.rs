@@ -362,6 +362,20 @@ impl ::std::fmt::Debug for AwraCommandPaletteClass {
 
 #[derive(Copy, Clone)]
 #[repr(C)]
+pub struct AwraCompletionPopoverClass {
+    pub parent_class: gtk::GtkPopoverClass,
+}
+
+impl ::std::fmt::Debug for AwraCompletionPopoverClass {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        f.debug_struct(&format!("AwraCompletionPopoverClass @ {self:p}"))
+            .field("parent_class", &self.parent_class)
+            .finish()
+    }
+}
+
+#[derive(Copy, Clone)]
+#[repr(C)]
 pub struct AwraComposerClass {
     pub parent_class: gtk::GtkWidgetClass,
 }
@@ -1546,6 +1560,20 @@ pub struct AwraCommandPalette {
 impl ::std::fmt::Debug for AwraCommandPalette {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
         f.debug_struct(&format!("AwraCommandPalette @ {self:p}"))
+            .finish()
+    }
+}
+
+#[repr(C)]
+#[allow(dead_code)]
+pub struct AwraCompletionPopover {
+    _data: [u8; 0],
+    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
+}
+
+impl ::std::fmt::Debug for AwraCompletionPopover {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        f.debug_struct(&format!("AwraCompletionPopover @ {self:p}"))
             .finish()
     }
 }
@@ -2855,6 +2883,61 @@ unsafe extern "C" {
     );
     pub fn awra_command_palette_set_query(self_: *mut AwraCommandPalette, query: *const c_char);
     pub fn awra_command_palette_set_title(self_: *mut AwraCommandPalette, title: *const c_char);
+
+    //=========================================================================
+    // AwraCompletionPopover
+    //=========================================================================
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_completion_popover_get_type() -> GType;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_completion_popover_new() -> *mut gtk::GtkWidget;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_completion_popover_attach(
+        self_: *mut AwraCompletionPopover,
+        text_widget: *mut gtk::GtkWidget,
+    );
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_completion_popover_get_attached_widget(
+        self_: *mut AwraCompletionPopover,
+    ) -> *mut gtk::GtkWidget;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_completion_popover_get_factory(
+        self_: *mut AwraCompletionPopover,
+    ) -> *mut gtk::GtkListItemFactory;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_completion_popover_get_model(
+        self_: *mut AwraCompletionPopover,
+    ) -> *mut gio::GListModel;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_completion_popover_get_selected(self_: *mut AwraCompletionPopover) -> c_uint;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_completion_popover_present_at_cursor(self_: *mut AwraCompletionPopover);
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_completion_popover_set_factory(
+        self_: *mut AwraCompletionPopover,
+        factory: *mut gtk::GtkListItemFactory,
+    );
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_completion_popover_set_model(
+        self_: *mut AwraCompletionPopover,
+        model: *mut gio::GListModel,
+    );
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_completion_popover_set_selected(
+        self_: *mut AwraCompletionPopover,
+        position: c_uint,
+    );
 
     //=========================================================================
     // AwraComposer

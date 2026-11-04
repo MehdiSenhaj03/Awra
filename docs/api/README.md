@@ -196,7 +196,8 @@ replaced in place from its last frame. `AwraTileView` divides a surface into
 as many tiles as the user wants; see
 [page composition](../guides/page-composition.md). `AwraConversationView` is
 a bottom-anchored, virtualized timeline for chats, comment threads and logs,
-and `AwraComposer` the growing field where messages are written; see
+`AwraComposer` the growing field where messages are written and
+`AwraCompletionPopover` the suggestions shown at its caret; see
 [conversations](../guides/conversations.md). Physical keys use `KeyboardEvent.code`
 identifiers; `awra_keyboard_code_from_hardware_keycode()`,
 `awra_keyboard_code_to_hardware_keycode()` and

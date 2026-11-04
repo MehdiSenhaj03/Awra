@@ -42,6 +42,13 @@ pub use self::command_palette::CommandPalette;
 
 #[cfg(feature = "v1_1")]
 #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+mod completion_popover;
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+pub use self::completion_popover::CompletionPopover;
+
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
 mod composer;
 #[cfg(feature = "v1_1")]
 #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
@@ -362,6 +369,9 @@ pub(crate) mod builders {
     pub use super::check_button::CheckButtonBuilder;
     pub use super::choice_group::ChoiceGroupBuilder;
     pub use super::command_palette::CommandPaletteBuilder;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub use super::completion_popover::CompletionPopoverBuilder;
     #[cfg(feature = "v1_1")]
     #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
     pub use super::composer::ComposerBuilder;
