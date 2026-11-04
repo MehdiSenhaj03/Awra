@@ -14,7 +14,7 @@ run/max_fps=0
 
 window/size/viewport_width=1920
 window/size/viewport_height=1080
-window/size/mode=3
+window/size/mode=0
 window/stretch/mode="canvas_items"
 window/stretch/aspect="expand"
 window/vsync/vsync_mode=1
@@ -40,3 +40,13 @@ global_illumination/sdfgi/probe_ray_count=0
 
 driver/mix_rate=48000
 general/default_playback_type.web=0
+
+[autoload]
+
+Sound="*res://src/audio/sound.gd"
+
+[importer_defaults]
+
+texture={
+"mipmaps/generate": true
+}

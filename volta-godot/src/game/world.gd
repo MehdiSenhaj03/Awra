@@ -150,9 +150,13 @@ func recoil(a: float) -> void:
 ## A perfect dash leaves a burst of light behind.
 func dash_burst(x: float, y: float) -> void:
 	emit({"t": "boom", "x": x, "y": y, "r": 2.6, "color": 0x2ef2ff})
-	for e in enemies.duplicate():
+	# Live iteration, as the original: foes born during the loop (splitter children) are visited too.
+	var i := 0
+	while i < enemies.size():
+		var e := enemies[i]
 		if e.is_active() and U.hypot(e.x - x, e.y - y) < 2.6 + e.r:
 			e.hit(self, 6.0 * mods.damage, x, y)
+		i += 1
 	clear_bullets(x, y, 2.6, true)
 
 ## Reflects enemy bullets inside the pulse. Returns how many.
