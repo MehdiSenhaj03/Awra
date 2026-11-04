@@ -93,8 +93,9 @@ awra_rich_label_clear_paintables (AWRA_RICH_LABEL (text));
 awra_rich_label_append_paintable (AWRA_RICH_LABEL (text), party);
 ```
 
-The label keeps wrapping, links, selection and typography; each picture is
-as tall as the text unless `inline-size` says otherwise, as for a message of
+The label keeps wrapping, links, selection, typography and the attributes
+you give it; each picture is as tall as the letters, following a scale given
+to the whole text, unless `inline-size` says otherwise, as for a message of
 nothing but emoji. Give %NULL for a picture still loading: its room is kept,
 and appending again after `clear_paintables` fills it without moving a line.
 A picture that changes (an animation, a texture that arrives) redraws the

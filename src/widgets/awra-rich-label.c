@@ -15,7 +15,10 @@ struct _AwraRichLabel {
   GtkLabel *label;
   GPtrArray *paintables; /* GdkPaintable or NULL, in text order */
   int inline_size;
+  int shape_size;   /* the side of each square, in Pango units */
+  gboolean shaping; /* setting the label's attributes ourselves */
   gulong label_handler;
+  gulong attributes_handler;
 };
 
 enum { PROP_0, PROP_INLINE_SIZE, N_PROPS };
@@ -23,34 +26,70 @@ static GParamSpec *properties[N_PROPS];
 
 G_DEFINE_FINAL_TYPE (AwraRichLabel, awra_rich_label, GTK_TYPE_WIDGET)
 
+static gboolean
+is_shape (PangoAttribute *attribute,
+          gpointer        data)
+{
+  (void) data;
+  return attribute->klass->type == PANGO_ATTR_SHAPE;
+}
+
+/* A scale the application gave the whole text, which the pictures follow. */
+static double
+whole_scale (PangoAttrList *attributes)
+{
+  double scale = 1.0;
+  GSList *all;
+
+  if (attributes == NULL)
+    return 1.0;
+  all = pango_attr_list_get_attributes (attributes);
+  for (GSList *l = all; l != NULL; l = l->next) {
+    PangoAttribute *attribute = l->data;
+
+    if (attribute->klass->type == PANGO_ATTR_SCALE &&
+        attribute->start_index == PANGO_ATTR_INDEX_FROM_TEXT_BEGINNING &&
+        attribute->end_index == PANGO_ATTR_INDEX_TO_TEXT_END)
+      scale = ((PangoAttrFloat *) attribute)->value;
+  }
+  g_slist_free_full (all, (GDestroyNotify) pango_attribute_destroy);
+  return scale;
+}
+
 static int
-resolved_size (AwraRichLabel *self)
+resolved_size (AwraRichLabel *self,
+               PangoAttrList *attributes)
 {
   PangoContext *context;
   PangoFontMetrics *metrics;
   int height;
 
   if (self->inline_size > 0)
-    return self->inline_size;
-  /* As tall as the text's own line, so a picture reads as a letter. */
+    return self->inline_size * PANGO_SCALE;
+  /* As tall as the text's own letters, so a picture reads as one. */
   context = gtk_widget_get_pango_context (GTK_WIDGET (self->label));
   metrics = pango_context_get_metrics (context, NULL, NULL);
-  height = PANGO_PIXELS (pango_font_metrics_get_ascent (metrics) +
-                         pango_font_metrics_get_descent (metrics));
+  height = pango_font_metrics_get_ascent (metrics) + pango_font_metrics_get_descent (metrics);
   pango_font_metrics_unref (metrics);
-  return MAX (height, 12);
+  return (int) (MAX (height, 12 * PANGO_SCALE) * whole_scale (attributes));
 }
 
-/* Shapes each U+FFFC as a square standing on the baseline. */
+/* Shapes each U+FFFC as a square standing on the baseline, beside the
+ * attributes the application gave the label. */
 static void
 update_shapes (AwraRichLabel *self)
 {
   const char *text = gtk_label_get_text (self->label);
-  int size = resolved_size (self) * PANGO_SCALE;
+  PangoAttrList *given = gtk_label_get_attributes (self->label);
+  PangoAttrList *attributes = given != NULL ? pango_attr_list_copy (given) : pango_attr_list_new ();
+  PangoAttrList *old_shapes = pango_attr_list_filter (attributes, is_shape, NULL);
+  int size = resolved_size (self, attributes);
   PangoRectangle rect = { 0, -size * 4 / 5, size, size };
-  PangoAttrList *attributes = pango_attr_list_new ();
   const char *at = text;
+  gboolean any = old_shapes != NULL;
 
+  g_clear_pointer (&old_shapes, pango_attr_list_unref);
+  self->shape_size = size;
   while ((at = strstr (at, REPLACEMENT)) != NULL) {
     PangoAttribute *shape = pango_attr_shape_new (&rect, &rect);
 
@@ -58,8 +97,15 @@ update_shapes (AwraRichLabel *self)
     shape->end_index = shape->start_index + strlen (REPLACEMENT);
     pango_attr_list_insert (attributes, shape);
     at += strlen (REPLACEMENT);
+    any = TRUE;
   }
-  gtk_label_set_attributes (self->label, attributes);
+  /* Setting the same list again would notify again: notify doesn't recurse,
+   * it starts over, so this must settle. */
+  if (any && (given == NULL || !pango_attr_list_equal (given, attributes))) {
+    self->shaping = TRUE;
+    gtk_label_set_attributes (self->label, attributes);
+    self->shaping = FALSE;
+  }
   pango_attr_list_unref (attributes);
   gtk_widget_queue_draw (GTK_WIDGET (self));
 }
@@ -71,7 +117,8 @@ label_changed_cb (GtkLabel      *label,
 {
   (void) label;
   (void) pspec;
-  update_shapes (self);
+  if (!self->shaping)
+    update_shapes (self);
 }
 
 static void
@@ -110,6 +157,20 @@ awra_rich_label_get_request_mode (GtkWidget *widget)
   return gtk_widget_get_request_mode (GTK_WIDGET (AWRA_RICH_LABEL (widget)->label));
 }
 
+static int
+line_baseline (PangoLayout *layout,
+               int          line)
+{
+  PangoLayoutIter *iter = pango_layout_get_iter (layout);
+  int baseline;
+
+  for (int i = 0; i < line && pango_layout_iter_next_line (iter); i++)
+    ;
+  baseline = pango_layout_iter_get_baseline (iter);
+  pango_layout_iter_free (iter);
+  return baseline;
+}
+
 static void
 awra_rich_label_snapshot (GtkWidget   *widget,
                           GtkSnapshot *snapshot)
@@ -134,14 +195,28 @@ awra_rich_label_snapshot (GtkWidget   *widget,
     PangoRectangle place;
 
     if (paintable != NULL) {
-      pango_layout_index_to_pos (layout, (int) (at - text), &place);
+      int index = (int) (at - text);
+      int line = 0;
+      int baseline;
+      double side = (double) self->shape_size / PANGO_SCALE;
+      double ratio = gdk_paintable_get_intrinsic_aspect_ratio (paintable);
+      double width = side;
+      double height = side;
+
+      pango_layout_index_to_pos (layout, index, &place);
+      pango_layout_index_to_line_x (layout, index, FALSE, &line, NULL);
+      baseline = line_baseline (layout, line);
+      /* Fitted in its square, keeping its own proportions. */
+      if (ratio > 1.0)
+        height = side / ratio;
+      else if (ratio > 0.0)
+        width = side * ratio;
       gtk_snapshot_save (snapshot);
       gtk_snapshot_translate (snapshot, &GRAPHENE_POINT_INIT (
-        offset_x + (float) place.x / PANGO_SCALE,
-        offset_y + (float) place.y / PANGO_SCALE));
-      gdk_paintable_snapshot (paintable, snapshot,
-                              (double) place.width / PANGO_SCALE,
-                              (double) place.height / PANGO_SCALE);
+        offset_x + (float) place.x / PANGO_SCALE + (float) (side - width) / 2,
+        offset_y + (float) (baseline - self->shape_size * 4 / 5) / PANGO_SCALE +
+          (float) (side - height) / 2));
+      gdk_paintable_snapshot (paintable, snapshot, width, height);
       gtk_snapshot_restore (snapshot);
     }
     at += strlen (REPLACEMENT);
@@ -152,9 +227,13 @@ static void
 awra_rich_label_css_changed (GtkWidget         *widget,
                              GtkCssStyleChange *change)
 {
+  AwraRichLabel *self = AWRA_RICH_LABEL (widget);
+
   GTK_WIDGET_CLASS (awra_rich_label_parent_class)->css_changed (widget, change);
-  /* The text's size may have changed, and with it the pictures'. */
-  update_shapes (AWRA_RICH_LABEL (widget));
+  /* The text's size may have changed, and with it the pictures'; a change
+   * of state alone, such as hovering, leaves the layout alone. */
+  if (resolved_size (self, gtk_label_get_attributes (self->label)) != self->shape_size)
+    update_shapes (self);
 }
 
 static void
@@ -178,6 +257,7 @@ awra_rich_label_dispose (GObject *object)
     drop_paintables (self);
   if (self->label != NULL) {
     g_clear_signal_handler (&self->label_handler, self->label);
+    g_clear_signal_handler (&self->attributes_handler, self->label);
     gtk_widget_unparent (GTK_WIDGET (self->label));
     self->label = NULL;
   }
@@ -259,6 +339,9 @@ awra_rich_label_init (AwraRichLabel *self)
   gtk_widget_set_parent (GTK_WIDGET (self->label), GTK_WIDGET (self));
   self->label_handler = g_signal_connect (self->label, "notify::label",
                                           G_CALLBACK (label_changed_cb), self);
+  /* Attributes the application sets are kept, with the shapes added back. */
+  self->attributes_handler = g_signal_connect (self->label, "notify::attributes",
+                                               G_CALLBACK (label_changed_cb), self);
 }
 
 GtkWidget *

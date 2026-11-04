@@ -20,6 +20,22 @@ natural_height (GtkWidget *widget)
   return natural;
 }
 
+static double
+whole_scale_of (PangoAttrList *attributes)
+{
+  double scale = 0.0;
+  GSList *all = pango_attr_list_get_attributes (attributes);
+
+  for (GSList *l = all; l != NULL; l = l->next) {
+    PangoAttribute *attribute = l->data;
+
+    if (attribute->klass->type == PANGO_ATTR_SCALE)
+      scale = ((PangoAttrFloat *) attribute)->value;
+  }
+  g_slist_free_full (all, (GDestroyNotify) pango_attribute_destroy);
+  return scale;
+}
+
 static GdkPaintable *
 red_square (void)
 {
@@ -96,11 +112,40 @@ test_pictures_take_room_and_draw (void)
   gtk_window_destroy (GTK_WINDOW (window));
 }
 
+static void
+test_given_attributes_are_kept (void)
+{
+  GtkWidget *rich = awra_rich_label_new ();
+  GtkLabel *label = awra_rich_label_get_label (AWRA_RICH_LABEL (rich));
+  PangoAttrList *attributes = pango_attr_list_new ();
+  int plain;
+  int scaled;
+
+  g_object_ref_sink (rich);
+  gtk_label_set_text (label, "a\xef\xbf\xbc" "b");
+  plain = natural_width (rich);
+  /* A scale the application gives the text survives the shapes, and the
+   * picture grows with the letters. */
+  pango_attr_list_insert (attributes, pango_attr_scale_new (2.0));
+  gtk_label_set_attributes (label, attributes);
+  pango_attr_list_unref (attributes);
+  scaled = natural_width (rich);
+  g_assert_cmpint (scaled, >=, plain * 2 - 2);
+  attributes = gtk_label_get_attributes (label);
+  g_assert_nonnull (attributes);
+  g_assert_cmpfloat (whole_scale_of (attributes), ==, 2.0);
+  /* New text keeps them too. */
+  gtk_label_set_text (label, "\xef\xbf\xbc");
+  g_assert_cmpfloat (whole_scale_of (gtk_label_get_attributes (label)), ==, 2.0);
+  g_object_unref (rich);
+}
+
 int
 main (int argc, char **argv)
 {
   gtk_test_init (&argc, &argv, NULL);
   awra_init ();
   g_test_add_func ("/rich-label/pictures", test_pictures_take_room_and_draw);
+  g_test_add_func ("/rich-label/attributes", test_given_attributes_are_kept);
   return g_test_run ();
 }
