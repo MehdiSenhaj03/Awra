@@ -148,6 +148,7 @@ awra_rail_group_face_size_allocate (GtkWidget *widget,
     gtk_widget_allocate (self->minis[i], (int) mini, (int) mini, -1,
                          gsk_transform_translate (NULL, &GRAPHENE_POINT_INIT (x, y)));
   }
+  awra_widget_present_popovers (widget);
 }
 
 static void
@@ -386,6 +387,7 @@ awra_rail_group_size_allocate (GtkWidget *widget,
                          gsk_transform_translate (NULL, &GRAPHENE_POINT_INIT (0, y)));
     y += item_height;
   }
+  awra_widget_present_popovers (widget);
 }
 
 static void

@@ -35,4 +35,10 @@ GdkRGBA       awra_rgba_with_alpha           (const GdkRGBA      *color,
 GdkRGBA       awra_rgba_readable             (const GdkRGBA      *color,
                                               gboolean            dark);
 
+/* Presents the popovers parented to @widget, such as a context menu's.
+ * GTK does it for widgets with a layout manager; a widget allocating its
+ * children itself calls this at the end of its size_allocate(), or its
+ * popovers never show. */
+void          awra_widget_present_popovers   (GtkWidget          *widget);
+
 G_END_DECLS

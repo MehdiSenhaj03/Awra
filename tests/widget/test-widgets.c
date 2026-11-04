@@ -1851,6 +1851,29 @@ test_conversation_edge_status (void)
   g_object_unref (view);
 }
 
+/* A rail item allocates its children itself; its context menu still
+ * shows. */
+static void
+test_rail_item_context_menu (void)
+{
+  g_autoptr (GMenu) menu = g_menu_new ();
+  GtkWidget *window = gtk_window_new ();
+  GtkWidget *item = awra_rail_item_new ("Server");
+  AwraPopover *popover;
+
+  g_menu_append (menu, "Mute", "rail.mute");
+  gtk_window_set_child (GTK_WINDOW (window), item);
+  awra_widget_set_context_menu_model (item, G_MENU_MODEL (menu));
+  gtk_window_present (GTK_WINDOW (window));
+  settle_window (window);
+  popover = awra_widget_get_context_menu_popover (item);
+  gtk_popover_popup (GTK_POPOVER (popover));
+  settle_window (window);
+  g_assert_true (gtk_widget_get_mapped (GTK_WIDGET (popover)));
+  gtk_popover_popdown (GTK_POPOVER (popover));
+  gtk_window_destroy (GTK_WINDOW (window));
+}
+
 /* A subtitle allowed more lines wraps onto them at a narrow width. */
 static void
 test_action_row_subtitle_lines (void)
@@ -3269,6 +3292,8 @@ main (int   argc,
                    test_search_entry_activate);
   g_test_add_func ("/awra/widgets/conversation-edge-status",
                    test_conversation_edge_status);
+  g_test_add_func ("/awra/widgets/rail-item-context-menu",
+                   test_rail_item_context_menu);
   g_test_add_func ("/awra/widgets/color-palette",
                    test_color_palette);
   g_test_add_func ("/awra/widgets/page-wraps-its-content",

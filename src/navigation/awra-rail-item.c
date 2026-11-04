@@ -681,6 +681,7 @@ awra_rail_item_size_allocate (GtkWidget *widget,
     gtk_popover_set_pointing_to (GTK_POPOVER (self->tooltip), &pointing);
     gtk_popover_present (GTK_POPOVER (self->tooltip));
   }
+  awra_widget_present_popovers (widget);
 }
 
 static void

@@ -182,6 +182,9 @@ unchanged (checked against the frozen 1.0.0 contract).
 - Beside its control, an `AwraFormRow` label sits level with the control's
   first line: baseline to baseline, centred on a switch, near the top of a
   text area. It was centred on the control and its help text.
+- Context menus show on the widgets that allocate their children
+  themselves: rail items and groups, the rail, dividers, tile views and
+  the conversation view presented no popover but their own.
 - A widget given a context menu unparents its popover as it's disposed;
   recycled list rows left GTK a child to warn about at finalization.
 - A badge in a light custom colour takes dark text, where it always had

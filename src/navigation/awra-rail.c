@@ -229,6 +229,7 @@ awra_rail_list_size_allocate (GtkWidget *widget,
                          gsk_transform_translate (NULL, &GRAPHENE_POINT_INIT (0, round (top))));
     y += child_height + gap;
   }
+  awra_widget_present_popovers (widget);
 }
 
 static void

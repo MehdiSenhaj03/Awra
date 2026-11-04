@@ -2,6 +2,7 @@
 
 #include <math.h>
 
+#include "widgets/awra-widget-style-private.h"
 #include <awra/awra-conversation-view.h>
 
 #include <awra/awra-button.h>
@@ -1196,6 +1197,7 @@ awra_conversation_view_size_allocate (GtkWidget *widget,
     gtk_widget_allocate (self->edges[i], edge_width, edge_height, -1,
                          gsk_transform_translate (NULL, &GRAPHENE_POINT_INIT ((width - edge_width) / 2.0f, y)));
   }
+  awra_widget_present_popovers (widget);
 }
 
 static void

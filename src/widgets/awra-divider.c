@@ -2,6 +2,7 @@
 
 #include <math.h>
 
+#include "widgets/awra-widget-style-private.h"
 #include <awra/awra-divider.h>
 
 /* Calibration, not ABI: space between a line and the label. */
@@ -91,6 +92,7 @@ awra_divider_size_allocate (GtkWidget *widget,
   gtk_widget_allocate (GTK_WIDGET (self->label), label_width, label_height, -1,
                        gsk_transform_translate (NULL, &GRAPHENE_POINT_INIT (
                          roundf (x), roundf ((height - label_height) / 2.0f))));
+  awra_widget_present_popovers (widget);
 }
 
 static void

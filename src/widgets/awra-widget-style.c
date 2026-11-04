@@ -96,3 +96,12 @@ awra_rgba_readable (const GdkRGBA *color,
   result.alpha = color->alpha;
   return result;
 }
+
+void
+awra_widget_present_popovers (GtkWidget *widget)
+{
+  for (GtkWidget *child = gtk_widget_get_first_child (widget); child != NULL;
+       child = gtk_widget_get_next_sibling (child))
+    if (GTK_IS_POPOVER (child) && gtk_widget_get_visible (child))
+      gtk_popover_present (GTK_POPOVER (child));
+}

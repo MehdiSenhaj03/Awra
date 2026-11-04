@@ -2,6 +2,7 @@
 
 #include <math.h>
 
+#include "widgets/awra-widget-style-private.h"
 #include <awra/awra-context.h>
 #include <awra/awra-motion.h>
 #include <awra/awra-tile-view.h>
@@ -827,6 +828,7 @@ awra_tile_view_size_allocate (GtkWidget *widget,
     return;
   arrange (self);
   allocate_tile (self, self->root);
+  awra_widget_present_popovers (widget);
 }
 
 static void
