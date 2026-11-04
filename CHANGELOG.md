@@ -42,6 +42,12 @@ unchanged (checked against the frozen 1.0.0 contract).
 - `AwraTokenSet` gains `success` and `warning` colours for states drawn by
   widgets themselves.
 
+- `AwraNavigationItem` carries what a list of people or conversations
+  shows: a `prefix` widget in place of the icon (an avatar, a swatch), a
+  quieter `subtitle` line, `emphasized` for a destination with something
+  new (full contrast and weight) and `muted` for a silenced one, which
+  recedes until hovered or selected.
+
 ### Desktop workspace composition
 
 - `AwraFormRow` asks for its side-by-side width as natural width, so a container

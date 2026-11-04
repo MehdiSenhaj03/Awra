@@ -922,3 +922,17 @@ tranche. `AwraTypingIndicator` répond à « X est en train d’écrire » sans 
 bouger la conversation, et `AwraChip` couvre réactions, filtres et étiquettes
 avec un compteur dont seuls les chiffres modifiés défilent. Les jetons gagnent
 `success` et `warning`, nécessaires aux états dessinés par les widgets.
+
+
+## 2026-11-04 — Yapfast — Des lignes de navigation qui portent une personne
+
+La liste des conversations de Yapfast mêlait salons et messages privés :
+un salon se lit avec une icône, un MP avec l'avatar de la personne, son
+statut en seconde ligne, et un salon non lu doit ressortir alors qu'un salon
+en sourdine doit s'effacer. Les lignes faites à la main avec des rôles
+`nav-row` donnaient des plaques grises trop présentes. `AwraNavigationItem`
+gagne donc un `prefix` (n'importe quel widget à la place de l'icône), un
+`subtitle`, et deux états sémantiques, `emphasized` et `muted`, rendus par
+Awra : contraste et graisse pour le premier, recul jusqu'au survol pour le
+second. Rien de propre à la messagerie : une boîte mail, une liste de
+comptes ou de projets s'en servent de la même façon.

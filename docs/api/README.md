@@ -111,7 +111,9 @@ selection, keyboard navigation and accessibility semantics in GTK.
 
 The extended set includes `AwraActionRow`, `AwraDropdown`, `AwraListView`,
 `AwraSegmentedControl`, `AwraTabView`, `AwraNavigationView`,
-`AwraNavigationItem`, `AwraBadge` and `AwraProgressBar`. Buttons expose Primary,
+`AwraNavigationItem`, `AwraBadge` and `AwraProgressBar`. A navigation item
+can lead with any widget (`prefix`, such as an `AwraAvatar`), carry a quieter
+`subtitle`, and mark a destination `emphasized` (something new) or `muted`. Buttons expose Primary,
 Secondary, Ghost, Destructive and Toolbar appearances.
 Use Secondary for ordinary dismissive dialog actions: it remains identifiable
 at rest and strengthens its material plane on hover. Ghost is intentionally

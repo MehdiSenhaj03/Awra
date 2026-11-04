@@ -1891,6 +1891,53 @@ test_overlays_and_navigation (void)
 }
 
 static void
+test_navigation_item_details (void)
+{
+  GtkWidget *item = awra_navigation_item_new_with_label ("Ada");
+  GtkWidget *prefix = gtk_label_new ("A");
+  GtkWidget *other = gtk_label_new ("B");
+
+  g_object_ref_sink (item);
+  g_object_ref_sink (prefix);
+  awra_navigation_item_set_icon_name (AWRA_NAVIGATION_ITEM (item),
+                                      "go-home-symbolic");
+  /* A prefix stands in for the icon, and gives its place back. */
+  awra_navigation_item_set_prefix (AWRA_NAVIGATION_ITEM (item), prefix);
+  g_assert_true (awra_navigation_item_get_prefix (
+                   AWRA_NAVIGATION_ITEM (item)) == prefix);
+  g_assert_true (gtk_widget_is_ancestor (prefix, item));
+  awra_navigation_item_set_prefix (AWRA_NAVIGATION_ITEM (item), other);
+  g_assert_null (gtk_widget_get_parent (prefix));
+  g_assert_true (gtk_widget_is_ancestor (other, item));
+  awra_navigation_item_set_prefix (AWRA_NAVIGATION_ITEM (item), NULL);
+  g_assert_null (awra_navigation_item_get_prefix (AWRA_NAVIGATION_ITEM (item)));
+
+  /* The subtitle shows only while it says something. */
+  g_assert_cmpstr (awra_navigation_item_get_subtitle (
+                     AWRA_NAVIGATION_ITEM (item)), ==, "");
+  awra_navigation_item_set_subtitle (AWRA_NAVIGATION_ITEM (item),
+                                     "Playing chess");
+  g_assert_cmpstr (awra_navigation_item_get_subtitle (
+                     AWRA_NAVIGATION_ITEM (item)), ==, "Playing chess");
+  awra_navigation_item_set_subtitle (AWRA_NAVIGATION_ITEM (item), NULL);
+  g_assert_cmpstr (awra_navigation_item_get_subtitle (
+                     AWRA_NAVIGATION_ITEM (item)), ==, "");
+
+  awra_navigation_item_set_emphasized (AWRA_NAVIGATION_ITEM (item), TRUE);
+  g_assert_true (awra_navigation_item_get_emphasized (
+                   AWRA_NAVIGATION_ITEM (item)));
+  g_assert_true (gtk_widget_has_css_class (item, "awra-emphasized"));
+  awra_navigation_item_set_muted (AWRA_NAVIGATION_ITEM (item), TRUE);
+  g_assert_true (awra_navigation_item_get_muted (AWRA_NAVIGATION_ITEM (item)));
+  g_object_set (item, "muted", FALSE, "emphasized", FALSE, NULL);
+  g_assert_false (gtk_widget_has_css_class (item, "awra-muted"));
+  g_assert_false (gtk_widget_has_css_class (item, "awra-emphasized"));
+
+  g_object_unref (prefix);
+  g_object_unref (item);
+}
+
+static void
 test_dialog (void)
 {
   g_autoptr (GtkApplication) app = gtk_application_new (
@@ -2875,6 +2922,8 @@ main (int   argc,
   g_test_add_func ("/awra/widgets/overlays-navigation",
                    test_overlays_and_navigation);
   g_test_add_func ("/awra/widgets/dialog", test_dialog);
+  g_test_add_func ("/awra/widgets/navigation-item-details",
+                   test_navigation_item_details);
   g_test_add_func ("/awra/widgets/command-palette", test_command_palette);
   g_test_add_func ("/awra/widgets/extended-components",
                    test_extended_components);

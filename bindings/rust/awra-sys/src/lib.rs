@@ -4316,12 +4316,30 @@ unsafe extern "C" {
     pub fn awra_navigation_item_get_type() -> GType;
     pub fn awra_navigation_item_new() -> *mut gtk::GtkWidget;
     pub fn awra_navigation_item_new_with_label(label: *const c_char) -> *mut gtk::GtkWidget;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_navigation_item_get_emphasized(self_: *mut AwraNavigationItem) -> gboolean;
     pub fn awra_navigation_item_get_icon_name(self_: *mut AwraNavigationItem) -> *const c_char;
     pub fn awra_navigation_item_get_label(self_: *mut AwraNavigationItem) -> *const c_char;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_navigation_item_get_muted(self_: *mut AwraNavigationItem) -> gboolean;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_navigation_item_get_prefix(self_: *mut AwraNavigationItem) -> *mut gtk::GtkWidget;
     pub fn awra_navigation_item_get_selected(self_: *mut AwraNavigationItem) -> gboolean;
     #[cfg(feature = "v1_1")]
     #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_navigation_item_get_subtitle(self_: *mut AwraNavigationItem) -> *const c_char;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
     pub fn awra_navigation_item_get_suffix(self_: *mut AwraNavigationItem) -> *mut gtk::GtkWidget;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_navigation_item_set_emphasized(
+        self_: *mut AwraNavigationItem,
+        emphasized: gboolean,
+    );
     pub fn awra_navigation_item_set_group(
         self_: *mut AwraNavigationItem,
         group: *mut AwraNavigationItem,
@@ -4331,7 +4349,22 @@ unsafe extern "C" {
         icon_name: *const c_char,
     );
     pub fn awra_navigation_item_set_label(self_: *mut AwraNavigationItem, label: *const c_char);
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_navigation_item_set_muted(self_: *mut AwraNavigationItem, muted: gboolean);
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_navigation_item_set_prefix(
+        self_: *mut AwraNavigationItem,
+        prefix: *mut gtk::GtkWidget,
+    );
     pub fn awra_navigation_item_set_selected(self_: *mut AwraNavigationItem, selected: gboolean);
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_navigation_item_set_subtitle(
+        self_: *mut AwraNavigationItem,
+        subtitle: *const c_char,
+    );
     #[cfg(feature = "v1_1")]
     #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
     pub fn awra_navigation_item_set_suffix(

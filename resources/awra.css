@@ -2845,6 +2845,30 @@ awrasidebar .awra-navigation-item {
   margin-left: 4px;
 }
 
+.awra-navigation-item-subtitle {
+  color: @awra_muted;
+  font-size: 0.86em;
+  font-weight: 400;
+}
+
+/* Something new: the label reads at full contrast and weight. */
+.awra-navigation-item.awra-emphasized {
+  color: @awra_foreground;
+}
+
+.awra-navigation-item.awra-emphasized .awra-navigation-item-label {
+  font-weight: 700;
+}
+
+/* Silenced: it recedes until hovered or selected. */
+.awra-navigation-item.awra-muted:not(:hover):not(:checked) {
+  color: alpha(@awra_muted, 0.6);
+}
+
+.awra-navigation-item-prefix {
+  margin: -3px 0;
+}
+
 .awra-navigation-item:checked .awra-navigation-item-icon {
   color: @awra_accent_content;
 }
