@@ -4079,3 +4079,86 @@ menubutton.awra-role-inline-action arrow {
   text-shadow: none;
   -gtk-icon-shadow: none;
 }
+
+/* A GTK button that is a whole row of a list or a menu: flat and full
+ * width, with the navigation row's hover and press. */
+button.awra-role-row-action:not(.awra-button),
+button.awra-role-row-action:not(.awra-button):backdrop {
+  min-width: 0;
+  min-height: 0;
+  margin: 1px 0;
+  padding: 6px 8px;
+  border: 0;
+  border-radius: 8px;
+  outline: 0;
+  background-color: transparent;
+  background-image: none;
+  box-shadow: none;
+  text-shadow: none;
+  color: @awra_foreground;
+  -gtk-icon-shadow: none;
+  -gtk-icon-filter: none;
+}
+
+button.awra-role-row-action:not(.awra-button):hover {
+  background-color: @awra_control_hover;
+}
+
+button.awra-role-row-action:not(.awra-button):active,
+button.awra-role-row-action:not(.awra-button):checked {
+  background-color: @awra_control_pressed;
+}
+
+button.awra-role-row-action:not(.awra-button):focus-visible {
+  outline: 2px solid @awra_focus;
+  outline-offset: -2px;
+}
+
+button.awra-role-row-action:not(.awra-button) label,
+button.awra-role-row-action:not(.awra-button) image {
+  color: inherit;
+  background: transparent;
+  text-shadow: none;
+  -gtk-icon-shadow: none;
+}
+
+/* A GTK button that opens a search or a command palette, drawn as the
+ * quiet field it stands for. */
+button.awra-role-search-launcher,
+button.awra-role-search-launcher:backdrop {
+  min-height: 0;
+  margin: 0;
+  padding: 5px 12px;
+  border: 0;
+  border-radius: 999px;
+  outline: 0;
+  background-color: @awra_control_hover;
+  background-image: none;
+  box-shadow: inset 0 0 0 1px alpha(@awra_foreground, .06);
+  text-shadow: none;
+  color: @awra_muted;
+  -gtk-icon-shadow: none;
+}
+
+button.awra-role-search-launcher:hover {
+  background-color: @awra_cap_hover;
+  color: @awra_foreground;
+}
+
+button.awra-role-search-launcher:focus-visible {
+  outline: 2px solid @awra_focus;
+  outline-offset: 1px;
+}
+
+button.awra-role-search-launcher label,
+button.awra-role-search-launcher image {
+  color: inherit;
+  background: transparent;
+}
+
+/* A row the person is acting on, such as a message being replied to. */
+.awra-role-chosen-row {
+  border-radius: 8px;
+  background-color: @awra_selection;
+  box-shadow: inset 2px 0 @awra_accent;
+}

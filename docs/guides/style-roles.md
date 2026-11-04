@@ -68,6 +68,9 @@ preferences as the rest of Awra.
 | `view-switcher` | GtkBox containing AwraToggleButton | Compact, observable view selection |
 | `floating-selection` | AwraSelectionToolbar | Selection actions over content without moving it |
 | `entry-hover` / `conversation-entry` | AwraConversationView / the entry inside its row | Rows that also carry a date or a heading tint only their entry on hover |
+| `row-action` | GtkButton that is a whole row | Flat full-width row with navigation hover and press, theme-proof |
+| `search-launcher` | GtkButton that opens search | Quiet pill drawn as the field it opens |
+| `chosen-row` | Any row container | A row being acted on, such as a message being replied to |
 | `inline-edit` | AwraEntry replacing text in a row | Edit in place at the height of the text |
 | `inline-action` | Any GtkButton inside a row or content | Quiet action, transparent at rest; Awra owns its look, so the desktop theme does not draw a button around it |
 | `usage-meter` | AwraProgressBar under a row | Thin capacity gauge; `awra-usage-low` turns it red |
