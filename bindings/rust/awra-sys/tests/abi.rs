@@ -350,6 +350,13 @@ const RUST_LAYOUTS: &[(&str, Layout)] = &[
         },
     ),
     (
+        "AwraColorPaletteClass",
+        Layout {
+            size: size_of::<AwraColorPaletteClass>(),
+            alignment: align_of::<AwraColorPaletteClass>(),
+        },
+    ),
+    (
         "AwraCommandPaletteClass",
         Layout {
             size: size_of::<AwraCommandPaletteClass>(),

@@ -93,6 +93,7 @@
 #include <awra/awra-rail.h>
 #include <awra/awra-typing-indicator.h>
 #include <awra/awra-chip.h>
+#include <awra/awra-color-palette.h>
 #include <awra/awra-tile-view.h>
 #include <awra/awra-aspect-paintable.h>
 #include <awra/awra-frame-pool.h>

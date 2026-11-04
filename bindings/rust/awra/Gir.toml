@@ -37,6 +37,7 @@ generate = [
   "Awra.CardAppearance",
   "Awra.Chip",
   "Awra.ChipAppearance",
+  "Awra.ColorPalette",
   "Awra.CheckButton",
   "Awra.ChoiceGroup",
   "Awra.CommandPalette",

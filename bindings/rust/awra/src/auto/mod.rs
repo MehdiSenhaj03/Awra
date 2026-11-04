@@ -75,6 +75,9 @@ pub use self::chip::Chip;
 mod choice_group;
 pub use self::choice_group::ChoiceGroup;
 
+mod color_palette;
+pub use self::color_palette::ColorPalette;
+
 mod command_palette;
 pub use self::command_palette::CommandPalette;
 
@@ -507,6 +510,7 @@ pub(crate) mod builders {
     #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
     pub use super::chip::ChipBuilder;
     pub use super::choice_group::ChoiceGroupBuilder;
+    pub use super::color_palette::ColorPaletteBuilder;
     pub use super::command_palette::CommandPaletteBuilder;
     #[cfg(feature = "v1_1")]
     #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]

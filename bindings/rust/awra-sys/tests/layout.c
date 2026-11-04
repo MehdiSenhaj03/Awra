@@ -29,6 +29,7 @@ int main() {
     printf("%s;%zu;%zu\n", "AwraChipAppearance", sizeof(AwraChipAppearance), alignof(AwraChipAppearance));
     printf("%s;%zu;%zu\n", "AwraChipClass", sizeof(AwraChipClass), alignof(AwraChipClass));
     printf("%s;%zu;%zu\n", "AwraChoiceGroupClass", sizeof(AwraChoiceGroupClass), alignof(AwraChoiceGroupClass));
+    printf("%s;%zu;%zu\n", "AwraColorPaletteClass", sizeof(AwraColorPaletteClass), alignof(AwraColorPaletteClass));
     printf("%s;%zu;%zu\n", "AwraCommandPaletteClass", sizeof(AwraCommandPaletteClass), alignof(AwraCommandPaletteClass));
     printf("%s;%zu;%zu\n", "AwraCompletionPopoverClass", sizeof(AwraCompletionPopoverClass), alignof(AwraCompletionPopoverClass));
     printf("%s;%zu;%zu\n", "AwraComposerClass", sizeof(AwraComposerClass), alignof(AwraComposerClass));

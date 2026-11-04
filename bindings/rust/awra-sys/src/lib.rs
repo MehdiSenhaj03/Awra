@@ -461,6 +461,20 @@ impl ::std::fmt::Debug for AwraChoiceGroupClass {
 
 #[derive(Copy, Clone)]
 #[repr(C)]
+pub struct AwraColorPaletteClass {
+    pub parent_class: gtk::GtkWidgetClass,
+}
+
+impl ::std::fmt::Debug for AwraColorPaletteClass {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        f.debug_struct(&format!("AwraColorPaletteClass @ {self:p}"))
+            .field("parent_class", &self.parent_class)
+            .finish()
+    }
+}
+
+#[derive(Copy, Clone)]
+#[repr(C)]
 pub struct AwraCommandPaletteClass {
     pub parent_class: AwraWindowClass,
 }
@@ -1866,6 +1880,20 @@ pub struct AwraChoiceGroup {
 impl ::std::fmt::Debug for AwraChoiceGroup {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
         f.debug_struct(&format!("AwraChoiceGroup @ {self:p}"))
+            .finish()
+    }
+}
+
+#[repr(C)]
+#[allow(dead_code)]
+pub struct AwraColorPalette {
+    _data: [u8; 0],
+    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
+}
+
+impl ::std::fmt::Debug for AwraColorPalette {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        f.debug_struct(&format!("AwraColorPalette @ {self:p}"))
             .finish()
     }
 }
@@ -3588,6 +3616,51 @@ unsafe extern "C" {
     );
     pub fn awra_choice_group_set_exclusive(self_: *mut AwraChoiceGroup, exclusive: gboolean);
     pub fn awra_choice_group_set_title(self_: *mut AwraChoiceGroup, title: *const c_char);
+
+    //=========================================================================
+    // AwraColorPalette
+    //=========================================================================
+    pub fn awra_color_palette_get_type() -> GType;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_color_palette_new() -> *mut gtk::GtkWidget;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_color_palette_add_color(
+        self_: *mut AwraColorPalette,
+        color: *const gdk::GdkRGBA,
+        name: *const c_char,
+    );
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_color_palette_clear(self_: *mut AwraColorPalette);
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_color_palette_get_allows_custom(self_: *mut AwraColorPalette) -> gboolean;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_color_palette_get_automatic_label(self_: *mut AwraColorPalette) -> *const c_char;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_color_palette_get_selected(self_: *mut AwraColorPalette) -> *const gdk::GdkRGBA;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_color_palette_set_allows_custom(
+        self_: *mut AwraColorPalette,
+        allows_custom: gboolean,
+    );
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_color_palette_set_automatic_label(
+        self_: *mut AwraColorPalette,
+        label: *const c_char,
+    );
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_color_palette_set_selected(
+        self_: *mut AwraColorPalette,
+        color: *const gdk::GdkRGBA,
+    );
 
     //=========================================================================
     // AwraCommandPalette

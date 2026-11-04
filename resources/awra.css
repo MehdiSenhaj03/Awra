@@ -1251,6 +1251,36 @@ awratileview > .awra-tile-divider:active > separator {
   filter: none;
 }
 
+awracolorpalette .awra-color-swatch {
+  min-width: 0;
+  min-height: 0;
+  padding: 3px;
+  border-radius: 999px;
+  background: none;
+  box-shadow: none;
+  outline: 0;
+}
+
+awracolorpalette .awra-color-swatch:hover {
+  background-color: @awra_cap_hover;
+}
+
+awracolorpalette .awra-color-swatch:focus-visible {
+  box-shadow: inset 0 0 0 2px @awra_focus;
+}
+
+awracolorpalette .awra-color-more {
+  min-width: 24px;
+  min-height: 24px;
+  color: @awra_muted;
+}
+
+awracolorpalette flowboxchild {
+  padding: 0;
+  margin: 0;
+  background: none;
+}
+
 awrabuttoncontent {
   border-spacing: 6px;
 }

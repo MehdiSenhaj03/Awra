@@ -141,6 +141,11 @@ unchanged (checked against the frozen 1.0.0 contract).
 
 ### Forms, actions and lists
 
+- `AwraColorPalette` offers colours as round swatches that wrap with the
+  width, an optional automatic choice before them ("System", "Default"),
+  and a last swatch that opens the system's colour chooser; a colour from
+  outside the palette shows as a swatch of its own. `chosen` reports only
+  the person's choices, so setting the selection never loops back.
 - `AwraButtonContent` puts an icon before a label in a button, and
   `awra_button_new_with_icon_and_label()` makes such a button.
 - `AwraButton:busy` shows a spinner in place of a button's content, keeps

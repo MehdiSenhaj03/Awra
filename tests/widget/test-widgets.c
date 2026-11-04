@@ -1703,6 +1703,65 @@ test_page_wraps_its_content (void)
   g_object_unref (page);
 }
 
+static void
+palette_chosen_cb (AwraColorPalette *palette,
+                   const GdkRGBA    *color,
+                   int              *chosen)
+{
+  (void) palette;
+  *chosen = color != NULL ? 1 : 2;
+}
+
+/* A palette: its colours, an automatic choice, a colour from outside it,
+ * and a signal only for the person's choices. */
+static void
+test_color_palette (void)
+{
+  GtkWidget *widget = g_object_ref_sink (awra_color_palette_new ());
+  AwraColorPalette *palette = AWRA_COLOR_PALETTE (widget);
+  GdkRGBA red = { 0.9, 0.2, 0.2, 1.0 };
+  GdkRGBA blue = { 0.2, 0.4, 0.9, 1.0 };
+  GdkRGBA odd = { 0.3, 0.7, 0.5, 1.0 };
+  GtkWidget *swatch = NULL;
+  int chosen = 0;
+
+  g_assert_null (awra_color_palette_get_selected (palette));
+  awra_color_palette_set_automatic_label (palette, "System");
+  g_assert_cmpstr (awra_color_palette_get_automatic_label (palette), ==, "System");
+  awra_color_palette_add_color (palette, &red, "Red");
+  awra_color_palette_add_color (palette, &blue, NULL);
+  awra_color_palette_set_allows_custom (palette, TRUE);
+  g_assert_true (awra_color_palette_get_allows_custom (palette));
+  g_signal_connect (widget, "chosen", G_CALLBACK (palette_chosen_cb), &chosen);
+
+  awra_color_palette_set_selected (palette, &blue);
+  g_assert_true (gdk_rgba_equal (awra_color_palette_get_selected (palette), &blue));
+  g_assert_cmpint (chosen, ==, 0);
+  awra_color_palette_set_selected (palette, &odd);
+  g_assert_true (gdk_rgba_equal (awra_color_palette_get_selected (palette), &odd));
+
+  /* Clicking the red swatch chooses it and says so. */
+  for (GtkWidget *child = find_css_name (widget, "flowbox") != NULL
+         ? gtk_widget_get_first_child (find_css_name (widget, "flowbox")) : NULL;
+       child != NULL && swatch == NULL; child = gtk_widget_get_next_sibling (child)) {
+    GtkWidget *button = gtk_flow_box_child_get_child (GTK_FLOW_BOX_CHILD (child));
+
+    if (g_strcmp0 (gtk_widget_get_tooltip_text (button), "Red") == 0)
+      swatch = button;
+  }
+  g_assert_nonnull (swatch);
+  g_signal_emit_by_name (swatch, "clicked");
+  g_assert_cmpint (chosen, ==, 1);
+  g_assert_true (gdk_rgba_equal (awra_color_palette_get_selected (palette), &red));
+  g_assert_true (gtk_widget_has_css_class (swatch, "awra-selected"));
+
+  awra_color_palette_set_selected (palette, NULL);
+  g_assert_null (awra_color_palette_get_selected (palette));
+  g_assert_false (gtk_widget_has_css_class (swatch, "awra-selected"));
+  awra_color_palette_clear (palette);
+  g_object_unref (widget);
+}
+
 /* A subtitle allowed more lines wraps onto them at a narrow width. */
 static void
 test_action_row_subtitle_lines (void)
@@ -3115,6 +3174,8 @@ main (int   argc,
                    test_dialog_responses);
   g_test_add_func ("/awra/widgets/dialog-response-stays",
                    test_dialog_response_stays);
+  g_test_add_func ("/awra/widgets/color-palette",
+                   test_color_palette);
   g_test_add_func ("/awra/widgets/page-wraps-its-content",
                    test_page_wraps_its_content);
   g_test_add_func ("/awra/widgets/action-row-subtitle-lines",
