@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <math.h>
+
 #include <awra/awra-token-set.h>
 
 #include "tokens/awra-token-set-private.h"
@@ -81,6 +83,41 @@ enum {
 static GParamSpec *properties[N_PROPS];
 
 G_DEFINE_FINAL_TYPE (AwraTokenSet, awra_token_set, G_TYPE_OBJECT)
+
+static double
+channel_luminance (double channel)
+{
+  return channel <= 0.03928 ? channel / 12.92 : pow ((channel + 0.055) / 1.055, 2.4);
+}
+
+static double
+relative_luminance (const GdkRGBA *color)
+{
+  return 0.2126 * channel_luminance (color->red) +
+         0.7152 * channel_luminance (color->green) +
+         0.0722 * channel_luminance (color->blue);
+}
+
+static void
+ensure_readable (GdkRGBA  *color,
+                 gboolean  dark)
+{
+  /* The canvases Awra is calibrated on: #232323 in Dark, #f4f3f6 in Light. */
+  const double canvas = dark ? 0.0168 : 0.903;
+  const double target = dark ? 1.0 : 0.0;
+
+  for (int i = 0; i < 24; i++) {
+    double luminance = relative_luminance (color);
+    double ratio = dark ? (luminance + 0.05) / (canvas + 0.05)
+                        : (canvas + 0.05) / (luminance + 0.05);
+
+    if (ratio >= 4.5)
+      return;
+    color->red += (target - color->red) * 0.12;
+    color->green += (target - color->green) * 0.12;
+    color->blue += (target - color->blue) * 0.12;
+  }
+}
 
 static void
 awra_token_set_get_property (GObject    *object,
@@ -333,6 +370,11 @@ awra_token_set_new_with_tuning (gboolean       dark,
     self->accent_content.green *= 0.72;
     self->accent_content.blue *= 0.72;
   }
+  /* A muted accent, such as a desktop's slate grey, must still read as text
+   * on the canvas: otherwise a selected label looks fainter than the
+   * unselected ones beside it. Move it toward white, or black, until it
+   * reaches 4.5:1 against the canvas's own colour. */
+  ensure_readable (&self->accent_content, dark);
   self->on_accent = (0.2126 * self->accent.red +
                      0.7152 * self->accent.green +
                      0.0722 * self->accent.blue) > 0.60

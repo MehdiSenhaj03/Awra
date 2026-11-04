@@ -401,15 +401,22 @@ marks_timeout_cb (gpointer user_data)
   AwraConversationView *self = user_data;
   gint64 now = g_get_monotonic_time ();
 
-  self->marks_source = 0;
-  for (guint i = self->marks->len; i > 0; i--) {
-    Mark *mark = &g_array_index (self->marks, Mark, i - 1);
+  g_autoptr (GArray) expired = g_array_new (FALSE, FALSE, sizeof (Mark));
 
-    if (mark->until <= now) {
-      mark_clear (mark);
+  self->marks_source = 0;
+  /* Take the expired marks out before letting their rows go: the last
+   * reference to a recycled row unbinds it, which drops its marks, and must
+   * not find these again. */
+  for (guint i = self->marks->len; i > 0; i--) {
+    Mark mark = g_array_index (self->marks, Mark, i - 1);
+
+    if (mark.until <= now) {
+      g_array_append_val (expired, mark);
       g_array_remove_index_fast (self->marks, i - 1);
     }
   }
+  for (guint i = 0; i < expired->len; i++)
+    mark_clear (&g_array_index (expired, Mark, i));
   marks_schedule (self);
   return G_SOURCE_REMOVE;
 }
@@ -432,23 +439,32 @@ static void
 marks_drop_child (AwraConversationView *self,
                   GtkWidget            *child)
 {
-  for (guint i = self->marks->len; i > 0; i--) {
-    Mark *mark = &g_array_index (self->marks, Mark, i - 1);
+  g_autoptr (GArray) dropped = g_array_new (FALSE, FALSE, sizeof (Mark));
 
-    if (mark->child == child) {
-      mark_clear (mark);
+  /* Out of the list first, then released, as in marks_timeout_cb(). */
+  for (guint i = self->marks->len; i > 0; i--) {
+    Mark mark = g_array_index (self->marks, Mark, i - 1);
+
+    if (mark.child == child) {
+      g_array_append_val (dropped, mark);
       g_array_remove_index_fast (self->marks, i - 1);
     }
   }
+  for (guint i = 0; i < dropped->len; i++)
+    mark_clear (&g_array_index (dropped, Mark, i));
 }
 
 static void
 marks_clear (AwraConversationView *self)
 {
+  g_autoptr (GArray) marks = self->marks;
+
   g_clear_handle_id (&self->marks_source, g_source_remove);
-  for (guint i = 0; i < self->marks->len; i++)
-    mark_clear (&g_array_index (self->marks, Mark, i));
-  g_array_set_size (self->marks, 0);
+  /* A fresh list first, so rows unbound while these are released find
+   * nothing to release again. */
+  self->marks = g_array_new (FALSE, FALSE, sizeof (Mark));
+  for (guint i = 0; i < marks->len; i++)
+    mark_clear (&g_array_index (marks, Mark, i));
 }
 
 static void

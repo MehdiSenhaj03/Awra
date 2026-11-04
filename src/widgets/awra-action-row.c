@@ -156,6 +156,8 @@ awra_action_row_init (AwraActionRow *self)
   gtk_widget_set_visible (GTK_WIDGET (self->icon), FALSE);
   gtk_widget_set_visible (GTK_WIDGET (self->subtitle), FALSE);
   gtk_widget_set_hexpand (labels, TRUE);
+  /* The text centres on the icon, however tall the row is made. */
+  gtk_widget_set_valign (labels, GTK_ALIGN_CENTER);
   gtk_label_set_xalign (self->title, 0.0f);
   gtk_label_set_xalign (self->subtitle, 0.0f);
   gtk_label_set_ellipsize (self->title, PANGO_ELLIPSIZE_END);

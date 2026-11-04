@@ -84,6 +84,23 @@ replace_state_widget (AwraDataView      *self,
       self->stack, widget != NULL ? state_name (state) : "content");
 }
 
+/* A table whose rows can't be chosen doesn't move the focus onto a row
+ * when one is clicked; the controls in its cells keep theirs. Otherwise
+ * GTK 4.22 on X11 hands the focus back to that row when a menu opened from
+ * a cell closes, after the row may have been recycled, and crashes. */
+static void
+bind_row_cb (GtkSignalListItemFactory *factory,
+             GObject                  *item,
+             AwraDataView             *self)
+{
+  GtkSelectionModel *model = gtk_column_view_get_model (self->delegate);
+
+  (void) factory;
+  if (GTK_IS_COLUMN_VIEW_ROW (item))
+    gtk_column_view_row_set_focusable (GTK_COLUMN_VIEW_ROW (item),
+                                       !GTK_IS_NO_SELECTION (model));
+}
+
 static void
 awra_data_view_dispose (GObject *object)
 {
@@ -233,6 +250,13 @@ awra_data_view_init (AwraDataView *self)
   gtk_column_view_set_show_column_separators (self->delegate, FALSE);
   gtk_column_view_set_show_row_separators (self->delegate, FALSE);
   gtk_column_view_set_enable_rubberband (self->delegate, TRUE);
+  {
+    GtkListItemFactory *rows = gtk_signal_list_item_factory_new ();
+
+    g_signal_connect (rows, "bind", G_CALLBACK (bind_row_cb), self);
+    gtk_column_view_set_row_factory (self->delegate, rows);
+    g_object_unref (rows);
+  }
   gtk_widget_add_css_class (GTK_WIDGET (self->delegate), "awra-data-view-delegate");
   gtk_scrolled_window_set_child (self->scroller, GTK_WIDGET (self->delegate));
   gtk_widget_set_vexpand (GTK_WIDGET (self->scroller), TRUE);

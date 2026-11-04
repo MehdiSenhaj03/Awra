@@ -354,6 +354,14 @@ awra_dialog_set_body (AwraDialog *self,
     gtk_box_remove (GTK_BOX (self->layout), self->body);
   self->body = body;
   if (body != NULL) {
+    /* A body that sets no inset of its own lines up with the title above
+     * it and the responses below it, rather than touching the window's
+     * edges. */
+    if (gtk_widget_get_margin_start (body) == 0 && gtk_widget_get_margin_end (body) == 0 &&
+        gtk_widget_get_margin_top (body) == 0 && gtk_widget_get_margin_bottom (body) == 0) {
+      awra_widget_set_horizontal_margin (body, AWRA_SPACING_LG);
+      gtk_widget_set_margin_top (body, awra_spacing_resolve (body, AWRA_SPACING_XS));
+    }
     gtk_widget_set_vexpand (body, TRUE);
     gtk_box_prepend (GTK_BOX (self->layout), body);
   }

@@ -7,6 +7,26 @@
 API added in this release is documented `Since: 1.1`; every 1.0.0 API is
 unchanged (checked against the frozen 1.0.0 contract).
 
+### Fixes found by a full review of Yapfast
+
+- `AwraConversationView` no longer overflows the stack when a row with a
+  passing mark (a new message's glide, a highlight) is recycled as the mark
+  ends: marks leave the list before their rows are released.
+- `AwraDataView` doesn't move the focus onto a row of a table whose rows
+  can't be chosen; on X11, GTK 4.22 crashed handing the focus back to a
+  recycled row as a menu from one of its cells opened.
+- Fields are one family: entries, search fields, text areas and tag
+  entries are the same 34 px well, the text inside a field never paints a
+  box of its own (a disabled entry drew a box in a box), and a typography
+  given to a field no longer strips its chrome.
+- A switch that is on uses the accent, not a soft tint barely apart from
+  off; a selected segment keeps full contrast; accent text is lifted until
+  it reads at 4.5:1 on the canvas, so a grey desktop accent no longer makes
+  selected things look disabled.
+- A dialog body without an inset of its own lines up with the title and
+  the responses at 16 px instead of touching the window's edges; menu
+  items are 32 px; an action row's text centres on its icon.
+
 ### Reading on glass
 
 - `AWRA_TYPOGRAPHY_READING` is for text read at length, such as messages
