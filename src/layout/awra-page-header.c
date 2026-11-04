@@ -257,8 +257,14 @@ awra_page_header_set_actions (AwraPageHeader *self,
   if (self->actions != NULL)
     gtk_box_remove (self->heading, self->actions);
   self->actions = actions;
+  /* Actions sit on the title's line, whatever the subtitle under it: the
+   * title takes a control's height, centred in it, and both align at the
+   * top. */
+  gtk_widget_set_valign (GTK_WIDGET (self->titles),
+                         actions != NULL ? GTK_ALIGN_START : GTK_ALIGN_CENTER);
+  gtk_widget_set_size_request (GTK_WIDGET (self->title_label), -1, actions != NULL ? 34 : -1);
   if (actions != NULL) {
-    gtk_widget_set_valign (actions, GTK_ALIGN_CENTER);
+    gtk_widget_set_valign (actions, GTK_ALIGN_START);
     gtk_box_append (self->heading, actions);
   }
   update_visibility (self);

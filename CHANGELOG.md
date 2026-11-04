@@ -26,6 +26,9 @@ unchanged (checked against the frozen 1.0.0 contract).
 - A dialog body without an inset of its own lines up with the title and
   the responses at 16 px instead of touching the window's edges; menu
   items are 32 px; an action row's text centres on its icon.
+- Dropdowns are 34 px like every control, and an entry's well fills its
+  whole 34 px. Actions given to an `AwraSection` or an `AwraPageHeader`
+  sit on the title's line, whatever the text under the title.
 - `AWRA_BUTTON_APPEARANCE_SUCCESS` is a positive action that isn't the
   view's main one, such as answering a call. The `quiet-destructive` role
   keeps a destructive action quiet until hovered, and `danger-when-on`

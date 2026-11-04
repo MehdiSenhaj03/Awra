@@ -1464,7 +1464,9 @@ window.awra-dialog .awra-header-content {
   outline: 0;
   opacity: 1;
   margin: 0;
-  background-clip: padding-box;
+  /* The well fills its transparent border too: it draws its full 34 px,
+   * as tall as the buttons beside it, not 32 inside them. */
+  background-clip: border-box;
   filter: none;
   transition: none;
   animation: none;
@@ -1943,9 +1945,10 @@ popoverbin.awra-dropdown-bin {
 
 button.awra-dropdown-button {
   min-width: 96px;
-  min-height: 24px;
+  /* 34 px as every control, its transparent border included. */
+  min-height: 22px;
   margin: 0;
-  padding: 6px 11px;
+  padding: 5px 11px;
   border: 1px solid transparent;
   border-radius: 11px;
   color: @awra_foreground;
