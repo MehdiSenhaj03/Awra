@@ -80279,6 +80279,15 @@
         },
         {
           "attributes": {
+            "identifier": "AWRA_TYPOGRAPHY_READING",
+            "name": "AWRA_TYPOGRAPHY_READING",
+            "nick": "reading",
+            "value": "9"
+          },
+          "tag": "member"
+        },
+        {
+          "attributes": {
             "identifier": "AWRA_TYPOGRAPHY_TITLE_1",
             "name": "AWRA_TYPOGRAPHY_TITLE_1",
             "nick": "title-1",

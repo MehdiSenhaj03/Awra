@@ -25,6 +25,7 @@
 #define PILL_MARGIN 14
 #define PILL_RISE 10.0
 #define TOP_FADE 16.0f
+#define BOTTOM_FADE 12.0f
 #define ALIGN_ATTEMPTS 12
 
 typedef struct {
@@ -1209,20 +1210,40 @@ awra_conversation_view_snapshot (GtkWidget   *widget,
   float height = gtk_widget_get_height (widget);
   double shown;
 
-  /* Content scrolled past the top edge fades out instead of being cut. */
-  if (gtk_adjustment_get_value (self->vadjustment) > 0.5 && height > 2 * TOP_FADE) {
-    static const GskColorStop stops[] = {
+  /* Content scrolled past either edge fades into the surface behind
+   * instead of being cut: on glass, a hard edge under a header or above a
+   * composer reads as a seam. */
+  double value = gtk_adjustment_get_value (self->vadjustment);
+  double end = gtk_adjustment_get_upper (self->vadjustment) -
+               gtk_adjustment_get_page_size (self->vadjustment);
+  gboolean fade_top = value > 0.5;
+  gboolean fade_bottom = end - value > 0.5;
+
+  if ((fade_top || fade_bottom) && height > 2 * (TOP_FADE + BOTTOM_FADE)) {
+    float top = fade_top ? TOP_FADE : 0;
+    float bottom = fade_bottom ? BOTTOM_FADE : 0;
+    static const GskColorStop in[] = {
       { 0.0f, { 0, 0, 0, 0 } },
       { 1.0f, { 0, 0, 0, 1 } },
     };
+    static const GskColorStop out[] = {
+      { 0.0f, { 0, 0, 0, 1 } },
+      { 1.0f, { 0, 0, 0, 0 } },
+    };
 
     gtk_snapshot_push_mask (snapshot, GSK_MASK_MODE_ALPHA);
-    gtk_snapshot_append_linear_gradient (snapshot, &GRAPHENE_RECT_INIT (0, 0, width, TOP_FADE),
-                                         &GRAPHENE_POINT_INIT (0, 0),
-                                         &GRAPHENE_POINT_INIT (0, TOP_FADE),
-                                         stops, G_N_ELEMENTS (stops));
+    if (top > 0)
+      gtk_snapshot_append_linear_gradient (snapshot, &GRAPHENE_RECT_INIT (0, 0, width, top),
+                                           &GRAPHENE_POINT_INIT (0, 0),
+                                           &GRAPHENE_POINT_INIT (0, top),
+                                           in, G_N_ELEMENTS (in));
     gtk_snapshot_append_color (snapshot, &(GdkRGBA) { 0, 0, 0, 1 },
-                               &GRAPHENE_RECT_INIT (0, TOP_FADE, width, height - TOP_FADE));
+                               &GRAPHENE_RECT_INIT (0, top, width, height - top - bottom));
+    if (bottom > 0)
+      gtk_snapshot_append_linear_gradient (snapshot, &GRAPHENE_RECT_INIT (0, height - bottom, width, bottom),
+                                           &GRAPHENE_POINT_INIT (0, height - bottom),
+                                           &GRAPHENE_POINT_INIT (0, height),
+                                           out, G_N_ELEMENTS (out));
     gtk_snapshot_pop (snapshot);
     gtk_widget_snapshot_child (widget, GTK_WIDGET (self->scroller), snapshot);
     gtk_snapshot_pop (snapshot);

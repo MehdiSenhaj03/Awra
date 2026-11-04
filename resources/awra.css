@@ -3305,7 +3305,8 @@ awrafilterbar {
 .awra-title-1,
 .awra-display,
 .awra-monospace,
-.awra-label {
+.awra-label,
+.awra-reading {
   min-width: 0;
   min-height: 0;
   margin: 0;
@@ -3333,6 +3334,15 @@ awrafilterbar {
   color: @awra_foreground;
   font-size: 1em;
   font-weight: 700;
+}
+
+/* Text read at length, such as messages and documents: a step larger than
+ * the interface around it, with open leading, so it holds on glass. */
+.awra-reading {
+  color: @awra_foreground;
+  font-size: 1.07em;
+  font-weight: 400;
+  line-height: 1.42;
 }
 
 .awra-display {
@@ -3713,8 +3723,11 @@ awraheader.awra-compact .awra-menu-button.awra-toolbar-button {
 .awra-grid child { padding: 8px; margin: 4px; min-width: 108px; border-radius: 8px; }
 .awra-grid child:selected { background: @awra_selection; box-shadow: inset 0 0 0 1px alpha(@awra_focus, .28); }
 .awra-grid child:focus-visible { outline-offset: -1px; }
-.awra-role-compact-navigation .awra-navigation-item { min-height: 22px; padding: 7px 8px; margin: 1px 8px; border-radius: 8px; }
-.awra-role-compact-navigation .awra-navigation-item:checked { background: @awra_selection; color: @awra_accent_content; box-shadow: none; }
+/* Dense navigation: 32 px rows, as long lists of places want. Selection
+ * stays neutral, as everywhere in navigation; only the icon takes the
+ * accent. */
+.awra-role-compact-navigation .awra-navigation-item { min-height: 20px; padding: 6px 8px; margin: 1px 8px; border-radius: 8px; }
+.awra-role-compact-navigation .awra-navigation-item:checked { background-color: @awra_cap; color: @awra_foreground; box-shadow: inset 0 1px @awra_rim; }
 .awra-role-compact-table columnview cell { padding: 5px 10px; }
 .awra-role-compact-table columnview listview > row { min-height: 30px; border-radius: 4px; }
 .awra-role-compact-table columnview > header > button { min-height: 26px; padding: 4px 10px; }
@@ -3745,6 +3758,8 @@ popover.awra-popover > contents { animation: awra-unfold 120ms cubic-bezier(.2, 
 .awra-role-spaced-rows columnview listview > row { margin-bottom: 3px; }
 .awra-role-compact-navigation .awra-navigation-item-label { font-weight: 400; }
 .awra-role-compact-navigation .awra-navigation-item:checked .awra-navigation-item-label { font-weight: 600; }
+.awra-role-compact-navigation .awra-navigation-item.awra-emphasized .awra-navigation-item-label { font-weight: 650; }
+.awra-role-compact-navigation .awra-navigation-item-box { border-spacing: 8px; }
 @keyframes awra-rise {
   from { opacity: 0; transform: translateY(10px); }
   to { opacity: 1; transform: none; }
@@ -3939,4 +3954,101 @@ popover.awra-rail-tooltip > contents label {
 awrachip {
   font-size: 0.92em;
   font-weight: 600;
+}
+
+/* A sidebar heading may be a button that folds its section: it keeps the
+ * heading's eyebrow and alignment, and only its colour answers the pointer. */
+.awra-button.awra-role-sidebar-heading,
+.awra-button.awra-role-sidebar-heading:hover,
+.awra-button.awra-role-sidebar-heading:active,
+.awra-button.awra-role-sidebar-heading:checked {
+  min-height: 0;
+  min-width: 0;
+  margin: 14px 8px 2px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  background-color: transparent;
+  box-shadow: none;
+  color: @awra_muted;
+  /* The label's eyebrow typography sets the size; the role's own label
+   * recipe must not shrink it a second time. */
+  font-size: 1em;
+  font-weight: 400;
+}
+
+.awra-button.awra-role-sidebar-heading:hover {
+  color: @awra_foreground;
+}
+
+.awra-button.awra-role-sidebar-heading image {
+  min-width: 12px;
+  min-height: 12px;
+  -gtk-icon-size: 12px;
+}
+
+/* A sidebar's search is a quiet line rather than a well until it is used,
+ * so it does not outweigh the places listed under it. */
+awrasidebar .awra-entry.awra-search-entry {
+  min-height: 20px;
+  padding: 5px 8px;
+  border-radius: 9px;
+  background-color: @awra_control_hover;
+  box-shadow: none;
+}
+
+awrasidebar .awra-entry.awra-search-entry:focus-within {
+  background-color: @awra_well;
+}
+
+awrasidebar .awra-search-entry image {
+  min-width: 16px;
+  min-height: 16px;
+  padding: 0 4px 0 0;
+}
+
+/* inline-action on any GTK button, not only on Awra's: a quiet action
+ * inside content, transparent at rest. Owning every identity property keeps
+ * the desktop theme from drawing its own button around it. */
+button.awra-role-inline-action:not(.awra-button),
+button.awra-role-inline-action:not(.awra-button):backdrop {
+  min-width: 18px;
+  min-height: 18px;
+  margin: 0;
+  padding: 3px 6px;
+  border: 0;
+  border-radius: 7px;
+  outline: 0;
+  background-color: transparent;
+  background-image: none;
+  box-shadow: none;
+  text-shadow: none;
+  color: @awra_muted;
+  -gtk-icon-shadow: none;
+  -gtk-icon-filter: none;
+}
+
+button.awra-role-inline-action:not(.awra-button):hover {
+  color: @awra_foreground;
+  background-color: @awra_cap_hover;
+  box-shadow: inset 0 1px @awra_rim;
+}
+
+button.awra-role-inline-action:not(.awra-button):active,
+button.awra-role-inline-action:not(.awra-button):checked {
+  color: @awra_foreground;
+  background-color: @awra_control_pressed;
+  box-shadow: none;
+}
+
+button.awra-role-inline-action:not(.awra-button):focus-visible {
+  outline: 2px solid @awra_focus;
+  outline-offset: 1px;
+}
+
+button.awra-role-inline-action:not(.awra-button) label,
+button.awra-role-inline-action:not(.awra-button) image {
+  color: inherit;
+  background: transparent;
+  text-shadow: none;
+  -gtk-icon-shadow: none;
 }

@@ -1271,6 +1271,7 @@ const RUST_CONSTANTS: &[(&str, &str)] = &[
     ("(gint) AWRA_TYPOGRAPHY_LABEL", "8"),
     ("(gint) AWRA_TYPOGRAPHY_MONOSPACE", "7"),
     ("(gint) AWRA_TYPOGRAPHY_MUTED", "1"),
+    ("(gint) AWRA_TYPOGRAPHY_READING", "9"),
     ("(gint) AWRA_TYPOGRAPHY_TITLE_1", "5"),
     ("(gint) AWRA_TYPOGRAPHY_TITLE_2", "4"),
     ("(gint) AWRA_TYPOGRAPHY_TITLE_3", "3"),

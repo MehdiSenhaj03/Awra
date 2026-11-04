@@ -3162,6 +3162,8 @@ pub enum Typography {
     Monospace,
     #[doc(alias = "AWRA_TYPOGRAPHY_LABEL")]
     Label,
+    #[doc(alias = "AWRA_TYPOGRAPHY_READING")]
+    Reading,
     #[doc(hidden)]
     __Unknown(i32),
 }
@@ -3182,6 +3184,7 @@ impl IntoGlib for Typography {
             Self::Display => ffi::AWRA_TYPOGRAPHY_DISPLAY,
             Self::Monospace => ffi::AWRA_TYPOGRAPHY_MONOSPACE,
             Self::Label => ffi::AWRA_TYPOGRAPHY_LABEL,
+            Self::Reading => ffi::AWRA_TYPOGRAPHY_READING,
             Self::__Unknown(value) => value,
         }
     }
@@ -3203,6 +3206,7 @@ impl FromGlib<ffi::AwraTypography> for Typography {
             ffi::AWRA_TYPOGRAPHY_DISPLAY => Self::Display,
             ffi::AWRA_TYPOGRAPHY_MONOSPACE => Self::Monospace,
             ffi::AWRA_TYPOGRAPHY_LABEL => Self::Label,
+            ffi::AWRA_TYPOGRAPHY_READING => Self::Reading,
             value => Self::__Unknown(value),
         }
     }

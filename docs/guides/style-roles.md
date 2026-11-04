@@ -54,8 +54,8 @@ preferences as the rest of Awra.
 |---|---|---|
 | `workspace-canvas` | GtkBox | Quiet content plane and chrome separation |
 | `workspace-tabs` | AwraTabView | Tabs embedded in compact window chrome |
-| `compact-navigation` | AwraSidebar | Dense navigation items with selection feedback |
-| `sidebar-heading` | GtkLabel | Muted heading aligned with navigation items |
+| `compact-navigation` | AwraSidebar | 32 px navigation rows for long lists of places; selection stays neutral |
+| `sidebar-heading` | GtkLabel, or an AwraButton that folds its section | Muted heading aligned with navigation items |
 | `compact-table` | AwraDataView | Compact rows and column headers |
 | `canvas-table` | AwraDataView | Transparent column headings on a shared Canvas |
 | `pane-caption` / `active-pane-caption` | GtkLabel | Quiet caption and focus indication in a divided workspace |
@@ -68,7 +68,7 @@ preferences as the rest of Awra.
 | `view-switcher` | GtkBox containing AwraToggleButton | Compact, observable view selection |
 | `floating-selection` | AwraSelectionToolbar | Selection actions over content without moving it |
 | `inline-edit` | AwraEntry replacing text in a row | Edit in place at the height of the text |
-| `inline-action` | AwraButton inside a row | Quiet action as tall as the row's text |
+| `inline-action` | Any GtkButton inside a row or content | Quiet action, transparent at rest; Awra owns its look, so the desktop theme does not draw a button around it |
 | `usage-meter` | AwraProgressBar under a row | Thin capacity gauge; `awra-usage-low` turns it red |
 | `collection-tile` | GtkBox item factory content | Compact icon/thumbnail and caption composition |
 | `inspector-pane` | GtkBox | Docked inspection pane, separated from content |

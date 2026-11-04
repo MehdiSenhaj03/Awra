@@ -216,6 +216,7 @@ pub const AWRA_TYPOGRAPHY_TITLE_1: AwraTypography = 5;
 pub const AWRA_TYPOGRAPHY_DISPLAY: AwraTypography = 6;
 pub const AWRA_TYPOGRAPHY_MONOSPACE: AwraTypography = 7;
 pub const AWRA_TYPOGRAPHY_LABEL: AwraTypography = 8;
+pub const AWRA_TYPOGRAPHY_READING: AwraTypography = 9;
 
 pub type AwraValidationState = c_int;
 pub const AWRA_VALIDATION_STATE_NONE: AwraValidationState = 0;

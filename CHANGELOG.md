@@ -7,6 +7,20 @@
 API added in this release is documented `Since: 1.1`; every 1.0.0 API is
 unchanged (checked against the frozen 1.0.0 contract).
 
+### Reading on glass
+
+- `AWRA_TYPOGRAPHY_READING` is for text read at length, such as messages
+  and documents: a step larger than the interface, with open leading, so it
+  holds on a frosted window.
+- `AwraConversationView` fades content into the window at its bottom edge
+  too, as it already did at the top, so text never meets a composer or a
+  header as a hard seam.
+- In a sidebar, `AwraSearchEntry` is a quiet line until it is used, and the
+  `compact-navigation` role gives 32 px rows whose selection stays neutral,
+  as in the rest of navigation. `sidebar-heading` also styles a button that
+  folds its section, and `inline-action` now owns the look of any GTK
+  button, so the desktop theme no longer draws one around it.
+
 ### Motion and messaging components
 
 - `AwraTimedAnimation` and `AwraSpringAnimation` animate any value on a
