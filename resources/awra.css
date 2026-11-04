@@ -4162,3 +4162,34 @@ button.awra-role-search-launcher image {
   background-color: @awra_selection;
   box-shadow: inset 2px 0 @awra_accent;
 }
+
+/* A GTK button whose child is a tile or a card: it draws no frame of its
+ * own, so the tile is the whole target, and hover lifts it gently. */
+button.awra-role-collection-tile:not(.awra-button),
+button.awra-role-collection-tile:not(.awra-button):backdrop {
+  min-width: 0;
+  min-height: 0;
+  padding: 4px;
+  border: 0;
+  border-radius: 12px;
+  outline: 0;
+  background-color: transparent;
+  background-image: none;
+  box-shadow: none;
+  text-shadow: none;
+  color: @awra_foreground;
+  -gtk-icon-shadow: none;
+}
+
+button.awra-role-collection-tile:not(.awra-button):hover {
+  background-color: @awra_control_hover;
+}
+
+button.awra-role-collection-tile:not(.awra-button):active {
+  background-color: @awra_control_pressed;
+}
+
+button.awra-role-collection-tile:not(.awra-button):focus-visible {
+  outline: 2px solid @awra_focus;
+  outline-offset: -2px;
+}

@@ -74,7 +74,7 @@ preferences as the rest of Awra.
 | `inline-edit` | AwraEntry replacing text in a row | Edit in place at the height of the text |
 | `inline-action` | Any GtkButton inside a row or content | Quiet action, transparent at rest; Awra owns its look, so the desktop theme does not draw a button around it |
 | `usage-meter` | AwraProgressBar under a row | Thin capacity gauge; `awra-usage-low` turns it red |
-| `collection-tile` | GtkBox item factory content | Compact icon/thumbnail and caption composition |
+| `collection-tile` | GtkBox item factory content, or a GtkButton holding a tile | Compact icon/thumbnail and caption composition; on a button, the tile is the whole target |
 | `inspector-pane` | GtkBox | Docked inspection pane, separated from content |
 | `document-preview` | AwraTextArea | Readable document surface without input-field decoration |
 
