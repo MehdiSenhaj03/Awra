@@ -267,10 +267,15 @@ test_mapped_lifecycle (void)
   awra_rail_group_set_expanded (group, TRUE);
   run_for (500);
   g_assert_true (gtk_widget_get_mapped (GTK_WIDGET (awra_rail_group_get_item (group, 2))));
+  /* An entry the application keeps outlives the rail safely. */
+  g_object_ref (group);
   gtk_window_destroy (GTK_WINDOW (window));
   run_for (50);
   g_assert_null (weak_rail);
   g_assert_null (weak_item);
+  g_assert_null (gtk_widget_get_parent (GTK_WIDGET (group)));
+  awra_rail_group_set_expanded (group, FALSE);
+  g_object_unref (group);
 }
 
 int

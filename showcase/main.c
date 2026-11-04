@@ -1304,6 +1304,264 @@ edge_panel_toggle_cb (GtkButton *button,
                                 !awra_edge_panel_get_revealed (panel));
 }
 
+typedef struct {
+  ShowcaseState *state;
+  AwraRail *rail;
+  GtkLabel *channel;
+  AwraTypingIndicator *typing;
+  AwraAvatar *speaker;
+  AwraRailItem *busy_item;
+  AwraChip *party;
+  guint tick;
+} MessagingDemo;
+
+static void
+messaging_reaction_toggled_cb (AwraChip *chip,
+                               gpointer  user_data)
+{
+  (void) user_data;
+  awra_chip_set_count (chip, awra_chip_get_count (chip) +
+                               (awra_chip_get_active (chip) ? 1 : -1));
+}
+
+static void
+messaging_selected_cb (AwraRail   *rail,
+                       GParamSpec *pspec,
+                       gpointer    user_data)
+{
+  MessagingDemo *demo = user_data;
+  AwraRailItem *item = awra_rail_get_selected_item (rail);
+  g_autofree char *title = NULL;
+
+  (void) pspec;
+  if (item == NULL)
+    return;
+  title = g_strdup_printf ("# %s", awra_rail_item_get_label (item));
+  gtk_label_set_text (demo->channel, title);
+  awra_rail_item_set_unread (item, FALSE);
+  awra_rail_item_set_mention_count (item, 0);
+}
+
+static void
+messaging_item_moved_cb (AwraRail  *rail,
+                         GtkWidget *item,
+                         guint      position,
+                         gpointer   user_data)
+{
+  MessagingDemo *demo = user_data;
+  g_autofree char *message = NULL;
+
+  (void) rail;
+  message = g_strdup_printf ("Moved to position %u", position + 1);
+  (void) item;
+  show_toast (demo->state, message);
+}
+
+static void
+messaging_item_merged_cb (AwraRail  *rail,
+                          GtkWidget *item,
+                          GtkWidget *onto,
+                          gpointer   user_data)
+{
+  MessagingDemo *demo = user_data;
+  g_autofree char *message = NULL;
+  const char *target = AWRA_IS_RAIL_GROUP (onto)
+    ? awra_rail_group_get_label (AWRA_RAIL_GROUP (onto))
+    : awra_rail_item_get_label (AWRA_RAIL_ITEM (onto));
+
+  (void) rail;
+  message = g_strdup_printf ("Make a folder of “%s” and “%s”",
+                             awra_rail_item_get_label (AWRA_RAIL_ITEM (item)), target);
+  show_toast (demo->state, message);
+}
+
+static void
+messaging_simulate_cb (GtkButton *button,
+                       gpointer   user_data)
+{
+  MessagingDemo *demo = user_data;
+  static const AwraPresence presences[] = {
+    AWRA_PRESENCE_ONLINE, AWRA_PRESENCE_IDLE, AWRA_PRESENCE_BUSY, AWRA_PRESENCE_OFFLINE,
+  };
+
+  (void) button;
+  demo->tick++;
+  awra_typing_indicator_set_active (demo->typing,
+                                    !awra_typing_indicator_get_active (demo->typing));
+  awra_avatar_set_speaking (demo->speaker, !awra_avatar_get_speaking (demo->speaker));
+  awra_avatar_set_presence (demo->speaker, presences[demo->tick % G_N_ELEMENTS (presences)]);
+  awra_rail_item_set_mention_count (demo->busy_item,
+                                    awra_rail_item_get_mention_count (demo->busy_item) + 1);
+  awra_chip_set_count (demo->party, awra_chip_get_count (demo->party) + 1);
+}
+
+static GtkWidget *
+make_message (const char   *author,
+              const char   *time,
+              const char   *text,
+              AwraPresence  presence,
+              GtkWidget    *reactions)
+{
+  GtkWidget *row = make_box (GTK_ORIENTATION_HORIZONTAL, AWRA_SPACING_MD);
+  GtkWidget *column = make_box (GTK_ORIENTATION_VERTICAL, AWRA_SPACING_XS);
+  GtkWidget *heading = make_box (GTK_ORIENTATION_HORIZONTAL, AWRA_SPACING_SM);
+  GtkWidget *avatar = awra_avatar_new (36, author);
+  GtkWidget *name = make_label (author, AWRA_TYPOGRAPHY_LABEL);
+  GtkWidget *stamp = make_label (time, AWRA_TYPOGRAPHY_MUTED);
+  GtkWidget *body = make_label (text, AWRA_TYPOGRAPHY_BODY);
+
+  awra_avatar_set_presence (AWRA_AVATAR (avatar), presence);
+  gtk_widget_set_valign (avatar, GTK_ALIGN_START);
+  gtk_label_set_wrap (GTK_LABEL (stamp), FALSE);
+  gtk_box_append (GTK_BOX (heading), name);
+  gtk_box_append (GTK_BOX (heading), stamp);
+  gtk_box_append (GTK_BOX (column), heading);
+  gtk_box_append (GTK_BOX (column), body);
+  if (reactions != NULL)
+    gtk_box_append (GTK_BOX (column), reactions);
+  gtk_widget_set_hexpand (column, TRUE);
+  gtk_box_append (GTK_BOX (row), avatar);
+  gtk_box_append (GTK_BOX (row), column);
+  return row;
+}
+
+static GtkWidget *
+make_reaction (const char *emoji,
+               int         count,
+               gboolean    active)
+{
+  GtkWidget *chip = awra_chip_new (NULL);
+
+  awra_chip_set_emoji (AWRA_CHIP (chip), emoji);
+  awra_chip_set_count (AWRA_CHIP (chip), count);
+  awra_chip_set_active (AWRA_CHIP (chip), active);
+  g_signal_connect (chip, "toggled", G_CALLBACK (messaging_reaction_toggled_cb), NULL);
+  return chip;
+}
+
+static GtkWidget *
+make_rail_item (const char *label,
+                gboolean    unread,
+                guint       mentions,
+                gboolean    muted)
+{
+  GtkWidget *item = awra_rail_item_new (label);
+
+  awra_rail_item_set_child (AWRA_RAIL_ITEM (item), awra_avatar_new (48, label));
+  awra_rail_item_set_unread (AWRA_RAIL_ITEM (item), unread);
+  awra_rail_item_set_mention_count (AWRA_RAIL_ITEM (item), mentions);
+  awra_rail_item_set_muted (AWRA_RAIL_ITEM (item), muted);
+  return item;
+}
+
+static GtkWidget *
+make_messaging_workspace (ShowcaseState *state)
+{
+  MessagingDemo *demo = g_new0 (MessagingDemo, 1);
+  GtkWidget *frame = awra_card_new ();
+  GtkWidget *root = make_box (GTK_ORIENTATION_HORIZONTAL, AWRA_SPACING_LG);
+  GtkWidget *rail = awra_rail_new ();
+  GtkWidget *home = awra_rail_item_new ("Direct messages");
+  GtkWidget *add = awra_rail_item_new ("Add a workspace");
+  GtkWidget *folder = awra_rail_group_new ("Studio");
+  GtkWidget *conversation = make_box (GTK_ORIENTATION_VERTICAL, AWRA_SPACING_LG);
+  GtkWidget *header = make_box (GTK_ORIENTATION_HORIZONTAL, AWRA_SPACING_SM);
+  GtkWidget *voice = make_box (GTK_ORIENTATION_HORIZONTAL, AWRA_SPACING_SM);
+  GtkWidget *reactions = make_box (GTK_ORIENTATION_HORIZONTAL, AWRA_SPACING_XS);
+  GtkWidget *filters = make_box (GTK_ORIENTATION_HORIZONTAL, AWRA_SPACING_XS);
+  GtkWidget *composer = awra_entry_new ();
+  GtkWidget *simulate = make_button ("Simulate activity", AWRA_BUTTON_APPEARANCE_SECONDARY);
+  GtkWidget *selected;
+  GdkRGBA folder_color = { 0.36, 0.52, 0.96, 1.0 };
+  static const char *people[] = { "Ada Lovelace", "Grace Hopper", "Alan Turing", "Linus" };
+
+  demo->state = state;
+  demo->rail = AWRA_RAIL (rail);
+  g_object_set_data_full (G_OBJECT (frame), "messaging-demo", demo, g_free);
+  awra_card_set_appearance (AWRA_CARD (frame), AWRA_CARD_APPEARANCE_RAISED);
+
+  /* The rail: a header, workspaces, a folder, and an action in the footer. */
+  awra_rail_item_set_icon_name (AWRA_RAIL_ITEM (home), "mail-unread-symbolic");
+  awra_rail_set_header (AWRA_RAIL (rail), home);
+  awra_rail_item_set_icon_name (AWRA_RAIL_ITEM (add), "list-add-symbolic");
+  awra_rail_set_footer (AWRA_RAIL (rail), add);
+  awra_rail_add_separator (AWRA_RAIL (rail));
+  selected = make_rail_item ("Design Review", FALSE, 0, FALSE);
+  awra_rail_append (AWRA_RAIL (rail), selected);
+  awra_rail_append (AWRA_RAIL (rail), make_rail_item ("Rust Lang", TRUE, 0, FALSE));
+  demo->busy_item = AWRA_RAIL_ITEM (make_rail_item ("GNOME", FALSE, 3, FALSE));
+  awra_rail_append (AWRA_RAIL (rail), GTK_WIDGET (demo->busy_item));
+  awra_rail_group_set_color (AWRA_RAIL_GROUP (folder), &folder_color);
+  awra_rail_group_append (AWRA_RAIL_GROUP (folder),
+                          AWRA_RAIL_ITEM (make_rail_item ("Mixing", TRUE, 0, FALSE)));
+  awra_rail_group_append (AWRA_RAIL_GROUP (folder),
+                          AWRA_RAIL_ITEM (make_rail_item ("Field Recording", FALSE, 2, FALSE)));
+  awra_rail_group_append (AWRA_RAIL_GROUP (folder),
+                          AWRA_RAIL_ITEM (make_rail_item ("Mastering", FALSE, 0, FALSE)));
+  awra_rail_append (AWRA_RAIL (rail), folder);
+  awra_rail_append (AWRA_RAIL (rail), make_rail_item ("Typography", FALSE, 0, TRUE));
+  awra_rail_append (AWRA_RAIL (rail), make_rail_item ("Night Owls", TRUE, 0, FALSE));
+  awra_rail_set_reorderable (AWRA_RAIL (rail), TRUE);
+  gtk_widget_set_size_request (rail, -1, 470);
+  gtk_box_append (GTK_BOX (root), rail);
+
+  /* The conversation. */
+  demo->channel = GTK_LABEL (make_label ("# Design Review", AWRA_TYPOGRAPHY_TITLE_3));
+  gtk_widget_set_hexpand (GTK_WIDGET (demo->channel), TRUE);
+  gtk_box_append (GTK_BOX (header), GTK_WIDGET (demo->channel));
+  for (guint i = 0; i < G_N_ELEMENTS (people); i++) {
+    GtkWidget *person = awra_avatar_new (28, people[i]);
+
+    awra_avatar_set_presence (AWRA_AVATAR (person), AWRA_PRESENCE_ONLINE);
+    gtk_widget_set_valign (person, GTK_ALIGN_CENTER);
+    gtk_box_append (GTK_BOX (voice), person);
+    if (i == 1) {
+      demo->speaker = AWRA_AVATAR (person);
+      awra_avatar_set_speaking (demo->speaker, TRUE);
+    }
+  }
+  gtk_box_append (GTK_BOX (header), voice);
+  gtk_box_append (GTK_BOX (conversation), header);
+  gtk_box_append (GTK_BOX (filters), awra_chip_new ("All"));
+  awra_chip_set_active (AWRA_CHIP (gtk_widget_get_last_child (filters)), TRUE);
+  gtk_box_append (GTK_BOX (filters), awra_chip_new ("Mentions"));
+  awra_chip_set_count (AWRA_CHIP (gtk_widget_get_last_child (filters)), 3);
+  gtk_box_append (GTK_BOX (filters), awra_chip_new ("Files"));
+  awra_chip_set_icon_name (AWRA_CHIP (gtk_widget_get_last_child (filters)),
+                           "folder-documents-symbolic");
+  gtk_box_append (GTK_BOX (conversation), filters);
+  gtk_box_append (GTK_BOX (conversation), make_message (
+    "Grace Hopper", "09:41", "The new rail feels right: the tiles answer before I even click.",
+    AWRA_PRESENCE_ONLINE, NULL));
+  demo->party = AWRA_CHIP (make_reaction ("🎉", 4, FALSE));
+  gtk_box_append (GTK_BOX (reactions), make_reaction ("👍", 12, TRUE));
+  gtk_box_append (GTK_BOX (reactions), GTK_WIDGET (demo->party));
+  gtk_box_append (GTK_BOX (reactions), make_reaction ("👀", 2, FALSE));
+  gtk_box_append (GTK_BOX (conversation), make_message (
+    "Ada Lovelace", "09:44", "Shipping it behind reduced motion, of course. Reactions next.",
+    AWRA_PRESENCE_IDLE, reactions));
+  demo->typing = AWRA_TYPING_INDICATOR (awra_typing_indicator_new ());
+  awra_typing_indicator_set_label (demo->typing, "Alan is typing…");
+  awra_typing_indicator_set_active (demo->typing, TRUE);
+  gtk_box_append (GTK_BOX (conversation), GTK_WIDGET (demo->typing));
+  gtk_entry_set_placeholder_text (GTK_ENTRY (composer), "Message # Design Review");
+  gtk_widget_set_valign (composer, GTK_ALIGN_END);
+  gtk_widget_set_vexpand (composer, TRUE);
+  gtk_box_append (GTK_BOX (conversation), composer);
+  gtk_widget_set_halign (simulate, GTK_ALIGN_START);
+  g_signal_connect (simulate, "clicked", G_CALLBACK (messaging_simulate_cb), demo);
+  gtk_box_append (GTK_BOX (conversation), simulate);
+  gtk_widget_set_hexpand (conversation, TRUE);
+  gtk_box_append (GTK_BOX (root), conversation);
+
+  g_signal_connect (rail, "notify::selected-item", G_CALLBACK (messaging_selected_cb), demo);
+  g_signal_connect (rail, "item-moved", G_CALLBACK (messaging_item_moved_cb), demo);
+  g_signal_connect (rail, "item-merged", G_CALLBACK (messaging_item_merged_cb), demo);
+  awra_rail_set_selected_item (AWRA_RAIL (rail), AWRA_RAIL_ITEM (selected));
+  awra_card_set_child (AWRA_CARD (frame), root);
+  return frame;
+}
+
 static GtkWidget *
 make_edge_workspace (ShowcaseState *state,
                      GMenuModel    *context_menu)
@@ -1385,6 +1643,14 @@ make_patterns_page (ShowcaseState *state,
     "These are intentionally fake products, but every surface, control, menu "
     "and interaction is composed from public Awra APIs with no local CSS.",
     &body);
+
+  append_section (body, "Messaging workspace",
+                  "A rail of workspaces with folders, unread pills and mention "
+                  "badges; avatars with presence and a speaking ring; reactions "
+                  "that bounce and count; a typing line that never moves the "
+                  "conversation. Drag a workspace to reorder it, or onto another "
+                  "to ask for a folder.");
+  gtk_box_append (GTK_BOX (body), make_messaging_workspace (state));
 
   {
     static const char *records[] = {
@@ -2543,6 +2809,52 @@ motion_switch_notify_cb (AwraSwitch *switcher,
   update_motion_label (state);
 }
 
+static void
+spring_target_clicked_cb (GtkButton *button,
+                          gpointer   user_data)
+{
+  AwraSpringAnimation *spring = user_data;
+  int position = GPOINTER_TO_INT (g_object_get_data (G_OBJECT (button), "spring-position"));
+
+  /* Wherever the knob is and however fast it moves, it bends towards the
+   * new place: click quickly to interrupt it. */
+  awra_spring_animation_retarget (spring, position);
+}
+
+static GtkWidget *
+make_spring_demo (void)
+{
+  GtkWidget *box = make_box (GTK_ORIENTATION_VERTICAL, AWRA_SPACING_MD);
+  GtkWidget *track = make_box (GTK_ORIENTATION_HORIZONTAL, AWRA_SPACING_NONE);
+  GtkWidget *buttons = make_box (GTK_ORIENTATION_HORIZONTAL, AWRA_SPACING_SM);
+  GtkWidget *knob = awra_avatar_new (40, "Spring");
+  AwraAnimation *spring;
+  static const struct {
+    const char *label;
+    int position;
+  } targets[] = { { "Start", 0 }, { "Middle", 180 }, { "End", 360 } };
+
+  gtk_widget_set_halign (knob, GTK_ALIGN_START);
+  gtk_box_append (GTK_BOX (track), knob);
+  gtk_widget_set_size_request (track, 400, -1);
+  spring = awra_spring_animation_new (knob, 0, 0, 0.72, 260.0,
+                                      awra_property_animation_target_new (G_OBJECT (knob),
+                                                                          "margin-start"));
+  awra_spring_animation_set_epsilon (AWRA_SPRING_ANIMATION (spring), 0.5);
+  g_object_set_data_full (G_OBJECT (box), "spring", spring, g_object_unref);
+  for (guint i = 0; i < G_N_ELEMENTS (targets); i++) {
+    GtkWidget *button = make_button (targets[i].label, AWRA_BUTTON_APPEARANCE_SECONDARY);
+
+    g_object_set_data (G_OBJECT (button), "spring-position",
+                       GINT_TO_POINTER (targets[i].position));
+    g_signal_connect (button, "clicked", G_CALLBACK (spring_target_clicked_cb), spring);
+    gtk_box_append (GTK_BOX (buttons), button);
+  }
+  gtk_box_append (GTK_BOX (box), track);
+  gtk_box_append (GTK_BOX (box), buttons);
+  return box;
+}
+
 static GtkWidget *
 make_motion_page (ShowcaseState *state)
 {
@@ -2574,6 +2886,11 @@ make_motion_page (ShowcaseState *state)
                     G_CALLBACK (motion_switch_notify_cb), state);
   update_motion_label (state);
   gtk_box_append (GTK_BOX (body), make_plain_group (box));
+  append_section (body, "Springs and interruption",
+                  "An AwraSpringAnimation drives the avatar through a property "
+                  "target. Retargeting keeps its value and velocity, so clicking "
+                  "another place mid-flight bends the motion instead of restarting it.");
+  gtk_box_append (GTK_BOX (body), make_plain_group (make_spring_demo ()));
   return page;
 }
 

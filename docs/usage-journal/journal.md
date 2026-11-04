@@ -898,3 +898,27 @@ deux modes et l’absence de recouvrement avec les commandes latérales.
 Le dépôt de fichiers sur un dossier utilise GtkDropTarget. Le rôle générique
 `drop-zone` exprime la destination acceptée ; la décision d’accepter un dossier,
 le presse-papiers et les opérations restent dans l’application.
+
+## 2026-11-04 — Yapfast — Mouvement interruptible et composants de messagerie
+
+La réécriture de Yapfast sur Awra demandait une interface fluide, et chaque
+écran du client de discussion réécrivait ses propres callbacks de tick. Awra
+fournit maintenant `AwraTimedAnimation` et `AwraSpringAnimation`, pilotées par
+l’horloge du widget, qui respectent le mouvement réduit et s’arrêtent avec
+lui. Le besoin décisif venait du survol rapide d’une liste de serveurs : un
+ressort qu’on peut recibler en vol (`awra_spring_animation_retarget()`)
+conserve sa valeur et sa vitesse, donc rien ne saute ni ne repart de zéro.
+
+Un client de discussion affiche partout des personnes et des lieux. `AwraAvatar`
+donne des initiales sur une couleur stable dérivée du nom, une pastille de
+présence découpée dans le coin (lisible sur tout fond, et par sa forme autant
+que par sa couleur) et un anneau qui respire quand quelqu’un parle en vocal.
+
+La barre des serveurs devient `AwraRail`, générique : des destinations, des
+dossiers qui résument leur activité, des pastilles de non-lu et des badges de
+mentions, la réorganisation au glisser. Le rail ne décide jamais seul de créer
+un dossier : il signale le dépôt d’un élément sur un autre et l’application
+tranche. `AwraTypingIndicator` répond à « X est en train d’écrire » sans faire
+bouger la conversation, et `AwraChip` couvre réactions, filtres et étiquettes
+avec un compteur dont seuls les chiffres modifiés défilent. Les jetons gagnent
+`success` et `warning`, nécessaires aux états dessinés par les widgets.

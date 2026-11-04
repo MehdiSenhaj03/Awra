@@ -113,8 +113,9 @@ entry_motion_free (gpointer data)
 {
   EntryMotion *motion = data;
 
+  /* Stop without a last value: the list may already be going away. */
   if (motion->animation != NULL)
-    awra_animation_skip (motion->animation);
+    awra_animation_pause (motion->animation);
   g_clear_object (&motion->animation);
   g_free (motion);
 }
@@ -251,8 +252,11 @@ awra_rail_list_dispose (GObject *object)
 {
   GtkWidget *child;
 
-  while ((child = gtk_widget_get_first_child (GTK_WIDGET (object))) != NULL)
+  while ((child = gtk_widget_get_first_child (GTK_WIDGET (object))) != NULL) {
+    /* An entry the application keeps must not keep motion towards this list. */
+    g_object_set_qdata (G_OBJECT (child), motion_quark, NULL);
     gtk_widget_unparent (child);
+  }
   G_OBJECT_CLASS (awra_rail_list_parent_class)->dispose (object);
 }
 
