@@ -946,6 +946,16 @@ awra_rail_item_init (AwraRailItem *self)
   g_signal_connect (click, "released", G_CALLBACK (click_released_cb), self);
   g_signal_connect (click, "stopped", G_CALLBACK (click_stopped_cb), self);
   gtk_widget_add_controller (widget, GTK_EVENT_CONTROLLER (click));
+  {
+    /* Any press, such as the one that opens a context menu, puts the name
+     * away: it would otherwise stay over the menu's first item. */
+    GtkGesture *any = gtk_gesture_click_new ();
+
+    gtk_gesture_single_set_button (GTK_GESTURE_SINGLE (any), 0);
+    gtk_event_controller_set_propagation_phase (GTK_EVENT_CONTROLLER (any), GTK_PHASE_CAPTURE);
+    g_signal_connect_swapped (any, "pressed", G_CALLBACK (hide_tooltip), self);
+    gtk_widget_add_controller (widget, GTK_EVENT_CONTROLLER (any));
+  }
   g_signal_connect (focus, "enter", G_CALLBACK (focus_enter_cb), self);
   g_signal_connect (focus, "leave", G_CALLBACK (focus_leave_cb), self);
   gtk_widget_add_controller (widget, focus);
