@@ -2089,14 +2089,14 @@ button.awra-dropdown-button:disabled {
 }
 
 .awra-toast-label {
-  padding: 10px 18px;
+  padding: 8px 16px;
   color: @awra_foreground;
   font-weight: 600;
 }
 
 box.awra-toast-content {
   margin: 0;
-  padding: 0 6px 0 0;
+  padding: 0 4px 0 0;
   border-spacing: 2px;
   background: transparent;
   border: 0;

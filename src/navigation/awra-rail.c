@@ -57,8 +57,13 @@ awra_rail_separator_snapshot (GtkWidget   *widget,
   gsk_rounded_rect_init_from_rect (&line,
                                    &GRAPHENE_RECT_INIT (round ((width - length) / 2), 0, length, 2),
                                    1);
+  /* Stronger than a hairline separator: it parts groups of tiles on a
+   * chrome that may itself be tinted, and must read there. */
+  GdkRGBA color = *awra_token_set_get_foreground (tokens);
+
+  color.alpha = 0.18f;
   gtk_snapshot_push_rounded_clip (snapshot, &line);
-  gtk_snapshot_append_color (snapshot, awra_token_set_get_separator (tokens), &line.bounds);
+  gtk_snapshot_append_color (snapshot, &color, &line.bounds);
   gtk_snapshot_pop (snapshot);
 }
 
