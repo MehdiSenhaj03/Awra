@@ -130,15 +130,15 @@ window.awra-command-palette row > button {
 }
 
 window.awra-command-palette row > button.awra-command-row {
-  min-height: 32px;
-  padding: 5px 12px;
-  border-radius: 10px;
+  min-height: 22px;
+  padding: 5px 8px;
+  border-radius: 8px;
   color: @awra_foreground;
-  font-weight: 560;
+  font-weight: 400;
 }
 
 window.awra-command-palette .awra-command-heading {
-  margin: 12px 12px 4px;
+  margin: 12px 8px 4px;
 }
 
 window.awra-command-palette .awra-command-icon {
@@ -153,7 +153,8 @@ window.awra-command-palette .awra-command-accel {
 }
 
 window.awra-command-palette row > button.awra-command-row:hover,
-window.awra-command-palette row > button.awra-command-row:focus-visible {
+window.awra-command-palette row > button.awra-command-row:focus-visible,
+window.awra-command-palette row > button.awra-command-row.awra-command-current {
   background-color: @awra_cap_hover;
 }
 
@@ -4105,7 +4106,7 @@ menubutton.awra-role-inline-action > button:focus-visible {
   outline-offset: 1px;
 }
 
-button.awra-role-inline-action:not(.awra-button) label,
+button.awra-role-inline-action:not(.awra-button) label:not(.awra-muted),
 button.awra-role-inline-action:not(.awra-button) image,
 menubutton.awra-role-inline-action > button label,
 menubutton.awra-role-inline-action > button image,
@@ -4150,7 +4151,7 @@ button.awra-role-row-action:not(.awra-button):focus-visible {
   outline-offset: -2px;
 }
 
-button.awra-role-row-action:not(.awra-button) label,
+button.awra-role-row-action:not(.awra-button) label:not(.awra-muted),
 button.awra-role-row-action:not(.awra-button) image {
   color: inherit;
   background: transparent;
@@ -4277,4 +4278,36 @@ flowbox.awra-role-flat-list > flowboxchild:focus-visible {
   outline: 2px solid @awra_focus;
   outline-offset: -2px;
   border-radius: 8px;
+}
+
+/* Links in text take the readable accent, not the desktop theme's blue,
+ * which falls under 3:1 on a dark canvas. */
+window.awra-window label link,
+window.awra-window label link:visited {
+  color: @awra_accent_content;
+}
+
+window.awra-window label link:hover {
+  color: @awra_foreground;
+}
+
+/* People or things listed as content rather than places to go: names at
+ * full contrast, their second line muted, the row aligned on the column
+ * as navigation rows are. Someone set aside (offline) still recedes. */
+.awra-role-people-list .awra-navigation-item {
+  margin: 1px 8px;
+  padding: 6px 8px;
+  color: @awra_foreground;
+}
+
+.awra-role-people-list .awra-navigation-item-box {
+  border-spacing: 12px;
+}
+
+.awra-role-people-list .awra-navigation-item-label {
+  font-weight: 500;
+}
+
+.awra-role-people-list .awra-navigation-item.awra-muted:not(:hover):not(:checked) {
+  color: @awra_muted;
 }

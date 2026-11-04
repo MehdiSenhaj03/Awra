@@ -167,7 +167,7 @@ awra_status_banner_init (AwraStatusBanner *self)
   self->copy = GTK_BOX (gtk_box_new (GTK_ORIENTATION_VERTICAL, 0));
   self->title_label = GTK_LABEL (gtk_label_new (NULL));
   self->description_label = GTK_LABEL (gtk_label_new (NULL));
-  self->dismiss_button = awra_button_new_from_icon_name ("window-close-symbolic");
+  self->dismiss_button = awra_button_new_from_icon_name ("awra-close-symbolic");
   awra_button_set_appearance (AWRA_BUTTON (self->dismiss_button),
                               AWRA_BUTTON_APPEARANCE_GHOST);
   awra_box_set_spacing (self->root, AWRA_SPACING_MD);

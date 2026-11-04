@@ -73,6 +73,7 @@ preferences as the rest of Awra.
 | `search-launcher` | GtkButton that opens search | Quiet pill drawn as the field it opens |
 | `chosen-row` | Any row container | A row being acted on, such as a message being replied to |
 | `flat-list` | GtkListView or GtkFlowBox whose items draw their own states | No background, padding, hover or selection from the desktop theme |
+| `people-list` | A container of AwraNavigationItems listing people or things | Names at full contrast, a 12 px gap after the face, rows aligned on the column; muted items recede |
 | `inline-edit` | AwraEntry replacing text in a row | Edit in place at the height of the text |
 | `inline-action` | Any GtkButton inside a row or content | Quiet action, transparent at rest; Awra owns its look, so the desktop theme does not draw a button around it |
 | `usage-meter` | AwraProgressBar under a row | Thin capacity gauge; `awra-usage-low` turns it red |

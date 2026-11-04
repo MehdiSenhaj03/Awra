@@ -26,6 +26,14 @@ unchanged (checked against the frozen 1.0.0 contract).
 - A dialog body without an inset of its own lines up with the title and
   the responses at 16 px instead of touching the window's edges; menu
   items are 32 px; an action row's text centres on its icon.
+- `AwraCommandPalette` has a keyboard cursor: the first result is chosen,
+  Up and Down move between results (headings skipped), Enter opens and
+  Escape closes, before the search field takes the keys.
+- Escape in `AwraEmojiPicker`'s search clears it, then closes the popover.
+- Links take the readable accent instead of the desktop theme's blue;
+  Awra ships its own send and close icons instead of the desktop's.
+- The `people-list` role lists people or things at full contrast, and
+  muted text stays muted inside `row-action` and `inline-action`.
 
 ### Reading on glass
 

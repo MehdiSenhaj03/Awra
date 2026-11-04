@@ -1079,6 +1079,23 @@ awra_emoji_picker_class_init (AwraEmojiPickerClass *klass)
   gtk_widget_class_set_accessible_role (widget_class, GTK_ACCESSIBLE_ROLE_GROUP);
 }
 
+/* Escape in the search field clears a search, then closes the popover the
+ * picker sits in: the field would otherwise take every Escape for itself. */
+static void
+stop_search_cb (GtkSearchEntry  *entry,
+                AwraEmojiPicker *self)
+{
+  GtkWidget *popover;
+
+  if (*gtk_editable_get_text (GTK_EDITABLE (entry)) != '\0') {
+    gtk_editable_set_text (GTK_EDITABLE (entry), "");
+    return;
+  }
+  popover = gtk_widget_get_ancestor (GTK_WIDGET (self), GTK_TYPE_POPOVER);
+  if (popover != NULL)
+    gtk_popover_popdown (GTK_POPOVER (popover));
+}
+
 static void
 awra_emoji_picker_init (AwraEmojiPicker *self)
 {
@@ -1101,6 +1118,7 @@ awra_emoji_picker_init (AwraEmojiPicker *self)
   awra_search_entry_set_placeholder_text (self->search, _("Search emoji"));
   search_delegate = GTK_WIDGET (awra_search_entry_get_delegate (self->search));
   g_signal_connect (search_delegate, "search-changed", G_CALLBACK (search_changed_cb), self);
+  g_signal_connect (search_delegate, "stop-search", G_CALLBACK (stop_search_cb), self);
   g_signal_connect (search_delegate, "activate", G_CALLBACK (search_activate_cb), self);
   gtk_box_append (GTK_BOX (self->header), GTK_WIDGET (self->search));
   self->tabs = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 2);

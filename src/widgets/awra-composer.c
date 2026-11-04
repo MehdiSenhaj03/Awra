@@ -1076,7 +1076,7 @@ awra_composer_init (AwraComposer *self)
   gtk_overlay_add_overlay (GTK_OVERLAY (self->field), GTK_WIDGET (self->placeholder));
   gtk_widget_set_parent (self->field, GTK_WIDGET (self));
 
-  self->send = awra_button_new_from_icon_name ("mail-send-symbolic");
+  self->send = awra_button_new_from_icon_name ("awra-send-symbolic");
   awra_button_set_appearance (AWRA_BUTTON (self->send), AWRA_BUTTON_APPEARANCE_PRIMARY);
   gtk_widget_add_css_class (self->send, "awra-composer-send");
   gtk_widget_set_tooltip_text (self->send, _("Send"));
@@ -1346,7 +1346,7 @@ awra_composer_show_banner (AwraComposer *self,
   gtk_widget_set_hexpand (label, TRUE);
   gtk_box_append (GTK_BOX (banner), label);
   if (closable) {
-    GtkWidget *close = awra_button_new_from_icon_name ("window-close-symbolic");
+    GtkWidget *close = awra_button_new_from_icon_name ("awra-close-symbolic");
 
     awra_button_set_appearance (AWRA_BUTTON (close), AWRA_BUTTON_APPEARANCE_GHOST);
     gtk_widget_add_css_class (close, "awra-composer-banner-close");

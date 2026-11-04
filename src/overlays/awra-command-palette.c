@@ -30,6 +30,10 @@ struct _AwraCommandPalette {
   char *empty_text;
   GWeakRef previous_focus;
   gboolean had_focus;
+  /* The result Enter opens, marked as such while the focus stays in the
+   * search field. Borrowed from the list. */
+  GtkWidget *current;
+  GtkScrolledWindow *scroller;
 };
 
 enum { PROP_0, PROP_MENU_MODEL, PROP_TITLE, PROP_QUERY,
@@ -177,6 +181,60 @@ append_heading (AwraCommandPalette *self,
 }
 
 static void
+set_current (AwraCommandPalette *self,
+             GtkWidget          *button)
+{
+  if (self->current == button)
+    return;
+  if (self->current != NULL)
+    gtk_widget_remove_css_class (self->current, "awra-command-current");
+  self->current = button;
+  if (button == NULL)
+    return;
+  gtk_widget_add_css_class (button, "awra-command-current");
+  /* Keep it in view. */
+  if (self->scroller != NULL) {
+    GtkAdjustment *adjustment = gtk_scrolled_window_get_vadjustment (self->scroller);
+    graphene_rect_t bounds;
+
+    if (gtk_widget_compute_bounds (button, GTK_WIDGET (self->list), &bounds)) {
+      double top = bounds.origin.y;
+      double bottom = top + bounds.size.height;
+      double value = gtk_adjustment_get_value (adjustment);
+      double page = gtk_adjustment_get_page_size (adjustment);
+
+      if (top < value)
+        gtk_adjustment_set_value (adjustment, top);
+      else if (bottom > value + page)
+        gtk_adjustment_set_value (adjustment, bottom - page);
+    }
+  }
+}
+
+/* The result buttons in order, headings left out. */
+static GtkWidget *
+result_after (AwraCommandPalette *self,
+              GtkWidget          *from,
+              gboolean            forward)
+{
+  GtkWidget *row = from != NULL ? gtk_widget_get_parent (from) : NULL;
+
+  if (row == NULL)
+    row = forward ? gtk_widget_get_first_child (GTK_WIDGET (self->list))
+                  : gtk_widget_get_last_child (GTK_WIDGET (self->list));
+  else
+    row = forward ? gtk_widget_get_next_sibling (row) : gtk_widget_get_prev_sibling (row);
+  for (; row != NULL;
+       row = forward ? gtk_widget_get_next_sibling (row) : gtk_widget_get_prev_sibling (row)) {
+    GtkWidget *child = gtk_list_box_row_get_child (GTK_LIST_BOX_ROW (row));
+
+    if (GTK_IS_BUTTON (child))
+      return child;
+  }
+  return NULL;
+}
+
+static void
 rebuild_results (AwraCommandPalette *self)
 {
   GtkWidget *child;
@@ -184,6 +242,7 @@ rebuild_results (AwraCommandPalette *self)
   const char *current_section = NULL;
   guint visible = 0;
 
+  self->current = NULL;
   while ((child = gtk_widget_get_first_child (GTK_WIDGET (self->list))) != NULL)
     gtk_list_box_remove (self->list, child);
   for (guint i = 0; i < self->commands->len; i++) {
@@ -210,6 +269,8 @@ rebuild_results (AwraCommandPalette *self)
     visible++;
   }
   gtk_widget_set_visible (GTK_WIDGET (self->empty), visible == 0);
+  /* The first result is where Enter goes. */
+  set_current (self, result_after (self, NULL, TRUE));
 }
 
 static void
@@ -226,17 +287,30 @@ key_pressed_cb (GtkEventControllerKey *controller, guint keyval,
                 AwraCommandPalette *self)
 {
   (void) controller; (void) keycode; (void) state;
-  if (keyval == GDK_KEY_Escape) {
+  switch (keyval) {
+  case GDK_KEY_Escape:
     awra_command_palette_close (self);
     return GDK_EVENT_STOP;
-  }
-  if (keyval == GDK_KEY_Down) {
-    GtkListBoxRow *row = gtk_list_box_get_row_at_index (self->list, 0);
-    if (row != NULL)
-      gtk_widget_child_focus (GTK_WIDGET (row), GTK_DIR_TAB_FORWARD);
+  case GDK_KEY_Down:
+  case GDK_KEY_KP_Down:
+  case GDK_KEY_Up:
+  case GDK_KEY_KP_Up: {
+    gboolean forward = keyval == GDK_KEY_Down || keyval == GDK_KEY_KP_Down;
+    GtkWidget *next = result_after (self, self->current, forward);
+
+    if (next != NULL)
+      set_current (self, next);
     return GDK_EVENT_STOP;
   }
-  return GDK_EVENT_PROPAGATE;
+  case GDK_KEY_Return:
+  case GDK_KEY_KP_Enter:
+  case GDK_KEY_ISO_Enter:
+    if (self->current != NULL)
+      g_signal_emit_by_name (self->current, "clicked");
+    return GDK_EVENT_STOP;
+  default:
+    return GDK_EVENT_PROPAGATE;
+  }
 }
 
 static gboolean
@@ -371,6 +445,10 @@ awra_command_palette_init (AwraCommandPalette *self)
   g_signal_connect (awra_search_entry_get_delegate (self->search),
                     "search-changed",
                     G_CALLBACK (search_changed_cb), self);
+  /* Before the search field, which would take Escape, Enter and the
+   * arrows for itself. */
+  gtk_event_controller_set_propagation_phase (keys, GTK_PHASE_CAPTURE);
+  self->scroller = GTK_SCROLLED_WINDOW (scroller);
   g_signal_connect (keys, "key-pressed", G_CALLBACK (key_pressed_cb), self);
   gtk_widget_add_controller (GTK_WIDGET (self), keys);
   rebuild_results (self);

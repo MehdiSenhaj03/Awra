@@ -1068,7 +1068,7 @@ append_page (AwraTabView *self,
 
   if (closable) {
     info->close_button = gtk_button_new_from_icon_name (
-      "window-close-symbolic");
+      "awra-close-symbolic");
     gtk_widget_set_tooltip_text (info->close_button, _("Close tab"));
     gtk_widget_add_css_class (info->close_button, "awra-tab-close");
     gtk_widget_set_size_request (info->close_button,
