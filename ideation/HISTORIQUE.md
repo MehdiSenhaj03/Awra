@@ -336,3 +336,8 @@ Linux et Windows avant de passer au suivant.
   ligne (lockstep vérifié : même état final sur deux instances), Bal des Assassins à 2-4 sur un écran,
   valse en trois arrangements + couche de tension, zips Windows/Linux envoyés.
   Écart assumé avec la fiche : la fête est à 2-4 joueurs (un écran, clavier ×2 + manettes) plutôt que 8.
+- **GRIMOIRE** — terminé : reconnaissance de glyphes par nuage de points ($P) départagée par les angles vifs
+  (≈93 % sur des tracés très déformés, gribouillis rejetés), duel à trois couloirs avec 12 glyphes et 6
+  combinaisons, IA qui « dessine » (glyphe fantôme lisible), expéditions Deux Rives (créatures d'encre, obstacles,
+  Bête du Fleuve, combinaisons à deux mains), campagne de 10 chapitres avec leçons guidées, duel et coop en ligne
+  (lockstep vérifié), musique modale, zips Windows/Linux envoyés.
