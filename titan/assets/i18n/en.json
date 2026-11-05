@@ -1,0 +1,497 @@
+{
+"common": {
+"back": "Back",
+"yes": "Yes",
+"no": "No",
+"skip": "Skip",
+"continue": "Continue"
+},
+"names": {
+"narrator": "THE STORYTELLER"
+},
+"title": {
+"tagline": "She walks. We live on her. One day, our children will see the Source.",
+"press": "Press any key",
+"march": "The Long March",
+"march_continue": "Continue the Long March",
+"march_sub": "Nine legs, three generations, alone or two on one screen",
+"march_new": "New march",
+"march_new_sub": "Start over with the founders",
+"confirm_new": "Abandon the current march and start over with the founders?",
+"free": "Free leg",
+"free_sub": "A land, a level, a wild titan or not — alone or two",
+"duel": "Titan duel",
+"duel_sub": "Against the AI or two on one screen",
+"online": "Online",
+"online_sub": "An expedition together, or a duel",
+"options": "Options",
+"quit": "Quit"
+},
+"options": {
+"title": "OPTIONS",
+"music": "Music",
+"sfx": "Effects",
+"quality": "Graphics quality",
+"q0": "Low",
+"q1": "Medium",
+"q2": "High",
+"lang": "Language",
+"controls": "Controls",
+"fullscreen": "Fullscreen",
+"on": "On",
+"off": "Off",
+"press": "Press a key…",
+"shake": "Screen shake",
+"mouse": "Mouse sensitivity",
+"latency": "Latency",
+"software": "Software rendering detected: reduced quality. Use a graphics card for a better experience."
+},
+"controls": {
+"act": "Action (P1)",
+"alt": "Secondary action (P1)",
+"grab": "Grab (P1)",
+"post1": "Post: pilot (P1)",
+"post2": "Post: port harpoon (P1)",
+"post3": "Post: starboard harpoon (P1)",
+"post4": "Post: heart forge (P1)",
+"post5": "Post: lookout (P1)",
+"view": "Overview",
+"p2_act": "Action (P2)",
+"p2_alt": "Secondary action (P2)",
+"p2_grab": "Grab (P2)",
+"pause": "Pause",
+"reset": "Reset controls"
+},
+"key": {
+"lmb": "LMB",
+"rmb": "RMB",
+"mmb": "MMB",
+"space": "Space",
+"shift": "Shift",
+"esc": "Esc",
+"enter": "Enter",
+"kp_enter": "Keypad Enter"
+},
+"pause": {
+"title": "PAUSE",
+"resume": "Resume",
+"restart": "Restart the leg",
+"options": "Options",
+"quit": "Quit"
+},
+"setup": {
+"free_title": "FREE LEG",
+"duel_title": "TITAN DUEL",
+"free_rules": "A leg outside the great march. With two, the screen splits: player 1 on the left keyboard and mouse (WASD, Space, Shift, F, 1-5), player 2 on the arrows (Enter, /, ., 6-0) or a gamepad.",
+"duel_rules": "Two colossi face to face. Strike when the other drops his guard, parry when he winds up, grab to hold him, brace against a grab. Balance falling to zero throws a titan down.",
+"land": "Land",
+"level": "Difficulty",
+"level1": "Gentle",
+"level2": "Rough",
+"level3": "Merciless",
+"boss": "Wild titan at the end",
+"boss0": "No",
+"boss1": "Yes",
+"players": "Players",
+"players0": "Alone",
+"players1": "Two (split screen)",
+"opponent": "Opponent",
+"foe0": "AI — young titan",
+"foe1": "AI — old titan",
+"foe2": "AI — titan king",
+"foe3": "A friend (two on one screen)",
+"go": "Walk on!"
+},
+"free": {
+"sub": "Free leg"
+},
+"land": {
+"ash": {
+"name": "The Ash Sea",
+"short": "Ash",
+"desc": "Grey dunes as far as the eye can see, stranded hulls to salvage, chasms hidden under the ash. The safest road, and the longest.",
+"brief": "The Ash Sea. No particular trap: wrecks, chasms, scavengers. Keep the heart warm."
+},
+"ruins": {
+"name": "The Sunken Ruins",
+"short": "Ruins",
+"desc": "A city drowned in ash: many wrecks to hoist aboard, rockfalls between the towers, and flocks of scavengers nesting in the broken spires.",
+"brief": "The Ruins. Supplies everywhere, scavengers everywhere. Harpooners, to your posts."
+},
+"forest": {
+"name": "The Petrified Forest",
+"short": "Forest",
+"desc": "White trunks as tall as towers, geysers that warm Ama's heart… and the pressure that rises with it. Few raiders venture there.",
+"brief": "The Petrified Forest. The geysers heat the heart: watch the pressure, vent it before it bursts."
+},
+"storm": {
+"name": "The Black Storm",
+"short": "Storm",
+"desc": "A shortcut through an ash storm: you can barely see a thing, Ama slows down and grows cold. The lookout is worth her weight in gold there.",
+"brief": "The Storm. Pip, do not leave your tower. Everyone: we walk blind."
+},
+"oasis": {
+"name": "The Oasis",
+"short": "Oasis",
+"desc": "An oasis: halting there, Ama drinks and heals, and the stores are filled again. But raiders know the way to water too.",
+"brief": "The Oasis. Halt in the water (pace: Halt) so she drinks and heals. And keep an eye on the horizon."
+}
+},
+"boss": {
+"belier": {
+"name": "The Ram",
+"desc": "A wild titan with ram's horns, young and furious. He hits hard but often leaves himself open.",
+"brief": "Le Bélier nous barre la route. Parez ses coups quand il arme son bras, saisissez-le, et que les harpons trouvent ses points faibles."
+},
+"fournaise": {
+"name": "The Furnace",
+"desc": "An old lava titan with a burning heart. Tougher, cleverer: he parries and he grabs.",
+"brief": "La Fournaise sort de la tempête. Elle saisit : ancrez Ama quand elle ouvre les bras."
+},
+"roi": {
+"name": "The Ash King",
+"desc": "The greatest of the wild titans, warden of the road to the Source. Nothing has ever brought him down.",
+"brief": "Le Roi des Cendres. Derrière lui, la Source. Tout ce que nos parents nous ont appris, c'est maintenant."
+}
+},
+"gen": {
+"0": "1st generation — The Founders",
+"1": "2nd generation — The Children of the Back",
+"2": "3rd generation — Those of the Source"
+},
+"gift": {
+"steady": {
+"name": "Steady hand",
+"desc": "Pilot: stronger blows (+15%), a longer parry."
+},
+"quick": {
+"name": "Quick eye",
+"desc": "Harpooner: faster reload."
+},
+"frugal": {
+"name": "Frugal",
+"desc": "Mechanic: stoking costs fewer supplies."
+},
+"keen": {
+"name": "Eagle eye",
+"desc": "Lookout: sees a third further."
+},
+"stout": {
+"name": "Stout",
+"desc": "Gets up twice as fast after a fall."
+},
+"brave": {
+"name": "Brave",
+"desc": "Drives raiders off twice as fast."
+}
+},
+"map": {
+"title": "THE LONG MARCH",
+"leg_of": "leg {n} of 9",
+"leg": "Leg {n}",
+"ama_state": "Health {hp} / {max} (scars)   ·   Supplies {sup}",
+"crew": "THE CREW",
+"face": "Face {name}",
+"go": "Through {land}",
+"players": "Players",
+"source": "The Source"
+},
+"inherit": {
+"title": "{gen}",
+"sub": {
+"1": "Twenty years have passed on Ama's back. The founders have grown old; their children take the posts.",
+"2": "One more generation. Those born during the march hand over to those who will see the Source."
+},
+"from": "after {name}",
+"gift_of": "{name}'s gift",
+"kept": "Inherited:",
+"own": "Their own gift:",
+"go": "Let the march go on"
+},
+"result": {
+"done": "LEG CROSSED",
+"done_sub": "Ama stops for the night. Her wounds are dressed, the supplies counted.",
+"won": "THE TITAN IS BEATEN",
+"won_sub": "The wild titan collapses into the ash. Ama walks on, slower, prouder.",
+"lost": "AMA HAS FALLEN",
+"lost_sub": "She will rise again, slowly. This leg must be walked again.",
+"duel_won": "VICTORY",
+"duel_won_sub": "Ama rules the ash field.",
+"duel_lost": "DEFEAT",
+"duel_lost_sub": "Ama backs away from a stronger foe.",
+"p1_won": "PLAYER 1 WINS",
+"p1_won_sub": "Ama holds the field.",
+"p2_won": "PLAYER 2 WINS",
+"p2_won_sub": "The wild titan holds the field.",
+"hp": "Ama's health",
+"supplies": "Supplies",
+"birds": "Scavengers downed",
+"skiffs": "Skiffs sunk",
+"boarders": "Raiders repelled",
+"salvage": "Wrecks salvaged",
+"fires": "Fires put out",
+"weak": "Weak points struck",
+"time": "Time",
+"scars": "Ama keeps {n} points of scars: her maximum health drops by as much.",
+"new_gen": "The years go by. A new generation will take the posts.",
+"retry": "Walk the leg again",
+"map": "Back to the map",
+"onward": "Onward",
+"again": "Play again",
+"menu": "Main menu"
+},
+"online": {
+"title": "ONLINE",
+"rules": "One hosts, the other joins with their address (port 47644 opens by itself when the router allows it). The host chooses: an expedition together on Ama — each their own character — or a titan duel.",
+"address": "Host address",
+"host": "Host",
+"join": "Join",
+"failed": "Connection failed.",
+"waiting": "Waiting for a player… Your address: {addr}",
+"lost": "Connection lost.",
+"connected": "Connected!",
+"pick": "Pick the game:",
+"wait_host": "The host is choosing the game…",
+"upnp": "Automatic port opening: {s}",
+"coop": "Expedition together — {land}",
+"duel": "Titan duel",
+"again": "Another one"
+},
+"hud": {
+"left": "{m} m to the halt",
+"ama": "AMA",
+"heat": "HEART HEAT",
+"pressure": "PRESSURE",
+"supplies": "Supplies {n}",
+"anchor": "⚓ BRACED",
+"foe": "WILD TITAN",
+"p2": "PLAYER 2",
+"balance": "BALANCE",
+"down": "{name} is down!",
+"fight": "WILD TITAN!",
+"parried": "PARRIED!",
+"holding": "HE IS HELD — HARPOONS!",
+"foe_down": "HE IS DOWN — STRIKE!",
+"ama_down": "AMA IS DOWN…",
+"p2_titan": "PLAYER 2: the wild titan",
+"you_are": "{name} — {post}",
+"offroute": "{m} m off the trail, {side} side",
+"heat_s": "Heat",
+"pressure_s": "Pressure",
+"vision": "Sight: {m} m",
+"weak_seen": "Weak points revealed!"
+},
+"post": {
+"0": "Pilot",
+"1": "Port harpoon",
+"2": "Starboard harpoon",
+"3": "Heart forge",
+"4": "Lookout",
+"empty": "empty",
+"deck": "on the deck"
+},
+"pace": {
+"0": "HALT",
+"1": "WALK",
+"2": "STRIDE"
+},
+"side": {
+"ahead": "dead ahead",
+"port": "to port",
+"star": "to starboard"
+},
+"haz": {
+"0": "Chasm",
+"1": "Rockfall",
+"2": "Geyser",
+"3": "Oasis",
+"4": "Storm",
+"5": "Wreck"
+},
+"tele": {
+"strike": "⚠ HE WINDS UP — PARRY!",
+"grab": "⚠ HE SPREADS HIS ARMS — BRACE!",
+"held": "AMA IS HELD — BRACE TO BREAK FREE"
+},
+"voice": {
+"chasm": "Chasm at {d} m, {side}! Pilot, veer!",
+"rocks": "Rockfall at {d} m! Brace Ama or halt!",
+"geyser": "Geyser at {d} m, {side}. It will warm the heart.",
+"oasis_seen": "Water! An oasis at {d} m!",
+"storm_seen": "Ash wall at {d} m. We are going to be blind.",
+"wreck": "A wreck, {side}. Harpoon it, there is food inside!",
+"birds": "Scavengers {side}! They will dive at us!",
+"skiffs": "Raider sails {side}! Sink them before they dock!",
+"docked": "They are docking! They are climbing up the legs!",
+"boarder": "A raider on the deck! Drive him off!",
+"salvage": "Wreck hauled up! Supplies for days!",
+"chasm_hit": "Hold on! She stumbles!",
+"dodged": "Missed it. Good Ama.",
+"rocks_hit": "The rocks! She took it head on!",
+"braced": "She held. The rocks rolled off her.",
+"geyser_in": "Geyser steam! The heart is heating up — mind the pressure.",
+"oasis": "We're here. Halt: let her drink.",
+"storm_out": "We're out of the storm. I can see the sky again!",
+"burst": "The pressure burst! The forge is on fire!",
+"overheat": "The heart is too hot! Things are catching fire!",
+"fight": "Wild titan! Everyone to your post!",
+"grabbed": "He has us! Brace ({key}) to break free!",
+"cold": "The heart is cooling… Ama will slow down. Stoke it!",
+"pressure": "Critical pressure! Vent it, quick!",
+"hungry": "Supplies are running out. We need wrecks.",
+"hurt": "Ama is badly hurt…"
+},
+"hint": {
+"pilot": "<kbd>{move}</kbd> veer / pace  ·  hold <kbd>{act}</kbd> brace",
+"fight": "<kbd>{act}</kbd> strike  ·  <kbd>{alt}</kbd> parry  ·  <kbd>{grab}</kbd> grab  ·  hold down: brace",
+"titan": "<kbd>{act}</kbd> strike  ·  <kbd>{alt}</kbd> parry  ·  <kbd>{grab}</kbd> grab  ·  hold down: brace",
+"gun_mouse": "mouse: aim  ·  <kbd>{act}</kbd> fire",
+"gun": "<kbd>{move}</kbd> aim  ·  <kbd>{act}</kbd> fire",
+"heart": "hold <kbd>{act}</kbd> stoke  ·  hold <kbd>{alt}</kbd> vent",
+"lookout": "<kbd>{move}</kbd> look  ·  <kbd>{act}</kbd> spyglass",
+"deck": "<kbd>{move}</kbd> walk  ·  hold <kbd>{act}</kbd> beat out / drive off",
+"posts": "<kbd>{posts}</kbd> posts"
+},
+"tips": {
+"leg": [
+"Welcome on Ama's back. Keys <kbd>1</kbd> to <kbd>5</kbd> take a post: <b>1</b> the head (pilot), <b>2</b> and <b>3</b> the harpoons, <b>4</b> the heart forge, <b>5</b> the lookout. The crew holds the others.",
+"At the helm: <kbd>A</kbd>/<kbd>D</kbd> to veer, <kbd>W</kbd>/<kbd>S</kbd> for the pace (Halt, Walk, Stride). Hold <kbd>{act}</kbd> to brace Ama before a rockfall.",
+"At the heart forge: <kbd>{act}</kbd> stokes (heat, for supplies), <kbd>{alt}</kbd> vents the pressure. Without heat Ama slows down; too much pressure and the heart bursts.",
+"At the harpoons: the mouse aims, <kbd>{act}</kbd> fires. The harpoon locks onto the target nearest the reticle: scavengers, raider skiffs, wrecks to haul.",
+"Without a post you walk the deck: hold <kbd>{act}</kbd> near a fire to beat it out, or near a raider to drive him off. Press your post's number again to step down. <kbd>{view}</kbd>: overview."
+]
+},
+"brief": {
+"l1": [
+[
+-1,
+"Long ago the Ash Sea swallowed everything. Only we remain, and Ama."
+],
+[
+0,
+"Ama smells water, somewhere to the east. She wants to walk. We will walk with her."
+],
+[
+3,
+"I'm climbing the tower! I'll see the chasms before anyone else!"
+]
+],
+"l2": [
+[
+2,
+"The heart is holding. But we'll need supplies: every shovel of embers eats some."
+],
+[
+1,
+"The wrecks have full holds. A good harpoon, a rope, and we haul them up."
+]
+],
+"l3": [
+[
+3,
+"Over there… something red is moving in the dust. Something huge."
+],
+[
+0,
+"A wild titan. He will not let us pass. Everyone to your post."
+]
+],
+"l4": [
+[
+-1,
+"Twenty years have passed. The children born on Ama's back have taken their parents' posts."
+],
+[
+0,
+"My mother used to say Ama was never afraid. I'm afraid enough for both of us."
+]
+],
+"l5": [
+[
+2,
+"The pressure climbs faster than it used to. Ama is getting old too."
+],
+[
+1,
+"There are more raiders around here. Keep your spears close."
+]
+],
+"l6": [
+[
+3,
+"The storm is rising… and something is burning inside it."
+],
+[
+0,
+"The Furnace. My mother saw her once, from afar. She turned back."
+]
+],
+"l7": [
+[
+-1,
+"One more generation. Those who saw Ama set out have become legends told by the fire."
+],
+[
+0,
+"They say the Source lies past the last mountains. We'll be there before I'm old."
+]
+],
+"l8": [
+[
+2,
+"Ama is limping. Her scars pull at her. She has to hold on a little longer."
+],
+[
+3,
+"I can see white birds on the horizon. The elders said they live near water."
+]
+],
+"l9": [
+[
+3,
+"He's there. The Ash King. He's bigger than Ama."
+],
+[
+0,
+"Then we'll be more stubborn than him. For our grandparents. For the Source."
+]
+]
+},
+"cine": {
+"intro": [
+{
+"image": "vista_ash",
+"text": "The Ash Sea has buried everything: the cities, the forests, the rivers. Only dust remains, and the wind."
+},
+{
+"image": "key_art",
+"text": "And Ama. A titaness of stone and moss, slow and gentle, who has always walked. On her back we built a village."
+},
+{
+"image": "heart",
+"text": "In the middle beats her heart, a living forge. As long as we tend it, she walks. As long as she walks, we live."
+},
+{
+"image": "bg_title",
+"text": "She smells water, somewhere to the east: the Source the songs speak of. The journey will last longer than a life. Our children will finish it."
+}
+],
+"finale": [
+{
+"image": "vista_source",
+"text": "At the end of the world, water springs from the cliff. Young titans drink there. Ama steps forward, and drinks."
+},
+{
+"image": "ending",
+"text": "Three generations stand on her head. The elders weep; the children laugh. No one remembers the first step, but everyone will remember this one."
+},
+{
+"image": "bg_title",
+"text": "Ama will walk no more. She has found the Source. And we, at last, can set our houses on solid ground."
+}
+]
+},
+"ending": {
+"credits": "TITAN\n\nA game designed, written, programmed and scored by Claude.\nThank you for walking with Ama."
+}
+}

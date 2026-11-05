@@ -347,3 +347,13 @@ Linux et Windows avant de passer au suivant.
   radio avec route d'interception (A* sur les routes), Saison de 8 journées + garage, chasse libre seul ou à deux
   (image dans l'image pour la photographe), équipage et course en ligne (lockstep vérifié), trigonométrie entière
   pour un résultat identique Windows/Linux, zips envoyés.
+- **TITAN** — terminé : simulation entière de la marche (allure, cap, chaleur et pression du cœur, provisions,
+  gouffres, éboulements, geysers, oasis, tempêtes de cendres, épaves à hisser, charognards, voiliers pillards et
+  abordages, feux sur le pont) et du combat de colosses (frapper, parer, saisir, s'ancrer, équilibre, points
+  faibles révélés par la vigie) ; équipage IA à chaque poste, pris en main par le joueur (touches 1-5) ; titane et
+  titans sauvages modelés et animés en code (marche à pas plantés par cinématique inverse, poses de combat), village
+  sur son dos ; Longue Marche de 9 étapes sur 3 générations (carrefours, cicatrices, héritage des dons), étape
+  libre et duel seul ou à deux (écran partagé), expédition et duel en ligne (lockstep vérifié), musique en mode
+  hijaz, zips Windows/Linux envoyés.
+  Écart assumé avec la fiche : quatre membres d'équipage pour cinq postes (le second harpon reste libre à moins
+  qu'un joueur ne le prenne), et deux joueurs au maximum ensemble (même écran ou en ligne) plutôt que quatre.

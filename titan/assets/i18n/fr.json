@@ -1,0 +1,497 @@
+{
+"common": {
+"back": "Retour",
+"yes": "Oui",
+"no": "Non",
+"skip": "Passer",
+"continue": "Continuer"
+},
+"names": {
+"narrator": "LA CONTEUSE"
+},
+"title": {
+"tagline": "Elle marche. Nous vivons sur elle. Un jour, nos enfants verront la Source.",
+"press": "Appuie sur une touche",
+"march": "La Longue Marche",
+"march_continue": "Reprendre la Longue Marche",
+"march_sub": "Neuf étapes, trois générations, seul ou à deux sur un écran",
+"march_new": "Nouvelle marche",
+"march_new_sub": "Repartir de zéro avec les fondateurs",
+"confirm_new": "Abandonner la marche en cours et repartir avec les fondateurs ?",
+"free": "Étape libre",
+"free_sub": "Une terre, un niveau, un titan sauvage ou non — seul ou à deux",
+"duel": "Duel de titans",
+"duel_sub": "Contre l'IA ou à deux sur un écran",
+"online": "En ligne",
+"online_sub": "Une expédition à deux, ou un duel",
+"options": "Options",
+"quit": "Quitter"
+},
+"options": {
+"title": "OPTIONS",
+"music": "Musique",
+"sfx": "Effets",
+"quality": "Qualité graphique",
+"q0": "Basse",
+"q1": "Moyenne",
+"q2": "Haute",
+"lang": "Langue",
+"controls": "Commandes",
+"fullscreen": "Plein écran",
+"on": "Oui",
+"off": "Non",
+"press": "Appuie sur une touche…",
+"shake": "Secousses de l'image",
+"mouse": "Sensibilité de la souris",
+"latency": "Latence",
+"software": "Rendu logiciel détecté : qualité réduite. Pour une meilleure expérience, utilise une carte graphique."
+},
+"controls": {
+"act": "Action (J1)",
+"alt": "Action secondaire (J1)",
+"grab": "Saisir (J1)",
+"post1": "Poste : pilote (J1)",
+"post2": "Poste : harpon bâbord (J1)",
+"post3": "Poste : harpon tribord (J1)",
+"post4": "Poste : forge-cœur (J1)",
+"post5": "Poste : vigie (J1)",
+"view": "Vue d'ensemble",
+"p2_act": "Action (J2)",
+"p2_alt": "Action secondaire (J2)",
+"p2_grab": "Saisir (J2)",
+"pause": "Pause",
+"reset": "Réinitialiser les commandes"
+},
+"key": {
+"lmb": "Clic G",
+"rmb": "Clic D",
+"mmb": "Clic M",
+"space": "Espace",
+"shift": "Maj",
+"esc": "Échap",
+"enter": "Entrée",
+"kp_enter": "Entrée (pavé)"
+},
+"pause": {
+"title": "PAUSE",
+"resume": "Reprendre",
+"restart": "Recommencer l'étape",
+"options": "Options",
+"quit": "Quitter"
+},
+"setup": {
+"free_title": "ÉTAPE LIBRE",
+"duel_title": "DUEL DE TITANS",
+"free_rules": "Une étape hors de la grande marche. À deux, l'écran se partage : le joueur 1 au clavier gauche et à la souris (ZQSD, Espace, Maj, F, 1-5), le joueur 2 aux flèches (Entrée, /, ., 6-0) ou à la manette.",
+"duel_rules": "Deux colosses face à face. Frapper quand l'autre baisse sa garde, parer quand il arme son bras, saisir pour le tenir, s'ancrer contre une saisie. L'équilibre qui tombe à zéro jette un titan au sol.",
+"land": "Terre",
+"level": "Difficulté",
+"level1": "Clémente",
+"level2": "Rude",
+"level3": "Impitoyable",
+"boss": "Titan sauvage au bout",
+"boss0": "Non",
+"boss1": "Oui",
+"players": "Joueurs",
+"players0": "Seul",
+"players1": "À deux (écran partagé)",
+"opponent": "Adversaire",
+"foe0": "IA — jeune titan",
+"foe1": "IA — vieux titan",
+"foe2": "IA — roi des titans",
+"foe3": "Un ami (à deux sur un écran)",
+"go": "En marche !"
+},
+"free": {
+"sub": "Étape libre"
+},
+"land": {
+"ash": {
+"name": "La Mer de Cendres",
+"short": "Cendres",
+"desc": "Des dunes grises à perte de vue, des carcasses de navires échoués à fouiller, des gouffres cachés sous la cendre. Le chemin le plus sûr, et le plus long.",
+"brief": "La Mer de Cendres. Pas de piège particulier : des épaves, des gouffres, des charognards. Gardez le cœur chaud."
+},
+"ruins": {
+"name": "Les Ruines englouties",
+"short": "Ruines",
+"desc": "Une cité engloutie dans la cendre : beaucoup d'épaves à hisser, des éboulements entre les tours, et des nuées de charognards qui nichent dans les flèches brisées.",
+"brief": "Les Ruines. Des provisions partout, des charognards partout. Harponneurs, à vos postes."
+},
+"forest": {
+"name": "La Forêt pétrifiée",
+"short": "Forêt",
+"desc": "Des troncs blancs hauts comme des tours, des geysers qui réchauffent le cœur d'Ama… et la pression qui monte avec. Peu de pillards s'y aventurent.",
+"brief": "La Forêt pétrifiée. Les geysers chauffent le cœur : surveillez la pression, purgez avant qu'elle n'éclate."
+},
+"storm": {
+"name": "La Tempête noire",
+"short": "Tempête",
+"desc": "Un raccourci à travers une tempête de cendres : on n'y voit presque rien, Ama y ralentit et y prend froid. La vigie y vaut son pesant d'or.",
+"brief": "La Tempête. Pip, ne quitte pas ta tour. Tout le monde : on avance à l'aveugle."
+},
+"oasis": {
+"name": "L'Oasis",
+"short": "Oasis",
+"desc": "Une oasis : en faisant halte, Ama boit, se soigne, et l'on refait les provisions. Mais les pillards connaissent aussi le chemin de l'eau.",
+"brief": "L'Oasis. Faites halte dans l'eau (allure : Halte) pour qu'elle boive et guérisse. Et gardez un œil sur l'horizon."
+}
+},
+"boss": {
+"belier": {
+"name": "Le Bélier",
+"desc": "Un titan sauvage aux cornes de bélier, jeune et furieux. Il frappe fort mais se découvre souvent.",
+"brief": "Le Bélier nous barre la route. Parez ses coups quand il arme son bras, saisissez-le, et que les harpons trouvent ses points faibles."
+},
+"fournaise": {
+"name": "La Fournaise",
+"desc": "Un vieux titan de lave au cœur brûlant. Plus robuste, plus rusé : il pare et il saisit.",
+"brief": "La Fournaise sort de la tempête. Elle saisit : ancrez Ama quand elle ouvre les bras."
+},
+"roi": {
+"name": "Le Roi des Cendres",
+"desc": "Le plus grand des titans sauvages, gardien du chemin de la Source. Rien ne l'a jamais fait tomber.",
+"brief": "Le Roi des Cendres. Derrière lui, la Source. Tout ce que nos parents nous ont appris, c'est maintenant."
+}
+},
+"gen": {
+"0": "Ire génération — Les Fondateurs",
+"1": "IIe génération — Les Enfants du dos",
+"2": "IIIe génération — Ceux de la Source"
+},
+"gift": {
+"steady": {
+"name": "Main sûre",
+"desc": "Pilote : coups plus forts (+15 %), parade plus longue."
+},
+"quick": {
+"name": "Œil vif",
+"desc": "Harponneur : recharge plus rapide."
+},
+"frugal": {
+"name": "Économe",
+"desc": "Mécano : attiser coûte moins de provisions."
+},
+"keen": {
+"name": "Regard d'aigle",
+"desc": "Vigie : voit un tiers plus loin."
+},
+"stout": {
+"name": "Robuste",
+"desc": "Se relève deux fois plus vite après une chute."
+},
+"brave": {
+"name": "Brave",
+"desc": "Repousse les pillards deux fois plus vite."
+}
+},
+"map": {
+"title": "LA LONGUE MARCHE",
+"leg_of": "étape {n} sur 9",
+"leg": "Étape {n}",
+"ama_state": "Santé {hp} / {max} (cicatrices)   ·   Provisions {sup}",
+"crew": "L'ÉQUIPAGE",
+"face": "Affronter {name}",
+"go": "Par {land}",
+"players": "Joueurs",
+"source": "La Source"
+},
+"inherit": {
+"title": "{gen}",
+"sub": {
+"1": "Vingt ans ont passé sur le dos d'Ama. Les fondateurs ont vieilli ; leurs enfants prennent les postes.",
+"2": "Une génération encore. Ceux qui sont nés pendant la marche passent la main à ceux qui verront la Source."
+},
+"from": "après {name}",
+"gift_of": "Le don de {name}",
+"kept": "Héritage :",
+"own": "Son propre don :",
+"go": "Que la marche continue"
+},
+"result": {
+"done": "ÉTAPE FRANCHIE",
+"done_sub": "Ama s'arrête pour la nuit. On panse ses plaies, on compte les provisions.",
+"won": "LE TITAN EST VAINCU",
+"won_sub": "Le titan sauvage s'effondre dans la cendre. Ama reprend sa route, plus lente, plus fière.",
+"lost": "AMA S'EST EFFONDRÉE",
+"lost_sub": "Elle se relèvera, lentement. Il faudra refaire cette étape.",
+"duel_won": "VICTOIRE",
+"duel_won_sub": "Ama domine le champ de cendres.",
+"duel_lost": "DÉFAITE",
+"duel_lost_sub": "Ama recule devant plus fort qu'elle.",
+"p1_won": "LE JOUEUR 1 L'EMPORTE",
+"p1_won_sub": "Ama tient le terrain.",
+"p2_won": "LE JOUEUR 2 L'EMPORTE",
+"p2_won_sub": "Le titan sauvage tient le terrain.",
+"hp": "Santé d'Ama",
+"supplies": "Provisions",
+"birds": "Charognards abattus",
+"skiffs": "Voiliers coulés",
+"boarders": "Pillards repoussés",
+"salvage": "Épaves hissées",
+"fires": "Feux éteints",
+"weak": "Points faibles touchés",
+"time": "Durée",
+"scars": "Ama garde {n} points de cicatrices : sa santé maximale baisse d'autant.",
+"new_gen": "Les années passent. Une nouvelle génération va prendre les postes.",
+"retry": "Refaire l'étape",
+"map": "Retour à la carte",
+"onward": "En avant",
+"again": "Rejouer",
+"menu": "Menu principal"
+},
+"online": {
+"title": "EN LIGNE",
+"rules": "L'un héberge, l'autre rejoint avec son adresse (le port 47644 s'ouvre tout seul quand la box le permet). L'hôte choisit : une expédition à deux sur Ama — chacun son personnage — ou un duel de titans.",
+"address": "Adresse de l'hôte",
+"host": "Héberger",
+"join": "Rejoindre",
+"failed": "Échec de la connexion.",
+"waiting": "En attente d'un joueur… Ton adresse : {addr}",
+"lost": "Connexion perdue.",
+"connected": "Connecté !",
+"pick": "Choisis la partie :",
+"wait_host": "L'hôte choisit la partie…",
+"upnp": "Ouverture automatique du port : {s}",
+"coop": "Expédition à deux — {land}",
+"duel": "Duel de titans",
+"again": "Encore une"
+},
+"hud": {
+"left": "{m} m avant la halte",
+"ama": "AMA",
+"heat": "CHALEUR DU CŒUR",
+"pressure": "PRESSION",
+"supplies": "Provisions {n}",
+"anchor": "⚓ ANCRÉE",
+"foe": "TITAN SAUVAGE",
+"p2": "JOUEUR 2",
+"balance": "ÉQUILIBRE",
+"down": "{name} est à terre !",
+"fight": "TITAN SAUVAGE !",
+"parried": "PARÉ !",
+"holding": "IL EST TENU — HARPONS !",
+"foe_down": "IL EST À TERRE — FRAPPE !",
+"ama_down": "AMA EST À TERRE…",
+"p2_titan": "JOUEUR 2 : le titan sauvage",
+"you_are": "{name} — {post}",
+"offroute": "{m} m hors de la piste, côté {side}",
+"heat_s": "Chaleur",
+"pressure_s": "Pression",
+"vision": "Vue : {m} m",
+"weak_seen": "Points faibles révélés !"
+},
+"post": {
+"0": "Pilote",
+"1": "Harpon bâbord",
+"2": "Harpon tribord",
+"3": "Forge-cœur",
+"4": "Vigie",
+"empty": "libre",
+"deck": "sur le pont"
+},
+"pace": {
+"0": "HALTE",
+"1": "MARCHE",
+"2": "GRAND PAS"
+},
+"side": {
+"ahead": "droit devant",
+"port": "à bâbord",
+"star": "à tribord"
+},
+"haz": {
+"0": "Gouffre",
+"1": "Éboulis",
+"2": "Geyser",
+"3": "Oasis",
+"4": "Tempête",
+"5": "Épave"
+},
+"tele": {
+"strike": "⚠ IL ARME SON COUP — PARE !",
+"grab": "⚠ IL OUVRE LES BRAS — ANCRE-TOI !",
+"held": "AMA EST TENUE — ANCRE-TOI POUR TE LIBÉRER"
+},
+"voice": {
+"chasm": "Gouffre à {d} m, {side} ! Pilote, oblique !",
+"rocks": "Éboulement à {d} m ! Ancrez Ama ou faites halte !",
+"geyser": "Geyser à {d} m, {side}. Il réchauffera le cœur.",
+"oasis_seen": "De l'eau ! Une oasis à {d} m !",
+"storm_seen": "Mur de cendres à {d} m. On va être aveugles.",
+"wreck": "Une épave, {side}. Harponnez-la, il y a des vivres dedans !",
+"birds": "Charognards {side} ! Ils vont piquer sur nous !",
+"skiffs": "Voiles pillardes {side} ! Coulez-les avant qu'elles accostent !",
+"docked": "Ils accostent ! Ils grimpent par les pattes !",
+"boarder": "Un pillard sur le pont ! Repoussez-le !",
+"salvage": "Épave hissée ! Des provisions pour des jours !",
+"chasm_hit": "Accrochez-vous ! Elle trébuche !",
+"dodged": "Évité. Brave Ama.",
+"rocks_hit": "Les rochers ! Elle a été touchée de plein fouet !",
+"braced": "Elle a tenu. Les rochers ont roulé sur elle.",
+"geyser_in": "La vapeur du geyser ! Le cœur chauffe — gare à la pression.",
+"oasis": "On y est. Halte : qu'elle boive.",
+"storm_out": "On sort de la tempête. Je revois le ciel !",
+"burst": "La pression a éclaté ! Le feu est dans la forge !",
+"overheat": "Le cœur est trop chaud ! Ça prend feu !",
+"fight": "Titan sauvage ! Tout le monde à son poste !",
+"grabbed": "Il nous tient ! Ancre-toi ({key}) pour te libérer !",
+"cold": "Le cœur refroidit… Ama va ralentir. Il faut attiser !",
+"pressure": "Pression critique ! Purgez, vite !",
+"hungry": "Les provisions s'épuisent. Il nous faut des épaves.",
+"hurt": "Ama est gravement blessée…"
+},
+"hint": {
+"pilot": "<kbd>{move}</kbd> obliquer / allure  ·  maintenir <kbd>{act}</kbd> ancrer",
+"fight": "<kbd>{act}</kbd> frapper  ·  <kbd>{alt}</kbd> parer  ·  <kbd>{grab}</kbd> saisir  ·  bas maintenu : s'ancrer",
+"titan": "<kbd>{act}</kbd> frapper  ·  <kbd>{alt}</kbd> parer  ·  <kbd>{grab}</kbd> saisir  ·  bas maintenu : s'ancrer",
+"gun_mouse": "souris : viser  ·  <kbd>{act}</kbd> tirer",
+"gun": "<kbd>{move}</kbd> viser  ·  <kbd>{act}</kbd> tirer",
+"heart": "maintenir <kbd>{act}</kbd> attiser  ·  maintenir <kbd>{alt}</kbd> purger",
+"lookout": "<kbd>{move}</kbd> regarder  ·  <kbd>{act}</kbd> longue-vue",
+"deck": "<kbd>{move}</kbd> marcher  ·  maintenir <kbd>{act}</kbd> éteindre / repousser",
+"posts": "<kbd>{posts}</kbd> postes"
+},
+"tips": {
+"leg": [
+"Bienvenue sur le dos d'Ama. Les touches <kbd>1</kbd> à <kbd>5</kbd> prennent un poste : <b>1</b> la tête (pilote), <b>2</b> et <b>3</b> les harpons, <b>4</b> la forge-cœur, <b>5</b> la vigie. L'équipage tient les autres.",
+"Au pilotage : <kbd>Q</kbd>/<kbd>D</kbd> (ou <kbd>A</kbd>/<kbd>D</kbd>) pour obliquer, <kbd>Z</kbd>/<kbd>S</kbd> pour l'allure (Halte, Marche, Grand pas). Maintiens <kbd>{act}</kbd> pour ancrer Ama avant un éboulement.",
+"À la forge-cœur : <kbd>{act}</kbd> attise (chaleur, contre des provisions), <kbd>{alt}</kbd> purge la pression. Sans chaleur, Ama ralentit ; trop de pression, et le cœur éclate.",
+"Aux harpons : la souris vise, <kbd>{act}</kbd> tire. Le harpon s'accroche tout seul à la cible la plus proche du réticule : charognards, voiliers pillards, épaves à hisser.",
+"Sans poste, tu marches sur le pont : maintiens <kbd>{act}</kbd> près d'un feu pour l'éteindre, ou d'un pillard pour le repousser. Rappuie sur le numéro de ton poste pour descendre. <kbd>{view}</kbd> : vue d'ensemble."
+]
+},
+"brief": {
+"l1": [
+[
+-1,
+"Il y a longtemps, la Mer de Cendres a tout avalé. Il ne reste que nous, et Ama."
+],
+[
+0,
+"Ama sent l'eau, quelque part à l'est. Elle veut marcher. Nous marcherons avec elle."
+],
+[
+3,
+"Je monte à la tour ! Je verrai les gouffres avant tout le monde !"
+]
+],
+"l2": [
+[
+2,
+"Le cœur tient bien. Mais il faudra des provisions : chaque pelletée de braise en mange."
+],
+[
+1,
+"Les épaves ont des cales pleines. Un bon harpon, une corde, et on les hisse."
+]
+],
+"l3": [
+[
+3,
+"Là-bas… quelque chose de rouge bouge dans la poussière. Quelque chose d'énorme."
+],
+[
+0,
+"Un titan sauvage. Il ne nous laissera pas passer. Tout le monde à son poste."
+]
+],
+"l4": [
+[
+-1,
+"Vingt ans ont passé. Les enfants nés sur le dos d'Ama ont pris les postes de leurs parents."
+],
+[
+0,
+"Ma mère disait qu'Ama n'avait jamais eu peur. Moi, j'ai peur pour deux."
+]
+],
+"l5": [
+[
+2,
+"La pression monte plus vite qu'avant. Ama vieillit, elle aussi."
+],
+[
+1,
+"Les pillards sont plus nombreux par ici. Gardez vos lances près de vous."
+]
+],
+"l6": [
+[
+3,
+"La tempête se lève… et quelque chose brûle dedans."
+],
+[
+0,
+"La Fournaise. Ma mère l'a vue, une fois, de loin. Elle a fait demi-tour."
+]
+],
+"l7": [
+[
+-1,
+"Une génération de plus. Ceux qui ont vu partir Ama sont devenus des légendes qu'on raconte au coin du feu."
+],
+[
+0,
+"On dit que la Source est derrière les dernières montagnes. On y sera avant que je sois vieille."
+]
+],
+"l8": [
+[
+2,
+"Ama boite. Ses cicatrices tirent. Il faut qu'elle tienne encore un peu."
+],
+[
+3,
+"Je vois des oiseaux blancs à l'horizon. Les anciens disaient qu'ils vivent près de l'eau."
+]
+],
+"l9": [
+[
+3,
+"Il est là. Le Roi des Cendres. Il est plus grand qu'Ama."
+],
+[
+0,
+"Alors on sera plus têtus que lui. Pour nos grands-parents. Pour la Source."
+]
+]
+},
+"cine": {
+"intro": [
+{
+"image": "vista_ash",
+"text": "La Mer de Cendres a tout recouvert : les villes, les forêts, les rivières. Il ne reste que la poussière, et le vent."
+},
+{
+"image": "key_art",
+"text": "Et Ama. Une titane de pierre et de mousse, lente et douce, qui marche depuis toujours. Sur son dos, nous avons bâti un village."
+},
+{
+"image": "heart",
+"text": "Au milieu bat son cœur, une forge vivante. Tant qu'on l'entretient, elle marche. Tant qu'elle marche, nous vivons."
+},
+{
+"image": "bg_title",
+"text": "Elle sent l'eau, quelque part à l'est : la Source dont parlent les chansons. Le voyage durera plus qu'une vie. Nos enfants le finiront."
+}
+],
+"finale": [
+{
+"image": "vista_source",
+"text": "Au bout du monde, l'eau jaillit de la falaise. De jeunes titans s'y abreuvent. Ama s'avance, et boit."
+},
+{
+"image": "ending",
+"text": "Trois générations se tiennent sur sa tête. Les anciens pleurent ; les enfants rient. Personne ne se souvient du premier pas, mais tous se souviendront de celui-là."
+},
+{
+"image": "bg_title",
+"text": "Ama ne marchera plus. Elle a trouvé la Source. Et nous, enfin, nous pouvons poser nos maisons sur la terre ferme."
+}
+]
+},
+"ending": {
+"credits": "TITAN\n\nUn jeu conçu, écrit, programmé et mis en musique par Claude.\nMerci d'avoir marché avec Ama."
+}
+}
