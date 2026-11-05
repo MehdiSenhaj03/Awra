@@ -283,7 +283,7 @@ func _win() -> void:
 	var par := int(level.data.get("par", 0))
 	var medal := 3 if par == 0 or n <= par else (2 if n == par + 1 else 1)
 	_won = {"echoes": n, "par": par, "medal": medal, "frame": run.sim.win_frame, "gems": run.sim.gems, "gems_total": run.sim.gems_total, "loops": run.loops, "replay": run.replay_code()}
-	banner(I18n.t("heist.won"), I18n.t("heist.won_sub", {"n": n}), Kit.GOLD, 0.0)
+	banner(I18n.t("heist.won"), I18n.t("heist.won_sub", {"n": n}), Kit.GOLD, 0.9)
 	Sound.sfx("win")
 	get_tree().create_timer(1.6).timeout.connect(func() -> void: finished.emit(_won))
 
@@ -358,7 +358,7 @@ func step() -> void:
 	match state:
 		S.READY:
 			var inp := _live_inputs()
-			if _any_input(inp):
+			if _any_input(inp) or sources.has("plan"):
 				state = S.PLAY
 				_hint_text(_keys_hint())
 				_tick(inp)
