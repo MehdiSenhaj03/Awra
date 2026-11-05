@@ -1,0 +1,396 @@
+{
+"common": {
+"back": "Back",
+"yes": "Yes",
+"no": "No",
+"skip": "Skip",
+"continue": "Continue"
+},
+"names": {
+"june": "JUNE",
+"eli": "ELI",
+"margot": "MARGOT",
+"teo": "TEO",
+"rival": "DUTCH CALLAHAN"
+},
+"title": {
+"tagline": "The sky only warns you once.",
+"press": "Press any key",
+"season": "The Season",
+"season_sub": "Eight chase days, April to June",
+"free": "Free chase",
+"free_sub": "Alone, two on one screen, or against a rival crew",
+"online": "Online",
+"online_sub": "A crew of two, or the race for the best shots",
+"garage": "The garage",
+"garage_sub": "Upgrade the truck",
+"options": "Options",
+"quit": "Quit"
+},
+"season": {
+"title": "THE SEASON",
+"sub": "Crew funds: ${money}",
+"garage": "The garage",
+"done": "✓ Done — best dossier {n} (goal {goal})",
+"locked": "Succeed on the previous day.",
+"goal": "Dossier goal: {goal}",
+"rival": "rival crew"
+},
+"risk": {
+"1": "Marginal risk",
+"2": "Slight risk",
+"3": "Enhanced risk",
+"4": "Moderate risk",
+"5": "High risk"
+},
+"day": {
+"d1": {
+"name": "First day",
+"date": "April 12",
+"desc": "One isolated cell, just enough shear. Eli says “marginal”; June says “perfect to shake off the rust”. A clean shot of the structure, maybe a shy tornado."
+},
+"d2": {
+"name": "Two cells",
+"date": "April 19",
+"desc": "Two storms two hours apart. Pick the right one, then switch targets without getting stuck in the mud."
+},
+"d3": {
+"name": "The cowboy",
+"date": "May 2",
+"desc": "Dutch Callahan and his crew are on the same storm. He has sold three magazine covers this year already. He is not getting a fourth."
+},
+"d4": {
+"name": "Supercell train",
+"date": "May 9",
+"desc": "A first tornadic storm, then a second in its wake. The river cuts the map in two: the bridges are few."
+},
+"d5": {
+"name": "Dusk",
+"date": "May 17",
+"desc": "The light is fading fast and the storm lights up with lightning. Callahan is here again. Lightning shots are worth gold tonight."
+},
+"d6": {
+"name": "Moderate risk",
+"date": "May 24",
+"desc": "The Prediction Center has put the region under a moderate risk. Two likely tornadoes, one strong. Teo has serviced the probes."
+},
+"d7": {
+"name": "Mud",
+"date": "June 3",
+"desc": "It rained all night: the dirt roads are skating rinks. Two cells, and Callahan who never lets go."
+},
+"d8": {
+"name": "High risk",
+"date": "June 11",
+"desc": "The kind of day you see once a decade. A single monstrous supercell, three tornadoes forecast. Stay alive."
+}
+},
+"chase": {
+"free": "Free chase"
+},
+"dir": {
+"E": "E",
+"NE": "NE",
+"N": "N",
+"NO": "NW",
+"O": "W",
+"SO": "SW",
+"S": "S",
+"SE": "SE"
+},
+"surface": {
+"field": "field",
+"dirt": "dirt road",
+"paved": "pavement",
+"water": "river",
+"town": "in town",
+"mud": "MUD"
+},
+"cat": {
+"tornado": "Tornado",
+"structure": "Structure",
+"lightning": "Lightning",
+"hail": "Hail",
+"none": "Nothing"
+},
+"hud": {
+"score": "DOSSIER {n}   ·   FILM {film}   ·   PROBES {probes}",
+"keys_drive": "<kbd>WASD</kbd> drive  ·  <kbd>{camera}</kbd> camera  ·  <kbd>{probe}</kbd> drop a probe (stopped)  ·  <kbd>{radar}</kbd> velocity radar  ·  <kbd>{look}</kbd> camera on the storm  ·  click the radar: route",
+"keys_photo": "mouse: aim  ·  wheel: zoom  ·  <kbd>{shoot}</kbd> shoot  ·  <kbd>{camera}</kbd> put the camera away",
+"keys_crew": "<kbd>{camera}</kbd> camera  ·  <kbd>{probe}</kbd> probe  ·  click the radar: route for the driver",
+"tornado_warning": "TORNADO WARNING",
+"hail": "HAIL",
+"wrecked": "WRECKED",
+"no_film": "Out of film!",
+"probe_stop": "Stop first to drop a probe.",
+"photo_nothing": "Nothing notable in the frame… Aim at the structure, the tornado or a bolt."
+},
+"eli": {
+"new_cell": "New cell (C{n}) to the {dir}, {km} km out.",
+"rotation": "C{n} is getting organised: strong rotation on the velocity radar. Get on its south-east flank.",
+"soon": "The hook is tightening on C{n}. It will drop any minute now.",
+"tornado": "TORNADO ON THE GROUND! {km} km to the {dir}, heading {to}.",
+"tornado_end": "C{n}’s tornado is roping out…",
+"too_close": "TOO CLOSE! Get out to the south-east, now!",
+"hail": "Hail! Don’t sit under the core — go forward or back!",
+"mud": "We’re sliding: the dirt roads are mud. Get back on pavement when you can.",
+"probe_here": "Perfect probe window, right here on its track! Press {key}!",
+"probe_hit": "INTERCEPT! The probe is inside the tornado (EF{ef}): +{pts} data!",
+"route": "I’ve drawn an intercept route in yellow on the radar.",
+"wreck": "… June? June, can you hear me? We lost the truck."
+},
+"dossier": {
+"title": "THE DOSSIER",
+"none": "no photo",
+"photos": "Photographs",
+"probes": "Probe data",
+"total": "Total",
+"rival": "Callahan's dossier",
+"earned": "Sold to papers and labs",
+"repair": "Repairs",
+"ok": "DAY SUCCESSFUL",
+"short": "Not enough for the editors…",
+"wrecked": "THE TRUCK IS A WRECK",
+"beat": "YOU BEAT THE RIVAL CREW",
+"beaten": "THE RIVALS BEAT YOU",
+"next": "Next day",
+"retry": "Chase again",
+"season": "Back to the season",
+"menu": "Main menu"
+},
+"garage": {
+"title": "THE GARAGE",
+"money": "Funds: ${n}",
+"intro": "Every dossier sold pays for fuel, repairs… and upgrades. Choose well.",
+"armor": "Armour",
+"armor_desc": "Less damage from hail and debris",
+"engine": "Engine",
+"engine_desc": "Top speed",
+"probes": "Probes",
+"probes_desc": "One more turtle per chase",
+"zoom": "Long lens",
+"zoom_desc": "The camera's maximum zoom",
+"val_armor": "damage {v}%",
+"val_engine": "speed {v}%",
+"val_probes": "{v} probes",
+"val_zoom": "×{v}",
+"max": "maxed"
+},
+"setup": {
+"title": "FREE CHASE",
+"rules": "A generated day. Two on one screen: the gamepad drives, the mouse shoots, drops probes and plans the route.",
+"risk": "Risk",
+"crew": "Crew",
+"crew0": "Alone",
+"crew1": "Two (gamepad + mouse)",
+"rival": "Rival crew",
+"rival0": "No",
+"rival1": "Yes — race for the shots",
+"go": "Go"
+},
+"online": {
+"title": "ONLINE",
+"rules": "For two, at a distance. Crew: the host drives, the guest shoots, drops probes and plans. Race: one truck each, the best dossier wins.",
+"host": "Host",
+"join": "Join",
+"address": "Host address",
+"waiting": "Waiting… Give your address: {addr}",
+"connected": "Connected!",
+"failed": "Connection failed.",
+"lost": "Connection lost.",
+"upnp": "Automatic port opening: {s}",
+"pick": "Choose:",
+"net_coop": "Crew — {risk}",
+"net_versus": "Photo race — {risk}",
+"wait_host": "Waiting for the host…",
+"again": "Again"
+},
+"pause": {
+"title": "PAUSE",
+"resume": "Resume",
+"restart": "Restart the chase",
+"options": "Options",
+"quit": "Give up"
+},
+"options": {
+"title": "OPTIONS",
+"music": "Music",
+"sfx": "Effects",
+"quality": "Graphics quality",
+"q0": "Low",
+"q1": "Medium",
+"q2": "High",
+"lang": "Language",
+"controls": "Controls",
+"fullscreen": "Fullscreen",
+"on": "On",
+"off": "Off",
+"press": "Press a key…",
+"software": "Graphics acceleration unavailable: the game runs in software rendering."
+},
+"controls": {
+"throttle": "Throttle",
+"brake": "Brake / reverse",
+"steer_left": "Steer left",
+"steer_right": "Steer right",
+"probe": "Drop a probe",
+"camera": "Camera",
+"shoot": "Shoot",
+"radar": "Velocity radar",
+"look": "Camera on the storm",
+"horn": "Horn",
+"pause": "Pause",
+"reset": "Reset to default"
+},
+"radar": {
+"refl": "REFLECTIVITY",
+"vel": "VELOCITY"
+},
+"ending": {
+"credits": "TEMPÊTE — design, code, music: a one-person studio and a handful of skies. Thanks for chasing with us."
+},
+"brief": {
+"d1": [
+[
+"eli",
+"Right. One isolated cell to the south-west, decent shear, a low enough base. Nothing historic, but it's a real storm."
+],
+[
+"june",
+"Let's roll. Margot, camera ready? Teo, probes strapped down?"
+],
+[
+"margot",
+"Always. I want its whole structure in the frame, from a distance, before the rain hides it."
+],
+[
+"teo",
+"Three turtles on the rack. If a tornado touches down, I want to be in front of it, not behind."
+]
+],
+"d2": [
+[
+"eli",
+"Two cells today. The first one is already there, the second will form further north this afternoon."
+],
+[
+"june",
+"And the dirt roads?"
+],
+[
+"eli",
+"Dry for now. Under the rain they will be mud: keep an eye on the pavement."
+]
+],
+"d3": [
+[
+"rival",
+"Well, the truck. Going to photograph my rear bumper again?"
+],
+[
+"margot",
+"Dutch Callahan. He poses in front of tornadoes for magazine covers."
+],
+[
+"june",
+"Then we take the tornado from him. Before him, and better."
+]
+],
+"d4": [
+[
+"eli",
+"A supercell train. The first is ready to produce, the second follows in its wake."
+],
+[
+"teo",
+"The river cuts the map. How many bridges?"
+],
+[
+"eli",
+"Not enough. Look at them on the radar before you commit."
+]
+],
+"d5": [
+[
+"margot",
+"Dusk and an electric storm. It's the kind of evening that makes a career."
+],
+[
+"rival",
+"I saved you a seat. At the back. Behind me."
+],
+[
+"june",
+"Keep it warm."
+]
+],
+"d6": [
+[
+"eli",
+"Moderate risk. Two likely tornadoes, and the second could be strong. We play it tight today."
+],
+[
+"teo",
+"I reinforced the probes. Put them on its path, I’ll handle the rest."
+]
+],
+"d7": [
+[
+"june",
+"It rained all night. The dirt roads are skating rinks."
+],
+[
+"eli",
+"Then we stay on pavement and plan ahead. Whoever gets stuck today goes home empty-handed."
+],
+[
+"rival",
+"Good luck with your tractor."
+]
+],
+"d8": [
+[
+"eli",
+"High risk. I've only seen this twice. A single supercell — but what a supercell."
+],
+[
+"margot",
+"The photo of the decade is somewhere in there."
+],
+[
+"june",
+"And all four of us come home. That’s the only rule."
+]
+]
+},
+"cine": {
+"intro": [
+{
+"image": "bg_title",
+"text": "The Great Plains, in spring. Every afternoon, the sky stacks itself into twenty-kilometre towers."
+},
+{
+"image": "vista_mothership",
+"text": "Some of them rotate. They are called supercells. A few give birth to a tornado."
+},
+{
+"image": "key_art",
+"text": "June, Eli, Margot and Teo drive toward them in an armoured pick-up with three probes and a camera. For science, for the picture — and for that feeling."
+}
+],
+"finale": [
+{
+"image": "vista_tornado",
+"text": "On June eleventh, under the high risk, the truck watched the season’s biggest tornado pass less than two kilometres away."
+},
+{
+"image": "vista_after",
+"text": "That evening, on the tailgate, nobody spoke for a long time. Then Margot brought out the prints."
+},
+{
+"image": "vista_town",
+"text": "The season is over. The sky will start again next year. So will they."
+}
+]
+}
+}

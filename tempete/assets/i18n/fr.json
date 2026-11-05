@@ -1,0 +1,396 @@
+{
+"common": {
+"back": "Retour",
+"yes": "Oui",
+"no": "Non",
+"skip": "Passer",
+"continue": "Continuer"
+},
+"names": {
+"june": "JUNE",
+"eli": "ELI",
+"margot": "MARGOT",
+"teo": "TEO",
+"rival": "DUTCH CALLAHAN"
+},
+"title": {
+"tagline": "Le ciel ne prévient qu'une fois.",
+"press": "Appuie sur une touche",
+"season": "La Saison",
+"season_sub": "Huit journées de chasse, d'avril à juin",
+"free": "Chasse libre",
+"free_sub": "Seul, à deux sur un écran, ou contre une équipe rivale",
+"online": "En ligne",
+"online_sub": "Un équipage à deux, ou la course aux clichés",
+"garage": "Le garage",
+"garage_sub": "Améliorer la Bailleuse",
+"options": "Options",
+"quit": "Quitter"
+},
+"season": {
+"title": "LA SAISON",
+"sub": "Caisse de l’équipe : ${money}",
+"garage": "Le garage",
+"done": "✓ Réussie — meilleur dossier {n} (objectif {goal})",
+"locked": "Réussis la journée précédente.",
+"goal": "Objectif du dossier : {goal}",
+"rival": "équipe rivale"
+},
+"risk": {
+"1": "Risque marginal",
+"2": "Risque faible",
+"3": "Risque accru",
+"4": "Risque modéré",
+"5": "Haut risque"
+},
+"day": {
+"d1": {
+"name": "Premier jour",
+"date": "12 avril",
+"desc": "Une cellule isolée, du cisaillement juste ce qu'il faut. Eli dit « marginal » ; June dit « parfait pour se dérouiller ». Une photo nette de la structure, peut-être une tornade timide."
+},
+"d2": {
+"name": "Deux cellules",
+"date": "19 avril",
+"desc": "Deux orages à deux heures d’écart. Il faudra choisir le bon, puis changer de cible sans s’embourber."
+},
+"d3": {
+"name": "Le cow-boy",
+"date": "2 mai",
+"desc": "Dutch Callahan et son équipe sont sur le même orage. Il a déjà vendu trois couvertures cette année. Pas question de lui laisser la quatrième."
+},
+"d4": {
+"name": "Le train de supercellules",
+"date": "9 mai",
+"desc": "Un premier orage tornadique, puis un second dans son sillage. La rivière coupe la carte en deux : les ponts sont comptés."
+},
+"d5": {
+"name": "Crépuscule",
+"date": "17 mai",
+"desc": "La lumière baisse vite et l'orage s'allume d'éclairs. Callahan est encore là. Les photos de foudre valent de l'or ce soir."
+},
+"d6": {
+"name": "Risque modéré",
+"date": "24 mai",
+"desc": "Le Centre des Prévisions a passé la région en risque modéré. Deux tornades probables, une forte. Teo a révisé les sondes."
+},
+"d7": {
+"name": "La boue",
+"date": "3 juin",
+"desc": "Il a plu toute la nuit : les chemins de terre sont des patinoires. Deux cellules, et Callahan qui ne lâche rien."
+},
+"d8": {
+"name": "Haut risque",
+"date": "11 juin",
+"desc": "Le genre de journée qu'on ne voit qu'une fois par décennie. Une seule supercellule, monstrueuse, trois tornades annoncées. Restez en vie."
+}
+},
+"chase": {
+"free": "Chasse libre"
+},
+"dir": {
+"E": "E",
+"NE": "NE",
+"N": "N",
+"NO": "NO",
+"O": "O",
+"SO": "SO",
+"S": "S",
+"SE": "SE"
+},
+"surface": {
+"field": "champ",
+"dirt": "chemin de terre",
+"paved": "goudron",
+"water": "rivière",
+"town": "en ville",
+"mud": "BOUE"
+},
+"cat": {
+"tornado": "Tornade",
+"structure": "Structure",
+"lightning": "Foudre",
+"hail": "Grêle",
+"none": "Rien"
+},
+"hud": {
+"score": "DOSSIER {n}   ·   PELLICULE {film}   ·   SONDES {probes}",
+"keys_drive": "<kbd>ZQSD / WASD</kbd> conduire  ·  <kbd>{camera}</kbd> appareil photo  ·  <kbd>{probe}</kbd> poser une sonde (à l’arrêt)  ·  <kbd>{radar}</kbd> radar vitesses  ·  <kbd>{look}</kbd> caméra vers l’orage  ·  clic sur le radar : itinéraire",
+"keys_photo": "souris : viser  ·  molette : zoom  ·  <kbd>{shoot}</kbd> déclencher  ·  <kbd>{camera}</kbd> ranger l’appareil",
+"keys_crew": "<kbd>{camera}</kbd> appareil photo  ·  <kbd>{probe}</kbd> sonde  ·  clic sur le radar : itinéraire pour la pilote",
+"tornado_warning": "ALERTE TORNADE",
+"hail": "GRÊLE",
+"wrecked": "ÉPAVE",
+"no_film": "Plus de pellicule !",
+"probe_stop": "Arrête-toi d'abord pour poser une sonde.",
+"photo_nothing": "Rien de notable dans le cadre… Vise la structure, la tornade ou un éclair."
+},
+"eli": {
+"new_cell": "Nouvelle cellule (C{n}) au {dir}, à {km} km.",
+"rotation": "La C{n} s’organise : rotation bien marquée sur le radar vitesses. Place-toi sur son flanc sud-est.",
+"soon": "Le crochet se resserre sur la C{n}. Ça va tourner, d’une minute à l’autre.",
+"tornado": "TORNADE AU SOL ! {km} km au {dir}, elle file vers le {to}.",
+"tornado_end": "La tornade de la C{n} se dissipe… elle s’étire en corde.",
+"too_close": "TROP PRÈS ! Dégage vers le sud-est, maintenant !",
+"hail": "Grêle ! On ne reste pas sous le cœur, avance ou recule !",
+"mud": "Ça patine : les chemins sont en boue. Reprends le goudron dès que tu peux.",
+"probe_here": "Fenêtre parfaite pour une sonde, ici, sur sa trajectoire ! Touche {key} !",
+"probe_hit": "INTERCEPTION ! La sonde est dans la tornade (EF{ef}) : +{pts} de données !",
+"route": "Je t’ai tracé une route d’interception en jaune sur le radar.",
+"wreck": "… June ? June, tu m’entends ? On a perdu la Bailleuse."
+},
+"dossier": {
+"title": "LE DOSSIER",
+"none": "aucune photo",
+"photos": "Photographies",
+"probes": "Données des sondes",
+"total": "Total",
+"rival": "Dossier de Callahan",
+"earned": "Vendu aux journaux et aux labos",
+"repair": "Réparations",
+"ok": "JOURNÉE RÉUSSIE",
+"short": "Pas assez pour la rédaction…",
+"wrecked": "LA BAILLEUSE EST UNE ÉPAVE",
+"beat": "VOUS BATTEZ L’ÉQUIPE RIVALE",
+"beaten": "LES RIVAUX VOUS DEVANCENT",
+"next": "Journée suivante",
+"retry": "Rechasser",
+"season": "Retour à la saison",
+"menu": "Menu principal"
+},
+"garage": {
+"title": "LE GARAGE",
+"money": "Caisse : ${n}",
+"intro": "Chaque dossier vendu paie l’essence, les réparations… et les améliorations. Choisis bien.",
+"armor": "Blindage",
+"armor_desc": "Moins de dégâts sous la grêle et les débris",
+"engine": "Moteur",
+"engine_desc": "Vitesse de pointe",
+"probes": "Sondes",
+"probes_desc": "Une tortue de plus par chasse",
+"zoom": "Téléobjectif",
+"zoom_desc": "Zoom maximal de l’appareil",
+"val_armor": "dégâts {v} %",
+"val_engine": "vitesse {v} %",
+"val_probes": "{v} sondes",
+"val_zoom": "×{v}",
+"max": "maximum"
+},
+"setup": {
+"title": "CHASSE LIBRE",
+"rules": "Une journée générée. À deux sur un écran : la manette conduit, la souris photographie, pose les sondes et trace l'itinéraire.",
+"risk": "Risque",
+"crew": "Équipage",
+"crew0": "Seul",
+"crew1": "À deux (manette + souris)",
+"rival": "Équipe rivale",
+"rival0": "Non",
+"rival1": "Oui — course aux clichés",
+"go": "Partir"
+},
+"online": {
+"title": "EN LIGNE",
+"rules": "À deux, à distance. Équipage : l'hôte conduit, l'invité photographie, pose les sondes et trace l'itinéraire. Course : chacun son pick-up, le meilleur dossier l'emporte.",
+"host": "Héberger",
+"join": "Rejoindre",
+"address": "Adresse de l'hôte",
+"waiting": "En attente… Donne ton adresse : {addr}",
+"connected": "Connecté !",
+"failed": "Connexion impossible.",
+"lost": "Connexion perdue.",
+"upnp": "Ouverture du port automatique : {s}",
+"pick": "Choisis :",
+"net_coop": "Équipage — {risk}",
+"net_versus": "Course aux clichés — {risk}",
+"wait_host": "En attente de l'hôte…",
+"again": "Encore"
+},
+"pause": {
+"title": "PAUSE",
+"resume": "Reprendre",
+"restart": "Recommencer la chasse",
+"options": "Options",
+"quit": "Abandonner"
+},
+"options": {
+"title": "OPTIONS",
+"music": "Musique",
+"sfx": "Effets",
+"quality": "Qualité graphique",
+"q0": "Basse",
+"q1": "Moyenne",
+"q2": "Haute",
+"lang": "Langue",
+"controls": "Commandes",
+"fullscreen": "Plein écran",
+"on": "Oui",
+"off": "Non",
+"press": "Appuie sur une touche…",
+"software": "Accélération graphique indisponible : le jeu tourne en rendu logiciel."
+},
+"controls": {
+"throttle": "Accélérer",
+"brake": "Freiner / reculer",
+"steer_left": "Tourner à gauche",
+"steer_right": "Tourner à droite",
+"probe": "Poser une sonde",
+"camera": "Appareil photo",
+"shoot": "Déclencher",
+"radar": "Radar vitesses",
+"look": "Caméra vers l’orage",
+"horn": "Klaxon",
+"pause": "Pause",
+"reset": "Rétablir par défaut"
+},
+"radar": {
+"refl": "RÉFLECTIVITÉ",
+"vel": "VITESSES"
+},
+"ending": {
+"credits": "TEMPÊTE — conception, code, musique : un studio d'une seule personne et une poignée de ciels. Merci d'avoir chassé avec nous."
+},
+"brief": {
+"d1": [
+[
+"eli",
+"Bon. Une cellule isolée au sud-ouest, du cisaillement correct, une base pas trop haute. Rien d'historique, mais c'est un vrai orage."
+],
+[
+"june",
+"On roule. Margot, tu prépares l'appareil ? Teo, les sondes sont arrimées ?"
+],
+[
+"margot",
+"Toujours prête. Je veux sa structure entière dans le cadre, de loin, avant que la pluie la cache."
+],
+[
+"teo",
+"Trois tortues sur le rack. Si une tornade se pose, je veux être devant elle, pas derrière."
+]
+],
+"d2": [
+[
+"eli",
+"Deux cellules aujourd'hui. La première est déjà là, la seconde naîtra plus au nord dans l'après-midi."
+],
+[
+"june",
+"Et les chemins de terre ?"
+],
+[
+"eli",
+"Secs pour l'instant. Sous la pluie, ce sera de la boue : garde un œil sur le goudron."
+]
+],
+"d3": [
+[
+"rival",
+"Tiens, la Bailleuse. Vous allez encore photographier mon pare-chocs arrière ?"
+],
+[
+"margot",
+"Dutch Callahan. Il pose devant les tornades pour les couvertures de magazine."
+],
+[
+"june",
+"Alors on lui prend la tornade. Avant lui, et mieux que lui."
+]
+],
+"d4": [
+[
+"eli",
+"Un train de supercellules. La première est prête à produire, la seconde suit dans son sillage."
+],
+[
+"teo",
+"La rivière coupe la carte. Combien de ponts ?"
+],
+[
+"eli",
+"Pas assez. Regarde-les sur le radar avant de t'engager."
+]
+],
+"d5": [
+[
+"margot",
+"Crépuscule et orage électrique. C'est le genre de soirée qui fait une carrière."
+],
+[
+"rival",
+"Je vous ai gardé une place, au fond. Derrière moi."
+],
+[
+"june",
+"Garde-la au chaud."
+]
+],
+"d6": [
+[
+"eli",
+"Risque modéré. Deux tornades probables, et la seconde pourrait être forte. On joue serré aujourd'hui."
+],
+[
+"teo",
+"J'ai renforcé les sondes. Pose-les sur sa route, je m'occupe du reste."
+]
+],
+"d7": [
+[
+"june",
+"Il a plu toute la nuit. Les chemins sont des patinoires."
+],
+[
+"eli",
+"Alors on reste sur le goudron et on anticipe. Celui qui s'embourbe aujourd'hui rentre bredouille."
+],
+[
+"rival",
+"Bonne chance avec votre tracteur."
+]
+],
+"d8": [
+[
+"eli",
+"Haut risque. Je n'ai vu ça que deux fois. Une seule supercellule, mais quelle supercellule."
+],
+[
+"margot",
+"La photo de la décennie est quelque part là-dedans."
+],
+[
+"june",
+"Et on rentre tous les quatre. C'est la seule règle."
+]
+]
+},
+"cine": {
+"intro": [
+{
+"image": "bg_title",
+"text": "Les Grandes Plaines, au printemps. Chaque après-midi, le ciel s'empile en tours de vingt kilomètres."
+},
+{
+"image": "vista_mothership",
+"text": "Certaines tournent. On les appelle des supercellules. Quelques-unes accouchent d'une tornade."
+},
+{
+"image": "key_art",
+"text": "June, Eli, Margot et Teo vont au-devant d'elles avec un pick-up blindé, trois sondes et un appareil photo. Pour la science, pour la photo — et pour ce sentiment-là."
+}
+],
+"finale": [
+{
+"image": "vista_tornado",
+"text": "Le onze juin, sous le haut risque, la Bailleuse a vu passer la plus grande tornade de la saison à moins de deux kilomètres."
+},
+{
+"image": "vista_after",
+"text": "Ce soir-là, sur le hayon, personne n'a parlé pendant longtemps. Puis Margot a sorti les tirages."
+},
+{
+"image": "vista_town",
+"text": "La saison est finie. Le ciel, lui, recommencera l'année prochaine. Eux aussi."
+}
+]
+}
+}

@@ -341,3 +341,9 @@ Linux et Windows avant de passer au suivant.
   combinaisons, IA qui « dessine » (glyphe fantôme lisible), expéditions Deux Rives (créatures d'encre, obstacles,
   Bête du Fleuve, combinaisons à deux mains), campagne de 10 chapitres avec leçons guidées, duel et coop en ligne
   (lockstep vérifié), musique modale, zips Windows/Linux envoyés.
+- **TEMPÊTE** — terminé : plaines générées (12 × 12 km, routes en damier, boue, rivière et ponts, villes, fermes),
+  supercellules à cycle de vie (noyau de pluie, cœur de grêle, rafales, foudre, tornades EF0-EF5), véhicule arcade,
+  photos notées par la simulation (cadrage, distance, visibilité), sondes, radar réflectivité/vitesses, Eli à la
+  radio avec route d'interception (A* sur les routes), Saison de 8 journées + garage, chasse libre seul ou à deux
+  (image dans l'image pour la photographe), équipage et course en ligne (lockstep vérifié), trigonométrie entière
+  pour un résultat identique Windows/Linux, zips envoyés.
