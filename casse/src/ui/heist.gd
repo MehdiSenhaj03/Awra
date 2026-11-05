@@ -34,19 +34,33 @@ var _marks: Array = []
 var _alarm_frame := -1
 var _slow := 0.0
 var _won := {}
+## Duel: the opponent's progress, shown under the timer.
+var opp_text := ""
+var _opp: Label
+var _out_wait := 0
 ## Automation: one plan per echo slot (see Planner), used for demos and tests.
 var plans: Array = []
 var _planners: Dictionary = {}
 
-func _init(lv: Level, v: View, players: int = 1, srcs: Array = ["solo"], info: Dictionary = {}) -> void:
+var replay := false
+## Online co-op: the session feeds inputs in lockstep.
+var net_mode := false
+
+func _init(lv: Level, v: View, players: int = 1, srcs: Array = ["solo"], info: Dictionary = {}, replay_recs: Array = []) -> void:
 	super()
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	level = lv
 	view = v
+	view.zoom = 1.0
+	view.margin_top = 120.0
 	coop = players
 	sources = srcs
 	meta = info
-	run = Run.new(lv, coop)
+	if replay_recs.size() > 0:
+		replay = true
+		run = Run.from_replay(lv, replay_recs)
+	else:
+		run = Run.new(lv, coop)
 	_build_ui()
 	view.build(lv, run.sim)
 	_enter_ready()
@@ -72,6 +86,10 @@ func _build_ui() -> void:
 	_name.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	_name.size = Vector2(700, 36)
 	_name.position = Vector2(Kit.W - 740, 26)
+	_opp = Kit.label(top, "", 14, Kit.MAGENTA, "body", 600, 0.1)
+	_opp.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_opp.size = Vector2(Kit.W, 20)
+	_opp.position = Vector2(0, 110)
 	_par = Kit.label(top, "", 13, Kit.BRASS, "body", 600, 0.2)
 	_par.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	_par.size = Vector2(700, 20)
@@ -146,6 +164,13 @@ func _keys_hint() -> String:
 # ---- States ---------------------------------------------------------------------------------------------------------
 
 func _enter_ready() -> void:
+	if run.loops > 1 and run.sim.frame == 0:
+		Sound.sfx("loop")
+	if replay:
+		state = S.PLAY
+		_refresh_budget()
+		_hint_text("")
+		return
 	state = S.READY
 	_close_overlay()
 	_refresh_budget()
@@ -182,6 +207,7 @@ func _restart_all() -> void:
 	_enter_ready()
 
 func _rewind_to(f: int) -> void:
+	Sound.sfx("rewind", 1.0, 0.5)
 	_alarm_frame = -1
 	run.rewind_to(f)
 	var keep: Array = []
@@ -248,6 +274,10 @@ func _alarm() -> void:
 
 func _win() -> void:
 	state = S.WON
+	if replay:
+		banner(I18n.t("heist.won"), I18n.t("heist.won_sub", {"n": run.rec.size()}), Kit.GOLD, 0.0)
+		get_tree().create_timer(2.0).timeout.connect(func() -> void: quit.emit())
+		return
 	_slow = 1.0
 	var n := run.rec.size()
 	var par := int(level.data.get("par", 0))
@@ -299,9 +329,20 @@ func _any_input(inp: Array) -> bool:
 
 ## One simulation frame (called at 60 Hz).
 func step() -> void:
+	if _out_wait > 0:
+		_out_wait -= 1
+		if _out_wait == 0:
+			_commit_loop()
+		return
 	if _overlay != null:
 		if _menu:
 			_menu.handle()
+		return
+	if replay:
+		if state == S.PLAY:
+			_tick([])
+		if Keys.pressed("pause") or Keys.pressed("back"):
+			quit.emit()
 		return
 	if Keys.down("rewind") and (state == S.PLAY or state == S.READY or state == S.ALARM or state == S.FINISH):
 		var f := maxi(0, run.sim.frame - 3)
@@ -336,6 +377,51 @@ func step() -> void:
 				if state != S.FINISH:
 					break
 
+## Online co-op: one lockstep frame with both players' bytes and their control flags (OR-ed).
+## Flags: 1 rewind held, 2 restart pressed, 4 finish pressed.
+func step_net(bytes: Array, flags: int) -> void:
+	if _out_wait > 0:
+		_out_wait -= 1
+		if _out_wait == 0:
+			if run.can_add_echo():
+				run.start_loop(coop)
+				view.build(level, run.sim)
+				_enter_ready()
+			else:
+				_rewind_to(0)
+		return
+	if (flags & 1) != 0 and state != S.WON:
+		if run.sim.frame > 0:
+			_rewind_to(maxi(0, run.sim.frame - 3))
+		return
+	if (flags & 2) != 0 and state != S.WON:
+		_rewind_to(0)
+		return
+	match state:
+		S.READY:
+			if _any_input(bytes):
+				state = S.PLAY
+				_hint_text(_keys_hint())
+				_tick(bytes)
+		S.PLAY:
+			if (flags & 4) != 0:
+				state = S.FINISH
+				return
+			_tick(bytes)
+		S.FINISH:
+			for k in 6:
+				_tick([0, 0])
+				if state != S.FINISH:
+					break
+
+## This player's input byte and flags for the next lockstep frame.
+func local_net_input() -> Array:
+	var th := Keys.down("throw")
+	var b := Keys.solo_byte(th and not _throw_prev)
+	_throw_prev = th
+	var f := (1 if Keys.down("rewind") else 0) | (2 if Keys.pressed("restart") else 0) | (4 if Keys.pressed("finish") else 0)
+	return [b, f]
+
 func _tick(inp: Array) -> void:
 	view.capture(run.sim)
 	run.tick(inp)
@@ -349,9 +435,12 @@ func _tick(inp: Array) -> void:
 	elif run.sim.over == "win":
 		_win()
 	elif run.sim.frame >= run.loop_frames:
+		if replay:
+			quit.emit()
+			return
 		state = S.OUT
+		_out_wait = 54
 		banner(I18n.t("heist.loop_end"), "", Kit.CYAN, 0.9)
-		get_tree().create_timer(0.9).timeout.connect(_commit_loop)
 
 func _sound(e: Dictionary) -> void:
 	match e.t:
@@ -377,12 +466,20 @@ func frame(dt: float) -> void:
 	_top_timer.text = "%05.2f" % left
 	_top_timer.label_settings.font_color = Kit.RED if left < 5.0 else Kit.CREAM
 	_top_loop.text = I18n.t("heist.loop_line", {"n": run.loops, "echo": run.rec.size(), "budget": run.budget})
+	_opp.text = opp_text
 	_timeline.now = sim.frame
 	_timeline.live = run.live
 	_timeline.marks = _marks
 	_timeline.alarm_frame = _alarm_frame
 	_timeline.queue_redraw()
 	_update_prompt(sim)
+
+func duel_result(won: bool) -> void:
+	if won:
+		opp_text = I18n.t("online.duel_won")
+	else:
+		opp_text = I18n.t("online.duel_lost")
+		banner(I18n.t("online.duel_lost"), "", Kit.MAGENTA, 2.0)
 
 func _update_prompt(sim: Sim) -> void:
 	_prompt.visible = false

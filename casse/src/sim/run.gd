@@ -124,6 +124,37 @@ func preview(f: int) -> Sim:
 		s.step(inp)
 	return s
 
+## A finished heist to watch: every recording replays at once (no live echo).
+static func from_replay(lv: Level, recs: Array) -> Run:
+	var r := Run.new(lv, 0)
+	r.rec.clear()
+	r.trace.clear()
+	for x in recs:
+		r.rec.append(x)
+		var t := PackedInt32Array()
+		t.resize(r.loop_frames / TRACE_STEP * 2 + 2)
+		r.trace.append(t)
+	# Trajectories for the trails.
+	var s := Sim.new(lv)
+	s.reset_echoes(recs.size())
+	var inp := PackedByteArray()
+	inp.resize(recs.size())
+	while s.frame < r.loop_frames and s.over == "":
+		for k in recs.size():
+			inp[k] = (recs[k] as PackedByteArray)[s.frame]
+		s.step(inp)
+		if s.frame % TRACE_STEP == 0:
+			var ti := s.frame / TRACE_STEP * 2
+			for k in recs.size():
+				r.trace[k][ti] = s.echoes[k].x
+				r.trace[k][ti + 1] = s.echoes[k].y
+	r.live.clear()
+	r.sim = Sim.new(lv)
+	r.sim.reset_echoes(recs.size())
+	r.keys.clear()
+	r.keys[0] = r.sim.clone()
+	return r
+
 ## The loop ran out: the live echoes become past echoes.
 func loop_done() -> bool:
 	return sim.frame >= loop_frames or sim.over != ""

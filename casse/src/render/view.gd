@@ -207,7 +207,7 @@ func build(lv: Level, sim: Sim) -> void:
 				l.position = at(gx, gy, 2.6)
 				l.omni_range = 6.0
 				l.light_energy = 0.55
-				l.light_specular = 0.25
+				l.light_specular = 0.08
 				l.light_color = Color("#ffd29a")
 				_root.add_child(l)
 	# Devices.

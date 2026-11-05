@@ -1,14 +1,572 @@
 {
-"common": {"back": "Retour", "yes": "Oui", "no": "Non", "skip": "Passer", "copy": "Copier", "paste": "Coller", "continue": "Continuer", "locked": "Verrouillé"},
-"echo": {"0": "Écho cyan", "1": "Écho magenta", "2": "Écho ambre", "3": "Écho menthe", "4": "Écho violet", "5": "Écho blanc"},
-"heist": {
- "par": "Record de l'architecte :", "loop": "BOUCLE {n}", "echo_turn": "{name} — à toi", "ready": "Bouge pour lancer l'horloge",
- "keys": "<kbd>{use}</kbd> agir (maintenir : crocheter, pirater)  ·  <kbd>{sprint}</kbd> courir (bruyant)  ·  <kbd>{throw}</kbd> lancer une pièce  ·  <kbd>{rewind}</kbd> rembobiner  ·  <kbd>{restart}</kbd> reprendre la boucle  ·  <kbd>{finish}</kbd> terminer l'écho  ·  <kbd>{echoes}</kbd> échos",
- "loop_line": "BOUCLE {n}  ·  ÉCHO {echo} / {budget}", "loop_end": "FIN DE BOUCLE", "out": "PLUS D'ÉCHO", "out_sub": "Toutes tes versions sont déjà sur le coup.",
- "rewind_loop": "Rembobiner cette boucle", "echoes": "Gérer les échos", "restart_all": "Tout recommencer", "quit": "Quitter le coffre",
- "rerecord": "Réenregistrer : {name}", "erase_last": "Effacer le dernier écho", "alarm": "REPÉRÉE", "by_guard": "un garde t'a vue", "by_camera": "une caméra t'a filmée", "by_laser": "tu as coupé un laser",
- "alarm_keys": "<kbd>{rewind}</kbd> maintenir : rembobiner  ·  <kbd>{restart}</kbd> reprendre la boucle  ·  <kbd>{echoes}</kbd> échos  ·  clic sur la frise : revenir à cet instant",
- "won": "CASSE RÉUSSI", "won_sub": "{n} écho(s)", "finishing": "L'écho attend la fin de la boucle…"
+"common": {
+"back": "Retour",
+"yes": "Oui",
+"no": "Non",
+"skip": "Passer",
+"copy": "Copier",
+"paste": "Coller",
+"continue": "Continuer",
+"locked": "Verrouillé",
+"copied": "Copié dans le presse-papiers",
+"play": "Jouer",
+"cancel": "Annuler"
 },
-"act": {"takedown": "Assommer", "lever": "Actionner", "button": "Appuyer", "vlever": "Tirer le levier", "door_open": "Ouvrir", "door_close": "Fermer", "term": "Pirater (maintenir)", "safe": "Crocheter (maintenir)", "card": "Prendre le badge", "loot": "Prendre le butin", "drop": "Poser"}
+"echo": {
+"0": "Écho cyan",
+"1": "Écho magenta",
+"2": "Écho ambre",
+"3": "Écho menthe",
+"4": "Écho violet",
+"5": "Écho blanc"
+},
+"heist": {
+"par": "Record de l'architecte :",
+"loop": "BOUCLE {n}",
+"echo_turn": "{name} — à toi",
+"ready": "Bouge pour lancer l'horloge",
+"keys": "<kbd>{use}</kbd> agir (maintenir : crocheter, pirater)  ·  <kbd>{sprint}</kbd> courir (bruyant)  ·  <kbd>{throw}</kbd> lancer une pièce  ·  <kbd>{rewind}</kbd> rembobiner  ·  <kbd>{restart}</kbd> reprendre la boucle  ·  <kbd>{finish}</kbd> terminer l'écho  ·  <kbd>{echoes}</kbd> échos",
+"loop_line": "BOUCLE {n}  ·  ÉCHO {echo} / {budget}",
+"loop_end": "FIN DE BOUCLE",
+"out": "PLUS D'ÉCHO",
+"out_sub": "Toutes tes versions sont déjà sur le coup.",
+"rewind_loop": "Rembobiner cette boucle",
+"echoes": "Gérer les échos",
+"restart_all": "Tout recommencer",
+"quit": "Quitter le coffre",
+"rerecord": "Réenregistrer : {name}",
+"erase_last": "Effacer le dernier écho",
+"alarm": "REPÉRÉE",
+"by_guard": "un garde t'a vue",
+"by_camera": "une caméra t'a filmée",
+"by_laser": "tu as coupé un laser",
+"alarm_keys": "<kbd>{rewind}</kbd> maintenir : rembobiner  ·  <kbd>{restart}</kbd> reprendre la boucle  ·  <kbd>{echoes}</kbd> échos  ·  clic sur la frise : revenir à cet instant",
+"won": "CASSE RÉUSSI",
+"won_sub": "{n} écho(s)",
+"finishing": "L'écho attend la fin de la boucle…",
+"p2": "Joueur 2"
+},
+"act": {
+"takedown": "Assommer",
+"lever": "Actionner",
+"button": "Appuyer",
+"vlever": "Tirer le levier",
+"door_open": "Ouvrir",
+"door_close": "Fermer",
+"term": "Pirater (maintenir)",
+"safe": "Crocheter (maintenir)",
+"card": "Prendre le badge",
+"loot": "Prendre le butin",
+"drop": "Poser"
+},
+"title": {
+"tagline": "Tu as quarante secondes. Puis tout recommence, et celle que tu étais t'aide.",
+"press": "Appuie sur une touche",
+"campaign": "Campagne",
+"coop": "Coopération",
+"online": "En ligne",
+"workshop": "L'Atelier",
+"code": "Entrer un code",
+"options": "Options",
+"quit": "Quitter",
+"coop_sub": "Deux voleuses, même écran",
+"online_sub": "Coopération ou duel à distance",
+"workshop_sub": "Concevoir des coffres et les partager",
+"code_sub": "Coffre ou replay d'un ami"
+},
+"map": {
+"title": "VALMONT",
+"sub": "Choisis ton coffre",
+"medals": "médailles",
+"par": "record : {n} écho(s)",
+"best": "ton meilleur : {n}",
+"echoes": "{n} échos max"
+},
+"district": {
+"1": {
+"name": "La Galerie Delacroix",
+"desc": "Un musée de verre et de laiton. Les gardes s'ennuient ; le temps, lui, ne s'ennuie jamais."
+},
+"2": {
+"name": "L'Hôtel de Saint-Ange",
+"desc": "Un bal masqué, des badges qui changent de main, et des lustres qu'on peut éteindre."
+},
+"3": {
+"name": "La Banque Lantenac",
+"desc": "Caméras, lasers, verrous horaires : la maison qui ne dort jamais."
+},
+"4": {
+"name": "Le Casino Flottant",
+"desc": "Un paquebot de jeu amarré sur le fleuve. Tout le monde triche ; toi aussi."
+},
+"5": {
+"name": "La Tour Horlogère",
+"desc": "Là où la Montre a été forgée. Là où elle veut retourner."
+}
+},
+"vault": {
+"1-1": "Vernissage",
+"1-2": "La plaque",
+"1-3": "Le bouton",
+"1-4": "Le gardien",
+"1-5": "Pile ou face",
+"1-6": "Le grand salon",
+"2-1": "Le vestiaire",
+"2-2": "Lumières éteintes",
+"2-3": "Le majordome",
+"2-4": "Portes battantes",
+"2-5": "Le bal masqué",
+"3-1": "Les yeux du hall",
+"3-2": "Les fils rouges",
+"3-3": "Deux clés",
+"3-4": "Le verrou horaire",
+"3-5": "La salle des coffres",
+"4-1": "La salle des jeux",
+"4-2": "Le pont supérieur",
+"4-3": "La cale",
+"4-4": "Le coffre du capitaine",
+"5-1": "Les engrenages",
+"5-2": "Le balancier"
+},
+"names": {
+"odile": "ODILE",
+"basile": "BASILE",
+"milo": "MILO",
+"lantenac": "LANTENAC"
+},
+"results": {
+"title": "CASSE RÉUSSI",
+"echoes": "Échos utilisés",
+"par": "Record de l'architecte",
+"time": "Butin sorti à",
+"gems": "Bijoux",
+"loops": "Boucles jouées",
+"medal": "MÉDAILLE",
+"m1": "Bronze",
+"m2": "Argent",
+"m3": "Or",
+"next": "Coffre suivant",
+"retry": "Rejouer",
+"map": "Retour à la carte",
+"replay": "Copier le code du replay",
+"record": "NOUVEAU RECORD",
+"gold_hint": "L'or demande au plus {n} écho(s)."
+},
+"pause": {
+"title": "PAUSE",
+"resume": "Reprendre",
+"restart": "Recommencer le coffre",
+"options": "Options",
+"quit": "Quitter le coffre"
+},
+"options": {
+"title": "OPTIONS",
+"music": "Musique",
+"sfx": "Effets",
+"shake": "Secousses de l'écran",
+"quality": "Qualité graphique",
+"q0": "Basse",
+"q1": "Moyenne",
+"q2": "Haute",
+"lang": "Langue",
+"controls": "Commandes",
+"fullscreen": "Plein écran",
+"on": "Oui",
+"off": "Non",
+"press": "Appuie sur une touche…",
+"software": "Accélération graphique indisponible : le jeu tourne en rendu logiciel. Mets à jour tes pilotes graphiques."
+},
+"controls": {
+"up": "Haut",
+"down": "Bas",
+"left": "Gauche",
+"right": "Droite",
+"use": "Agir",
+"sprint": "Courir",
+"throw": "Lancer une pièce",
+"rewind": "Rembobiner",
+"restart": "Reprendre la boucle",
+"finish": "Terminer l'écho",
+"pause": "Pause",
+"reset": "Rétablir par défaut"
+},
+"workshop": {
+"title": "L'ATELIER",
+"new": "Nouveau coffre",
+"mine": "Mes coffres",
+"test": "Percer pour valider",
+"publish": "Copier le code",
+"name": "Nom du coffre",
+"tools": "Outils",
+"validated": "Validé en {n} écho(s)",
+"not_validated": "Pas encore percé par son architecte",
+"help": "Clic gauche : poser  ·  Clic droit : effacer  ·  Molette : tourner  ·  Chiffres 1-8 : canal  ·  G : tracer une ronde de garde",
+"loop": "Durée de la boucle",
+"budget": "Échos permis",
+"size": "Taille",
+"delete": "Supprimer",
+"need_safe": "Il faut un coffre, une sortie et un point de départ.",
+"size_w": "Largeur",
+"size_h": "Hauteur",
+"channel": "Canal {n}"
+},
+"code": {
+"title": "ENTRER UN CODE",
+"help": "Colle un code de coffre (CASSE1:…) ou de replay (REPLAY1:…), reçu d'un ami.",
+"paste": "Coller depuis le presse-papiers",
+"invalid": "Code illisible.",
+"vault": "Coffre « {name} » par {author}",
+"replay": "Replay : percé en {n} écho(s)",
+"watch": "Regarder",
+"try": "Tenter ce coffre"
+},
+"coop": {
+"title": "COOPÉRATION",
+"help": "Deux voleuses jouent chaque boucle ensemble : deux échos par boucle. Joueur 1 : ZQSD/WASD + E. Joueur 2 : manette, ou flèches + Entrée.",
+"pick": "Choisis un coffre de la campagne déjà ouvert."
+},
+"online": {
+"title": "EN LIGNE",
+"host": "Héberger une partie",
+"join": "Rejoindre",
+"address": "Adresse de l’hôte",
+"waiting": "En attente d'un ami… Donne-lui ton adresse : {addr}",
+"connected": "Connecté !",
+"mode_coop": "Coopération : un coffre, deux voleuses",
+"mode_duel": "Duel : chacun perce le coffre de l’autre",
+"failed": "Connexion impossible.",
+"lost": "Connexion perdue.",
+"upnp": "Ouverture du port automatique : {s}",
+"duel_pick": "Choisis le coffre que ton adversaire devra percer.",
+"duel_wait": "Ton adversaire choisit…",
+"duel_won": "Tu as percé le premier !",
+"duel_lost": "L'adversaire a percé en premier.",
+"opp": "Adversaire : boucle {loop}, {echoes} écho(s)"
+},
+"ending": {
+"credits": "CASSE — conception, code, musique : un studio d'une seule personne et ses échos. Merci d'avoir joué."
+},
+"tool": {
+"wall": "Mur",
+"floor": "Sol",
+"glass": "Verre",
+"exit": "Sortie",
+"spawn": "Départ",
+"safe": "Coffre",
+"door": "Porte",
+"door_chan": "Porte à canal",
+"door_key": "Porte à badge",
+"door_vault": "Porte forte",
+"door_time": "Verrou horaire",
+"plate": "Plaque",
+"button": "Bouton",
+"lever": "Levier",
+"vlever": "Levier fort",
+"term": "Terminal",
+"laser": "Laser",
+"cam": "Caméra",
+"dark": "Zone sombre",
+"card": "Badge",
+"gem": "Bijou",
+"guard": "Garde",
+"erase": "Gomme"
+},
+"story": {
+"1-1": [
+[
+"basile",
+"Alors c'est toi, la fille qui a volé la Montre de Saint-Ange. Tu sais au moins ce que tu portes au poignet ?"
+],
+[
+"odile",
+"Une montre qui revient quarante secondes en arrière quand on la serre. Et un mal de crâne."
+],
+[
+"basile",
+"Le Consortium Horloger la cherche dans toute la ville. Il te faut de l'argent pour disparaître. Commence petit : la Galerie Delacroix, un coffre, personne dedans."
+]
+],
+"1-2": [
+[
+"basile",
+"Une porte reliée à une plaque de pression. Il faut quelqu'un dessus, et quelqu'un d'autre pour passer."
+],
+[
+"odile",
+"Je travaille seule, Basile."
+],
+[
+"basile",
+"Plus maintenant. Fais une boucle sur la plaque ; à la suivante, ton écho t'attendra dessus."
+]
+],
+"1-3": [
+[
+"basile",
+"Ce bouton n'ouvre la porte que trois secondes. Ton écho devra appuyer au bon moment… deux fois."
+],
+[
+"odile",
+"Elle saura. Elle me connaît."
+]
+],
+"1-4": [
+[
+"basile",
+"Un garde. Il voit loin devant lui, pas derrière. Regarde sa lumière au sol : là où elle n'est pas, tu es invisible."
+]
+],
+"1-5": [
+[
+"basile",
+"Ce garde-là ne bouge pas de son poste. Sauf si une pièce tombe quelque part, loin de lui…"
+],
+[
+"odile",
+"Tout le monde se retourne pour une pièce."
+]
+],
+"1-6": [
+[
+"basile",
+"Le grand salon : deux portes, deux plaques, un garde au milieu. Ce soir, tu seras trois."
+],
+[
+"odile",
+"Trois Odile. La ville n'est pas prête."
+]
+],
+"2-1": [
+[
+"milo",
+"Salut ! Milo. Basile m'a dit que tu avais besoin d'un œil sur les serrures électroniques."
+],
+[
+"milo",
+"Les portes de l'hôtel s'ouvrent avec des badges de couleur. Prends-en un, et pose-le avant de crocheter : tu n'as que deux mains."
+],
+[
+"odile",
+"Deux mains par écho, Milo."
+]
+],
+"2-2": [
+[
+"milo",
+"Le bal ! Deux gardes balaient la salle. Mais si quelqu'un se tient sur la plaque du vestiaire, les lustres s'éteignent."
+],
+[
+"milo",
+"Dans le noir, ils ne voient qu'à un pas et demi."
+]
+],
+"2-3": [
+[
+"lantenac",
+"Mademoiselle Varenne. Vous avez quelque chose qui m'appartient."
+],
+[
+"lantenac",
+"Le Consortium ne poursuit pas les voleuses. Il attend qu'elles se fatiguent. Vous verrez : on se fatigue vite, à se répéter."
+],
+[
+"odile",
+"…Qui c'était ?"
+],
+[
+"basile",
+"Augustine Lantenac. Concentre-toi. Ce majordome tourne le dos de temps en temps : approche-toi par derrière et assomme-le."
+]
+],
+"2-4": [
+[
+"milo",
+"Deux portes à badge. Quand le badge ouvre une porte, elle se referme quatre secondes plus tard… sauf si quelqu'un reste dans l'encadrement."
+],
+[
+"odile",
+"Alors je vais me tenir dans les embrasures. Plusieurs fois."
+]
+],
+"2-5": [
+[
+"milo",
+"Le parquet de la salle de bal est en verre. Il chante sous les pas. Les gardes l'entendent à trois mètres."
+],
+[
+"basile",
+"Alors on fait chanter autre chose, ailleurs. Une pièce, Odile."
+]
+],
+"3-1": [
+[
+"basile",
+"La Banque Lantenac. Là où le Consortium garde ses secrets. Le hall est surveillé par une caméra."
+],
+[
+"milo",
+"Ce terminal la coupe dix secondes. Maintiens la touche pour le pirater."
+]
+],
+"3-2": [
+[
+"milo",
+"Des lasers. Un bouton les coupe un instant. Un seul écho ne peut pas appuyer et traverser."
+],
+[
+"odile",
+"J'ai l'habitude d'être deux."
+]
+],
+"3-3": [
+[
+"basile",
+"La porte forte s'ouvre quand ses deux leviers sont tirés en même temps. À la même seconde."
+],
+[
+"odile",
+"La pendule de ma tête est très précise."
+],
+[
+"basile",
+"Regarde la frise en bas de l'écran : elle te dit où sont tes échos, à chaque instant."
+]
+],
+"3-4": [
+[
+"milo",
+"Un verrou horaire ! Il ne s'ouvre qu'entre vingt et trente secondes. Et la caméra veille sur l'attente."
+]
+],
+"3-5": [
+[
+"basile",
+"La salle des coffres. Trois leviers, trois Odile. C'est le dernier casse dont j'ai besoin."
+],
+[
+"odile",
+"Tu as besoin ? Je croyais que c'était pour moi, l'argent."
+],
+[
+"basile",
+"…Concentre-toi."
+]
+],
+"4-1": [
+[
+"odile",
+"Basile m'a vendue. Lantenac m'attendait au point de rendez-vous."
+],
+[
+"milo",
+"Je suis désolé. Mais j'ai trouvé quelque chose sur le paquebot : le Consortium y planque les plans de la Tour."
+],
+[
+"milo",
+"Deux caméras, deux terminaux. Je ne peux pas les couper en même temps à distance. Toi, si."
+]
+],
+"4-2": [
+[
+"milo",
+"Le pont supérieur, plongé dans le noir si quelqu'un tient la plaque. Trois gardes. L'un d'eux fait les cent pas au milieu."
+]
+],
+"4-3": [
+[
+"milo",
+"Dans la cale : un badge derrière les lasers, et la porte du coffre ne s'ouvre qu'avec lui."
+]
+],
+"4-4": [
+[
+"milo",
+"Le coffre du capitaine. Les plans de la Tour sont dedans, j'en suis sûr."
+],
+[
+"odile",
+"Deux leviers aux deux bouts du navire, un garde au milieu. Il me faut trois moi."
+]
+],
+"5-1": [
+[
+"milo",
+"Les plans disent tout. Lantenac veut remettre la Montre dans le grand mécanisme de la Tour, à midi pile."
+],
+[
+"milo",
+"Toute la ville rejouerait les mêmes quarante secondes. Pour toujours. Les dettes ne seraient jamais dues ; le Consortium ne perdrait jamais rien."
+],
+[
+"odile",
+"Une boucle pour tout le monde. Je sais ce que ça fait. Non."
+],
+[
+"milo",
+"Les portes de la Tour s'ouvrent à tour de rôle, comme des engrenages. Tiens-en une ouverte."
+]
+],
+"5-2": [
+[
+"basile",
+"Odile. Attends. Je… je ne savais pas ce qu'elle voulait en faire."
+],
+[
+"odile",
+"Tu savais combien elle payait."
+],
+[
+"basile",
+"Le balancier garde le cœur du mécanisme. Le terminal coupe la caméra assez longtemps. Laisse-moi t'aider, une dernière fois."
+]
+]
+},
+"cine": {
+"intro": [
+{
+"image": "cine_vol",
+"text": "Valmont, une nuit de pluie. Odile Varenne brise une vitrine du musée et prend la seule chose qui brille encore : une montre de laiton."
+},
+{
+"image": "cine_vol",
+"text": "Le verre ne tombe pas. Il reste suspendu. Puis il remonte."
+},
+{
+"image": "cine_boucle",
+"text": "Quarante secondes plus tard, elle se croise elle-même dans le couloir."
+},
+{
+"image": "cine_boucle",
+"text": "La Montre ne remonte pas le temps. Elle le recommence, et ce qu'on y a fait reste là, à côté de soi."
+}
+],
+"betrayal": [
+{
+"image": "cine_trahison",
+"text": "Le rendez-vous était sur le quai. Basile y était. Lantenac aussi."
+},
+{
+"image": "cine_trahison",
+"text": "Une enveloppe a changé de main. Odile, elle, avait déjà rembobiné."
+}
+],
+"finale": [
+{
+"image": "cine_tour",
+"text": "Midi. Au sommet de la Tour, Lantenac attend devant le cadran."
+},
+{
+"image": "cine_tour",
+"text": "Odile n'est pas venue seule. Elle n'est jamais vraiment seule."
+},
+{
+"image": "cine_fin",
+"text": "À l'aube, la Montre s'est arrêtée. Odile l'a laissée s'arrêter."
+},
+{
+"image": "cine_fin",
+"text": "Pour la première fois depuis des semaines, la matinée n'avait qu'une seule version."
+}
+]
+}
 }
