@@ -1,0 +1,419 @@
+{
+"common": {
+"back": "Back",
+"yes": "Yes",
+"no": "No",
+"skip": "Skip",
+"continue": "Continue"
+},
+"names": {
+"ysolde": "YSOLDE",
+"aldric": "MASTER ALDRIC",
+"reine": "THE INK QUEEN",
+"cendres": "THE ASH WITCH",
+"marees": "THE TIDE MONK",
+"horloger": "THE CLOCKMAKER"
+},
+"glyph": {
+"fire": "Fire",
+"water": "Water",
+"wind": "Wind",
+"bolt": "Lightning",
+"earth": "Earth",
+"shield": "Shield",
+"wall": "Wall",
+"star": "Star",
+"heal": "Healing",
+"ice": "Ice",
+"time": "Hourglass",
+"seal": "Seal"
+},
+"glyph_desc": {
+"fire": "A bolt of fire down the lane. Put out by Water; burns walls twice as fast.",
+"water": "A wave that puts out Fire and drowns the foe's ink. Ice turns it into a wall.",
+"wind": "A whirlwind that sends back the spells it meets (except Earth).",
+"bolt": "Strikes the whole lane after a moment. A Shield stops it dead; Water makes it stronger.",
+"earth": "Slow, heavy spikes. Break Shields and Walls; Wind cannot turn them.",
+"shield": "A golden circle that takes the blows for a few seconds.",
+"wall": "A stone wall before you, in the lane where you draw it. It blocks everything.",
+"star": "Three stars, one per lane: there is no dodging them all.",
+"heal": "Restores strength little by little.",
+"ice": "Freezes what it touches; hit, the foe’s ink flows slower.",
+"time": "The foe’s spells slow to half speed, and your ink flows faster.",
+"seal": "The next spell the foe casts within three seconds fizzles out."
+},
+"combo": {
+"20": "Firestorm!",
+"21": "Storm!",
+"22": "Magma!",
+"23": "Ice lance!",
+"24": "Mirror!",
+"25": "Constellation!"
+},
+"arena": {
+"ar_scriptorium": "The Scriptorium",
+"ar_cendres": "The Ash Forge",
+"ar_marees": "The Tide Cloister",
+"ar_horloge": "The Heart of the Clock",
+"ar_reine": "The Drowned Library"
+},
+"title": {
+"tagline": "What you draw, the world writes.",
+"press": "Press any key",
+"campaign": "The Apprentice",
+"campaign_sub": "The campaign — ten chapters",
+"duel": "Duel",
+"duel_sub": "Against a master, or two on one screen",
+"rives": "Two Banks",
+"rives_sub": "An expedition, alone or with a friend",
+"online": "Online",
+"online_sub": "Duel or Two Banks over the network",
+"book": "The Grimoire",
+"book_sub": "The glyphs, and a page to practise on",
+"options": "Options",
+"quit": "Quit"
+},
+"campaign": {
+"title": "THE APPRENTICE",
+"sub": "Ysolde, apprentice to Master Aldric, and the ink that got away.",
+"duel": "duel",
+"rives": "expedition on the Two Banks",
+"done": "✦ Done",
+"locked": "Win the previous chapter.",
+"teach": "Glyphs learned in this chapter:",
+"all": "All your glyphs."
+},
+"chapter": {
+"1": {
+"name": "The Lesson",
+"desc": "First day in the scriptorium. Aldric teaches you three glyphs, then puts you to the test — gently."
+},
+"2": {
+"name": "The Two Banks",
+"desc": "The ink has fled down the river. You hold both banks at once: what you draw on a bank comes alive there."
+},
+"3": {
+"name": "The Ash Witch",
+"desc": "She speaks only in flames. Learn Earth: fire cannot stop it."
+},
+"4": {
+"name": "The Misty Ford",
+"desc": "Mists, thorns and chasms. The ink creatures are multiplying."
+},
+"5": {
+"name": "The Tide Monk",
+"desc": "Waves and ice as far as the eye can see. Lightning runs through water: make use of it."
+},
+"6": {
+"name": "The Ink Forest",
+"desc": "No light under these trees. Stars to see, Healing to endure."
+},
+"7": {
+"name": "The Clockmaker",
+"desc": "He slows time and seals your spells. Learn the Hourglass, and do not cast blindly."
+},
+"8": {
+"name": "The Beast of the River",
+"desc": "At the end of the river, the Beast guards the Library. Its eye moves from bank to bank."
+},
+"9": {
+"name": "The Master's Trial",
+"desc": "Aldric no longer holds back. He wants to know if you are ready."
+},
+"10": {
+"name": "The Ink Queen",
+"desc": "She escaped from a forbidden book. She knows every glyph. So do you, now."
+}
+},
+"book": {
+"title": "THE GRIMOIRE",
+"lesson": "LESSON",
+"practice": "Draw a glyph on the page",
+"draw_here": "Draw here",
+"fizzle": "Missed — the ink recognises nothing",
+"unknown": "You have not learned this glyph yet.",
+"cost": "Ink: {n}",
+"start": "To battle"
+},
+"duel": {
+"round": "Round {n}",
+"round_small": "ROUND {n}",
+"draw_to_cast": "Draw a glyph to cast a spell",
+"hint": "Draw in the lane you aim at  ·  vertical stroke or <kbd>{up}</kbd>/<kbd>{down}</kbd>: change lane  ·  right click: erase  ·  <kbd>{book}</kbd>: grimoire",
+"fizzle": "missed",
+"unknown": "unknown glyph",
+"noink": "out of ink",
+"sealed": "dispelled!",
+"frenzy": "THE INK RUNS WILD",
+"round_to": "Round to {name}",
+"victory": "VICTORY",
+"defeat": "DEFEAT",
+"winner": "{name} wins the duel"
+},
+"rives": {
+"title": "THE TWO BANKS",
+"solo_hint": "Draw on a bank: the spell takes shape there, where you draw it.",
+"coop_hint": "Each of you can only draw on the other's bank: guard each other.",
+"other_bank": "your bank is guarded by the other",
+"cleared": "the way is clear",
+"combo": "combination!",
+"duo": "TWO HANDS!",
+"blocked": "way barred",
+"beast": "THE BEAST OF THE RIVER",
+"beast_sub": "Strike its golden eye — Lightning, Fire, Earth. Shield against its blows, Seal to dispel them.",
+"won": "EXPEDITION COMPLETE",
+"won_sub": "Both banks are safe.",
+"lost": "THE INK PREVAILS",
+"lost_sub": "A mage has fallen."
+},
+"setup": {
+"duel": "DUEL",
+"rives": "TWO BANKS",
+"duel_rules": "Three lanes, two mages. Draw your glyphs, read your opponent’s, answer faster. Every glyph is open. Two players: mouse against gamepad.",
+"rives_rules": "Two mages walk along the river. Alone, you hold both banks; with two (mouse + gamepad), each guards the other’s bank.",
+"opponent": "Opponent",
+"p2": "Player 2 (gamepad)",
+"level": "Level",
+"level0": "Apprentice",
+"level1": "Mage",
+"level2": "Master",
+"level3": "Archmage",
+"arena": "Arena",
+"rounds": "Rounds",
+"players": "Players",
+"solo": "Alone",
+"duo": "Two (mouse + gamepad)",
+"expedition": "Expedition",
+"exp0": "I — The gentle bank",
+"exp1": "II — The ford",
+"exp2": "III — The forest",
+"exp3": "IV — The Beast",
+"go": "Begin"
+},
+"results": {
+"won": "VICTORY",
+"lost": "DEFEAT",
+"time": "Time",
+"rounds": "Rounds",
+"casts": "Spells cast",
+"duel_won": "Your ink was the truest.",
+"duel_lost": "Your opponent read your glyphs before you did.",
+"rives_won": "Both mages reached the end of the road.",
+"rives_lost": "The ink overwhelmed a bank.",
+"next": "Next chapter",
+"retry": "Try again",
+"campaign": "Back to the chapters",
+"menu": "Main menu"
+},
+"pause": {
+"title": "PAUSE",
+"resume": "Resume",
+"restart": "Restart",
+"options": "Options",
+"quit": "Quit"
+},
+"options": {
+"title": "OPTIONS",
+"music": "Music",
+"sfx": "Effects",
+"sens": "Sensitivity",
+"quality": "Graphics quality",
+"q0": "Low",
+"q1": "Medium",
+"q2": "High",
+"lang": "Language",
+"controls": "Controls",
+"fullscreen": "Fullscreen",
+"on": "On",
+"off": "Off",
+"press": "Press a key…",
+"software": "Graphics acceleration unavailable."
+},
+"controls": {
+"step_up": "Lane above",
+"step_down": "Lane below",
+"book": "Grimoire",
+"pause": "Pause",
+"reset": "Reset to default"
+},
+"online": {
+"title": "ONLINE",
+"rules": "For two, at a distance: a duel, or an expedition on the Two Banks. The host chooses.",
+"host": "Host",
+"join": "Join",
+"address": "Host address",
+"waiting": "Waiting… Give your address: {addr}",
+"connected": "Connected!",
+"failed": "Connection failed.",
+"lost": "Connection lost.",
+"upnp": "Automatic port opening: {s}",
+"pick": "Choose:",
+"duel_in": "Duel — {arena}",
+"rives_in": "Two Banks — {exp}",
+"wait_host": "Waiting for the host…",
+"again": "Again"
+},
+"ending": {
+"credits": "GRIMOIRE — design, code, music: a one-person studio and its quill. Thanks for playing."
+},
+"brief": {
+"1": [
+[
+"aldric",
+"Ah, there you are. Put that book down, Ysolde: today we do not write words. We write the world."
+],
+[
+"aldric",
+"A glyph is a shape the ink recognises. Draw it well, and it obeys. Draw it large, and it obeys hard."
+],
+[
+"ysolde",
+"And if I draw it badly?"
+],
+[
+"aldric",
+"It laughs at you, and so does your opponent. Come: Fire, Water, Shield. Then a little duel with your old master."
+]
+],
+"2": [
+[
+"aldric",
+"Ysolde! The forbidden book, on the back lectern… it is open. And empty."
+],
+[
+"ysolde",
+"The ink ran down to the river. It is on both banks!"
+],
+[
+"aldric",
+"I take the night bank, you the day bank. But you will draw: what you draw on a bank comes alive there. Wall makes a bridge, Wind clears the mist."
+]
+],
+"3": [
+[
+"cendres",
+"An apprentice? Aldric sends me an apprentice? I will send her back to her master as a little pile of ash."
+],
+[
+"aldric",
+"She has the Queen’s black ink on her hands, Ysolde. She serves the enemy without knowing it. Learn Earth: her flames can do nothing against it."
+]
+],
+"4": [
+[
+"ysolde",
+"The Witch told me where the ink hides: further down, at the ford. There are creatures everywhere."
+],
+[
+"aldric",
+"Then freeze them. Ice stops what runs — and what swims."
+]
+],
+"5": [
+[
+"marees",
+"The sea erases everything, little one. Footprints in the sand, names on graves… and badly drawn glyphs."
+],
+[
+"ysolde",
+"Then I will draw well."
+],
+[
+"aldric",
+"Lightning, Ysolde. It strikes the whole lane at once, and water carries it further still."
+]
+],
+"6": [
+[
+"aldric",
+"The ink forest. Not a single ray of light. You will need Stars to see, and Healing to last to the end."
+],
+[
+"ysolde",
+"Master… you are limping."
+],
+[
+"aldric",
+"I am old, that is all. Walk on."
+]
+],
+"7": [
+[
+"horloger",
+"Tick. You are three seconds late for everything. Tock. I am going to take them from you."
+],
+[
+"aldric",
+"He seals spells cast without thinking. Watch his glyphs form before you answer. And take his Hourglass."
+]
+],
+"8": [
+[
+"aldric",
+"The drowned Library lies at the end of the river. The Beast guards it. Its eye moves from bank to bank: strike where it looks."
+],
+[
+"aldric",
+"And the Seal, at last. The last glyph I can teach you. It dispels what is about to strike."
+]
+],
+"9": [
+[
+"aldric",
+"Before you enter the Library, I must know. No lesson this time. Every glyph. I will hold nothing back."
+],
+[
+"ysolde",
+"And if I hurt you?"
+],
+[
+"aldric",
+"Then I will have been a good teacher."
+]
+],
+"10": [
+[
+"reine",
+"Little scribe. You think the glyphs belong to you? They are made of ink. And the ink is me."
+],
+[
+"ysolde",
+"The glyphs belong to whoever draws them."
+],
+[
+"reine",
+"Then draw. Draw until your hand shakes."
+]
+]
+},
+"cine": {
+"intro": [
+{
+"image": "bg_title",
+"text": "At the top of the cliff, Aldric’s scriptorium tower. Here, one does not write books: one writes the world."
+},
+{
+"image": "key_art",
+"text": "For the golden ink obeys whoever can draw it. A flame, a wave, a spiral of wind: each glyph is a spell."
+},
+{
+"image": "ar_reine",
+"text": "But at the back of the library sleeps a book no one must open. Its ink never sleeps."
+}
+],
+"finale": [
+{
+"image": "ar_reine",
+"text": "The Ink Queen unravels into a thousand letters, falling onto the pages like black rain."
+},
+{
+"image": "key_art",
+"text": "Ysolde gathers them one by one, and closes the book. On the cover, a new glyph: her own."
+},
+{
+"image": "bg_title",
+"text": "That evening, Master Aldric hands her the key to the scriptorium. “What you draw, the world writes. Never forget to draw well.”"
+}
+]
+}
+}

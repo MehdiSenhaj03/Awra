@@ -1,0 +1,419 @@
+{
+"common": {
+"back": "Retour",
+"yes": "Oui",
+"no": "Non",
+"skip": "Passer",
+"continue": "Continuer"
+},
+"names": {
+"ysolde": "YSOLDE",
+"aldric": "MAÎTRE ALDRIC",
+"reine": "LA REINE D'ENCRE",
+"cendres": "LA SORCIÈRE DES CENDRES",
+"marees": "LE MOINE DES MARÉES",
+"horloger": "L'HORLOGER"
+},
+"glyph": {
+"fire": "Feu",
+"water": "Eau",
+"wind": "Vent",
+"bolt": "Foudre",
+"earth": "Terre",
+"shield": "Bouclier",
+"wall": "Mur",
+"star": "Étoile",
+"heal": "Soin",
+"ice": "Glace",
+"time": "Sablier",
+"seal": "Sceau"
+},
+"glyph_desc": {
+"fire": "Un trait de feu le long du couloir. Éteint par l'Eau ; brûle les murs deux fois plus vite.",
+"water": "Une vague qui éteint le Feu et noie l'encre de l'adversaire. La Glace la change en mur.",
+"wind": "Un tourbillon qui renvoie à l'envoyeur les sorts qu'il croise (sauf la Terre).",
+"bolt": "Frappe tout le couloir après un instant. Un Bouclier l'arrête net ; l'Eau la rend plus forte.",
+"earth": "Des pics lents et lourds. Brisent Boucliers et Murs ; le Vent n'y peut rien.",
+"shield": "Un cercle d’or qui encaisse les coups quelques secondes.",
+"wall": "Un mur de pierre devant toi, dans le couloir où tu le traces. Il bloque tout.",
+"star": "Trois étoiles, une par couloir : on ne peut pas toutes les esquiver.",
+"heal": "Rend des forces peu à peu.",
+"ice": "Gèle ce qu'elle touche ; touché, l'adversaire voit son encre ralentir.",
+"time": "Les sorts adverses ralentissent de moitié, et ton encre coule plus vite.",
+"seal": "Le prochain sort adverse lancé dans les trois secondes se dissipe."
+},
+"combo": {
+"20": "Tornade de feu !",
+"21": "Orage !",
+"22": "Magma !",
+"23": "Lance de glace !",
+"24": "Miroir !",
+"25": "Constellation !"
+},
+"arena": {
+"ar_scriptorium": "Le Scriptorium",
+"ar_cendres": "La Forge des Cendres",
+"ar_marees": "Le Cloître des Marées",
+"ar_horloge": "Le Cœur de l'Horloge",
+"ar_reine": "La Bibliothèque Engloutie"
+},
+"title": {
+"tagline": "Ce que tu traces, le monde l'écrit.",
+"press": "Appuie sur une touche",
+"campaign": "L'Apprentie",
+"campaign_sub": "La campagne — dix chapitres",
+"duel": "Duel",
+"duel_sub": "Contre un maître, ou à deux sur un écran",
+"rives": "Deux Rives",
+"rives_sub": "Expédition seul ou à deux",
+"online": "En ligne",
+"online_sub": "Duel ou Deux Rives à distance",
+"book": "Le Grimoire",
+"book_sub": "Les glyphes, et une page pour s'exercer",
+"options": "Options",
+"quit": "Quitter"
+},
+"campaign": {
+"title": "L'APPRENTIE",
+"sub": "Ysolde, apprentie de Maître Aldric, et l'encre qui s'est échappée.",
+"duel": "duel",
+"rives": "expédition sur les Deux Rives",
+"done": "✦ Réussi",
+"locked": "Réussis le chapitre précédent.",
+"teach": "Glyphes appris dans ce chapitre :",
+"all": "Tous tes glyphes."
+},
+"chapter": {
+"1": {
+"name": "La Leçon",
+"desc": "Premier jour au scriptorium. Aldric t'apprend trois glyphes, puis te met à l'épreuve — gentiment."
+},
+"2": {
+"name": "Les Deux Rives",
+"desc": "L'encre a fui par le fleuve. Tu tiens les deux rives à la fois : ce que tu traces sur une rive y prend corps."
+},
+"3": {
+"name": "La Sorcière des Cendres",
+"desc": "Elle ne parle qu'en flammes. Apprends la Terre : le feu ne l'arrête pas."
+},
+"4": {
+"name": "Le Gué des Brumes",
+"desc": "Brumes, ronces et gouffres. Les créatures d'encre se multiplient."
+},
+"5": {
+"name": "Le Moine des Marées",
+"desc": "Vagues et glace, à perte de vue. La Foudre traverse l'eau : à toi d'en profiter."
+},
+"6": {
+"name": "La Forêt d'Encre",
+"desc": "Plus de lumière sous ces arbres. Étoiles pour y voir, Soin pour tenir."
+},
+"7": {
+"name": "L'Horloger",
+"desc": "Il ralentit le temps et scelle tes sorts. Apprends le Sablier, et ne lance pas à l’aveugle."
+},
+"8": {
+"name": "La Bête du Fleuve",
+"desc": "Au bout du fleuve, la Bête garde la Bibliothèque. Son œil passe d'une rive à l'autre."
+},
+"9": {
+"name": "L'Épreuve du Maître",
+"desc": "Aldric ne retient plus ses coups. Il veut savoir si tu es prête."
+},
+"10": {
+"name": "La Reine d'Encre",
+"desc": "Elle s'est échappée d'un livre interdit. Elle connaît tous les glyphes. Toi aussi, maintenant."
+}
+},
+"book": {
+"title": "LE GRIMOIRE",
+"lesson": "LEÇON",
+"practice": "Trace un glyphe sur la page",
+"draw_here": "Trace ici",
+"fizzle": "Raté — l'encre ne reconnaît rien",
+"unknown": "Tu n'as pas encore appris ce glyphe.",
+"cost": "Encre : {n}",
+"start": "Au combat"
+},
+"duel": {
+"round": "Manche {n}",
+"round_small": "MANCHE {n}",
+"draw_to_cast": "Trace un glyphe pour lancer un sort",
+"hint": "Trace dans le couloir visé  ·  trait vertical ou <kbd>{up}</kbd>/<kbd>{down}</kbd> : changer de couloir  ·  clic droit : effacer  ·  <kbd>{book}</kbd> : grimoire",
+"fizzle": "raté",
+"unknown": "glyphe inconnu",
+"noink": "plus d'encre",
+"sealed": "dissipé !",
+"frenzy": "L'ENCRE S'EMBALLE",
+"round_to": "Manche pour {name}",
+"victory": "VICTOIRE",
+"defeat": "DÉFAITE",
+"winner": "{name} remporte le duel"
+},
+"rives": {
+"title": "LES DEUX RIVES",
+"solo_hint": "Trace sur une rive : le sort y prend corps, là où tu le dessines.",
+"coop_hint": "Chacun ne peut tracer que sur la rive de l'autre : protégez-vous mutuellement.",
+"other_bank": "ta rive est gardée par l'autre",
+"cleared": "le chemin est libre",
+"combo": "combinaison !",
+"duo": "À DEUX MAINS !",
+"blocked": "chemin barré",
+"beast": "LA BÊTE DU FLEUVE",
+"beast_sub": "Frappe son œil d'or — Foudre, Feu, Terre. Bouclier contre ses coups, Sceau pour les dissiper.",
+"won": "EXPÉDITION RÉUSSIE",
+"won_sub": "Les deux rives sont sauves.",
+"lost": "L'ENCRE L'EMPORTE",
+"lost_sub": "Un mage est tombé."
+},
+"setup": {
+"duel": "DUEL",
+"rives": "DEUX RIVES",
+"duel_rules": "Trois couloirs, deux mages. Trace tes glyphes, lis ceux de l’adversaire, réponds plus vite. Tous les glyphes sont ouverts. À deux : souris contre manette.",
+"rives_rules": "Deux mages avancent le long du fleuve. Seul, tu tiens les deux rives ; à deux (souris + manette), chacun protège la rive de l'autre.",
+"opponent": "Adversaire",
+"p2": "Joueur 2 (manette)",
+"level": "Niveau",
+"level0": "Apprenti",
+"level1": "Mage",
+"level2": "Maître",
+"level3": "Archimage",
+"arena": "Arène",
+"rounds": "Manches",
+"players": "Joueurs",
+"solo": "Seul",
+"duo": "À deux (souris + manette)",
+"expedition": "Expédition",
+"exp0": "I — La rive douce",
+"exp1": "II — Le gué",
+"exp2": "III — La forêt",
+"exp3": "IV — La Bête",
+"go": "Commencer"
+},
+"results": {
+"won": "VICTOIRE",
+"lost": "DÉFAITE",
+"time": "Durée",
+"rounds": "Manches",
+"casts": "Sorts lancés",
+"duel_won": "Ton encre a été la plus juste.",
+"duel_lost": "L'adversaire a lu tes glyphes avant toi.",
+"rives_won": "Les deux mages ont atteint le bout du chemin.",
+"rives_lost": "L'encre a submergé une rive.",
+"next": "Chapitre suivant",
+"retry": "Recommencer",
+"campaign": "Retour aux chapitres",
+"menu": "Menu principal"
+},
+"pause": {
+"title": "PAUSE",
+"resume": "Reprendre",
+"restart": "Recommencer",
+"options": "Options",
+"quit": "Quitter"
+},
+"options": {
+"title": "OPTIONS",
+"music": "Musique",
+"sfx": "Effets",
+"sens": "Sensibilité",
+"quality": "Qualité graphique",
+"q0": "Basse",
+"q1": "Moyenne",
+"q2": "Haute",
+"lang": "Langue",
+"controls": "Commandes",
+"fullscreen": "Plein écran",
+"on": "Oui",
+"off": "Non",
+"press": "Appuie sur une touche…",
+"software": "Accélération graphique indisponible."
+},
+"controls": {
+"step_up": "Couloir du dessus",
+"step_down": "Couloir du dessous",
+"book": "Grimoire",
+"pause": "Pause",
+"reset": "Rétablir par défaut"
+},
+"online": {
+"title": "EN LIGNE",
+"rules": "À deux, à distance : un duel, ou une expédition sur les Deux Rives. L'hôte choisit.",
+"host": "Héberger",
+"join": "Rejoindre",
+"address": "Adresse de l'hôte",
+"waiting": "En attente… Donne ton adresse : {addr}",
+"connected": "Connecté !",
+"failed": "Connexion impossible.",
+"lost": "Connexion perdue.",
+"upnp": "Ouverture du port automatique : {s}",
+"pick": "Choisis :",
+"duel_in": "Duel — {arena}",
+"rives_in": "Deux Rives — {exp}",
+"wait_host": "En attente de l'hôte…",
+"again": "Encore"
+},
+"ending": {
+"credits": "GRIMOIRE — conception, code, musique : un studio d'une seule personne et sa plume. Merci d'avoir joué."
+},
+"brief": {
+"1": [
+[
+"aldric",
+"Ah, te voilà. Pose ce livre, Ysolde : aujourd'hui, on n'écrit pas de mots. On écrit le monde."
+],
+[
+"aldric",
+"Un glyphe, c'est une forme que l'encre reconnaît. Trace-la bien, et elle obéit. Trace-la grand, et elle obéit fort."
+],
+[
+"ysolde",
+"Et si je la trace mal ?"
+],
+[
+"aldric",
+"Elle se moque de toi, et ton adversaire aussi. Allons : le Feu, l'Eau, le Bouclier. Puis un petit duel avec ton vieux maître."
+]
+],
+"2": [
+[
+"aldric",
+"Ysolde ! Le livre interdit, sur le pupitre du fond… il est ouvert. Et vide."
+],
+[
+"ysolde",
+"L'encre a coulé jusqu'au fleuve. Il y en a sur les deux rives !"
+],
+[
+"aldric",
+"Je prends la rive de nuit, toi celle du jour. Mais c'est toi qui traceras : ce que tu dessines sur une rive y prend corps. Le Mur fait un pont, le Vent chasse la brume."
+]
+],
+"3": [
+[
+"cendres",
+"Une apprentie ? Aldric m'envoie une apprentie ? Je vais la rendre à son maître en petit tas de cendres."
+],
+[
+"aldric",
+"Elle a l'encre noire de la Reine sur les mains, Ysolde. Elle sert l'ennemi sans le savoir. Apprends la Terre : ses flammes n'y peuvent rien."
+]
+],
+"4": [
+[
+"ysolde",
+"La Sorcière m'a dit où l'encre se cache : plus bas, au gué. Il y a des créatures partout."
+],
+[
+"aldric",
+"Alors gèle-les. La Glace arrête ce qui court — et ce qui nage."
+]
+],
+"5": [
+[
+"marees",
+"La mer efface tout, petite. Les traces sur le sable, les noms sur les tombes… et les glyphes mal tracés."
+],
+[
+"ysolde",
+"Alors je tracerai bien."
+],
+[
+"aldric",
+"La Foudre, Ysolde. Elle frappe tout le couloir d'un coup, et l'eau la porte plus loin encore."
+]
+],
+"6": [
+[
+"aldric",
+"La forêt d'encre. Plus un rayon de lumière. Tu auras besoin d'Étoiles pour voir, et de Soin pour tenir jusqu'au bout."
+],
+[
+"ysolde",
+"Maître… vous boitez."
+],
+[
+"aldric",
+"Je suis vieux, c'est tout. Avance."
+]
+],
+"7": [
+[
+"horloger",
+"Tic. Tu as trois secondes de retard sur tout. Tac. Je vais te les prendre."
+],
+[
+"aldric",
+"Il scelle les sorts qu'on lance sans réfléchir. Regarde ses glyphes se former avant de répondre. Et prends-lui son Sablier."
+]
+],
+"8": [
+[
+"aldric",
+"La Bibliothèque engloutie est au bout du fleuve. La Bête la garde. Son œil passe d'une rive à l'autre : frappe là où il regarde."
+],
+[
+"aldric",
+"Et le Sceau, enfin. Le dernier glyphe que je peux t'apprendre. Il dissipe ce qui va frapper."
+]
+],
+"9": [
+[
+"aldric",
+"Avant que tu entres dans la Bibliothèque, je dois savoir. Pas de leçon, cette fois. Tous les glyphes. Je ne retiendrai rien."
+],
+[
+"ysolde",
+"Et si je vous blesse ?"
+],
+[
+"aldric",
+"Alors j'aurai été un bon maître."
+]
+],
+"10": [
+[
+"reine",
+"Petite scribe. Tu crois que les glyphes t'appartiennent ? Ils sont faits d'encre. Et l'encre, c'est moi."
+],
+[
+"ysolde",
+"Les glyphes appartiennent à celle qui les trace."
+],
+[
+"reine",
+"Alors trace. Trace jusqu'à ce que ta main tremble."
+]
+]
+},
+"cine": {
+"intro": [
+{
+"image": "bg_title",
+"text": "Au sommet de la falaise, la tour-scriptorium d'Aldric. Ici, on n'écrit pas des livres : on écrit le monde."
+},
+{
+"image": "key_art",
+"text": "Car l'encre d'or obéit à qui sait la tracer. Une flamme, une vague, une spirale de vent : chaque glyphe est un sort."
+},
+{
+"image": "ar_reine",
+"text": "Mais au fond de la bibliothèque dort un livre que nul ne doit ouvrir. Son encre, elle, ne dort jamais."
+}
+],
+"finale": [
+{
+"image": "ar_reine",
+"text": "La Reine d'Encre se défait en mille lettres, qui retombent sur les pages comme une pluie noire."
+},
+{
+"image": "key_art",
+"text": "Ysolde les rassemble une à une, et referme le livre. Sur la couverture, un glyphe nouveau : le sien."
+},
+{
+"image": "bg_title",
+"text": "Le soir même, Maître Aldric lui confie la clef du scriptorium. « Ce que tu traces, le monde l'écrit. N'oublie jamais de bien tracer. »"
+}
+]
+}
+}
