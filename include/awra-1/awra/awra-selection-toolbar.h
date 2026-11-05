@@ -56,4 +56,21 @@ void                awra_selection_toolbar_set_auto_hide      (AwraSelectionTool
                                                               gboolean              auto_hide);
 void                awra_selection_toolbar_clear_selection    (AwraSelectionToolbar *self);
 
+/**
+ * awra_selection_toolbar_get_clear_label:
+ * @self: a selection toolbar
+ *
+ * Returns: (transfer none): the clear-selection button label
+ * Since: 1.1
+ */
+const char *awra_selection_toolbar_get_clear_label (AwraSelectionToolbar *self);
+/**
+ * awra_selection_toolbar_set_clear_label:
+ * @self: a selection toolbar
+ * @label: (nullable): the button label, or %NULL for the localized default
+ *
+ * Since: 1.1
+ */
+void awra_selection_toolbar_set_clear_label (AwraSelectionToolbar *self, const char *label);
+
 G_END_DECLS

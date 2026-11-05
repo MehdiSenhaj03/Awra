@@ -13,7 +13,7 @@ reusable behaviour/focus/lifecycle, a public style role for presenting an
 existing GTK behavioural widget, and application composition for domain
 concepts. Do not add a widget solely to wrap an equivalent GTK type.
 
-Any generic problem found in Showcase or Pokedia belongs in Awra. Reference
+Any generic problem found in Showcase or a consumer belongs in Awra. Reference
 applications may not add local CSS, use private Awra headers, inspect private
 GTK children, call Wayland/KWin directly or depend on libadwaita.
 
@@ -61,5 +61,5 @@ meson test -C build --print-errorlogs
 
 Release qualification additionally runs the sanitizer gate, generic backend,
 public API/ABI baseline, generated docs, clean `meson dist`, compositor manual
-matrix and the Pokedia smoke suite. Add an ADR under
+matrix and the reference consumer smoke suite. Add an ADR under
 `docs/architecture/decisions/` for a structural decision.

@@ -90,6 +90,34 @@ impl TabView {
         }
     }
 
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    #[doc(alias = "awra_tab_view_get_insertion_position")]
+    #[doc(alias = "get_insertion_position")]
+    pub fn insertion_position(&self, x: f64) -> u32 {
+        unsafe { ffi::awra_tab_view_get_insertion_position(self.to_glib_none().0, x) }
+    }
+
+    #[doc(alias = "awra_tab_view_get_page_tab")]
+    #[doc(alias = "get_page_tab")]
+    pub fn page_tab(&self, page: &impl IsA<gtk::Widget>) -> Option<gtk::Widget> {
+        unsafe {
+            from_glib_none(ffi::awra_tab_view_get_page_tab(
+                self.to_glib_none().0,
+                page.as_ref().to_glib_none().0,
+            ))
+        }
+    }
+
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    #[doc(alias = "awra_tab_view_get_scroll_selects")]
+    #[doc(alias = "get_scroll_selects")]
+    #[doc(alias = "scroll-selects")]
+    pub fn is_scroll_selects(&self) -> bool {
+        unsafe { from_glib(ffi::awra_tab_view_get_scroll_selects(self.to_glib_none().0)) }
+    }
+
     #[doc(alias = "awra_tab_view_get_selected_name")]
     #[doc(alias = "get_selected_name")]
     #[doc(alias = "selected-name")]
@@ -116,10 +144,30 @@ impl TabView {
         unsafe { from_glib_none(ffi::awra_tab_view_get_tab_bar(self.to_glib_none().0)) }
     }
 
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    #[doc(alias = "awra_tab_view_hide_placeholder")]
+    pub fn hide_placeholder(&self) {
+        unsafe {
+            ffi::awra_tab_view_hide_placeholder(self.to_glib_none().0);
+        }
+    }
+
     #[doc(alias = "awra_tab_view_remove")]
     pub fn remove(&self, page: &impl IsA<gtk::Widget>) {
         unsafe {
             ffi::awra_tab_view_remove(self.to_glib_none().0, page.as_ref().to_glib_none().0);
+        }
+    }
+
+    #[doc(alias = "awra_tab_view_reorder_page")]
+    pub fn reorder_page(&self, page: &impl IsA<gtk::Widget>, position: u32) {
+        unsafe {
+            ffi::awra_tab_view_reorder_page(
+                self.to_glib_none().0,
+                page.as_ref().to_glib_none().0,
+                position,
+            );
         }
     }
 
@@ -128,6 +176,19 @@ impl TabView {
     pub fn set_content_visible(&self, visible: bool) {
         unsafe {
             ffi::awra_tab_view_set_content_visible(self.to_glib_none().0, visible.into_glib());
+        }
+    }
+
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    #[doc(alias = "awra_tab_view_set_page_dragged")]
+    pub fn set_page_dragged(&self, page: &impl IsA<gtk::Widget>, dragged: bool) {
+        unsafe {
+            ffi::awra_tab_view_set_page_dragged(
+                self.to_glib_none().0,
+                page.as_ref().to_glib_none().0,
+                dragged.into_glib(),
+            );
         }
     }
 
@@ -192,6 +253,16 @@ impl TabView {
         }
     }
 
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    #[doc(alias = "awra_tab_view_set_scroll_selects")]
+    #[doc(alias = "scroll-selects")]
+    pub fn set_scroll_selects(&self, selects: bool) {
+        unsafe {
+            ffi::awra_tab_view_set_scroll_selects(self.to_glib_none().0, selects.into_glib());
+        }
+    }
+
     #[doc(alias = "awra_tab_view_set_selected_name")]
     #[doc(alias = "selected-name")]
     pub fn set_selected_name(&self, name: &str) {
@@ -208,6 +279,29 @@ impl TabView {
                 page.as_ref().to_glib_none().0,
             );
         }
+    }
+
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    #[doc(alias = "awra_tab_view_show_placeholder")]
+    pub fn show_placeholder(&self, position: u32) {
+        unsafe {
+            ffi::awra_tab_view_show_placeholder(self.to_glib_none().0, position);
+        }
+    }
+
+    #[cfg(not(feature = "v1_1"))]
+    #[cfg_attr(docsrs, doc(cfg(not(feature = "v1_1"))))]
+    #[doc(alias = "scroll-selects")]
+    pub fn is_scroll_selects(&self) -> bool {
+        ObjectExt::property(self, "scroll-selects")
+    }
+
+    #[cfg(not(feature = "v1_1"))]
+    #[cfg_attr(docsrs, doc(cfg(not(feature = "v1_1"))))]
+    #[doc(alias = "scroll-selects")]
+    pub fn set_scroll_selects(&self, scroll_selects: bool) {
+        ObjectExt::set_property(self, "scroll-selects", scroll_selects)
     }
 
     #[doc(alias = "close-page")]
@@ -259,6 +353,31 @@ impl TabView {
                 c"notify::content-visible".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_content_visible_trampoline::<F> as *const (),
+                )),
+                Box_::into_raw(f),
+            )
+        }
+    }
+
+    #[doc(alias = "scroll-selects")]
+    pub fn connect_scroll_selects_notify<F: Fn(&Self) + 'static>(&self, f: F) -> SignalHandlerId {
+        unsafe extern "C" fn notify_scroll_selects_trampoline<F: Fn(&TabView) + 'static>(
+            this: *mut ffi::AwraTabView,
+            _param_spec: glib::ffi::gpointer,
+            f: glib::ffi::gpointer,
+        ) {
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this))
+            }
+        }
+        unsafe {
+            let f: Box_<F> = Box_::new(f);
+            connect_raw(
+                self.as_ptr() as *mut _,
+                c"notify::scroll-selects".as_ptr(),
+                Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
+                    notify_scroll_selects_trampoline::<F> as *const (),
                 )),
                 Box_::into_raw(f),
             )
@@ -366,6 +485,12 @@ impl TabViewBuilder {
     pub fn content_visible(self, content_visible: bool) -> Self {
         Self {
             builder: self.builder.property("content-visible", content_visible),
+        }
+    }
+
+    pub fn scroll_selects(self, scroll_selects: bool) -> Self {
+        Self {
+            builder: self.builder.property("scroll-selects", scroll_selects),
         }
     }
 

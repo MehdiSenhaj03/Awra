@@ -66,6 +66,15 @@ impl ActionRow {
         unsafe { from_glib_none(ffi::awra_action_row_get_subtitle(self.to_glib_none().0)) }
     }
 
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    #[doc(alias = "awra_action_row_get_subtitle_lines")]
+    #[doc(alias = "get_subtitle_lines")]
+    #[doc(alias = "subtitle-lines")]
+    pub fn subtitle_lines(&self) -> i32 {
+        unsafe { ffi::awra_action_row_get_subtitle_lines(self.to_glib_none().0) }
+    }
+
     #[doc(alias = "awra_action_row_get_suffix")]
     #[doc(alias = "get_suffix")]
     pub fn suffix(&self) -> Option<gtk::Widget> {
@@ -94,6 +103,16 @@ impl ActionRow {
         }
     }
 
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    #[doc(alias = "awra_action_row_set_subtitle_lines")]
+    #[doc(alias = "subtitle-lines")]
+    pub fn set_subtitle_lines(&self, lines: i32) {
+        unsafe {
+            ffi::awra_action_row_set_subtitle_lines(self.to_glib_none().0, lines);
+        }
+    }
+
     #[doc(alias = "awra_action_row_set_suffix")]
     #[doc(alias = "suffix")]
     pub fn set_suffix(&self, suffix: Option<&impl IsA<gtk::Widget>>) {
@@ -111,6 +130,20 @@ impl ActionRow {
         unsafe {
             ffi::awra_action_row_set_title(self.to_glib_none().0, title.to_glib_none().0);
         }
+    }
+
+    #[cfg(not(feature = "v1_1"))]
+    #[cfg_attr(docsrs, doc(cfg(not(feature = "v1_1"))))]
+    #[doc(alias = "subtitle-lines")]
+    pub fn subtitle_lines(&self) -> i32 {
+        ObjectExt::property(self, "subtitle-lines")
+    }
+
+    #[cfg(not(feature = "v1_1"))]
+    #[cfg_attr(docsrs, doc(cfg(not(feature = "v1_1"))))]
+    #[doc(alias = "subtitle-lines")]
+    pub fn set_subtitle_lines(&self, subtitle_lines: i32) {
+        ObjectExt::set_property(self, "subtitle-lines", subtitle_lines)
     }
 
     #[doc(alias = "subtitle")]
@@ -132,6 +165,31 @@ impl ActionRow {
                 c"notify::subtitle".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_subtitle_trampoline::<F> as *const (),
+                )),
+                Box_::into_raw(f),
+            )
+        }
+    }
+
+    #[doc(alias = "subtitle-lines")]
+    pub fn connect_subtitle_lines_notify<F: Fn(&Self) + 'static>(&self, f: F) -> SignalHandlerId {
+        unsafe extern "C" fn notify_subtitle_lines_trampoline<F: Fn(&ActionRow) + 'static>(
+            this: *mut ffi::AwraActionRow,
+            _param_spec: glib::ffi::gpointer,
+            f: glib::ffi::gpointer,
+        ) {
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this))
+            }
+        }
+        unsafe {
+            let f: Box_<F> = Box_::new(f);
+            connect_raw(
+                self.as_ptr() as *mut _,
+                c"notify::subtitle-lines".as_ptr(),
+                Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
+                    notify_subtitle_lines_trampoline::<F> as *const (),
                 )),
                 Box_::into_raw(f),
             )
@@ -220,6 +278,12 @@ impl ActionRowBuilder {
     pub fn subtitle(self, subtitle: impl Into<glib::GString>) -> Self {
         Self {
             builder: self.builder.property("subtitle", subtitle.into()),
+        }
+    }
+
+    pub fn subtitle_lines(self, subtitle_lines: i32) -> Self {
+        Self {
+            builder: self.builder.property("subtitle-lines", subtitle_lines),
         }
     }
 

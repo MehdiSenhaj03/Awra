@@ -15,6 +15,9 @@ external-consumer tests.
 - `AwraStyleManager` owns appearance, accent, contrast, reduced motion and
   reduced transparency preferences. Accent sources are SYSTEM (best-effort,
   DEFAULT fallback), DEFAULT and CUSTOM.
+  It also sets the display's font rendering: while any monitor is at scale 1,
+  glyphs follow the pixel grid and the desktop's hinting; only a fully dense
+  setup keeps GTK's automatic placement.
 - The style manager also exposes reversible material-calibration overrides for
   Canvas tint/alpha, grain scale and native-blur activation. These rebuild the
   immutable token snapshot in real time; `reset_material_tuning()` restores the
@@ -108,8 +111,15 @@ selection, keyboard navigation and accessibility semantics in GTK.
 
 The extended set includes `AwraActionRow`, `AwraDropdown`, `AwraListView`,
 `AwraSegmentedControl`, `AwraTabView`, `AwraNavigationView`,
-`AwraNavigationItem`, `AwraBadge` and `AwraProgressBar`. Buttons expose Primary,
-Secondary, Ghost, Destructive and Toolbar appearances.
+`AwraNavigationItem`, `AwraBadge` and `AwraProgressBar`. A navigation item
+can lead with any widget (`prefix`, such as an `AwraAvatar`), carry a quieter
+`subtitle`, and mark a destination `emphasized` (something new) or `muted`;
+its `label-color` takes a colour of the destination, such as a role colour,
+made readable on the current appearance. An action row's `subtitle-lines`
+lets its subtitle wrap. Buttons expose Primary,
+Secondary, Ghost, Destructive and Toolbar appearances. An `AwraButtonContent`
+child shows an icon before the label, and a `busy` button shows a spinner,
+keeping its size, while the work it started runs.
 Use Secondary for ordinary dismissive dialog actions: it remains identifiable
 at rest and strengthens its material plane on hover. Ghost is intentionally
 backgroundless at rest for quiet inline actions, but still exposes explicit
@@ -150,7 +160,9 @@ shrink uniformly between bounded minimum and
 maximum widths, then overflow into an internal horizontal viewport instead of
 changing the window's minimum width. Pinned tabs stay fixed while wheel,
 touchpad and horizontal gestures move the dynamic rail; selecting an offscreen
-page reveals it automatically. Close affordances appear only on selection or
+page reveals it automatically; `scroll-selects` makes scrolling move the
+selection instead. A middle click closes a closable tab. Tabs ease into their slots, and a drag
+can lift one out of the bar and show a placeholder where it would land. Close affordances appear only on selection or
 hover, and the neighboring short separators fade without changing layout. The
 minimum tab pitch deliberately favors calm labels and earlier scrolling over
 packing one more cramped destination into the rail. Its content stack is
@@ -162,6 +174,15 @@ table presentation, state views, scrolling and incremental-loading feedback.
 `AwraDataColumn` wraps GTK factories/sorters with semantic sizing and
 alignment. `AwraSelectionToolbar` binds contextual actions directly to a
 selection model. See [data-views.md](../guides/data-views.md).
+`AwraGridView` wraps `GtkGridView` with a scrollable viewport, rubberband
+selection, keyboard navigation and Awra-owned hover/selection/focus styling.
+It accepts ordinary GTK selection models and factories; its public delegate
+provides activation, column limits and `scroll_to()`. Long breadcrumb trails
+scroll horizontally and reveal the current segment without imposing their
+full width on an application. `AwraPathBar` adds an in-place text field to the
+same trail: the consumer supplies the committed text, answers `submit` and
+optionally fills `suggestions` from `notify::edit-text`, so the bar works with
+any hierarchical address.
 `AwraListView` similarly owns its scrollable viewport and accepts an optional
 `header` widget for compact row factories that intentionally remain a single
 GTK list column. Overlay scrollbar visibility and header presentation stay
@@ -181,7 +202,28 @@ The media and keyboard input family adds `AwraKeyCap`, `AwraKeyboardView`
 (ANSI/ISO through `AwraKeyboardPhysicalLayout`, layout-aware legends,
 `GtkSelectionMode` selection, roving focus and per-key file drops),
 `AwraShortcutCapture`, `AwraWaveformView`, `AwraVolumeControl`,
-`AwraMediaRow` and `AwraDropZone`. Physical keys use `KeyboardEvent.code`
+`AwraMediaRow`, `AwraDropZone` and `AwraDragPreview`, which shows what a drag
+carries as an image or a counted pile. `AwraTransitionBin` animates content
+replaced in place from its last frame. `AwraTimedAnimation` and
+`AwraSpringAnimation` animate any value on a widget's frame clock through an
+`AwraAnimationTarget`, follow reduced motion, and a spring can be retargeted
+in flight without a jump; see [motion](../guides/motion.md).
+
+Messaging applications compose `AwraAvatar` (a picture, initials on a stable
+colour, a presence dot and a speaking ring) and `AwraRail`, a vertical rail of
+`AwraRailItem` destinations and `AwraRailGroup` folders with unread pills,
+mention badges, keyboard navigation and drag reordering, and
+`AwraTypingIndicator`, which keeps its height while it comes and goes, and
+`AwraChip` for reactions, filters and tags with a rolling count; see
+[messaging](../guides/messaging.md). `AwraTileView` divides a surface into
+as many tiles as the user wants; see
+[page composition](../guides/page-composition.md). `AwraConversationView` is
+a bottom-anchored, virtualized timeline for chats, comment threads and logs,
+`AwraComposer` the growing field where messages are written and
+`AwraCompletionPopover` the suggestions shown at its caret, and `AwraDivider`
+separates days or marks unread messages, and `AwraEmojiPicker` picks emoji
+and custom images from `AwraEmojiItem` sections; see
+[conversations](../guides/conversations.md). Physical keys use `KeyboardEvent.code`
 identifiers; `awra_keyboard_code_from_hardware_keycode()`,
 `awra_keyboard_code_to_hardware_keycode()` and
 `awra_keyboard_code_get_label()` bridge them to GDK hardware keycodes and the
@@ -220,6 +262,10 @@ content-driven. Compose a short form or action group with
 `AWRA_LAYOUT_PRESET_OVERLAY`; its token-based inset and gap avoid both cramped
 headers and dead space below the final action. The shared `AwraHeader` centers
 its title stack against end controls even when it contains only one title.
+A response closes the dialog unless `awra_dialog_set_response_closes()` keeps
+it open, for a form that waits on the network: mark the response busy while
+the work runs, show an error in the body if it fails, and close with
+`awra_dialog_close()`, which gives no response.
 
 `AwraResponsiveBin` exposes observable size classes. `AwraBreadcrumbBar` and
 `AwraCommandPalette` complete the typed navigation family; the latter consumes

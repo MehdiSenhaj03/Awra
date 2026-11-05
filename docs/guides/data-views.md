@@ -56,5 +56,57 @@ awra_badge_group_append (AWRA_BADGE_GROUP (types),
 ```
 
 They replace repeated label/grid/progress compositions observed in both the
-Showcase data workspace and Pokedia-style detail pages. Domain-specific colors
+Showcase data workspace and catalogue detail pages. Domain-specific colors
 remain badge configuration, never new framework widget types.
+
+## Virtualized grids (since 1.1)
+
+`AwraGridView` owns a `GtkGridView` inside an overlay-scrolling viewport.
+Supply a `GtkSelectionModel` and `GtkListItemFactory` as for the list view;
+retain the same selection when switching between a grid and a data table.
+GTK owns cell reuse, keyboard navigation, activation and rubberband selection.
+Awra owns neutral surfaces and reduced-motion-aware hover/focus/selection.
+
+```python
+grid = Awra.GridView.new(selection, factory)
+grid.get_delegate().connect("activate", open_item)
+grid.get_delegate().set_max_columns(12)
+```
+
+`model` and `factory` are nullable, observable GObject properties. Set them
+to `None` to detach data without destroying the viewport. Constructors and
+setters retain borrowed model/factory references; getters return borrowed
+references. Connect ordinary GTK activation signals on the public delegate;
+do not inspect the wrapper's private children. Item content, image loading
+and domain commands belong to the consuming application.
+
+State views use a preferred text width and wrap within narrow panes. Data
+column headers keep padding on cells rather than the enclosing layout row,
+so fixed column widths still work when horizontally scrolled.
+
+## Content zoom (since 1.1)
+
+`AwraZoomController` attaches to one content widget. Ctrl+wheel changes its
+observable `scale`; ordinary scrolling stays with GTK. Its private, scoped
+font scaling preserves the desktop font and leaves chrome outside the target
+unchanged. The controller holds its target weakly and detaches its input and
+style provider when disposed.
+
+```python
+zoom = Awra.ZoomController.new(content_view)
+zoom.set_range(0.5, 3.0)
+zoom.connect("notify::scale", update_domain_geometry)
+zoom.zoom_in()
+zoom.reset()
+```
+
+Keep one controller per target. `set_range()` clamps the current scale;
+`handle_scroll(delta, modifiers)` is the public input adapter used by the GTK
+controller. Only Ctrl-modified wheel input is consumed, including at a bound.
+Applications resize domain content such as thumbnails or drawing canvases in
+`notify::scale`. Keep the existing factories and models when changing size so
+GTK retains virtualization, focus and selection.
+
+`canvas-table` is an opt-in `AwraDataView` style role for column headings on the
+continuous Canvas: no filled header strip or separator, while column controls
+retain hover, keyboard and resize behavior.

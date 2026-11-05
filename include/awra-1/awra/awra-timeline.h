@@ -46,6 +46,44 @@ double awra_timeline_get_position (AwraTimeline *self);
  */
 void awra_timeline_set_position (AwraTimeline *self, double position);
 /**
+ * awra_timeline_get_step_increment:
+ * @self: a timeline
+ *
+ * Returns: the arrow-key step in seconds; defaults to 1
+ *
+ * Since: 1.1
+ */
+double awra_timeline_get_step_increment (AwraTimeline *self);
+/**
+ * awra_timeline_set_step_increment:
+ * @self: a timeline
+ * @increment: positive seconds per arrow-key step
+ *
+ * Invalid values reset the step to 1 second. Does not request a seek.
+ *
+ * Since: 1.1
+ */
+void awra_timeline_set_step_increment (AwraTimeline *self, double increment);
+/**
+ * awra_timeline_get_page_increment:
+ * @self: a timeline
+ *
+ * Returns: the Shift+arrow step in seconds; defaults to 10
+ *
+ * Since: 1.1
+ */
+double awra_timeline_get_page_increment (AwraTimeline *self);
+/**
+ * awra_timeline_set_page_increment:
+ * @self: a timeline
+ * @increment: positive seconds per Shift+arrow step
+ *
+ * Invalid values reset the step to 10 seconds. Does not request a seek.
+ *
+ * Since: 1.1
+ */
+void awra_timeline_set_page_increment (AwraTimeline *self, double increment);
+/**
  * awra_timeline_get_view_start:
  *
  * Since: 1.1

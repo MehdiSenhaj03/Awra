@@ -45,6 +45,24 @@ test_contract (void)
   g_autoptr (GtkWidget) w = g_object_ref_sink (awra_timeline_new ());
   AwraTimeline *t = AWRA_TIMELINE (w);
   Log log = { 0 };
+  g_assert_cmpfloat (awra_timeline_get_step_increment (t), ==, 1);
+  g_assert_cmpfloat (awra_timeline_get_page_increment (t), ==, 10);
+  g_autoptr (GtkBuilder) builder = gtk_builder_new_from_string (
+      "<interface><object class='AwraTimeline' id='timeline'>"
+      "<property name='step-increment'>2.5</property>"
+      "<property name='page-increment'>15</property>"
+      "</object></interface>", -1);
+  AwraTimeline *built = AWRA_TIMELINE (gtk_builder_get_object (builder, "timeline"));
+  g_assert_cmpfloat (awra_timeline_get_step_increment (built), ==, 2.5);
+  g_assert_cmpfloat (awra_timeline_get_page_increment (built), ==, 15);
+  awra_timeline_set_step_increment (t, 5);
+  awra_timeline_set_page_increment (t, 30);
+  g_assert_cmpfloat (awra_timeline_get_step_increment (t), ==, 5);
+  g_assert_cmpfloat (awra_timeline_get_page_increment (t), ==, 30);
+  awra_timeline_set_step_increment (t, NAN);
+  awra_timeline_set_page_increment (t, 0);
+  g_assert_cmpfloat (awra_timeline_get_step_increment (t), ==, 1);
+  g_assert_cmpfloat (awra_timeline_get_page_increment (t), ==, 10);
   g_signal_connect (t, "seek-requested", G_CALLBACK (seek_cb), &log);
   g_signal_connect (t, "offset-committed", G_CALLBACK (commit_cb), &log);
   awra_timeline_set_duration (t, 120);
@@ -99,6 +117,14 @@ test_input (void)
   g_signal_emit_by_name (k, "key-pressed", GDK_KEY_Right, 0, 0, &handled);
   g_assert_true (handled);
   g_assert_cmpfloat (log.value, ==, 11);
+  awra_timeline_set_step_increment (t, 5);
+  awra_timeline_set_page_increment (t, 30);
+  g_signal_emit_by_name (k, "key-pressed", GDK_KEY_Right, 0, 0, &handled);
+  g_assert_cmpfloat (log.value, ==, 15);
+  g_signal_emit_by_name (k, "key-pressed", GDK_KEY_Right, 0, GDK_SHIFT_MASK, &handled);
+  g_assert_cmpfloat (log.value, ==, 40);
+  awra_timeline_set_step_increment (t, 1);
+  awra_timeline_set_page_increment (t, 10);
   gtk_widget_set_direction (w, GTK_TEXT_DIR_RTL);
   g_signal_emit_by_name (k, "key-pressed", GDK_KEY_Right, 0, 0, &handled);
   g_assert_cmpfloat (log.value, ==, 9);

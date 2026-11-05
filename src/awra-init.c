@@ -93,6 +93,8 @@ awra_update_css_for_display (GdkDisplay  *display,
   g_autofree char *accent_soft = NULL;
   g_autofree char *on_accent = NULL;
   g_autofree char *danger = NULL;
+  g_autofree char *success = NULL;
+  g_autofree char *warning = NULL;
   g_autofree char *chrome = NULL;
   g_autofree char *layer = NULL;
   g_autofree char *floating = NULL;
@@ -143,6 +145,8 @@ awra_update_css_for_display (GdkDisplay  *display,
   accent_soft = gdk_rgba_to_string (awra_token_set_get_accent_soft (tokens));
   on_accent = gdk_rgba_to_string (awra_token_set_get_on_accent (tokens));
   danger = gdk_rgba_to_string (awra_token_set_get_danger (tokens));
+  success = gdk_rgba_to_string (awra_token_set_get_success (tokens));
+  warning = gdk_rgba_to_string (awra_token_set_get_warning (tokens));
   chrome = gdk_rgba_to_string (awra_token_set_get_surface_chrome (tokens));
   layer = gdk_rgba_to_string (awra_token_set_get_surface_layer (tokens));
   floating = gdk_rgba_to_string (awra_token_set_get_surface_floating (tokens));
@@ -171,6 +175,8 @@ awra_update_css_for_display (GdkDisplay  *display,
     "@define-color awra_accent_soft %s;\n"
     "@define-color awra_on_accent %s;\n"
     "@define-color awra_danger %s;\n"
+    "@define-color awra_success %s;\n"
+    "@define-color awra_warning %s;\n"
     "@define-color awra_chrome %s;\n"
     "@define-color awra_layer %s;\n"
     "@define-color awra_floating %s;\n"
@@ -197,6 +203,8 @@ awra_update_css_for_display (GdkDisplay  *display,
     accent_soft,
     on_accent,
     danger,
+    success,
+    warning,
     chrome,
     layer,
     floating,

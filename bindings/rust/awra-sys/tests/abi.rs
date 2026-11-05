@@ -217,6 +217,13 @@ const RUST_LAYOUTS: &[(&str, Layout)] = &[
         },
     ),
     (
+        "AwraAnimationState",
+        Layout {
+            size: size_of::<AwraAnimationState>(),
+            alignment: align_of::<AwraAnimationState>(),
+        },
+    ),
+    (
         "AwraAppearance",
         Layout {
             size: size_of::<AwraAppearance>(),
@@ -228,6 +235,27 @@ const RUST_LAYOUTS: &[(&str, Layout)] = &[
         Layout {
             size: size_of::<AwraAspectPaintableClass>(),
             alignment: align_of::<AwraAspectPaintableClass>(),
+        },
+    ),
+    (
+        "AwraAvatarClass",
+        Layout {
+            size: size_of::<AwraAvatarClass>(),
+            alignment: align_of::<AwraAvatarClass>(),
+        },
+    ),
+    (
+        "AwraAvatarGroupClass",
+        Layout {
+            size: size_of::<AwraAvatarGroupClass>(),
+            alignment: align_of::<AwraAvatarGroupClass>(),
+        },
+    ),
+    (
+        "AwraAvatarShape",
+        Layout {
+            size: size_of::<AwraAvatarShape>(),
+            alignment: align_of::<AwraAvatarShape>(),
         },
     ),
     (
@@ -280,6 +308,13 @@ const RUST_LAYOUTS: &[(&str, Layout)] = &[
         },
     ),
     (
+        "AwraButtonContentClass",
+        Layout {
+            size: size_of::<AwraButtonContentClass>(),
+            alignment: align_of::<AwraButtonContentClass>(),
+        },
+    ),
+    (
         "AwraCardAppearance",
         Layout {
             size: size_of::<AwraCardAppearance>(),
@@ -301,10 +336,31 @@ const RUST_LAYOUTS: &[(&str, Layout)] = &[
         },
     ),
     (
+        "AwraChipAppearance",
+        Layout {
+            size: size_of::<AwraChipAppearance>(),
+            alignment: align_of::<AwraChipAppearance>(),
+        },
+    ),
+    (
+        "AwraChipClass",
+        Layout {
+            size: size_of::<AwraChipClass>(),
+            alignment: align_of::<AwraChipClass>(),
+        },
+    ),
+    (
         "AwraChoiceGroupClass",
         Layout {
             size: size_of::<AwraChoiceGroupClass>(),
             alignment: align_of::<AwraChoiceGroupClass>(),
+        },
+    ),
+    (
+        "AwraColorPaletteClass",
+        Layout {
+            size: size_of::<AwraColorPaletteClass>(),
+            alignment: align_of::<AwraColorPaletteClass>(),
         },
     ),
     (
@@ -315,10 +371,38 @@ const RUST_LAYOUTS: &[(&str, Layout)] = &[
         },
     ),
     (
+        "AwraCompletionPopoverClass",
+        Layout {
+            size: size_of::<AwraCompletionPopoverClass>(),
+            alignment: align_of::<AwraCompletionPopoverClass>(),
+        },
+    ),
+    (
+        "AwraComposerClass",
+        Layout {
+            size: size_of::<AwraComposerClass>(),
+            alignment: align_of::<AwraComposerClass>(),
+        },
+    ),
+    (
         "AwraContextClass",
         Layout {
             size: size_of::<AwraContextClass>(),
             alignment: align_of::<AwraContextClass>(),
+        },
+    ),
+    (
+        "AwraConversationAlign",
+        Layout {
+            size: size_of::<AwraConversationAlign>(),
+            alignment: align_of::<AwraConversationAlign>(),
+        },
+    ),
+    (
+        "AwraConversationViewClass",
+        Layout {
+            size: size_of::<AwraConversationViewClass>(),
+            alignment: align_of::<AwraConversationViewClass>(),
         },
     ),
     (
@@ -364,6 +448,34 @@ const RUST_LAYOUTS: &[(&str, Layout)] = &[
         },
     ),
     (
+        "AwraDividerAppearance",
+        Layout {
+            size: size_of::<AwraDividerAppearance>(),
+            alignment: align_of::<AwraDividerAppearance>(),
+        },
+    ),
+    (
+        "AwraDividerClass",
+        Layout {
+            size: size_of::<AwraDividerClass>(),
+            alignment: align_of::<AwraDividerClass>(),
+        },
+    ),
+    (
+        "AwraDividerLabelPosition",
+        Layout {
+            size: size_of::<AwraDividerLabelPosition>(),
+            alignment: align_of::<AwraDividerLabelPosition>(),
+        },
+    ),
+    (
+        "AwraDragPreviewClass",
+        Layout {
+            size: size_of::<AwraDragPreviewClass>(),
+            alignment: align_of::<AwraDragPreviewClass>(),
+        },
+    ),
+    (
         "AwraDropZoneClass",
         Layout {
             size: size_of::<AwraDropZoneClass>(),
@@ -378,10 +490,24 @@ const RUST_LAYOUTS: &[(&str, Layout)] = &[
         },
     ),
     (
+        "AwraEasing",
+        Layout {
+            size: size_of::<AwraEasing>(),
+            alignment: align_of::<AwraEasing>(),
+        },
+    ),
+    (
         "AwraEdgePanelClass",
         Layout {
             size: size_of::<AwraEdgePanelClass>(),
             alignment: align_of::<AwraEdgePanelClass>(),
+        },
+    ),
+    (
+        "AwraEdgeStatus",
+        Layout {
+            size: size_of::<AwraEdgeStatus>(),
+            alignment: align_of::<AwraEdgeStatus>(),
         },
     ),
     (
@@ -396,6 +522,20 @@ const RUST_LAYOUTS: &[(&str, Layout)] = &[
         Layout {
             size: size_of::<AwraElevation>(),
             alignment: align_of::<AwraElevation>(),
+        },
+    ),
+    (
+        "AwraEmojiItemClass",
+        Layout {
+            size: size_of::<AwraEmojiItemClass>(),
+            alignment: align_of::<AwraEmojiItemClass>(),
+        },
+    ),
+    (
+        "AwraEmojiPickerClass",
+        Layout {
+            size: size_of::<AwraEmojiPickerClass>(),
+            alignment: align_of::<AwraEmojiPickerClass>(),
         },
     ),
     (
@@ -452,6 +592,13 @@ const RUST_LAYOUTS: &[(&str, Layout)] = &[
         Layout {
             size: size_of::<AwraFramePoolClass>(),
             alignment: align_of::<AwraFramePoolClass>(),
+        },
+    ),
+    (
+        "AwraGridViewClass",
+        Layout {
+            size: size_of::<AwraGridViewClass>(),
+            alignment: align_of::<AwraGridViewClass>(),
         },
     ),
     (
@@ -644,10 +791,24 @@ const RUST_LAYOUTS: &[(&str, Layout)] = &[
         },
     ),
     (
+        "AwraPathBarClass",
+        Layout {
+            size: size_of::<AwraPathBarClass>(),
+            alignment: align_of::<AwraPathBarClass>(),
+        },
+    ),
+    (
         "AwraPopoverClass",
         Layout {
             size: size_of::<AwraPopoverClass>(),
             alignment: align_of::<AwraPopoverClass>(),
+        },
+    ),
+    (
+        "AwraPresence",
+        Layout {
+            size: size_of::<AwraPresence>(),
+            alignment: align_of::<AwraPresence>(),
         },
     ),
     (
@@ -665,10 +826,38 @@ const RUST_LAYOUTS: &[(&str, Layout)] = &[
         },
     ),
     (
+        "AwraRailClass",
+        Layout {
+            size: size_of::<AwraRailClass>(),
+            alignment: align_of::<AwraRailClass>(),
+        },
+    ),
+    (
+        "AwraRailGroupClass",
+        Layout {
+            size: size_of::<AwraRailGroupClass>(),
+            alignment: align_of::<AwraRailGroupClass>(),
+        },
+    ),
+    (
+        "AwraRailItemClass",
+        Layout {
+            size: size_of::<AwraRailItemClass>(),
+            alignment: align_of::<AwraRailItemClass>(),
+        },
+    ),
+    (
         "AwraResponsiveBinClass",
         Layout {
             size: size_of::<AwraResponsiveBinClass>(),
             alignment: align_of::<AwraResponsiveBinClass>(),
+        },
+    ),
+    (
+        "AwraRichLabelClass",
+        Layout {
+            size: size_of::<AwraRichLabelClass>(),
+            alignment: align_of::<AwraRichLabelClass>(),
         },
     ),
     (
@@ -847,6 +1036,13 @@ const RUST_LAYOUTS: &[(&str, Layout)] = &[
         },
     ),
     (
+        "AwraTileViewClass",
+        Layout {
+            size: size_of::<AwraTileViewClass>(),
+            alignment: align_of::<AwraTileViewClass>(),
+        },
+    ),
+    (
         "AwraTimelineClass",
         Layout {
             size: size_of::<AwraTimelineClass>(),
@@ -879,6 +1075,20 @@ const RUST_LAYOUTS: &[(&str, Layout)] = &[
         Layout {
             size: size_of::<AwraToolbarClass>(),
             alignment: align_of::<AwraToolbarClass>(),
+        },
+    ),
+    (
+        "AwraTransitionBinClass",
+        Layout {
+            size: size_of::<AwraTransitionBinClass>(),
+            alignment: align_of::<AwraTransitionBinClass>(),
+        },
+    ),
+    (
+        "AwraTypingIndicatorClass",
+        Layout {
+            size: size_of::<AwraTypingIndicatorClass>(),
+            alignment: align_of::<AwraTypingIndicatorClass>(),
         },
     ),
     (
@@ -923,15 +1133,28 @@ const RUST_LAYOUTS: &[(&str, Layout)] = &[
             alignment: align_of::<AwraWindowClass>(),
         },
     ),
+    (
+        "AwraZoomControllerClass",
+        Layout {
+            size: size_of::<AwraZoomControllerClass>(),
+            alignment: align_of::<AwraZoomControllerClass>(),
+        },
+    ),
 ];
 
 const RUST_CONSTANTS: &[(&str, &str)] = &[
     ("(gint) AWRA_ACCENT_SOURCE_CUSTOM", "2"),
     ("(gint) AWRA_ACCENT_SOURCE_DEFAULT", "1"),
     ("(gint) AWRA_ACCENT_SOURCE_SYSTEM", "0"),
+    ("(gint) AWRA_ANIMATION_STATE_FINISHED", "3"),
+    ("(gint) AWRA_ANIMATION_STATE_IDLE", "0"),
+    ("(gint) AWRA_ANIMATION_STATE_PAUSED", "1"),
+    ("(gint) AWRA_ANIMATION_STATE_PLAYING", "2"),
     ("(gint) AWRA_APPEARANCE_DARK", "2"),
     ("(gint) AWRA_APPEARANCE_LIGHT", "1"),
     ("(gint) AWRA_APPEARANCE_SYSTEM", "0"),
+    ("(gint) AWRA_AVATAR_SHAPE_CIRCLE", "0"),
+    ("(gint) AWRA_AVATAR_SHAPE_ROUNDED", "1"),
     ("(gint) AWRA_BADGE_APPEARANCE_ACCENT", "1"),
     ("(gint) AWRA_BADGE_APPEARANCE_DANGER", "5"),
     ("(gint) AWRA_BADGE_APPEARANCE_INFO", "2"),
@@ -942,14 +1165,37 @@ const RUST_CONSTANTS: &[(&str, &str)] = &[
     ("(gint) AWRA_BUTTON_APPEARANCE_GHOST", "2"),
     ("(gint) AWRA_BUTTON_APPEARANCE_PRIMARY", "0"),
     ("(gint) AWRA_BUTTON_APPEARANCE_SECONDARY", "1"),
+    ("(gint) AWRA_BUTTON_APPEARANCE_SUCCESS", "5"),
     ("(gint) AWRA_BUTTON_APPEARANCE_TOOLBAR", "4"),
     ("(gint) AWRA_CARD_APPEARANCE_PLAIN", "0"),
     ("(gint) AWRA_CARD_APPEARANCE_RAISED", "2"),
     ("(gint) AWRA_CARD_APPEARANCE_TINTED", "1"),
+    ("(gint) AWRA_CHIP_APPEARANCE_ACCENT", "1"),
+    ("(gint) AWRA_CHIP_APPEARANCE_NEUTRAL", "0"),
+    ("(gint) AWRA_CONVERSATION_ALIGN_CENTER", "1"),
+    ("(gint) AWRA_CONVERSATION_ALIGN_END", "2"),
+    ("(gint) AWRA_CONVERSATION_ALIGN_TOP", "0"),
     ("(gint) AWRA_DATA_VIEW_STATE_CONTENT", "0"),
     ("(gint) AWRA_DATA_VIEW_STATE_EMPTY", "1"),
     ("(gint) AWRA_DATA_VIEW_STATE_ERROR", "3"),
     ("(gint) AWRA_DATA_VIEW_STATE_LOADING", "2"),
+    ("(gint) AWRA_DIVIDER_APPEARANCE_ACCENT", "1"),
+    ("(gint) AWRA_DIVIDER_APPEARANCE_DANGER", "2"),
+    ("(gint) AWRA_DIVIDER_APPEARANCE_NEUTRAL", "0"),
+    ("(gint) AWRA_DIVIDER_LABEL_POSITION_CENTER", "0"),
+    ("(gint) AWRA_DIVIDER_LABEL_POSITION_END", "1"),
+    ("AWRA_DURATION_INFINITE", "4294967295"),
+    ("(gint) AWRA_EASING_EASE_IN_OUT_CUBIC", "3"),
+    ("(gint) AWRA_EASING_EASE_IN_OUT_SINE", "7"),
+    ("(gint) AWRA_EASING_EASE_OUT_BACK", "6"),
+    ("(gint) AWRA_EASING_EASE_OUT_CUBIC", "2"),
+    ("(gint) AWRA_EASING_EASE_OUT_EXPO", "5"),
+    ("(gint) AWRA_EASING_EASE_OUT_QUAD", "1"),
+    ("(gint) AWRA_EASING_EASE_OUT_QUART", "4"),
+    ("(gint) AWRA_EASING_LINEAR", "0"),
+    ("(gint) AWRA_EDGE_STATUS_FAILED", "2"),
+    ("(gint) AWRA_EDGE_STATUS_LOADING", "1"),
+    ("(gint) AWRA_EDGE_STATUS_NONE", "0"),
     ("(guint) AWRA_EFFECT_CAPABILITY_BLUR", "1"),
     ("(guint) AWRA_EFFECT_CAPABILITY_NONE", "0"),
     ("(gint) AWRA_ELEVATION_FLAT", "0"),
@@ -990,6 +1236,11 @@ const RUST_CONSTANTS: &[(&str, &str)] = &[
     ("(gint) AWRA_MOTION_PRESET_SLOW", "3"),
     ("(gint) AWRA_PANEL_EDGE_END", "1"),
     ("(gint) AWRA_PANEL_EDGE_START", "0"),
+    ("(gint) AWRA_PRESENCE_BUSY", "3"),
+    ("(gint) AWRA_PRESENCE_IDLE", "2"),
+    ("(gint) AWRA_PRESENCE_NONE", "0"),
+    ("(gint) AWRA_PRESENCE_OFFLINE", "4"),
+    ("(gint) AWRA_PRESENCE_ONLINE", "1"),
     ("(gint) AWRA_RADIUS_LARGE", "2"),
     ("(gint) AWRA_RADIUS_MEDIUM", "1"),
     ("(gint) AWRA_RADIUS_PILL", "4"),
@@ -1035,6 +1286,7 @@ const RUST_CONSTANTS: &[(&str, &str)] = &[
     ("(gint) AWRA_TYPOGRAPHY_LABEL", "8"),
     ("(gint) AWRA_TYPOGRAPHY_MONOSPACE", "7"),
     ("(gint) AWRA_TYPOGRAPHY_MUTED", "1"),
+    ("(gint) AWRA_TYPOGRAPHY_READING", "9"),
     ("(gint) AWRA_TYPOGRAPHY_TITLE_1", "5"),
     ("(gint) AWRA_TYPOGRAPHY_TITLE_2", "4"),
     ("(gint) AWRA_TYPOGRAPHY_TITLE_3", "3"),

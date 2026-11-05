@@ -25,6 +25,28 @@ GtkWidget       *awra_surface_get_child     (AwraSurface    *self);
  */
 void             awra_surface_set_child     (AwraSurface    *self,
                                               GtkWidget      *child);
+/**
+ * awra_surface_get_backdrop_widget:
+ * @self: a surface
+ *
+ * Returns: (transfer none) (nullable): the weakly held backdrop source
+ * Since: 1.1
+ */
+GtkWidget *awra_surface_get_backdrop_widget (AwraSurface *self);
+/**
+ * awra_surface_set_backdrop_widget:
+ * @self: a surface
+ * @widget: (nullable): an independent widget in the same native surface
+ *
+ * Frosted materials blur the source's cached render node behind this surface.
+ * The source must not contain, or be contained by, this surface. It is held
+ * weakly, contributes no size request and is never captured into CPU pixels.
+ * Missing/unmapped sources, high contrast and reduced transparency use the
+ * normal opaque fallback. Pass %NULL to remove the local backdrop.
+ *
+ * Since: 1.1
+ */
+void awra_surface_set_backdrop_widget (AwraSurface *self, GtkWidget *widget);
 AwraSurfaceRole  awra_surface_get_role      (AwraSurface    *self);
 void             awra_surface_set_role      (AwraSurface    *self,
                                               AwraSurfaceRole role);

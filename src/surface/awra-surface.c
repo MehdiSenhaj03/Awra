@@ -3,12 +3,16 @@
 #include <awra/awra-context.h>
 #include <awra/awra-surface.h>
 #include <awra/awra-window.h>
+#include <awra/awra-layout.h>
 
 #include "material/awra-material-resolver-private.h"
 
 struct _AwraSurface {
   GtkWidget parent_instance;
   GtkWidget *child;
+  GdkPaintable *backdrop;
+  GtkWidget *backdrop_widget; /* weak */
+  gulong backdrop_handler;
   AwraSurfaceRole role;
   AwraMaterial *material;
   double radius;
@@ -30,10 +34,12 @@ enum {
   PROP_EDGE_MASK,
   PROP_ELEVATION,
   PROP_CLIP_CHILD,
+  PROP_BACKDROP_WIDGET,
   N_PROPS,
 };
 
 static GParamSpec *properties[N_PROPS];
+static void clear_backdrop (AwraSurface *self);
 
 G_DEFINE_FINAL_TYPE (AwraSurface, awra_surface, GTK_TYPE_WIDGET)
 
@@ -217,6 +223,61 @@ is_window_frame (AwraSurface *self, AwraWindow *window)
   return TRUE;
 }
 
+/* Only cache-safe independent subtrees may be sampled. In particular never
+ * snapshot an ancestor: it contains this surface and would recurse. */
+static GskRenderNode *
+local_backdrop_node (AwraSurface *self)
+{
+  GtkWidget *widget = GTK_WIDGET (self);
+  GtkWidget *source = self->backdrop_widget;
+  graphene_matrix_t transform;
+  if (!source || !self->backdrop || source == widget || !gtk_widget_get_mapped (source) ||
+      gtk_widget_is_ancestor (widget, source) ||
+      gtk_widget_is_ancestor (source, widget) ||
+      gtk_widget_get_native (source) != gtk_widget_get_native (widget) ||
+      !gtk_widget_compute_transform (source, widget, &transform))
+    return NULL;
+  if (gtk_widget_get_width (source) <= 0 || gtk_widget_get_height (source) <= 0)
+    return NULL;
+  GtkSnapshot *capture = gtk_snapshot_new ();
+  gtk_snapshot_transform_matrix (capture, &transform);
+  double width = gtk_widget_get_width (source), height = gtk_widget_get_height (source);
+  GdkPaintable *image = GTK_IS_PICTURE (source)
+    ? gtk_picture_get_paintable (GTK_PICTURE (source)) : NULL;
+  if (image) {
+    /* Keep live textures as texture nodes instead of snapshotting their
+     * enclosing canvas into another full-frame render target. */
+    double aspect = gdk_paintable_get_intrinsic_aspect_ratio (image);
+    double image_width = width, image_height = height;
+    GtkContentFit fit = gtk_picture_get_content_fit (GTK_PICTURE (source));
+    if (aspect > 0 && fit != GTK_CONTENT_FIT_FILL) {
+      if ((width / height > aspect) != (fit == GTK_CONTENT_FIT_COVER))
+        image_width = height * aspect;
+      else
+        image_height = width / aspect;
+      if (fit == GTK_CONTENT_FIT_SCALE_DOWN) {
+        int intrinsic = gdk_paintable_get_intrinsic_width (image);
+        if (intrinsic > 0 && image_width > intrinsic) {
+          image_width = intrinsic;
+          image_height = intrinsic / aspect;
+        }
+      }
+    }
+    graphene_rect_t source_bounds = GRAPHENE_RECT_INIT (0, 0, width, height);
+    if (fit == GTK_CONTENT_FIT_COVER)
+      gtk_snapshot_push_clip (capture, &source_bounds);
+    graphene_point_t origin = GRAPHENE_POINT_INIT ((width - image_width) / 2,
+                                                   (height - image_height) / 2);
+    gtk_snapshot_translate (capture, &origin);
+    gdk_paintable_snapshot (image, GDK_SNAPSHOT (capture), image_width, image_height);
+    if (fit == GTK_CONTENT_FIT_COVER)
+      gtk_snapshot_pop (capture);
+  } else {
+    gdk_paintable_snapshot (GDK_PAINTABLE (self->backdrop), GDK_SNAPSHOT (capture), width, height);
+  }
+  return gtk_snapshot_free_to_node (capture);
+}
+
 static void
 awra_surface_snapshot (GtkWidget   *widget,
                        GtkSnapshot *snapshot)
@@ -230,6 +291,7 @@ awra_surface_snapshot (GtkWidget   *widget,
   GtkRoot *root;
   gboolean active = TRUE;
   gboolean blur_available;
+  g_autoptr (GskRenderNode) backdrop = NULL;
   gboolean reduced_transparency;
   gboolean square_frame = FALSE;
   AwraSurfaceCorner corner_mask = self->corner_mask;
@@ -255,10 +317,14 @@ awra_surface_snapshot (GtkWidget   *widget,
   root = gtk_widget_get_root (widget);
   if (GTK_IS_WINDOW (root))
     active = gtk_window_is_active (GTK_WINDOW (root));
-  blur_available = (awra_diagnostics_get_capabilities (diagnostics) &
+  if (!awra_style_manager_get_reduced_transparency (manager) &&
+      !awra_token_set_get_high_contrast (tokens) &&
+      awra_material_requests_blur (self->material))
+    backdrop = local_backdrop_node (self);
+  blur_available = backdrop != NULL || (self->backdrop_widget == NULL && (awra_diagnostics_get_capabilities (diagnostics) &
                     AWRA_EFFECT_CAPABILITY_BLUR) != 0 &&
                    awra_style_manager_get_native_blur_enabled (manager) &&
-                   !draws_over_window_content (self);
+                   !draws_over_window_content (self));
   reduced_transparency = awra_style_manager_get_reduced_transparency (manager);
 
   awra_material_resolve (self->material,
@@ -338,6 +404,22 @@ awra_surface_snapshot (GtkWidget   *widget,
   }
 
   gtk_snapshot_push_rounded_clip (snapshot, &outline);
+  if (backdrop && resolved.request_blur) {
+    float blur = awra_spacing_resolve (widget, AWRA_SPACING_XL);
+    graphene_rect_t sample = bounds;
+    graphene_rect_inset (&sample, -3 * blur, -3 * blur);
+    gtk_snapshot_push_blur (snapshot, blur);
+    gtk_snapshot_push_clip (snapshot, &sample);
+    gtk_snapshot_append_node (snapshot, backdrop);
+    gtk_snapshot_pop (snapshot);
+    gtk_snapshot_pop (snapshot);
+    /* A neutral scrim preserves secondary-text contrast without forcing a
+     * per-frame colour-matrix conversion of a full-resolution YUV texture. */
+    if (awra_token_set_get_foreground (tokens)->red > 0.5) {
+      const GdkRGBA shade = { 0, 0, 0, 0.6 };
+      gtk_snapshot_append_color (snapshot, &shade, &bounds);
+    }
+  }
   gtk_snapshot_append_color (snapshot, &resolved.fill, &bounds);
 
   if (resolved.grain_opacity > 0.0) {
@@ -418,6 +500,7 @@ awra_surface_dispose (GObject *object)
     gtk_widget_unparent (self->child);
     self->child = NULL;
   }
+  clear_backdrop (self);
   g_clear_object (&self->material);
 
   G_OBJECT_CLASS (awra_surface_parent_class)->dispose (object);
@@ -432,6 +515,9 @@ awra_surface_get_property (GObject    *object,
   AwraSurface *self = AWRA_SURFACE (object);
 
   switch (property_id) {
+  case PROP_BACKDROP_WIDGET:
+    g_value_set_object (value, awra_surface_get_backdrop_widget (self));
+    break;
   case PROP_CHILD:
     g_value_set_object (value, self->child);
     break;
@@ -470,6 +556,9 @@ awra_surface_set_property (GObject      *object,
   AwraSurface *self = AWRA_SURFACE (object);
 
   switch (property_id) {
+  case PROP_BACKDROP_WIDGET:
+    awra_surface_set_backdrop_widget (self, g_value_get_object (value));
+    break;
   case PROP_CHILD:
     awra_surface_set_child (self, g_value_get_object (value));
     break;
@@ -542,6 +631,16 @@ awra_surface_class_init (AwraSurfaceClass *klass)
     g_param_spec_boolean ("clip-child", NULL, NULL, TRUE,
                           G_PARAM_READWRITE | G_PARAM_EXPLICIT_NOTIFY | G_PARAM_STATIC_STRINGS);
 
+  /**
+   * AwraSurface:backdrop-widget:
+   *
+   * Independent local source behind a frosted material, held weakly.
+   * Since: 1.1
+   */
+  properties[PROP_BACKDROP_WIDGET] =
+    g_param_spec_object ("backdrop-widget", NULL, "Local source behind a frosted material",
+                         GTK_TYPE_WIDGET, G_PARAM_READWRITE | G_PARAM_EXPLICIT_NOTIFY |
+                         G_PARAM_STATIC_STRINGS);
   g_object_class_install_properties (object_class, N_PROPS, properties);
   gtk_widget_class_set_layout_manager_type (widget_class, GTK_TYPE_BIN_LAYOUT);
   gtk_widget_class_set_css_name (widget_class, "awrasurface");
@@ -688,4 +787,101 @@ awra_surface_set_elevation_level (AwraSurface   *self,
   g_return_if_fail (elevation >= AWRA_ELEVATION_FLAT &&
                     elevation <= AWRA_ELEVATION_MODAL);
   awra_surface_set_elevation (self, (guint) elevation);
+}
+
+GtkWidget *
+awra_surface_get_backdrop_widget (AwraSurface *self)
+{
+  g_return_val_if_fail (AWRA_IS_SURFACE (self), NULL);
+  return self->backdrop_widget;
+}
+
+static void
+backdrop_changed (GdkPaintable *paintable, AwraSurface *self)
+{
+  (void) paintable;
+  gtk_widget_queue_draw (GTK_WIDGET (self));
+}
+
+static void
+clear_backdrop_paintable (AwraSurface *self)
+{
+  if (self->backdrop)
+    g_signal_handlers_disconnect_by_data (self->backdrop, self);
+  g_clear_object (&self->backdrop);
+}
+
+static void
+update_backdrop_paintable (AwraSurface *self)
+{
+  clear_backdrop_paintable (self);
+  if (GTK_IS_PICTURE (self->backdrop_widget)) {
+    GdkPaintable *image = gtk_picture_get_paintable (GTK_PICTURE (self->backdrop_widget));
+    if (image)
+      self->backdrop = g_object_ref (image);
+  } else if (self->backdrop_widget) {
+    self->backdrop = gtk_widget_paintable_new (self->backdrop_widget);
+  }
+  if (self->backdrop) {
+    g_signal_connect (self->backdrop, "invalidate-contents", G_CALLBACK (backdrop_changed), self);
+    g_signal_connect (self->backdrop, "invalidate-size", G_CALLBACK (backdrop_changed), self);
+  }
+  gtk_widget_queue_draw (GTK_WIDGET (self));
+}
+
+static void
+backdrop_source_gone (gpointer data, GObject *source)
+{
+  AwraSurface *self = data;
+  (void) source;
+  self->backdrop_widget = NULL;
+  self->backdrop_handler = 0;
+  clear_backdrop_paintable (self);
+  gtk_widget_queue_draw (GTK_WIDGET (self));
+  g_object_notify_by_pspec (G_OBJECT (self), properties[PROP_BACKDROP_WIDGET]);
+}
+
+static void
+clear_backdrop (AwraSurface *self)
+{
+  if (self->backdrop_widget) {
+    if (self->backdrop_handler)
+      g_signal_handler_disconnect (self->backdrop_widget, self->backdrop_handler);
+    g_object_weak_unref (G_OBJECT (self->backdrop_widget), backdrop_source_gone, self);
+  }
+  self->backdrop_widget = NULL;
+  self->backdrop_handler = 0;
+  clear_backdrop_paintable (self);
+}
+
+static void
+backdrop_source_changed (GObject *source, GParamSpec *pspec, AwraSurface *self)
+{
+  (void) source;
+  if (g_str_equal (pspec->name, "paintable"))
+    update_backdrop_paintable (self);
+  else if (g_str_equal (pspec->name, "content-fit"))
+    gtk_widget_queue_draw (GTK_WIDGET (self));
+}
+
+void
+awra_surface_set_backdrop_widget (AwraSurface *self, GtkWidget *source)
+{
+  g_return_if_fail (AWRA_IS_SURFACE (self));
+  g_return_if_fail (source == NULL || GTK_IS_WIDGET (source));
+  g_return_if_fail (source != GTK_WIDGET (self));
+  g_return_if_fail (source == NULL || !gtk_widget_is_ancestor (GTK_WIDGET (self), source));
+  g_return_if_fail (source == NULL || !gtk_widget_is_ancestor (source, GTK_WIDGET (self)));
+  if (self->backdrop_widget == source)
+    return;
+  clear_backdrop (self);
+  self->backdrop_widget = source;
+  if (source) {
+    g_object_weak_ref (G_OBJECT (source), backdrop_source_gone, self);
+    if (GTK_IS_PICTURE (source))
+      self->backdrop_handler = g_signal_connect (source, "notify", G_CALLBACK (backdrop_source_changed), self);
+    update_backdrop_paintable (self);
+  }
+  gtk_widget_queue_draw (GTK_WIDGET (self));
+  g_object_notify_by_pspec (G_OBJECT (self), properties[PROP_BACKDROP_WIDGET]);
 }

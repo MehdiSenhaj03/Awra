@@ -57,6 +57,15 @@ impl Surface {
         SurfaceBuilder::new()
     }
 
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    #[doc(alias = "awra_surface_get_backdrop_widget")]
+    #[doc(alias = "get_backdrop_widget")]
+    #[doc(alias = "backdrop-widget")]
+    pub fn backdrop_widget(&self) -> Option<gtk::Widget> {
+        unsafe { from_glib_none(ffi::awra_surface_get_backdrop_widget(self.to_glib_none().0)) }
+    }
+
     #[doc(alias = "awra_surface_get_child")]
     #[doc(alias = "get_child")]
     pub fn child(&self) -> Option<gtk::Widget> {
@@ -112,6 +121,19 @@ impl Surface {
     #[doc(alias = "get_role")]
     pub fn role(&self) -> SurfaceRole {
         unsafe { from_glib(ffi::awra_surface_get_role(self.to_glib_none().0)) }
+    }
+
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    #[doc(alias = "awra_surface_set_backdrop_widget")]
+    #[doc(alias = "backdrop-widget")]
+    pub fn set_backdrop_widget(&self, widget: Option<&impl IsA<gtk::Widget>>) {
+        unsafe {
+            ffi::awra_surface_set_backdrop_widget(
+                self.to_glib_none().0,
+                widget.map(|p| p.as_ref()).to_glib_none().0,
+            );
+        }
     }
 
     #[doc(alias = "awra_surface_set_child")]
@@ -185,6 +207,45 @@ impl Surface {
     pub fn set_role(&self, role: SurfaceRole) {
         unsafe {
             ffi::awra_surface_set_role(self.to_glib_none().0, role.into_glib());
+        }
+    }
+
+    #[cfg(not(feature = "v1_1"))]
+    #[cfg_attr(docsrs, doc(cfg(not(feature = "v1_1"))))]
+    #[doc(alias = "backdrop-widget")]
+    pub fn backdrop_widget(&self) -> Option<gtk::Widget> {
+        ObjectExt::property(self, "backdrop-widget")
+    }
+
+    #[cfg(not(feature = "v1_1"))]
+    #[cfg_attr(docsrs, doc(cfg(not(feature = "v1_1"))))]
+    #[doc(alias = "backdrop-widget")]
+    pub fn set_backdrop_widget<P: IsA<gtk::Widget>>(&self, backdrop_widget: Option<&P>) {
+        ObjectExt::set_property(self, "backdrop-widget", backdrop_widget)
+    }
+
+    #[doc(alias = "backdrop-widget")]
+    pub fn connect_backdrop_widget_notify<F: Fn(&Self) + 'static>(&self, f: F) -> SignalHandlerId {
+        unsafe extern "C" fn notify_backdrop_widget_trampoline<F: Fn(&Surface) + 'static>(
+            this: *mut ffi::AwraSurface,
+            _param_spec: glib::ffi::gpointer,
+            f: glib::ffi::gpointer,
+        ) {
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this))
+            }
+        }
+        unsafe {
+            let f: Box_<F> = Box_::new(f);
+            connect_raw(
+                self.as_ptr() as *mut _,
+                c"notify::backdrop-widget".as_ptr(),
+                Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
+                    notify_backdrop_widget_trampoline::<F> as *const (),
+                )),
+                Box_::into_raw(f),
+            )
         }
     }
 
@@ -408,6 +469,14 @@ impl SurfaceBuilder {
     fn new() -> Self {
         Self {
             builder: glib::object::Object::builder(),
+        }
+    }
+
+    pub fn backdrop_widget(self, backdrop_widget: &impl IsA<gtk::Widget>) -> Self {
+        Self {
+            builder: self
+                .builder
+                .property("backdrop-widget", backdrop_widget.clone().upcast()),
         }
     }
 

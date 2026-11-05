@@ -429,7 +429,7 @@ awra_menu_button_set_appearance (AwraMenuButton       *self,
 {
   g_return_if_fail (AWRA_IS_MENU_BUTTON (self));
   g_return_if_fail (appearance >= AWRA_BUTTON_APPEARANCE_PRIMARY &&
-                    appearance <= AWRA_BUTTON_APPEARANCE_TOOLBAR);
+                    appearance <= AWRA_BUTTON_APPEARANCE_SUCCESS);
   if (self->appearance == appearance)
     return;
   self->appearance = appearance;

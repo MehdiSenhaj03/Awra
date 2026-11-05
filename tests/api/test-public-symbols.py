@@ -13,7 +13,7 @@ def header_symbols(paths: list[Path]) -> set[str]:
     text = "\n".join(path.read_text(encoding="utf-8") for path in paths)
     symbols = set(re.findall(r"\b(awra_[a-z0-9_]+)\s*\(", text))
     for prefix in re.findall(
-        r"G_DECLARE_(?:FINAL|DERIVABLE)_TYPE\s*\([^,]+,\s*([a-z0-9_]+)", text
+        r"(?:G_DECLARE_(?:FINAL|DERIVABLE)|GDK_DECLARE_INTERNAL)_TYPE\s*\([^,]+,\s*([a-z0-9_]+)", text
     ):
         symbols.add(f"{prefix}_get_type")
     return symbols

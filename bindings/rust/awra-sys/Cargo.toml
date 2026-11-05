@@ -49,7 +49,7 @@ package = "gtk4-sys"
 version = "0.11.0"
 
 [build-dependencies]
-system-deps = "7"
+system-deps = "8"
 
 [dev-dependencies]
 shell-words = "1.0.0"

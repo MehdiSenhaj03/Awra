@@ -67,3 +67,28 @@ See [style-roles.md](style-roles.md) before applying a visual role to an
 ordinary GTK widget, and
 [migrating-from-gtk-libadwaita.md](migrating-from-gtk-libadwaita.md) for an
 outside-in porting sequence.
+
+## Tiled workspaces
+
+`AwraTileView` lets people divide a surface themselves, for tools that show
+several documents, folders or terminals side by side on a large screen. Each
+child is a tile; insert one beside another, or along a whole side of the view:
+
+```c
+GtkWidget *tiles = awra_tile_view_new ();
+
+awra_tile_view_insert (AWRA_TILE_VIEW (tiles), files, NULL, GTK_POS_LEFT);
+awra_tile_view_insert (AWRA_TILE_VIEW (tiles), search, files, GTK_POS_RIGHT);
+awra_tile_view_insert (AWRA_TILE_VIEW (tiles), log, search, GTK_POS_BOTTOM);
+```
+
+A divider resizes its two neighbours, and a double click evens out their row.
+Every child stays a direct child of the view: it is never reparented, so lists
+keep their scroll position and selection when the arrangement changes. Changes
+animate from what is on screen and never give a child less than its minimum, so
+give each child the smallest size it is still useful at.
+
+To offer drop zones, `awra_tile_view_compute_insertion()` tells where a tile
+would land and whether it fits there. `awra_tile_view_get_arrangement()` returns
+a `GVariant` to keep between sessions: add the children again in reading order,
+then give it back to `awra_tile_view_set_arrangement()`.

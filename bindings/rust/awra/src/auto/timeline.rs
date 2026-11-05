@@ -106,6 +106,13 @@ impl Timeline {
         unsafe { ffi::awra_timeline_get_offset(self.to_glib_none().0) }
     }
 
+    #[doc(alias = "awra_timeline_get_page_increment")]
+    #[doc(alias = "get_page_increment")]
+    #[doc(alias = "page-increment")]
+    pub fn page_increment(&self) -> f64 {
+        unsafe { ffi::awra_timeline_get_page_increment(self.to_glib_none().0) }
+    }
+
     #[doc(alias = "awra_timeline_get_position")]
     #[doc(alias = "get_position")]
     pub fn position(&self) -> f64 {
@@ -126,6 +133,13 @@ impl Timeline {
                 self.to_glib_none().0,
             ))
         }
+    }
+
+    #[doc(alias = "awra_timeline_get_step_increment")]
+    #[doc(alias = "get_step_increment")]
+    #[doc(alias = "step-increment")]
+    pub fn step_increment(&self) -> f64 {
+        unsafe { ffi::awra_timeline_get_step_increment(self.to_glib_none().0) }
     }
 
     #[doc(alias = "awra_timeline_get_view_duration")]
@@ -166,6 +180,14 @@ impl Timeline {
         }
     }
 
+    #[doc(alias = "awra_timeline_set_page_increment")]
+    #[doc(alias = "page-increment")]
+    pub fn set_page_increment(&self, increment: f64) {
+        unsafe {
+            ffi::awra_timeline_set_page_increment(self.to_glib_none().0, increment);
+        }
+    }
+
     #[doc(alias = "awra_timeline_set_position")]
     #[doc(alias = "position")]
     pub fn set_position(&self, position: f64) {
@@ -182,6 +204,14 @@ impl Timeline {
                 self.to_glib_none().0,
                 preview.map(|p| p.as_ref()).to_glib_none().0,
             );
+        }
+    }
+
+    #[doc(alias = "awra_timeline_set_step_increment")]
+    #[doc(alias = "step-increment")]
+    pub fn set_step_increment(&self, increment: f64) {
+        unsafe {
+            ffi::awra_timeline_set_step_increment(self.to_glib_none().0, increment);
         }
     }
 
@@ -253,6 +283,20 @@ impl Timeline {
 
     #[cfg(not(feature = "v1_1"))]
     #[cfg_attr(docsrs, doc(cfg(not(feature = "v1_1"))))]
+    #[doc(alias = "page-increment")]
+    pub fn page_increment(&self) -> f64 {
+        ObjectExt::property(self, "page-increment")
+    }
+
+    #[cfg(not(feature = "v1_1"))]
+    #[cfg_attr(docsrs, doc(cfg(not(feature = "v1_1"))))]
+    #[doc(alias = "page-increment")]
+    pub fn set_page_increment(&self, page_increment: f64) {
+        ObjectExt::set_property(self, "page-increment", page_increment)
+    }
+
+    #[cfg(not(feature = "v1_1"))]
+    #[cfg_attr(docsrs, doc(cfg(not(feature = "v1_1"))))]
     pub fn position(&self) -> f64 {
         ObjectExt::property(self, "position")
     }
@@ -273,6 +317,20 @@ impl Timeline {
     #[cfg_attr(docsrs, doc(cfg(not(feature = "v1_1"))))]
     pub fn set_preview<P: IsA<gtk::Widget>>(&self, preview: Option<&P>) {
         ObjectExt::set_property(self, "preview", preview)
+    }
+
+    #[cfg(not(feature = "v1_1"))]
+    #[cfg_attr(docsrs, doc(cfg(not(feature = "v1_1"))))]
+    #[doc(alias = "step-increment")]
+    pub fn step_increment(&self) -> f64 {
+        ObjectExt::property(self, "step-increment")
+    }
+
+    #[cfg(not(feature = "v1_1"))]
+    #[cfg_attr(docsrs, doc(cfg(not(feature = "v1_1"))))]
+    #[doc(alias = "step-increment")]
+    pub fn set_step_increment(&self, step_increment: f64) {
+        ObjectExt::set_property(self, "step-increment", step_increment)
     }
 
     #[cfg(not(feature = "v1_1"))]
@@ -478,6 +536,31 @@ impl Timeline {
         }
     }
 
+    #[doc(alias = "page-increment")]
+    pub fn connect_page_increment_notify<F: Fn(&Self) + 'static>(&self, f: F) -> SignalHandlerId {
+        unsafe extern "C" fn notify_page_increment_trampoline<F: Fn(&Timeline) + 'static>(
+            this: *mut ffi::AwraTimeline,
+            _param_spec: glib::ffi::gpointer,
+            f: glib::ffi::gpointer,
+        ) {
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this))
+            }
+        }
+        unsafe {
+            let f: Box_<F> = Box_::new(f);
+            connect_raw(
+                self.as_ptr() as *mut _,
+                c"notify::page-increment".as_ptr(),
+                Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
+                    notify_page_increment_trampoline::<F> as *const (),
+                )),
+                Box_::into_raw(f),
+            )
+        }
+    }
+
     #[doc(alias = "position")]
     pub fn connect_position_notify<F: Fn(&Self) + 'static>(&self, f: F) -> SignalHandlerId {
         unsafe extern "C" fn notify_position_trampoline<F: Fn(&Timeline) + 'static>(
@@ -522,6 +605,31 @@ impl Timeline {
                 c"notify::preview".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_preview_trampoline::<F> as *const (),
+                )),
+                Box_::into_raw(f),
+            )
+        }
+    }
+
+    #[doc(alias = "step-increment")]
+    pub fn connect_step_increment_notify<F: Fn(&Self) + 'static>(&self, f: F) -> SignalHandlerId {
+        unsafe extern "C" fn notify_step_increment_trampoline<F: Fn(&Timeline) + 'static>(
+            this: *mut ffi::AwraTimeline,
+            _param_spec: glib::ffi::gpointer,
+            f: glib::ffi::gpointer,
+        ) {
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this))
+            }
+        }
+        unsafe {
+            let f: Box_<F> = Box_::new(f);
+            connect_raw(
+                self.as_ptr() as *mut _,
+                c"notify::step-increment".as_ptr(),
+                Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
+                    notify_step_increment_trampoline::<F> as *const (),
                 )),
                 Box_::into_raw(f),
             )
@@ -621,6 +729,12 @@ impl TimelineBuilder {
         }
     }
 
+    pub fn page_increment(self, page_increment: f64) -> Self {
+        Self {
+            builder: self.builder.property("page-increment", page_increment),
+        }
+    }
+
     pub fn position(self, position: f64) -> Self {
         Self {
             builder: self.builder.property("position", position),
@@ -630,6 +744,12 @@ impl TimelineBuilder {
     pub fn preview(self, preview: &impl IsA<gtk::Widget>) -> Self {
         Self {
             builder: self.builder.property("preview", preview.clone().upcast()),
+        }
+    }
+
+    pub fn step_increment(self, step_increment: f64) -> Self {
+        Self {
+            builder: self.builder.property("step-increment", step_increment),
         }
     }
 

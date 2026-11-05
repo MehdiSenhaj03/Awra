@@ -175,12 +175,90 @@ fn exercise_media_input_components() {
     assert!(awra::context_menu_model(&cap).is_none());
 }
 
+fn exercise_motion() {
+    use std::cell::Cell;
+    use std::rc::Rc;
+
+    let widget = awra::gtk::Label::new(Some("Animated"));
+    let received = Rc::new(Cell::new(0.0));
+    let sink = received.clone();
+    let target = awra::CallbackAnimationTarget::new(move |value| sink.set(value));
+    let timed =
+        awra::TimedAnimation::for_preset(&widget, 0.0, 8.0, awra::MotionPreset::Fast, target);
+    timed.set_easing(awra::Easing::EaseOutBack);
+    timed.connect_done(|animation| assert_eq!(animation.state(), awra::AnimationState::Finished));
+    // An unmapped widget has no frames to show: the animation jumps to its end.
+    timed.play();
+    assert_eq!(received.get(), 8.0);
+    assert_eq!(awra::Easing::Linear.ease(0.5), 0.5);
+
+    let property = awra::PropertyAnimationTarget::new(&widget, "opacity");
+    let spring = awra::SpringAnimation::new(&widget, 1.0, 0.5, 0.8, 400.0, property);
+    assert!(spring.estimated_duration() < awra::DURATION_INFINITE);
+    spring.retarget(0.25);
+    assert!((widget.opacity() - 0.25).abs() < 0.01);
+}
+
+fn exercise_messaging_components() {
+    let avatar = awra::Avatar::new(40, Some("Ada Lovelace"));
+    avatar.set_presence(awra::Presence::Idle);
+    avatar.set_shape(awra::AvatarShape::Rounded);
+    avatar.set_speaking(true);
+    avatar.set_custom_image(Some(&awra::gdk::Paintable::new_empty(64, 64)));
+    assert_eq!(avatar.text().as_deref(), Some("Ada Lovelace"));
+    assert_eq!(avatar.presence(), awra::Presence::Idle);
+
+    let rail = awra::Rail::new();
+    let workspace = awra::RailItem::new(Some("Workshop"));
+    workspace.set_child(Some(&avatar));
+    workspace.set_mention_count(3);
+    let folder = awra::RailGroup::new(Some("Projects"));
+    folder.set_color(Some(&awra::gdk::RGBA::new(0.3, 0.5, 0.9, 1.0)));
+    folder.append(&awra::RailItem::new(Some("Atelier")));
+    rail.append(&workspace);
+    rail.add_separator();
+    rail.append(&folder);
+    rail.set_reorderable(true);
+    rail.connect_item_moved(|_, item, position| {
+        let _ = (item, position);
+    });
+    rail.connect_item_merged(|_, item, onto| {
+        let _ = (item, onto);
+    });
+    workspace.connect_activate(|item| assert_eq!(item.label().as_deref(), Some("Workshop")));
+    workspace.emit_by_name::<()>("activate", &[]);
+    assert_eq!(rail.selected_item(), Some(workspace.clone()));
+    assert_eq!(rail.n_entries(), 3);
+
+    let typing = awra::TypingIndicator::new();
+    typing.set_label(Some("Ada is typing…"));
+    typing.set_active(true);
+    assert!(typing.is_active());
+
+    let reaction = awra::Chip::new(None);
+    reaction.set_emoji(Some("🎉"));
+    reaction.set_count(3);
+    reaction.connect_toggled(|chip| {
+        chip.set_count(chip.count() + if chip.is_active() { 1 } else { -1 });
+    });
+    reaction.emit_by_name::<()>("activate", &[]);
+    assert!(reaction.is_active());
+    assert_eq!(reaction.count(), 4);
+    let filter = awra::Chip::builder()
+        .label("Mentions")
+        .appearance(awra::ChipAppearance::Accent)
+        .build();
+    filter.set_toggleable(false);
+}
+
 fn main() {
     assert_action_map::<awra::Window>();
     awra::gtk::init().expect("Rust Awra example requires a GTK display");
     awra::init();
     exercise_projected_gtk_types();
     exercise_media_input_components();
+    exercise_motion();
+    exercise_messaging_components();
 
     let window = awra::Window::builder().keep_rounded_corners(true).build();
     assert!(window.is_keep_rounded_corners());

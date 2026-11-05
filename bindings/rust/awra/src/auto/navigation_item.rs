@@ -59,6 +59,19 @@ impl NavigationItem {
         NavigationItemBuilder::new()
     }
 
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    #[doc(alias = "awra_navigation_item_get_emphasized")]
+    #[doc(alias = "get_emphasized")]
+    #[doc(alias = "emphasized")]
+    pub fn is_emphasized(&self) -> bool {
+        unsafe {
+            from_glib(ffi::awra_navigation_item_get_emphasized(
+                self.to_glib_none().0,
+            ))
+        }
+    }
+
     #[doc(alias = "awra_navigation_item_get_icon_name")]
     #[doc(alias = "get_icon_name")]
     #[doc(alias = "icon-name")]
@@ -76,6 +89,36 @@ impl NavigationItem {
         unsafe { from_glib_none(ffi::awra_navigation_item_get_label(self.to_glib_none().0)) }
     }
 
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    #[doc(alias = "awra_navigation_item_get_label_color")]
+    #[doc(alias = "get_label_color")]
+    #[doc(alias = "label-color")]
+    pub fn label_color(&self) -> Option<gdk::RGBA> {
+        unsafe {
+            from_glib_none(ffi::awra_navigation_item_get_label_color(
+                self.to_glib_none().0,
+            ))
+        }
+    }
+
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    #[doc(alias = "awra_navigation_item_get_muted")]
+    #[doc(alias = "get_muted")]
+    #[doc(alias = "muted")]
+    pub fn is_muted(&self) -> bool {
+        unsafe { from_glib(ffi::awra_navigation_item_get_muted(self.to_glib_none().0)) }
+    }
+
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    #[doc(alias = "awra_navigation_item_get_prefix")]
+    #[doc(alias = "get_prefix")]
+    pub fn prefix(&self) -> Option<gtk::Widget> {
+        unsafe { from_glib_none(ffi::awra_navigation_item_get_prefix(self.to_glib_none().0)) }
+    }
+
     #[doc(alias = "awra_navigation_item_get_selected")]
     #[doc(alias = "get_selected")]
     #[doc(alias = "selected")]
@@ -89,10 +132,32 @@ impl NavigationItem {
 
     #[cfg(feature = "v1_1")]
     #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    #[doc(alias = "awra_navigation_item_get_subtitle")]
+    #[doc(alias = "get_subtitle")]
+    pub fn subtitle(&self) -> glib::GString {
+        unsafe {
+            from_glib_none(ffi::awra_navigation_item_get_subtitle(
+                self.to_glib_none().0,
+            ))
+        }
+    }
+
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
     #[doc(alias = "awra_navigation_item_get_suffix")]
     #[doc(alias = "get_suffix")]
     pub fn suffix(&self) -> Option<gtk::Widget> {
         unsafe { from_glib_none(ffi::awra_navigation_item_get_suffix(self.to_glib_none().0)) }
+    }
+
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    #[doc(alias = "awra_navigation_item_set_emphasized")]
+    #[doc(alias = "emphasized")]
+    pub fn set_emphasized(&self, emphasized: bool) {
+        unsafe {
+            ffi::awra_navigation_item_set_emphasized(self.to_glib_none().0, emphasized.into_glib());
+        }
     }
 
     #[doc(alias = "awra_navigation_item_set_group")]
@@ -121,11 +186,60 @@ impl NavigationItem {
         }
     }
 
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    #[doc(alias = "awra_navigation_item_set_label_color")]
+    #[doc(alias = "label-color")]
+    pub fn set_label_color(&self, color: Option<&gdk::RGBA>) {
+        unsafe {
+            ffi::awra_navigation_item_set_label_color(
+                self.to_glib_none().0,
+                color.to_glib_none().0,
+            );
+        }
+    }
+
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    #[doc(alias = "awra_navigation_item_set_muted")]
+    #[doc(alias = "muted")]
+    pub fn set_muted(&self, muted: bool) {
+        unsafe {
+            ffi::awra_navigation_item_set_muted(self.to_glib_none().0, muted.into_glib());
+        }
+    }
+
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    #[doc(alias = "awra_navigation_item_set_prefix")]
+    #[doc(alias = "prefix")]
+    pub fn set_prefix(&self, prefix: Option<&impl IsA<gtk::Widget>>) {
+        unsafe {
+            ffi::awra_navigation_item_set_prefix(
+                self.to_glib_none().0,
+                prefix.map(|p| p.as_ref()).to_glib_none().0,
+            );
+        }
+    }
+
     #[doc(alias = "awra_navigation_item_set_selected")]
     #[doc(alias = "selected")]
     pub fn set_selected(&self, selected: bool) {
         unsafe {
             ffi::awra_navigation_item_set_selected(self.to_glib_none().0, selected.into_glib());
+        }
+    }
+
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    #[doc(alias = "awra_navigation_item_set_subtitle")]
+    #[doc(alias = "subtitle")]
+    pub fn set_subtitle(&self, subtitle: Option<&str>) {
+        unsafe {
+            ffi::awra_navigation_item_set_subtitle(
+                self.to_glib_none().0,
+                subtitle.to_glib_none().0,
+            );
         }
     }
 
@@ -144,6 +258,68 @@ impl NavigationItem {
 
     #[cfg(not(feature = "v1_1"))]
     #[cfg_attr(docsrs, doc(cfg(not(feature = "v1_1"))))]
+    pub fn is_emphasized(&self) -> bool {
+        ObjectExt::property(self, "emphasized")
+    }
+
+    #[cfg(not(feature = "v1_1"))]
+    #[cfg_attr(docsrs, doc(cfg(not(feature = "v1_1"))))]
+    pub fn set_emphasized(&self, emphasized: bool) {
+        ObjectExt::set_property(self, "emphasized", emphasized)
+    }
+
+    #[cfg(not(feature = "v1_1"))]
+    #[cfg_attr(docsrs, doc(cfg(not(feature = "v1_1"))))]
+    #[doc(alias = "label-color")]
+    pub fn label_color(&self) -> Option<gdk::RGBA> {
+        ObjectExt::property(self, "label-color")
+    }
+
+    #[cfg(not(feature = "v1_1"))]
+    #[cfg_attr(docsrs, doc(cfg(not(feature = "v1_1"))))]
+    #[doc(alias = "label-color")]
+    pub fn set_label_color(&self, label_color: Option<&gdk::RGBA>) {
+        ObjectExt::set_property(self, "label-color", label_color)
+    }
+
+    #[cfg(not(feature = "v1_1"))]
+    #[cfg_attr(docsrs, doc(cfg(not(feature = "v1_1"))))]
+    pub fn is_muted(&self) -> bool {
+        ObjectExt::property(self, "muted")
+    }
+
+    #[cfg(not(feature = "v1_1"))]
+    #[cfg_attr(docsrs, doc(cfg(not(feature = "v1_1"))))]
+    pub fn set_muted(&self, muted: bool) {
+        ObjectExt::set_property(self, "muted", muted)
+    }
+
+    #[cfg(not(feature = "v1_1"))]
+    #[cfg_attr(docsrs, doc(cfg(not(feature = "v1_1"))))]
+    pub fn prefix(&self) -> Option<gtk::Widget> {
+        ObjectExt::property(self, "prefix")
+    }
+
+    #[cfg(not(feature = "v1_1"))]
+    #[cfg_attr(docsrs, doc(cfg(not(feature = "v1_1"))))]
+    pub fn set_prefix<P: IsA<gtk::Widget>>(&self, prefix: Option<&P>) {
+        ObjectExt::set_property(self, "prefix", prefix)
+    }
+
+    #[cfg(not(feature = "v1_1"))]
+    #[cfg_attr(docsrs, doc(cfg(not(feature = "v1_1"))))]
+    pub fn subtitle(&self) -> Option<glib::GString> {
+        ObjectExt::property(self, "subtitle")
+    }
+
+    #[cfg(not(feature = "v1_1"))]
+    #[cfg_attr(docsrs, doc(cfg(not(feature = "v1_1"))))]
+    pub fn set_subtitle(&self, subtitle: Option<&str>) {
+        ObjectExt::set_property(self, "subtitle", subtitle)
+    }
+
+    #[cfg(not(feature = "v1_1"))]
+    #[cfg_attr(docsrs, doc(cfg(not(feature = "v1_1"))))]
     pub fn suffix(&self) -> Option<gtk::Widget> {
         ObjectExt::property(self, "suffix")
     }
@@ -152,6 +328,106 @@ impl NavigationItem {
     #[cfg_attr(docsrs, doc(cfg(not(feature = "v1_1"))))]
     pub fn set_suffix<P: IsA<gtk::Widget>>(&self, suffix: Option<&P>) {
         ObjectExt::set_property(self, "suffix", suffix)
+    }
+
+    #[doc(alias = "emphasized")]
+    pub fn connect_emphasized_notify<F: Fn(&Self) + 'static>(&self, f: F) -> SignalHandlerId {
+        unsafe extern "C" fn notify_emphasized_trampoline<F: Fn(&NavigationItem) + 'static>(
+            this: *mut ffi::AwraNavigationItem,
+            _param_spec: glib::ffi::gpointer,
+            f: glib::ffi::gpointer,
+        ) {
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this))
+            }
+        }
+        unsafe {
+            let f: Box_<F> = Box_::new(f);
+            connect_raw(
+                self.as_ptr() as *mut _,
+                c"notify::emphasized".as_ptr(),
+                Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
+                    notify_emphasized_trampoline::<F> as *const (),
+                )),
+                Box_::into_raw(f),
+            )
+        }
+    }
+
+    #[doc(alias = "label-color")]
+    pub fn connect_label_color_notify<F: Fn(&Self) + 'static>(&self, f: F) -> SignalHandlerId {
+        unsafe extern "C" fn notify_label_color_trampoline<F: Fn(&NavigationItem) + 'static>(
+            this: *mut ffi::AwraNavigationItem,
+            _param_spec: glib::ffi::gpointer,
+            f: glib::ffi::gpointer,
+        ) {
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this))
+            }
+        }
+        unsafe {
+            let f: Box_<F> = Box_::new(f);
+            connect_raw(
+                self.as_ptr() as *mut _,
+                c"notify::label-color".as_ptr(),
+                Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
+                    notify_label_color_trampoline::<F> as *const (),
+                )),
+                Box_::into_raw(f),
+            )
+        }
+    }
+
+    #[doc(alias = "muted")]
+    pub fn connect_muted_notify<F: Fn(&Self) + 'static>(&self, f: F) -> SignalHandlerId {
+        unsafe extern "C" fn notify_muted_trampoline<F: Fn(&NavigationItem) + 'static>(
+            this: *mut ffi::AwraNavigationItem,
+            _param_spec: glib::ffi::gpointer,
+            f: glib::ffi::gpointer,
+        ) {
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this))
+            }
+        }
+        unsafe {
+            let f: Box_<F> = Box_::new(f);
+            connect_raw(
+                self.as_ptr() as *mut _,
+                c"notify::muted".as_ptr(),
+                Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
+                    notify_muted_trampoline::<F> as *const (),
+                )),
+                Box_::into_raw(f),
+            )
+        }
+    }
+
+    #[doc(alias = "prefix")]
+    pub fn connect_prefix_notify<F: Fn(&Self) + 'static>(&self, f: F) -> SignalHandlerId {
+        unsafe extern "C" fn notify_prefix_trampoline<F: Fn(&NavigationItem) + 'static>(
+            this: *mut ffi::AwraNavigationItem,
+            _param_spec: glib::ffi::gpointer,
+            f: glib::ffi::gpointer,
+        ) {
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this))
+            }
+        }
+        unsafe {
+            let f: Box_<F> = Box_::new(f);
+            connect_raw(
+                self.as_ptr() as *mut _,
+                c"notify::prefix".as_ptr(),
+                Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
+                    notify_prefix_trampoline::<F> as *const (),
+                )),
+                Box_::into_raw(f),
+            )
+        }
     }
 
     #[doc(alias = "selected")]
@@ -173,6 +449,31 @@ impl NavigationItem {
                 c"notify::selected".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_selected_trampoline::<F> as *const (),
+                )),
+                Box_::into_raw(f),
+            )
+        }
+    }
+
+    #[doc(alias = "subtitle")]
+    pub fn connect_subtitle_notify<F: Fn(&Self) + 'static>(&self, f: F) -> SignalHandlerId {
+        unsafe extern "C" fn notify_subtitle_trampoline<F: Fn(&NavigationItem) + 'static>(
+            this: *mut ffi::AwraNavigationItem,
+            _param_spec: glib::ffi::gpointer,
+            f: glib::ffi::gpointer,
+        ) {
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this))
+            }
+        }
+        unsafe {
+            let f: Box_<F> = Box_::new(f);
+            connect_raw(
+                self.as_ptr() as *mut _,
+                c"notify::subtitle".as_ptr(),
+                Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
+                    notify_subtitle_trampoline::<F> as *const (),
                 )),
                 Box_::into_raw(f),
             )
@@ -227,6 +528,12 @@ impl NavigationItemBuilder {
         }
     }
 
+    pub fn emphasized(self, emphasized: bool) -> Self {
+        Self {
+            builder: self.builder.property("emphasized", emphasized),
+        }
+    }
+
     pub fn icon_name(self, icon_name: impl Into<glib::GString>) -> Self {
         Self {
             builder: self.builder.property("icon-name", icon_name.into()),
@@ -239,9 +546,33 @@ impl NavigationItemBuilder {
         }
     }
 
+    pub fn label_color(self, label_color: &gdk::RGBA) -> Self {
+        Self {
+            builder: self.builder.property("label-color", label_color),
+        }
+    }
+
+    pub fn muted(self, muted: bool) -> Self {
+        Self {
+            builder: self.builder.property("muted", muted),
+        }
+    }
+
+    pub fn prefix(self, prefix: &impl IsA<gtk::Widget>) -> Self {
+        Self {
+            builder: self.builder.property("prefix", prefix.clone().upcast()),
+        }
+    }
+
     pub fn selected(self, selected: bool) -> Self {
         Self {
             builder: self.builder.property("selected", selected),
+        }
+    }
+
+    pub fn subtitle(self, subtitle: impl Into<glib::GString>) -> Self {
+        Self {
+            builder: self.builder.property("subtitle", subtitle.into()),
         }
     }
 

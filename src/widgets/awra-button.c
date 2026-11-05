@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <awra/awra-button.h>
+#include <awra/awra-button-content.h>
 #include <awra/awra-context.h>
 
 struct _AwraButton {
@@ -8,9 +9,13 @@ struct _AwraButton {
   AwraStyleManager *style_manager;
   gulong style_handler;
   AwraButtonAppearance appearance;
+  /* Shown over the hidden content while busy; GtkButton's bin layout
+   * centres it in the button's own allocation. */
+  GtkWidget *spinner;
+  gboolean busy;
 };
 
-enum { PROP_0, PROP_APPEARANCE, N_PROPS };
+enum { PROP_0, PROP_APPEARANCE, PROP_BUSY, N_PROPS };
 static GParamSpec *properties[N_PROPS];
 
 G_DEFINE_FINAL_TYPE (AwraButton, awra_button, GTK_TYPE_BUTTON)
@@ -21,6 +26,7 @@ static const char *appearance_classes[] = {
   "awra-ghost",
   "awra-destructive",
   "awra-toolbar-button",
+  "awra-success",
 };
 
 static void
@@ -40,6 +46,8 @@ awra_button_get_property (GObject    *object,
 {
   if (property_id == PROP_APPEARANCE)
     g_value_set_enum (value, AWRA_BUTTON (object)->appearance);
+  else if (property_id == PROP_BUSY)
+    g_value_set_boolean (value, AWRA_BUTTON (object)->busy);
   else
     G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
 }
@@ -52,6 +60,8 @@ awra_button_set_property (GObject      *object,
 {
   if (property_id == PROP_APPEARANCE)
     awra_button_set_appearance (AWRA_BUTTON (object), g_value_get_enum (value));
+  else if (property_id == PROP_BUSY)
+    awra_button_set_busy (AWRA_BUTTON (object), g_value_get_boolean (value));
   else
     G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
 }
@@ -110,6 +120,21 @@ awra_button_unmap (GtkWidget *widget)
 }
 
 static void
+awra_button_dispose (GObject *object)
+{
+  g_clear_pointer (&AWRA_BUTTON (object)->spinner, gtk_widget_unparent);
+  G_OBJECT_CLASS (awra_button_parent_class)->dispose (object);
+}
+
+/* A busy button swallows its clicks before anyone else hears them. */
+static void
+clicked_cb (AwraButton *self)
+{
+  if (self->busy)
+    g_signal_stop_emission_by_name (self, "clicked");
+}
+
+static void
 awra_button_class_init (AwraButtonClass *klass)
 {
   GObjectClass *object_class = G_OBJECT_CLASS (klass);
@@ -117,6 +142,7 @@ awra_button_class_init (AwraButtonClass *klass)
 
   object_class->get_property = awra_button_get_property;
   object_class->set_property = awra_button_set_property;
+  object_class->dispose = awra_button_dispose;
   widget_class->map = awra_button_map;
   widget_class->unmap = awra_button_unmap;
   gtk_widget_class_set_css_name (widget_class, "button");
@@ -124,6 +150,17 @@ awra_button_class_init (AwraButtonClass *klass)
   properties[PROP_APPEARANCE] = g_param_spec_enum (
     "appearance", NULL, NULL, AWRA_TYPE_BUTTON_APPEARANCE,
     AWRA_BUTTON_APPEARANCE_SECONDARY,
+    G_PARAM_READWRITE | G_PARAM_EXPLICIT_NOTIFY | G_PARAM_STATIC_STRINGS);
+  /**
+   * AwraButton:busy:
+   *
+   * Whether the button's action is under way: it shows a spinner and
+   * ignores clicks.
+   *
+   * Since: 1.1
+   */
+  properties[PROP_BUSY] = g_param_spec_boolean (
+    "busy", NULL, NULL, FALSE,
     G_PARAM_READWRITE | G_PARAM_EXPLICIT_NOTIFY | G_PARAM_STATIC_STRINGS);
   g_object_class_install_properties (object_class, N_PROPS, properties);
 }
@@ -136,6 +173,7 @@ awra_button_init (AwraButton *self)
   update_button_appearance (self);
   gtk_button_set_has_frame (GTK_BUTTON (self), FALSE);
   gtk_widget_set_focusable (GTK_WIDGET (self), TRUE);
+  g_signal_connect (self, "clicked", G_CALLBACK (clicked_cb), NULL);
 }
 
 GtkWidget *
@@ -170,10 +208,61 @@ awra_button_set_appearance (AwraButton           *self,
 {
   g_return_if_fail (AWRA_IS_BUTTON (self));
   g_return_if_fail (appearance >= AWRA_BUTTON_APPEARANCE_PRIMARY &&
-                    appearance <= AWRA_BUTTON_APPEARANCE_TOOLBAR);
+                    appearance <= AWRA_BUTTON_APPEARANCE_SUCCESS);
   if (self->appearance == appearance)
     return;
   self->appearance = appearance;
   update_button_appearance (self);
   g_object_notify_by_pspec (G_OBJECT (self), properties[PROP_APPEARANCE]);
+}
+
+GtkWidget *
+awra_button_new_with_icon_and_label (const char *icon_name,
+                                     const char *label)
+{
+  GtkWidget *button = awra_button_new ();
+
+  gtk_button_set_child (GTK_BUTTON (button), awra_button_content_new (icon_name, label));
+  return button;
+}
+
+gboolean
+awra_button_get_busy (AwraButton *self)
+{
+  g_return_val_if_fail (AWRA_IS_BUTTON (self), FALSE);
+  return self->busy;
+}
+
+void
+awra_button_set_busy (AwraButton *self,
+                      gboolean    busy)
+{
+  GtkWidget *child;
+
+  g_return_if_fail (AWRA_IS_BUTTON (self));
+  busy = !!busy;
+  if (self->busy == busy)
+    return;
+  self->busy = busy;
+  if (busy && self->spinner == NULL) {
+    self->spinner = gtk_spinner_new ();
+    gtk_widget_set_halign (self->spinner, GTK_ALIGN_CENTER);
+    gtk_widget_set_valign (self->spinner, GTK_ALIGN_CENTER);
+    gtk_widget_set_can_target (self->spinner, FALSE);
+    gtk_widget_set_parent (self->spinner, GTK_WIDGET (self));
+  }
+  if (self->spinner != NULL) {
+    gtk_widget_set_visible (self->spinner, busy);
+    gtk_spinner_set_spinning (GTK_SPINNER (self->spinner), busy);
+  }
+  /* The content keeps its room, so the button doesn't change size. */
+  child = gtk_button_get_child (GTK_BUTTON (self));
+  if (child != NULL)
+    gtk_widget_set_opacity (child, busy ? 0.0 : 1.0);
+  if (busy)
+    gtk_widget_add_css_class (GTK_WIDGET (self), "awra-busy");
+  else
+    gtk_widget_remove_css_class (GTK_WIDGET (self), "awra-busy");
+  gtk_accessible_update_state (GTK_ACCESSIBLE (self), GTK_ACCESSIBLE_STATE_BUSY, busy, -1);
+  g_object_notify_by_pspec (G_OBJECT (self), properties[PROP_BUSY]);
 }

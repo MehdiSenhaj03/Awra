@@ -45,6 +45,15 @@ stress_iterations (void)
   return (guint) CLAMP (parsed, 1, 10000);
 }
 
+/* A menu scrolls when it exceeds the screen: items sit inside its viewport. */
+static GtkWidget *
+get_menu_box (AwraPopover *popover)
+{
+  GtkScrolledWindow *scroller = GTK_SCROLLED_WINDOW (awra_popover_get_child (popover));
+
+  return gtk_viewport_get_child (GTK_VIEWPORT (gtk_scrolled_window_get_child (scroller)));
+}
+
 int
 main (int   argc,
       char *argv[])
@@ -180,7 +189,7 @@ main (int   argc,
      * is open, and again after reopening it. */
     awra_menu_button_popup (AWRA_MENU_BUTTON (menu_button));
     g_assert_true (wait_for_mapped (popover, TRUE, 1000));
-    menu_box = awra_popover_get_child (AWRA_POPOVER (popover));
+    menu_box = get_menu_box (AWRA_POPOVER (popover));
     submenu_button = gtk_widget_get_first_child (menu_box);
     g_assert_true (AWRA_IS_MENU_BUTTON (submenu_button));
     submenu_popover = GTK_WIDGET (awra_menu_button_get_popover (
@@ -201,16 +210,16 @@ main (int   argc,
 
     awra_menu_button_popup (AWRA_MENU_BUTTON (menu_button));
     g_assert_true (wait_for_mapped (popover, TRUE, 1000));
-    menu_box = awra_popover_get_child (AWRA_POPOVER (popover));
+    menu_box = get_menu_box (AWRA_POPOVER (popover));
     submenu_button = gtk_widget_get_first_child (menu_box);
     g_assert_true (AWRA_IS_MENU_BUTTON (submenu_button));
     submenu_popover = GTK_WIDGET (awra_menu_button_get_popover (
       AWRA_MENU_BUTTON (submenu_button)));
     awra_menu_button_popup (AWRA_MENU_BUTTON (submenu_button));
     g_assert_true (wait_for_mapped (submenu_popover, TRUE, 1000));
-    submenu_box = awra_popover_get_child (AWRA_POPOVER (submenu_popover));
+    submenu_box = get_menu_box (AWRA_POPOVER (submenu_popover));
     nested_action = gtk_widget_get_first_child (submenu_box);
-    g_assert_true (AWRA_IS_BUTTON (nested_action));
+    g_assert_true (GTK_IS_BUTTON (nested_action));
     g_signal_emit_by_name (nested_action, "clicked");
     g_assert_true (wait_for_mapped (submenu_popover, FALSE, 1000));
     g_assert_true (wait_for_mapped (popover, FALSE, 1000));

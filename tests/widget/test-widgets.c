@@ -5,6 +5,7 @@
 #include <math.h>
 
 #include "layout/awra-split-view-private.h"
+#include "widgets/awra-widget-style-private.h"
 
 static guint click_count;
 
@@ -179,7 +180,7 @@ test_builder (void)
     " </object>"
     " <object class='AwraDetailPane' id='detail-pane'>"
     "  <property name='title'>Bulbasaur</property>"
-    "  <property name='subtitle'>Seed Pokémon</property>"
+    "  <property name='subtitle'>Sample item</property>"
     "  <child type='section'>"
     "   <object class='AwraSection'><property name='title'>Overview</property></object>"
     "  </child>"
@@ -642,6 +643,25 @@ test_mapped_header_center_geometry (void)
   header_center = gtk_widget_get_width (header) / 2.0f;
   widget_center = bounds.origin.x + bounds.size.width / 2.0f;
   g_assert_cmpfloat (fabsf (widget_center - header_center), <=, 1.0f);
+
+  /* Address controls may fill the actual gap instead of reserving symmetric
+   * gutters. Existing headers keep their centered allocation by default. */
+  g_assert_false (awra_header_get_expand_center (AWRA_HEADER (header)));
+  float centered_width = bounds.size.width;
+  awra_header_set_expand_center (AWRA_HEADER (header), TRUE);
+  settle_window (window);
+  graphene_rect_t start_bounds, end_bounds;
+  g_assert_true (gtk_widget_compute_bounds (center, header, &bounds));
+  g_assert_true (gtk_widget_compute_bounds (start, header, &start_bounds));
+  g_assert_true (gtk_widget_compute_bounds (end, header, &end_bounds));
+  g_assert_cmpfloat (bounds.size.width, >, centered_width + 50);
+  g_assert_cmpfloat (bounds.origin.x, >=, start_bounds.origin.x + start_bounds.size.width);
+  g_assert_cmpfloat (bounds.origin.x + bounds.size.width, <=, end_bounds.origin.x);
+  g_object_set (header, "expand-center", FALSE, NULL);
+  settle_window (window);
+  g_assert_false (awra_header_get_expand_center (AWRA_HEADER (header)));
+  g_assert_true (gtk_widget_compute_bounds (center, header, &bounds));
+  g_assert_cmpfloat (fabsf (bounds.size.width - centered_width), <=, 1.0f);
   gtk_window_destroy (GTK_WINDOW (window));
 }
 
@@ -894,7 +914,7 @@ test_filter_and_master_detail (void)
                       AWRA_FILTER_BAR (filter_bar)), ==, 1);
 
   awra_detail_pane_set_title (AWRA_DETAIL_PANE (detail), "Bulbasaur");
-  awra_detail_pane_set_subtitle (AWRA_DETAIL_PANE (detail), "Seed Pokémon");
+  awra_detail_pane_set_subtitle (AWRA_DETAIL_PANE (detail), "Sample item");
   awra_detail_pane_set_media (AWRA_DETAIL_PANE (detail),
                               gtk_image_new_from_icon_name (
                                 "image-x-generic-symbolic"));
@@ -1601,6 +1621,336 @@ test_dialog_responses (void)
   g_free (saved.last);
 }
 
+/* A response that stays: it answers, the dialog stays open and shows the
+ * work under way, and closing it afterwards gives no other response. */
+static void
+test_dialog_response_stays (void)
+{
+  ResponseLog log = { 0 };
+  GtkWidget *dialog = g_object_ref_sink (awra_dialog_new (NULL));
+  GtkWidget *button;
+
+  awra_dialog_add_response (AWRA_DIALOG (dialog), "cancel", "Cancel");
+  awra_dialog_add_response (AWRA_DIALOG (dialog), "join", "Join");
+  awra_dialog_set_close_response (AWRA_DIALOG (dialog), "cancel");
+  g_assert_true (awra_dialog_get_response_closes (AWRA_DIALOG (dialog), "join"));
+  awra_dialog_set_response_closes (AWRA_DIALOG (dialog), "join", FALSE);
+  g_assert_false (awra_dialog_get_response_closes (AWRA_DIALOG (dialog), "join"));
+  g_signal_connect (dialog, "response", G_CALLBACK (dialog_response_cb), &log);
+  gtk_window_present (GTK_WINDOW (dialog));
+
+  awra_dialog_respond (AWRA_DIALOG (dialog), "join");
+  g_assert_cmpuint (log.count, ==, 1);
+  g_assert_cmpstr (log.last, ==, "join");
+  g_assert_true (gtk_widget_get_visible (dialog));
+
+  awra_dialog_set_default_response (AWRA_DIALOG (dialog), "join");
+  button = gtk_window_get_default_widget (GTK_WINDOW (dialog));
+  awra_dialog_set_response_busy (AWRA_DIALOG (dialog), "join", TRUE);
+  g_assert_true (awra_button_get_busy (AWRA_BUTTON (button)));
+  awra_dialog_close (AWRA_DIALOG (dialog));
+  g_assert_cmpuint (log.count, ==, 1);
+  g_assert_false (gtk_widget_get_visible (dialog));
+  g_object_unref (dialog);
+  g_free (log.last);
+}
+
+static void
+count_clicks_cb (GtkButton *button,
+                 guint     *clicks)
+{
+  (void) button;
+  (*clicks)++;
+}
+
+static GtkWidget *
+find_css_name (GtkWidget  *widget,
+               const char *name)
+{
+  if (g_str_equal (gtk_widget_get_css_name (widget), name))
+    return widget;
+  for (GtkWidget *child = gtk_widget_get_first_child (widget); child != NULL;
+       child = gtk_widget_get_next_sibling (child)) {
+    GtkWidget *found = find_css_name (child, name);
+
+    if (found != NULL)
+      return found;
+  }
+  return NULL;
+}
+
+/* A page's content is measured for the width it gets, so wrapped text
+ * gets the height of all its lines and the page scrolls to its end. */
+static void
+test_page_wraps_its_content (void)
+{
+  GtkWidget *page = g_object_ref_sink (awra_page_new ());
+  GtkWidget *label = gtk_label_new (
+    "A long explanation that wraps onto many lines when the page is narrow, "
+    "and onto few when it is wide, so its height depends on its width.");
+  GtkWidget *viewport;
+  int narrow = 0;
+  int wide = 0;
+
+  gtk_label_set_wrap (GTK_LABEL (label), TRUE);
+  awra_page_set_child (AWRA_PAGE (page), label);
+  viewport = find_css_name (page, "awrapageviewport");
+  g_assert_nonnull (viewport);
+  g_assert_cmpint (gtk_widget_get_request_mode (viewport), ==, GTK_SIZE_REQUEST_HEIGHT_FOR_WIDTH);
+  gtk_widget_measure (viewport, GTK_ORIENTATION_VERTICAL, 220, &narrow, NULL, NULL, NULL);
+  gtk_widget_measure (viewport, GTK_ORIENTATION_VERTICAL, 900, &wide, NULL, NULL, NULL);
+  g_assert_cmpint (narrow, >, wide);
+  g_object_unref (page);
+}
+
+static void
+palette_chosen_cb (AwraColorPalette *palette,
+                   const GdkRGBA    *color,
+                   int              *chosen)
+{
+  (void) palette;
+  *chosen = color != NULL ? 1 : 2;
+}
+
+/* A palette: its colours, an automatic choice, a colour from outside it,
+ * and a signal only for the person's choices. */
+static void
+test_color_palette (void)
+{
+  GtkWidget *widget = g_object_ref_sink (awra_color_palette_new ());
+  AwraColorPalette *palette = AWRA_COLOR_PALETTE (widget);
+  GdkRGBA red = { 0.9, 0.2, 0.2, 1.0 };
+  GdkRGBA blue = { 0.2, 0.4, 0.9, 1.0 };
+  GdkRGBA odd = { 0.3, 0.7, 0.5, 1.0 };
+  GtkWidget *swatch = NULL;
+  int chosen = 0;
+
+  g_assert_null (awra_color_palette_get_selected (palette));
+  awra_color_palette_set_automatic_label (palette, "System");
+  g_assert_cmpstr (awra_color_palette_get_automatic_label (palette), ==, "System");
+  awra_color_palette_add_color (palette, &red, "Red");
+  awra_color_palette_add_color (palette, &blue, NULL);
+  awra_color_palette_set_allows_custom (palette, TRUE);
+  g_assert_true (awra_color_palette_get_allows_custom (palette));
+  g_signal_connect (widget, "chosen", G_CALLBACK (palette_chosen_cb), &chosen);
+
+  awra_color_palette_set_selected (palette, &blue);
+  g_assert_true (gdk_rgba_equal (awra_color_palette_get_selected (palette), &blue));
+  g_assert_cmpint (chosen, ==, 0);
+  awra_color_palette_set_selected (palette, &odd);
+  g_assert_true (gdk_rgba_equal (awra_color_palette_get_selected (palette), &odd));
+
+  /* Clicking the red swatch chooses it and says so. */
+  for (GtkWidget *child = find_css_name (widget, "flowbox") != NULL
+         ? gtk_widget_get_first_child (find_css_name (widget, "flowbox")) : NULL;
+       child != NULL && swatch == NULL; child = gtk_widget_get_next_sibling (child)) {
+    GtkWidget *button = gtk_flow_box_child_get_child (GTK_FLOW_BOX_CHILD (child));
+
+    if (g_strcmp0 (gtk_widget_get_tooltip_text (button), "Red") == 0)
+      swatch = button;
+  }
+  g_assert_nonnull (swatch);
+  g_signal_emit_by_name (swatch, "clicked");
+  g_assert_cmpint (chosen, ==, 1);
+  g_assert_true (gdk_rgba_equal (awra_color_palette_get_selected (palette), &red));
+  g_assert_true (gtk_widget_has_css_class (swatch, "awra-selected"));
+
+  awra_color_palette_set_selected (palette, NULL);
+  g_assert_null (awra_color_palette_get_selected (palette));
+  g_assert_false (gtk_widget_has_css_class (swatch, "awra-selected"));
+  awra_color_palette_clear (palette);
+  g_object_unref (widget);
+}
+
+/* A widget with a context menu lets its popover go as it's disposed, as
+ * a list's recycled rows are, without leaving GTK a child to warn about. */
+static void
+test_context_menu_released_with_widget (void)
+{
+  g_autoptr (GMenu) menu = g_menu_new ();
+  GtkWidget *box = g_object_ref_sink (gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 0));
+  GtkWidget *label = gtk_label_new ("Row");
+
+  g_menu_append (menu, "Copy", "row.copy");
+  gtk_box_append (GTK_BOX (box), label);
+  awra_widget_set_context_menu_model (label, G_MENU_MODEL (menu));
+  g_assert_nonnull (awra_widget_get_context_menu_popover (label));
+  /* Disposing the label with its parent must not warn. */
+  gtk_box_remove (GTK_BOX (box), label);
+  g_object_unref (box);
+}
+
+static void
+count_signal_cb (GtkWidget *widget,
+                 guint     *count)
+{
+  (void) widget;
+  (*count)++;
+}
+
+/* Enter in a search entry reaches its own activate signal. */
+static void
+test_search_entry_activate (void)
+{
+  GtkWidget *entry = g_object_ref_sink (awra_search_entry_new ());
+  guint activated = 0;
+
+  g_signal_connect (entry, "activate", G_CALLBACK (count_signal_cb), &activated);
+  g_signal_emit_by_name (awra_search_entry_get_delegate (AWRA_SEARCH_ENTRY (entry)), "activate");
+  g_assert_cmpuint (activated, ==, 1);
+  g_object_unref (entry);
+}
+
+static GtkWidget *
+find_css_class (GtkWidget  *widget,
+                const char *name)
+{
+  if (gtk_widget_has_css_class (widget, name))
+    return widget;
+  for (GtkWidget *child = gtk_widget_get_first_child (widget); child != NULL;
+       child = gtk_widget_get_next_sibling (child)) {
+    GtkWidget *found = find_css_class (child, name);
+
+    if (found != NULL)
+      return found;
+  }
+  return NULL;
+}
+
+static void
+edge_retry_cb (AwraConversationView *view,
+               GtkPositionType       edge,
+               int                  *retried)
+{
+  (void) view;
+  *retried = edge == GTK_POS_TOP ? 1 : 2;
+}
+
+/* An edge says what it's doing, and a failed one offers to retry. */
+static void
+test_conversation_edge_status (void)
+{
+  GtkWidget *view = g_object_ref_sink (awra_conversation_view_new (NULL, NULL));
+  int retried = 0;
+
+  g_assert_cmpint (awra_conversation_view_get_edge_status (AWRA_CONVERSATION_VIEW (view), GTK_POS_TOP),
+                   ==, AWRA_EDGE_STATUS_NONE);
+  awra_conversation_view_set_edge_status (AWRA_CONVERSATION_VIEW (view), GTK_POS_TOP,
+                                          AWRA_EDGE_STATUS_LOADING, "Loading earlier messages…");
+  g_assert_cmpint (awra_conversation_view_get_edge_status (AWRA_CONVERSATION_VIEW (view), GTK_POS_TOP),
+                   ==, AWRA_EDGE_STATUS_LOADING);
+  g_signal_connect (view, "retry", G_CALLBACK (edge_retry_cb), &retried);
+  awra_conversation_view_set_edge_status (AWRA_CONVERSATION_VIEW (view), GTK_POS_TOP,
+                                          AWRA_EDGE_STATUS_FAILED, "Couldn't load earlier messages");
+  g_signal_emit_by_name (find_css_class (view, "awra-conversation-edge-retry"), "clicked");
+  g_assert_cmpint (retried, ==, 1);
+  awra_conversation_view_set_edge_status (AWRA_CONVERSATION_VIEW (view), GTK_POS_TOP,
+                                          AWRA_EDGE_STATUS_NONE, NULL);
+  g_assert_cmpint (awra_conversation_view_get_edge_status (AWRA_CONVERSATION_VIEW (view), GTK_POS_BOTTOM),
+                   ==, AWRA_EDGE_STATUS_NONE);
+  g_object_unref (view);
+}
+
+/* A rail item allocates its children itself; its context menu still
+ * shows. */
+static void
+test_rail_item_context_menu (void)
+{
+  g_autoptr (GMenu) menu = g_menu_new ();
+  GtkWidget *window = gtk_window_new ();
+  GtkWidget *item = awra_rail_item_new ("Server");
+  AwraPopover *popover;
+
+  g_menu_append (menu, "Mute", "rail.mute");
+  gtk_window_set_child (GTK_WINDOW (window), item);
+  awra_widget_set_context_menu_model (item, G_MENU_MODEL (menu));
+  gtk_window_present (GTK_WINDOW (window));
+  settle_window (window);
+  popover = awra_widget_get_context_menu_popover (item);
+  gtk_popover_popup (GTK_POPOVER (popover));
+  settle_window (window);
+  g_assert_true (gtk_widget_get_mapped (GTK_WIDGET (popover)));
+  gtk_popover_popdown (GTK_POPOVER (popover));
+  gtk_window_destroy (GTK_WINDOW (window));
+}
+
+/* Avatars in a group overlap: narrower together than side by side. */
+static void
+test_avatar_group (void)
+{
+  GtkWidget *group = g_object_ref_sink (awra_avatar_group_new ());
+  int one = 0;
+  int three = 0;
+
+  awra_avatar_group_append (AWRA_AVATAR_GROUP (group), awra_avatar_new (40, "Bob"));
+  gtk_widget_measure (group, GTK_ORIENTATION_HORIZONTAL, -1, &one, NULL, NULL, NULL);
+  awra_avatar_group_append (AWRA_AVATAR_GROUP (group), awra_avatar_new (40, "Carol"));
+  awra_avatar_group_append (AWRA_AVATAR_GROUP (group), awra_avatar_new (40, "Dave"));
+  gtk_widget_measure (group, GTK_ORIENTATION_HORIZONTAL, -1, &three, NULL, NULL, NULL);
+  g_assert_cmpint (three, >, one);
+  g_assert_cmpint (three, <, 3 * one);
+  gtk_widget_size_allocate (group, &(GtkAllocation) { 0, 0, three, one }, -1);
+  awra_avatar_group_remove_all (AWRA_AVATAR_GROUP (group));
+  g_assert_null (gtk_widget_get_first_child (group));
+  g_object_unref (group);
+}
+
+/* A subtitle allowed more lines wraps onto them at a narrow width. */
+static void
+test_action_row_subtitle_lines (void)
+{
+  GtkWidget *row = g_object_ref_sink (awra_action_row_new (
+    "Notifications", "Shows a notification for every message in the channels you follow, even muted ones"));
+  int one_line = 0;
+  int wrapped = 0;
+
+  g_assert_cmpint (awra_action_row_get_subtitle_lines (AWRA_ACTION_ROW (row)), ==, 1);
+  gtk_widget_measure (row, GTK_ORIENTATION_VERTICAL, 160, &one_line, NULL, NULL, NULL);
+  awra_action_row_set_subtitle_lines (AWRA_ACTION_ROW (row), 0);
+  gtk_widget_measure (row, GTK_ORIENTATION_VERTICAL, 160, &wrapped, NULL, NULL, NULL);
+  g_assert_cmpint (wrapped, >, one_line);
+  awra_action_row_set_subtitle_lines (AWRA_ACTION_ROW (row), 1);
+  gtk_widget_measure (row, GTK_ORIENTATION_VERTICAL, 160, &wrapped, NULL, NULL, NULL);
+  g_assert_cmpint (wrapped, ==, one_line);
+  g_object_unref (row);
+}
+
+/* A busy button keeps its size, hides its content and ignores clicks; an
+ * icon and label content names it by its label. */
+static void
+test_button_busy_and_content (void)
+{
+  GtkWidget *button = g_object_ref_sink (awra_button_new_with_icon_and_label ("edit-copy-symbolic", "Copy"));
+  GtkWidget *content = gtk_button_get_child (GTK_BUTTON (button));
+  guint clicks = 0;
+  int idle_width = 0;
+  int busy_width = 0;
+
+  g_assert_true (AWRA_IS_BUTTON_CONTENT (content));
+  g_assert_cmpstr (awra_button_content_get_icon_name (AWRA_BUTTON_CONTENT (content)), ==, "edit-copy-symbolic");
+  g_assert_cmpstr (awra_button_content_get_label (AWRA_BUTTON_CONTENT (content)), ==, "Copy");
+  awra_button_content_set_label (AWRA_BUTTON_CONTENT (content), "");
+  g_assert_null (awra_button_content_get_label (AWRA_BUTTON_CONTENT (content)));
+  awra_button_content_set_label (AWRA_BUTTON_CONTENT (content), "Copy link");
+
+  g_signal_connect (button, "clicked", G_CALLBACK (count_clicks_cb), &clicks);
+  gtk_widget_measure (button, GTK_ORIENTATION_HORIZONTAL, -1, &idle_width, NULL, NULL, NULL);
+  awra_button_set_busy (AWRA_BUTTON (button), TRUE);
+  g_assert_true (awra_button_get_busy (AWRA_BUTTON (button)));
+  g_assert_true (gtk_widget_has_css_class (button, "awra-busy"));
+  g_assert_cmpfloat (gtk_widget_get_opacity (content), ==, 0.0);
+  gtk_widget_measure (button, GTK_ORIENTATION_HORIZONTAL, -1, &busy_width, NULL, NULL, NULL);
+  g_assert_cmpint (busy_width, ==, idle_width);
+  g_signal_emit_by_name (button, "clicked");
+  g_assert_cmpuint (clicks, ==, 0);
+
+  awra_button_set_busy (AWRA_BUTTON (button), FALSE);
+  g_assert_cmpfloat (gtk_widget_get_opacity (content), ==, 1.0);
+  g_signal_emit_by_name (button, "clicked");
+  g_assert_cmpuint (clicks, ==, 1);
+  g_object_unref (button);
+}
+
 static GtkWidget *
 find_role (GtkWidget         *widget,
            GtkAccessibleRole  role)
@@ -1834,7 +2184,7 @@ test_overlays_and_navigation (void)
   awra_popover_set_menu_model (AWRA_POPOVER (popover), G_MENU_MODEL (menu));
   g_assert_true (awra_popover_get_menu_model (AWRA_POPOVER (popover)) ==
                  G_MENU_MODEL (menu));
-  g_assert_true (GTK_IS_BOX (awra_popover_get_child (AWRA_POPOVER (popover))));
+  g_assert_true (GTK_IS_SCROLLED_WINDOW (awra_popover_get_child (AWRA_POPOVER (popover))));
   awra_menu_button_set_menu_model (AWRA_MENU_BUTTON (menu_button),
                                    G_MENU_MODEL (menu));
   g_assert_true (AWRA_IS_POPOVER (
@@ -1869,6 +2219,97 @@ test_overlays_and_navigation (void)
   g_assert_cmpstr (gtk_widget_get_tooltip_text (menu_button),
                    ==,
                    "Application actions");
+}
+
+static void
+test_navigation_item_details (void)
+{
+  GtkWidget *item = awra_navigation_item_new_with_label ("Ada");
+  GtkWidget *prefix = gtk_label_new ("A");
+  GtkWidget *other = gtk_label_new ("B");
+
+  g_object_ref_sink (item);
+  g_object_ref_sink (prefix);
+  awra_navigation_item_set_icon_name (AWRA_NAVIGATION_ITEM (item),
+                                      "go-home-symbolic");
+  /* A prefix stands in for the icon, and gives its place back. */
+  awra_navigation_item_set_prefix (AWRA_NAVIGATION_ITEM (item), prefix);
+  g_assert_true (awra_navigation_item_get_prefix (
+                   AWRA_NAVIGATION_ITEM (item)) == prefix);
+  g_assert_true (gtk_widget_is_ancestor (prefix, item));
+  awra_navigation_item_set_prefix (AWRA_NAVIGATION_ITEM (item), other);
+  g_assert_null (gtk_widget_get_parent (prefix));
+  g_assert_true (gtk_widget_is_ancestor (other, item));
+  awra_navigation_item_set_prefix (AWRA_NAVIGATION_ITEM (item), NULL);
+  g_assert_null (awra_navigation_item_get_prefix (AWRA_NAVIGATION_ITEM (item)));
+
+  /* The subtitle shows only while it says something. */
+  g_assert_cmpstr (awra_navigation_item_get_subtitle (
+                     AWRA_NAVIGATION_ITEM (item)), ==, "");
+  awra_navigation_item_set_subtitle (AWRA_NAVIGATION_ITEM (item),
+                                     "Playing chess");
+  g_assert_cmpstr (awra_navigation_item_get_subtitle (
+                     AWRA_NAVIGATION_ITEM (item)), ==, "Playing chess");
+  awra_navigation_item_set_subtitle (AWRA_NAVIGATION_ITEM (item), NULL);
+  g_assert_cmpstr (awra_navigation_item_get_subtitle (
+                     AWRA_NAVIGATION_ITEM (item)), ==, "");
+
+  awra_navigation_item_set_emphasized (AWRA_NAVIGATION_ITEM (item), TRUE);
+  g_assert_true (awra_navigation_item_get_emphasized (
+                   AWRA_NAVIGATION_ITEM (item)));
+  g_assert_true (gtk_widget_has_css_class (item, "awra-emphasized"));
+  awra_navigation_item_set_muted (AWRA_NAVIGATION_ITEM (item), TRUE);
+  g_assert_true (awra_navigation_item_get_muted (AWRA_NAVIGATION_ITEM (item)));
+  g_object_set (item, "muted", FALSE, "emphasized", FALSE, NULL);
+  g_assert_false (gtk_widget_has_css_class (item, "awra-muted"));
+  g_assert_false (gtk_widget_has_css_class (item, "awra-emphasized"));
+
+  /* A label colour is kept as given and drawn readable. */
+  {
+    GdkRGBA navy = { 0.05, 0.05, 0.3, 1.0 };
+    GtkWidget *label = NULL;
+    PangoAttrList *attributes;
+
+    g_assert_null (awra_navigation_item_get_label_color (AWRA_NAVIGATION_ITEM (item)));
+    awra_navigation_item_set_label_color (AWRA_NAVIGATION_ITEM (item), &navy);
+    g_assert_true (gdk_rgba_equal (awra_navigation_item_get_label_color (AWRA_NAVIGATION_ITEM (item)), &navy));
+    for (GtkWidget *child = gtk_widget_get_first_child (item); child != NULL && label == NULL;) {
+      if (GTK_IS_LABEL (child) && g_str_equal (gtk_label_get_text (GTK_LABEL (child)), "Ada"))
+        label = child;
+      else if (gtk_widget_get_first_child (child) != NULL)
+        child = gtk_widget_get_first_child (child);
+      else {
+        while (child != NULL && gtk_widget_get_next_sibling (child) == NULL)
+          child = child != item ? gtk_widget_get_parent (child) : NULL;
+        child = child != NULL && child != item ? gtk_widget_get_next_sibling (child) : NULL;
+      }
+    }
+    g_assert_nonnull (label);
+    attributes = gtk_label_get_attributes (GTK_LABEL (label));
+    g_assert_nonnull (attributes);
+    awra_navigation_item_set_label_color (AWRA_NAVIGATION_ITEM (item), NULL);
+    g_assert_null (gtk_label_get_attributes (GTK_LABEL (label)));
+  }
+
+  g_object_unref (prefix);
+  g_object_unref (item);
+}
+
+/* A colour made readable keeps its hue and reaches text contrast. */
+static void
+test_readable_colors (void)
+{
+  GdkRGBA navy = { 0.05, 0.05, 0.3, 1.0 };
+  GdkRGBA pale = { 1.0, 0.95, 0.6, 1.0 };
+  GdkRGBA on_dark = awra_rgba_readable (&navy, TRUE);
+  GdkRGBA on_light = awra_rgba_readable (&pale, FALSE);
+  GdkRGBA kept = awra_rgba_readable (&navy, FALSE);
+
+  g_assert_cmpfloat (on_dark.blue, >, navy.blue);
+  g_assert_cmpfloat (on_dark.blue, >, on_dark.red);
+  g_assert_cmpfloat (on_light.red, <, pale.red);
+  g_assert_cmpfloat (on_light.red, >, on_light.blue);
+  g_assert_true (gdk_rgba_equal (&kept, &navy));
 }
 
 static void
@@ -2244,9 +2685,9 @@ test_dynamic_tabs (void)
     g_assert_false (gtk_widget_get_focusable (page_icon));
   }
   awra_tab_view_set_page_tooltip (AWRA_TAB_VIEW (tabs), details,
-                                  "Pokémon #002");
+                                  "Item #002");
   g_assert_cmpstr (gtk_widget_get_tooltip_text (details_tab), ==,
-                   "Pokémon #002");
+                   "Item #002");
   awra_tab_view_set_selected_page (AWRA_TAB_VIEW (tabs), details);
   g_assert_true (awra_tab_view_get_selected_page (AWRA_TAB_VIEW (tabs)) ==
                  details);
@@ -2718,6 +3159,22 @@ test_badge_appearances (void)
   g_assert_nonnull (node);
   g_assert_false (render_node_contains_type (node, GSK_BORDER_NODE));
 
+  /* A light colour takes dark text. */
+  {
+    GdkRGBA yellow = { 1.0, 0.9, 0.3, 1.0 };
+    GtkWidget *label = gtk_widget_get_first_child (badge);
+    PangoAttrIterator *iterator;
+    PangoAttrColor *foreground;
+
+    awra_badge_set_custom_color (AWRA_BADGE (badge), &yellow);
+    g_assert_true (GTK_IS_LABEL (label));
+    iterator = pango_attr_list_get_iterator (gtk_label_get_attributes (GTK_LABEL (label)));
+    foreground = (PangoAttrColor *) pango_attr_iterator_get (iterator, PANGO_ATTR_FOREGROUND);
+    g_assert_nonnull (foreground);
+    g_assert_cmpuint (foreground->color.red, <, 0x8000);
+    pango_attr_iterator_destroy (iterator);
+  }
+
   awra_badge_set_custom_color (AWRA_BADGE (badge), NULL);
   g_assert_null (awra_badge_get_custom_color (AWRA_BADGE (badge)));
   g_assert_false (gtk_widget_has_css_class (badge, "awra-badge-custom"));
@@ -2736,13 +3193,13 @@ test_public_style_roles (void)
   g_assert_true (awra_widget_remove_style_role (widget, "data-root"));
   g_assert_false (gtk_widget_has_css_class (widget, "awra-data-root"));
 
-  g_assert_true (awra_widget_add_style_role (widget, "section-card"));
+  g_assert_true (awra_widget_add_style_role (widget, "sample-role"));
   g_assert_true (gtk_widget_has_css_class (widget,
-                                          "awra-role-section-card"));
-  g_assert_false (gtk_widget_has_css_class (widget, "section-card"));
-  g_assert_true (awra_widget_remove_style_role (widget, "section-card"));
+                                          "awra-role-sample-role"));
+  g_assert_false (gtk_widget_has_css_class (widget, "sample-role"));
+  g_assert_true (awra_widget_remove_style_role (widget, "sample-role"));
   g_assert_false (gtk_widget_has_css_class (widget,
-                                           "awra-role-section-card"));
+                                           "awra-role-sample-role"));
 
   /* Generic theme class names must never be introduced by public roles. */
   g_assert_true (awra_widget_add_style_role (widget, "sidebar-pane"));
@@ -2751,6 +3208,44 @@ test_public_style_roles (void)
   g_assert_false (gtk_widget_has_css_class (widget, "sidebar-pane"));
   g_assert_false (awra_widget_add_style_role (widget, "Invalid role"));
   g_assert_false (awra_widget_add_style_role (widget, ""));
+}
+
+static void
+test_form_row_prefers_side_by_side (void)
+{
+  GtkWidget *row = g_object_ref_sink (awra_form_row_new ());
+  int minimum = 0;
+  int natural = 0;
+
+  awra_form_row_set_label (AWRA_FORM_ROW (row), "Name");
+  awra_form_row_set_control (AWRA_FORM_ROW (row), awra_entry_new ());
+  /* Side by side is shorter than stacked: a container fitting a height lands
+   * on that width, so it has to stay within the natural width. */
+  gtk_widget_measure (row, GTK_ORIENTATION_HORIZONTAL, -1, &minimum, &natural, NULL, NULL);
+  g_assert_cmpint (natural, >=, 560);
+  g_assert_cmpint (minimum, <=, natural);
+  g_object_unref (row);
+}
+
+static void
+test_text_on_pixel_grid (void)
+{
+  GdkDisplay *display = gdk_display_get_default ();
+  GListModel *monitors = gdk_display_get_monitors (display);
+  GtkFontRendering rendering = GTK_FONT_RENDERING_AUTOMATIC;
+  gboolean dense = g_list_model_get_n_items (monitors) > 0;
+
+  (void) awra_context_get_style_manager (awra_context_get_for_display (display));
+  for (guint i = 0; dense && i < g_list_model_get_n_items (monitors); i++) {
+    g_autoptr (GdkMonitor) monitor = g_list_model_get_item (monitors, i);
+
+    dense = gdk_monitor_get_scale (monitor) > 1.0;
+  }
+  g_object_get (gtk_settings_get_for_display (display),
+                "gtk-font-rendering", &rendering, NULL);
+  /* At scale 1, small text keeps the dots of its i and the tops of its figures. */
+  g_assert_cmpint (rendering, ==, dense ? GTK_FONT_RENDERING_AUTOMATIC
+                                        : GTK_FONT_RENDERING_MANUAL);
 }
 
 int
@@ -2764,6 +3259,7 @@ main (int   argc,
   }
 
   g_test_add_func ("/awra/widgets/constructors", test_constructors);
+  g_test_add_func ("/awra/widgets/text-on-pixel-grid", test_text_on_pixel_grid);
   g_test_add_func ("/awra/widgets/builder", test_builder);
   g_test_add_func ("/awra/widgets/controls", test_controls);
   g_test_add_func ("/awra/widgets/layout", test_layout_components);
@@ -2809,6 +3305,26 @@ main (int   argc,
                    test_navigation_direction);
   g_test_add_func ("/awra/widgets/dialog-responses",
                    test_dialog_responses);
+  g_test_add_func ("/awra/widgets/dialog-response-stays",
+                   test_dialog_response_stays);
+  g_test_add_func ("/awra/widgets/context-menu-released-with-widget",
+                   test_context_menu_released_with_widget);
+  g_test_add_func ("/awra/widgets/search-entry-activate",
+                   test_search_entry_activate);
+  g_test_add_func ("/awra/widgets/conversation-edge-status",
+                   test_conversation_edge_status);
+  g_test_add_func ("/awra/widgets/rail-item-context-menu",
+                   test_rail_item_context_menu);
+  g_test_add_func ("/awra/widgets/avatar-group",
+                   test_avatar_group);
+  g_test_add_func ("/awra/widgets/color-palette",
+                   test_color_palette);
+  g_test_add_func ("/awra/widgets/page-wraps-its-content",
+                   test_page_wraps_its_content);
+  g_test_add_func ("/awra/widgets/action-row-subtitle-lines",
+                   test_action_row_subtitle_lines);
+  g_test_add_func ("/awra/widgets/button-busy-and-content",
+                   test_button_busy_and_content);
   g_test_add_func ("/awra/widgets/accessibility-semantics",
                    test_accessibility_semantics);
   g_test_add_func ("/awra/widgets/action-row-suffix-receives-clicks",
@@ -2817,6 +3333,10 @@ main (int   argc,
   g_test_add_func ("/awra/widgets/overlays-navigation",
                    test_overlays_and_navigation);
   g_test_add_func ("/awra/widgets/dialog", test_dialog);
+  g_test_add_func ("/awra/widgets/navigation-item-details",
+                   test_navigation_item_details);
+  g_test_add_func ("/awra/widgets/readable-colors",
+                   test_readable_colors);
   g_test_add_func ("/awra/widgets/command-palette", test_command_palette);
   g_test_add_func ("/awra/widgets/extended-components",
                    test_extended_components);
@@ -2833,6 +3353,8 @@ main (int   argc,
                    test_public_typography);
   g_test_add_func ("/awra/widgets/badge-appearances",
                    test_badge_appearances);
+  g_test_add_func ("/awra/widgets/form-row-natural-width",
+                   test_form_row_prefers_side_by_side);
   g_test_add_func ("/awra/widgets/public-style-roles",
                    test_public_style_roles);
   return g_test_run ();

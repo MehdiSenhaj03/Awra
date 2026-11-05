@@ -40,5 +40,100 @@ void        awra_navigation_item_set_selected  (AwraNavigationItem *self,
                                                  gboolean            selected);
 void        awra_navigation_item_set_group     (AwraNavigationItem *self,
                                                  AwraNavigationItem *group);
+/**
+ * awra_navigation_item_get_prefix:
+ * @self: an Awra navigation item
+ *
+ * Returns: (transfer none) (nullable): the leading widget
+ *
+ * Since: 1.1
+ */
+GtkWidget  *awra_navigation_item_get_prefix    (AwraNavigationItem *self);
+/**
+ * awra_navigation_item_set_prefix:
+ * @self: an Awra navigation item
+ * @prefix: (transfer none) (nullable): an unparented leading widget, shown
+ *   in place of the icon
+ *
+ * Since: 1.1
+ */
+void        awra_navigation_item_set_prefix    (AwraNavigationItem *self,
+                                                 GtkWidget          *prefix);
+/**
+ * awra_navigation_item_get_subtitle:
+ * @self: an Awra navigation item
+ *
+ * Returns: (transfer none): the second line, empty for none
+ *
+ * Since: 1.1
+ */
+const char *awra_navigation_item_get_subtitle  (AwraNavigationItem *self);
+/**
+ * awra_navigation_item_set_subtitle:
+ * @self: an Awra navigation item
+ * @subtitle: (nullable): a quieter second line under the label
+ *
+ * Since: 1.1
+ */
+void        awra_navigation_item_set_subtitle  (AwraNavigationItem *self,
+                                                 const char         *subtitle);
+/**
+ * awra_navigation_item_get_emphasized:
+ * @self: an Awra navigation item
+ *
+ * Returns: whether the destination has something new
+ *
+ * Since: 1.1
+ */
+gboolean    awra_navigation_item_get_emphasized (AwraNavigationItem *self);
+/**
+ * awra_navigation_item_set_emphasized:
+ * @self: an Awra navigation item
+ * @emphasized: whether the destination has something new
+ *
+ * Since: 1.1
+ */
+void        awra_navigation_item_set_emphasized (AwraNavigationItem *self,
+                                                  gboolean            emphasized);
+/**
+ * awra_navigation_item_get_muted:
+ * @self: an Awra navigation item
+ *
+ * Returns: whether the destination is silenced
+ *
+ * Since: 1.1
+ */
+gboolean    awra_navigation_item_get_muted     (AwraNavigationItem *self);
+/**
+ * awra_navigation_item_set_muted:
+ * @self: an Awra navigation item
+ * @muted: whether the destination is silenced, receding until hovered
+ *
+ * Since: 1.1
+ */
+void        awra_navigation_item_set_muted     (AwraNavigationItem *self,
+                                                 gboolean            muted);
+/**
+ * awra_navigation_item_get_label_color:
+ * @self: an Awra navigation item
+ *
+ * Returns: (transfer none) (nullable): the colour of the label, as set
+ *
+ * Since: 1.1
+ */
+const GdkRGBA *awra_navigation_item_get_label_color (AwraNavigationItem *self);
+/**
+ * awra_navigation_item_set_label_color:
+ * @self: an Awra navigation item
+ * @color: (nullable): a colour belonging to the destination, such as a
+ *   role colour, or %NULL for the theme's
+ *
+ * Awra keeps the colour's hue and moves it towards white or black as the
+ * appearance needs, so the label always reads.
+ *
+ * Since: 1.1
+ */
+void        awra_navigation_item_set_label_color (AwraNavigationItem *self,
+                                                   const GdkRGBA      *color);
 
 G_END_DECLS

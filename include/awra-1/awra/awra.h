@@ -14,6 +14,7 @@
 #include <awra/awra-context.h>
 #include <awra/awra-surface.h>
 #include <awra/awra-button.h>
+#include <awra/awra-button-content.h>
 #include <awra/awra-window.h>
 #include <awra/awra-popover.h>
 #include <awra/awra-menu-button.h>
@@ -64,6 +65,7 @@
 #include <awra/awra-navigation-view.h>
 #include <awra/awra-breadcrumb-item.h>
 #include <awra/awra-breadcrumb-bar.h>
+#include <awra/awra-path-bar.h>
 #include <awra/awra-navigation-item.h>
 #include <awra/awra-motion.h>
 #include <awra/awra-badge.h>
@@ -71,6 +73,8 @@
 #include <awra/awra-segmented-control.h>
 #include <awra/awra-tab-view.h>
 #include <awra/awra-list-view.h>
+#include <awra/awra-grid-view.h>
+#include <awra/awra-zoom-controller.h>
 #include <awra/awra-action-row.h>
 #include <awra/awra-inspector.h>
 #include <awra/awra-key-cap.h>
@@ -78,13 +82,35 @@
 #include <awra/awra-shortcut-capture.h>
 #include <awra/awra-waveform-view.h>
 #include <awra/awra-timeline.h>
+#include <awra/awra-transition-bin.h>
+#include <awra/awra-animation-target.h>
+#include <awra/awra-animation.h>
+#include <awra/awra-timed-animation.h>
+#include <awra/awra-spring-animation.h>
+#include <awra/awra-avatar.h>
+#include <awra/awra-avatar-group.h>
+#include <awra/awra-rich-label.h>
+#include <awra/awra-rail-item.h>
+#include <awra/awra-rail-group.h>
+#include <awra/awra-rail.h>
+#include <awra/awra-typing-indicator.h>
+#include <awra/awra-chip.h>
+#include <awra/awra-color-palette.h>
+#include <awra/awra-tile-view.h>
 #include <awra/awra-aspect-paintable.h>
 #include <awra/awra-frame-pool.h>
 #include <awra/awra-texture-stream.h>
 #include <awra/awra-volume-control.h>
 #include <awra/awra-media-row.h>
 #include <awra/awra-task-row.h>
+#include <awra/awra-drag-preview.h>
 #include <awra/awra-drop-zone.h>
+#include <awra/awra-conversation-view.h>
+#include <awra/awra-composer.h>
+#include <awra/awra-completion-popover.h>
+#include <awra/awra-divider.h>
+#include <awra/awra-emoji-item.h>
+#include <awra/awra-emoji-picker.h>
 
 G_BEGIN_DECLS
 

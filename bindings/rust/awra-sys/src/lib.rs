@@ -37,10 +37,20 @@ pub const AWRA_ACCENT_SOURCE_SYSTEM: AwraAccentSource = 0;
 pub const AWRA_ACCENT_SOURCE_DEFAULT: AwraAccentSource = 1;
 pub const AWRA_ACCENT_SOURCE_CUSTOM: AwraAccentSource = 2;
 
+pub type AwraAnimationState = c_int;
+pub const AWRA_ANIMATION_STATE_IDLE: AwraAnimationState = 0;
+pub const AWRA_ANIMATION_STATE_PAUSED: AwraAnimationState = 1;
+pub const AWRA_ANIMATION_STATE_PLAYING: AwraAnimationState = 2;
+pub const AWRA_ANIMATION_STATE_FINISHED: AwraAnimationState = 3;
+
 pub type AwraAppearance = c_int;
 pub const AWRA_APPEARANCE_SYSTEM: AwraAppearance = 0;
 pub const AWRA_APPEARANCE_LIGHT: AwraAppearance = 1;
 pub const AWRA_APPEARANCE_DARK: AwraAppearance = 2;
+
+pub type AwraAvatarShape = c_int;
+pub const AWRA_AVATAR_SHAPE_CIRCLE: AwraAvatarShape = 0;
+pub const AWRA_AVATAR_SHAPE_ROUNDED: AwraAvatarShape = 1;
 
 pub type AwraBadgeAppearance = c_int;
 pub const AWRA_BADGE_APPEARANCE_NEUTRAL: AwraBadgeAppearance = 0;
@@ -56,17 +66,51 @@ pub const AWRA_BUTTON_APPEARANCE_SECONDARY: AwraButtonAppearance = 1;
 pub const AWRA_BUTTON_APPEARANCE_GHOST: AwraButtonAppearance = 2;
 pub const AWRA_BUTTON_APPEARANCE_DESTRUCTIVE: AwraButtonAppearance = 3;
 pub const AWRA_BUTTON_APPEARANCE_TOOLBAR: AwraButtonAppearance = 4;
+pub const AWRA_BUTTON_APPEARANCE_SUCCESS: AwraButtonAppearance = 5;
 
 pub type AwraCardAppearance = c_int;
 pub const AWRA_CARD_APPEARANCE_PLAIN: AwraCardAppearance = 0;
 pub const AWRA_CARD_APPEARANCE_TINTED: AwraCardAppearance = 1;
 pub const AWRA_CARD_APPEARANCE_RAISED: AwraCardAppearance = 2;
 
+pub type AwraChipAppearance = c_int;
+pub const AWRA_CHIP_APPEARANCE_NEUTRAL: AwraChipAppearance = 0;
+pub const AWRA_CHIP_APPEARANCE_ACCENT: AwraChipAppearance = 1;
+
+pub type AwraConversationAlign = c_int;
+pub const AWRA_CONVERSATION_ALIGN_TOP: AwraConversationAlign = 0;
+pub const AWRA_CONVERSATION_ALIGN_CENTER: AwraConversationAlign = 1;
+pub const AWRA_CONVERSATION_ALIGN_END: AwraConversationAlign = 2;
+
 pub type AwraDataViewState = c_int;
 pub const AWRA_DATA_VIEW_STATE_CONTENT: AwraDataViewState = 0;
 pub const AWRA_DATA_VIEW_STATE_EMPTY: AwraDataViewState = 1;
 pub const AWRA_DATA_VIEW_STATE_LOADING: AwraDataViewState = 2;
 pub const AWRA_DATA_VIEW_STATE_ERROR: AwraDataViewState = 3;
+
+pub type AwraDividerAppearance = c_int;
+pub const AWRA_DIVIDER_APPEARANCE_NEUTRAL: AwraDividerAppearance = 0;
+pub const AWRA_DIVIDER_APPEARANCE_ACCENT: AwraDividerAppearance = 1;
+pub const AWRA_DIVIDER_APPEARANCE_DANGER: AwraDividerAppearance = 2;
+
+pub type AwraDividerLabelPosition = c_int;
+pub const AWRA_DIVIDER_LABEL_POSITION_CENTER: AwraDividerLabelPosition = 0;
+pub const AWRA_DIVIDER_LABEL_POSITION_END: AwraDividerLabelPosition = 1;
+
+pub type AwraEasing = c_int;
+pub const AWRA_EASING_LINEAR: AwraEasing = 0;
+pub const AWRA_EASING_EASE_OUT_QUAD: AwraEasing = 1;
+pub const AWRA_EASING_EASE_OUT_CUBIC: AwraEasing = 2;
+pub const AWRA_EASING_EASE_IN_OUT_CUBIC: AwraEasing = 3;
+pub const AWRA_EASING_EASE_OUT_QUART: AwraEasing = 4;
+pub const AWRA_EASING_EASE_OUT_EXPO: AwraEasing = 5;
+pub const AWRA_EASING_EASE_OUT_BACK: AwraEasing = 6;
+pub const AWRA_EASING_EASE_IN_OUT_SINE: AwraEasing = 7;
+
+pub type AwraEdgeStatus = c_int;
+pub const AWRA_EDGE_STATUS_NONE: AwraEdgeStatus = 0;
+pub const AWRA_EDGE_STATUS_LOADING: AwraEdgeStatus = 1;
+pub const AWRA_EDGE_STATUS_FAILED: AwraEdgeStatus = 2;
 
 pub type AwraElevation = c_int;
 pub const AWRA_ELEVATION_FLAT: AwraElevation = 0;
@@ -121,6 +165,13 @@ pub type AwraPanelEdge = c_int;
 pub const AWRA_PANEL_EDGE_START: AwraPanelEdge = 0;
 pub const AWRA_PANEL_EDGE_END: AwraPanelEdge = 1;
 
+pub type AwraPresence = c_int;
+pub const AWRA_PRESENCE_NONE: AwraPresence = 0;
+pub const AWRA_PRESENCE_ONLINE: AwraPresence = 1;
+pub const AWRA_PRESENCE_IDLE: AwraPresence = 2;
+pub const AWRA_PRESENCE_BUSY: AwraPresence = 3;
+pub const AWRA_PRESENCE_OFFLINE: AwraPresence = 4;
+
 pub type AwraRadius = c_int;
 pub const AWRA_RADIUS_SMALL: AwraRadius = 0;
 pub const AWRA_RADIUS_MEDIUM: AwraRadius = 1;
@@ -166,6 +217,7 @@ pub const AWRA_TYPOGRAPHY_TITLE_1: AwraTypography = 5;
 pub const AWRA_TYPOGRAPHY_DISPLAY: AwraTypography = 6;
 pub const AWRA_TYPOGRAPHY_MONOSPACE: AwraTypography = 7;
 pub const AWRA_TYPOGRAPHY_LABEL: AwraTypography = 8;
+pub const AWRA_TYPOGRAPHY_READING: AwraTypography = 9;
 
 pub type AwraValidationState = c_int;
 pub const AWRA_VALIDATION_STATE_NONE: AwraValidationState = 0;
@@ -174,6 +226,7 @@ pub const AWRA_VALIDATION_STATE_WARNING: AwraValidationState = 2;
 pub const AWRA_VALIDATION_STATE_ERROR: AwraValidationState = 3;
 
 // Constants
+pub const AWRA_DURATION_INFINITE: c_uint = 4294967295;
 pub const AWRA_MAJOR_VERSION: c_int = 1;
 pub const AWRA_MICRO_VERSION: c_int = 0;
 pub const AWRA_MINOR_VERSION: c_int = 1;
@@ -200,6 +253,9 @@ pub const AWRA_SURFACE_EDGE_BOTTOM: AwraSurfaceEdge = 4;
 pub const AWRA_SURFACE_EDGE_START: AwraSurfaceEdge = 8;
 pub const AWRA_SURFACE_EDGE_ALL: AwraSurfaceEdge = 15;
 
+// Callbacks
+pub type AwraAnimationTargetFunc = Option<unsafe extern "C" fn(c_double, gpointer)>;
+
 // Records
 #[derive(Copy, Clone)]
 #[repr(C)]
@@ -215,6 +271,24 @@ impl ::std::fmt::Debug for AwraActionRowClass {
     }
 }
 
+#[repr(C)]
+#[allow(dead_code)]
+pub struct _AwraAnimationClass {
+    _data: [u8; 0],
+    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
+}
+
+pub type AwraAnimationClass = _AwraAnimationClass;
+
+#[repr(C)]
+#[allow(dead_code)]
+pub struct _AwraAnimationTargetClass {
+    _data: [u8; 0],
+    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
+}
+
+pub type AwraAnimationTargetClass = _AwraAnimationTargetClass;
+
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub struct AwraAspectPaintableClass {
@@ -224,6 +298,34 @@ pub struct AwraAspectPaintableClass {
 impl ::std::fmt::Debug for AwraAspectPaintableClass {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
         f.debug_struct(&format!("AwraAspectPaintableClass @ {self:p}"))
+            .field("parent_class", &self.parent_class)
+            .finish()
+    }
+}
+
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub struct AwraAvatarClass {
+    pub parent_class: gtk::GtkWidgetClass,
+}
+
+impl ::std::fmt::Debug for AwraAvatarClass {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        f.debug_struct(&format!("AwraAvatarClass @ {self:p}"))
+            .field("parent_class", &self.parent_class)
+            .finish()
+    }
+}
+
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub struct AwraAvatarGroupClass {
+    pub parent_class: gtk::GtkWidgetClass,
+}
+
+impl ::std::fmt::Debug for AwraAvatarGroupClass {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        f.debug_struct(&format!("AwraAvatarGroupClass @ {self:p}"))
             .field("parent_class", &self.parent_class)
             .finish()
     }
@@ -301,6 +403,29 @@ impl ::std::fmt::Debug for AwraButtonClass {
 
 #[derive(Copy, Clone)]
 #[repr(C)]
+pub struct AwraButtonContentClass {
+    pub parent_class: gtk::GtkWidgetClass,
+}
+
+impl ::std::fmt::Debug for AwraButtonContentClass {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        f.debug_struct(&format!("AwraButtonContentClass @ {self:p}"))
+            .field("parent_class", &self.parent_class)
+            .finish()
+    }
+}
+
+#[repr(C)]
+#[allow(dead_code)]
+pub struct _AwraCallbackAnimationTargetClass {
+    _data: [u8; 0],
+    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
+}
+
+pub type AwraCallbackAnimationTargetClass = _AwraCallbackAnimationTargetClass;
+
+#[derive(Copy, Clone)]
+#[repr(C)]
 pub struct AwraCardClass {
     pub parent_class: gtk::GtkWidgetClass,
 }
@@ -329,6 +454,20 @@ impl ::std::fmt::Debug for AwraCheckButtonClass {
 
 #[derive(Copy, Clone)]
 #[repr(C)]
+pub struct AwraChipClass {
+    pub parent_class: gtk::GtkWidgetClass,
+}
+
+impl ::std::fmt::Debug for AwraChipClass {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        f.debug_struct(&format!("AwraChipClass @ {self:p}"))
+            .field("parent_class", &self.parent_class)
+            .finish()
+    }
+}
+
+#[derive(Copy, Clone)]
+#[repr(C)]
 pub struct AwraChoiceGroupClass {
     pub parent_class: gtk::GtkWidgetClass,
 }
@@ -336,6 +475,20 @@ pub struct AwraChoiceGroupClass {
 impl ::std::fmt::Debug for AwraChoiceGroupClass {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
         f.debug_struct(&format!("AwraChoiceGroupClass @ {self:p}"))
+            .field("parent_class", &self.parent_class)
+            .finish()
+    }
+}
+
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub struct AwraColorPaletteClass {
+    pub parent_class: gtk::GtkWidgetClass,
+}
+
+impl ::std::fmt::Debug for AwraColorPaletteClass {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        f.debug_struct(&format!("AwraColorPaletteClass @ {self:p}"))
             .field("parent_class", &self.parent_class)
             .finish()
     }
@@ -357,6 +510,34 @@ impl ::std::fmt::Debug for AwraCommandPaletteClass {
 
 #[derive(Copy, Clone)]
 #[repr(C)]
+pub struct AwraCompletionPopoverClass {
+    pub parent_class: gtk::GtkPopoverClass,
+}
+
+impl ::std::fmt::Debug for AwraCompletionPopoverClass {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        f.debug_struct(&format!("AwraCompletionPopoverClass @ {self:p}"))
+            .field("parent_class", &self.parent_class)
+            .finish()
+    }
+}
+
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub struct AwraComposerClass {
+    pub parent_class: gtk::GtkWidgetClass,
+}
+
+impl ::std::fmt::Debug for AwraComposerClass {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        f.debug_struct(&format!("AwraComposerClass @ {self:p}"))
+            .field("parent_class", &self.parent_class)
+            .finish()
+    }
+}
+
+#[derive(Copy, Clone)]
+#[repr(C)]
 pub struct AwraContextClass {
     pub parent_class: gobject::GObjectClass,
 }
@@ -364,6 +545,20 @@ pub struct AwraContextClass {
 impl ::std::fmt::Debug for AwraContextClass {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
         f.debug_struct(&format!("AwraContextClass @ {self:p}"))
+            .field("parent_class", &self.parent_class)
+            .finish()
+    }
+}
+
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub struct AwraConversationViewClass {
+    pub parent_class: gtk::GtkWidgetClass,
+}
+
+impl ::std::fmt::Debug for AwraConversationViewClass {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        f.debug_struct(&format!("AwraConversationViewClass @ {self:p}"))
             .field("parent_class", &self.parent_class)
             .finish()
     }
@@ -441,6 +636,34 @@ impl ::std::fmt::Debug for AwraDialogClass {
 
 #[derive(Copy, Clone)]
 #[repr(C)]
+pub struct AwraDividerClass {
+    pub parent_class: gtk::GtkWidgetClass,
+}
+
+impl ::std::fmt::Debug for AwraDividerClass {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        f.debug_struct(&format!("AwraDividerClass @ {self:p}"))
+            .field("parent_class", &self.parent_class)
+            .finish()
+    }
+}
+
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub struct AwraDragPreviewClass {
+    pub parent_class: gtk::GtkWidgetClass,
+}
+
+impl ::std::fmt::Debug for AwraDragPreviewClass {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        f.debug_struct(&format!("AwraDragPreviewClass @ {self:p}"))
+            .field("parent_class", &self.parent_class)
+            .finish()
+    }
+}
+
+#[derive(Copy, Clone)]
+#[repr(C)]
 pub struct AwraDropZoneClass {
     pub parent_class: gtk::GtkWidgetClass,
 }
@@ -476,6 +699,34 @@ pub struct AwraEdgePanelClass {
 impl ::std::fmt::Debug for AwraEdgePanelClass {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
         f.debug_struct(&format!("AwraEdgePanelClass @ {self:p}"))
+            .field("parent_class", &self.parent_class)
+            .finish()
+    }
+}
+
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub struct AwraEmojiItemClass {
+    pub parent_class: gobject::GObjectClass,
+}
+
+impl ::std::fmt::Debug for AwraEmojiItemClass {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        f.debug_struct(&format!("AwraEmojiItemClass @ {self:p}"))
+            .field("parent_class", &self.parent_class)
+            .finish()
+    }
+}
+
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub struct AwraEmojiPickerClass {
+    pub parent_class: gtk::GtkWidgetClass,
+}
+
+impl ::std::fmt::Debug for AwraEmojiPickerClass {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        f.debug_struct(&format!("AwraEmojiPickerClass @ {self:p}"))
             .field("parent_class", &self.parent_class)
             .finish()
     }
@@ -588,6 +839,20 @@ pub struct AwraFramePoolClass {
 impl ::std::fmt::Debug for AwraFramePoolClass {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
         f.debug_struct(&format!("AwraFramePoolClass @ {self:p}"))
+            .field("parent_class", &self.parent_class)
+            .finish()
+    }
+}
+
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub struct AwraGridViewClass {
+    pub parent_class: gtk::GtkWidgetClass,
+}
+
+impl ::std::fmt::Debug for AwraGridViewClass {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        f.debug_struct(&format!("AwraGridViewClass @ {self:p}"))
             .field("parent_class", &self.parent_class)
             .finish()
     }
@@ -861,6 +1126,20 @@ impl ::std::fmt::Debug for AwraPasswordEntryClass {
 
 #[derive(Copy, Clone)]
 #[repr(C)]
+pub struct AwraPathBarClass {
+    pub parent_class: gtk::GtkWidgetClass,
+}
+
+impl ::std::fmt::Debug for AwraPathBarClass {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        f.debug_struct(&format!("AwraPathBarClass @ {self:p}"))
+            .field("parent_class", &self.parent_class)
+            .finish()
+    }
+}
+
+#[derive(Copy, Clone)]
+#[repr(C)]
 pub struct AwraPopoverClass {
     pub parent_class: gtk::GtkPopoverClass,
 }
@@ -887,6 +1166,57 @@ impl ::std::fmt::Debug for AwraProgressBarClass {
     }
 }
 
+#[repr(C)]
+#[allow(dead_code)]
+pub struct _AwraPropertyAnimationTargetClass {
+    _data: [u8; 0],
+    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
+}
+
+pub type AwraPropertyAnimationTargetClass = _AwraPropertyAnimationTargetClass;
+
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub struct AwraRailClass {
+    pub parent_class: gtk::GtkWidgetClass,
+}
+
+impl ::std::fmt::Debug for AwraRailClass {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        f.debug_struct(&format!("AwraRailClass @ {self:p}"))
+            .field("parent_class", &self.parent_class)
+            .finish()
+    }
+}
+
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub struct AwraRailGroupClass {
+    pub parent_class: gtk::GtkWidgetClass,
+}
+
+impl ::std::fmt::Debug for AwraRailGroupClass {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        f.debug_struct(&format!("AwraRailGroupClass @ {self:p}"))
+            .field("parent_class", &self.parent_class)
+            .finish()
+    }
+}
+
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub struct AwraRailItemClass {
+    pub parent_class: gtk::GtkWidgetClass,
+}
+
+impl ::std::fmt::Debug for AwraRailItemClass {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        f.debug_struct(&format!("AwraRailItemClass @ {self:p}"))
+            .field("parent_class", &self.parent_class)
+            .finish()
+    }
+}
+
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub struct AwraResponsiveBinClass {
@@ -896,6 +1226,20 @@ pub struct AwraResponsiveBinClass {
 impl ::std::fmt::Debug for AwraResponsiveBinClass {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
         f.debug_struct(&format!("AwraResponsiveBinClass @ {self:p}"))
+            .field("parent_class", &self.parent_class)
+            .finish()
+    }
+}
+
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub struct AwraRichLabelClass {
+    pub parent_class: gtk::GtkWidgetClass,
+}
+
+impl ::std::fmt::Debug for AwraRichLabelClass {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        f.debug_struct(&format!("AwraRichLabelClass @ {self:p}"))
             .field("parent_class", &self.parent_class)
             .finish()
     }
@@ -1041,6 +1385,15 @@ impl ::std::fmt::Debug for AwraSplitViewClass {
     }
 }
 
+#[repr(C)]
+#[allow(dead_code)]
+pub struct _AwraSpringAnimationClass {
+    _data: [u8; 0],
+    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
+}
+
+pub type AwraSpringAnimationClass = _AwraSpringAnimationClass;
+
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub struct AwraStatBarClass {
@@ -1183,6 +1536,29 @@ impl ::std::fmt::Debug for AwraTextureStreamClass {
 
 #[derive(Copy, Clone)]
 #[repr(C)]
+pub struct AwraTileViewClass {
+    pub parent_class: gtk::GtkWidgetClass,
+}
+
+impl ::std::fmt::Debug for AwraTileViewClass {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        f.debug_struct(&format!("AwraTileViewClass @ {self:p}"))
+            .field("parent_class", &self.parent_class)
+            .finish()
+    }
+}
+
+#[repr(C)]
+#[allow(dead_code)]
+pub struct _AwraTimedAnimationClass {
+    _data: [u8; 0],
+    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
+}
+
+pub type AwraTimedAnimationClass = _AwraTimedAnimationClass;
+
+#[derive(Copy, Clone)]
+#[repr(C)]
 pub struct AwraTimelineClass {
     pub parent_class: gtk::GtkWidgetClass,
 }
@@ -1253,6 +1629,34 @@ impl ::std::fmt::Debug for AwraToolbarClass {
 
 #[derive(Copy, Clone)]
 #[repr(C)]
+pub struct AwraTransitionBinClass {
+    pub parent_class: gtk::GtkWidgetClass,
+}
+
+impl ::std::fmt::Debug for AwraTransitionBinClass {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        f.debug_struct(&format!("AwraTransitionBinClass @ {self:p}"))
+            .field("parent_class", &self.parent_class)
+            .finish()
+    }
+}
+
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub struct AwraTypingIndicatorClass {
+    pub parent_class: gtk::GtkWidgetClass,
+}
+
+impl ::std::fmt::Debug for AwraTypingIndicatorClass {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        f.debug_struct(&format!("AwraTypingIndicatorClass @ {self:p}"))
+            .field("parent_class", &self.parent_class)
+            .finish()
+    }
+}
+
+#[derive(Copy, Clone)]
+#[repr(C)]
 pub struct AwraVolumeControlClass {
     pub parent_class: gtk::GtkWidgetClass,
 }
@@ -1295,6 +1699,20 @@ impl ::std::fmt::Debug for AwraWindowClass {
     }
 }
 
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub struct AwraZoomControllerClass {
+    pub parent_class: gobject::GObjectClass,
+}
+
+impl ::std::fmt::Debug for AwraZoomControllerClass {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        f.debug_struct(&format!("AwraZoomControllerClass @ {self:p}"))
+            .field("parent_class", &self.parent_class)
+            .finish()
+    }
+}
+
 // Classes
 #[repr(C)]
 #[allow(dead_code)]
@@ -1312,6 +1730,34 @@ impl ::std::fmt::Debug for AwraActionRow {
 
 #[repr(C)]
 #[allow(dead_code)]
+pub struct AwraAnimation {
+    _data: [u8; 0],
+    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
+}
+
+impl ::std::fmt::Debug for AwraAnimation {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        f.debug_struct(&format!("AwraAnimation @ {self:p}"))
+            .finish()
+    }
+}
+
+#[repr(C)]
+#[allow(dead_code)]
+pub struct AwraAnimationTarget {
+    _data: [u8; 0],
+    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
+}
+
+impl ::std::fmt::Debug for AwraAnimationTarget {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        f.debug_struct(&format!("AwraAnimationTarget @ {self:p}"))
+            .finish()
+    }
+}
+
+#[repr(C)]
+#[allow(dead_code)]
 pub struct AwraAspectPaintable {
     _data: [u8; 0],
     _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
@@ -1320,6 +1766,33 @@ pub struct AwraAspectPaintable {
 impl ::std::fmt::Debug for AwraAspectPaintable {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
         f.debug_struct(&format!("AwraAspectPaintable @ {self:p}"))
+            .finish()
+    }
+}
+
+#[repr(C)]
+#[allow(dead_code)]
+pub struct AwraAvatar {
+    _data: [u8; 0],
+    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
+}
+
+impl ::std::fmt::Debug for AwraAvatar {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        f.debug_struct(&format!("AwraAvatar @ {self:p}")).finish()
+    }
+}
+
+#[repr(C)]
+#[allow(dead_code)]
+pub struct AwraAvatarGroup {
+    _data: [u8; 0],
+    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
+}
+
+impl ::std::fmt::Debug for AwraAvatarGroup {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        f.debug_struct(&format!("AwraAvatarGroup @ {self:p}"))
             .finish()
     }
 }
@@ -1394,6 +1867,34 @@ impl ::std::fmt::Debug for AwraButton {
 
 #[repr(C)]
 #[allow(dead_code)]
+pub struct AwraButtonContent {
+    _data: [u8; 0],
+    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
+}
+
+impl ::std::fmt::Debug for AwraButtonContent {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        f.debug_struct(&format!("AwraButtonContent @ {self:p}"))
+            .finish()
+    }
+}
+
+#[repr(C)]
+#[allow(dead_code)]
+pub struct AwraCallbackAnimationTarget {
+    _data: [u8; 0],
+    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
+}
+
+impl ::std::fmt::Debug for AwraCallbackAnimationTarget {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        f.debug_struct(&format!("AwraCallbackAnimationTarget @ {self:p}"))
+            .finish()
+    }
+}
+
+#[repr(C)]
+#[allow(dead_code)]
 pub struct AwraCard {
     _data: [u8; 0],
     _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
@@ -1421,6 +1922,19 @@ impl ::std::fmt::Debug for AwraCheckButton {
 
 #[repr(C)]
 #[allow(dead_code)]
+pub struct AwraChip {
+    _data: [u8; 0],
+    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
+}
+
+impl ::std::fmt::Debug for AwraChip {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        f.debug_struct(&format!("AwraChip @ {self:p}")).finish()
+    }
+}
+
+#[repr(C)]
+#[allow(dead_code)]
 pub struct AwraChoiceGroup {
     _data: [u8; 0],
     _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
@@ -1429,6 +1943,20 @@ pub struct AwraChoiceGroup {
 impl ::std::fmt::Debug for AwraChoiceGroup {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
         f.debug_struct(&format!("AwraChoiceGroup @ {self:p}"))
+            .finish()
+    }
+}
+
+#[repr(C)]
+#[allow(dead_code)]
+pub struct AwraColorPalette {
+    _data: [u8; 0],
+    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
+}
+
+impl ::std::fmt::Debug for AwraColorPalette {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        f.debug_struct(&format!("AwraColorPalette @ {self:p}"))
             .finish()
     }
 }
@@ -1449,6 +1977,33 @@ impl ::std::fmt::Debug for AwraCommandPalette {
 
 #[repr(C)]
 #[allow(dead_code)]
+pub struct AwraCompletionPopover {
+    _data: [u8; 0],
+    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
+}
+
+impl ::std::fmt::Debug for AwraCompletionPopover {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        f.debug_struct(&format!("AwraCompletionPopover @ {self:p}"))
+            .finish()
+    }
+}
+
+#[repr(C)]
+#[allow(dead_code)]
+pub struct AwraComposer {
+    _data: [u8; 0],
+    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
+}
+
+impl ::std::fmt::Debug for AwraComposer {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        f.debug_struct(&format!("AwraComposer @ {self:p}")).finish()
+    }
+}
+
+#[repr(C)]
+#[allow(dead_code)]
 pub struct AwraContext {
     _data: [u8; 0],
     _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
@@ -1457,6 +2012,20 @@ pub struct AwraContext {
 impl ::std::fmt::Debug for AwraContext {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
         f.debug_struct(&format!("AwraContext @ {self:p}")).finish()
+    }
+}
+
+#[repr(C)]
+#[allow(dead_code)]
+pub struct AwraConversationView {
+    _data: [u8; 0],
+    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
+}
+
+impl ::std::fmt::Debug for AwraConversationView {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        f.debug_struct(&format!("AwraConversationView @ {self:p}"))
+            .finish()
     }
 }
 
@@ -1530,6 +2099,33 @@ impl ::std::fmt::Debug for AwraDialog {
 
 #[repr(C)]
 #[allow(dead_code)]
+pub struct AwraDivider {
+    _data: [u8; 0],
+    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
+}
+
+impl ::std::fmt::Debug for AwraDivider {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        f.debug_struct(&format!("AwraDivider @ {self:p}")).finish()
+    }
+}
+
+#[repr(C)]
+#[allow(dead_code)]
+pub struct AwraDragPreview {
+    _data: [u8; 0],
+    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
+}
+
+impl ::std::fmt::Debug for AwraDragPreview {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        f.debug_struct(&format!("AwraDragPreview @ {self:p}"))
+            .finish()
+    }
+}
+
+#[repr(C)]
+#[allow(dead_code)]
 pub struct AwraDropZone {
     _data: [u8; 0],
     _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
@@ -1564,6 +2160,34 @@ pub struct AwraEdgePanel {
 impl ::std::fmt::Debug for AwraEdgePanel {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
         f.debug_struct(&format!("AwraEdgePanel @ {self:p}"))
+            .finish()
+    }
+}
+
+#[repr(C)]
+#[allow(dead_code)]
+pub struct AwraEmojiItem {
+    _data: [u8; 0],
+    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
+}
+
+impl ::std::fmt::Debug for AwraEmojiItem {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        f.debug_struct(&format!("AwraEmojiItem @ {self:p}"))
+            .finish()
+    }
+}
+
+#[repr(C)]
+#[allow(dead_code)]
+pub struct AwraEmojiPicker {
+    _data: [u8; 0],
+    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
+}
+
+impl ::std::fmt::Debug for AwraEmojiPicker {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        f.debug_struct(&format!("AwraEmojiPicker @ {self:p}"))
             .finish()
     }
 }
@@ -1673,6 +2297,19 @@ impl ::std::fmt::Debug for AwraFramePool {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
         f.debug_struct(&format!("AwraFramePool @ {self:p}"))
             .finish()
+    }
+}
+
+#[repr(C)]
+#[allow(dead_code)]
+pub struct AwraGridView {
+    _data: [u8; 0],
+    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
+}
+
+impl ::std::fmt::Debug for AwraGridView {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        f.debug_struct(&format!("AwraGridView @ {self:p}")).finish()
     }
 }
 
@@ -1938,6 +2575,19 @@ impl ::std::fmt::Debug for AwraPasswordEntry {
 
 #[repr(C)]
 #[allow(dead_code)]
+pub struct AwraPathBar {
+    _data: [u8; 0],
+    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
+}
+
+impl ::std::fmt::Debug for AwraPathBar {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        f.debug_struct(&format!("AwraPathBar @ {self:p}")).finish()
+    }
+}
+
+#[repr(C)]
+#[allow(dead_code)]
 pub struct AwraPopover {
     _data: [u8; 0],
     _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
@@ -1965,6 +2615,60 @@ impl ::std::fmt::Debug for AwraProgressBar {
 
 #[repr(C)]
 #[allow(dead_code)]
+pub struct AwraPropertyAnimationTarget {
+    _data: [u8; 0],
+    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
+}
+
+impl ::std::fmt::Debug for AwraPropertyAnimationTarget {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        f.debug_struct(&format!("AwraPropertyAnimationTarget @ {self:p}"))
+            .finish()
+    }
+}
+
+#[repr(C)]
+#[allow(dead_code)]
+pub struct AwraRail {
+    _data: [u8; 0],
+    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
+}
+
+impl ::std::fmt::Debug for AwraRail {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        f.debug_struct(&format!("AwraRail @ {self:p}")).finish()
+    }
+}
+
+#[repr(C)]
+#[allow(dead_code)]
+pub struct AwraRailGroup {
+    _data: [u8; 0],
+    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
+}
+
+impl ::std::fmt::Debug for AwraRailGroup {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        f.debug_struct(&format!("AwraRailGroup @ {self:p}"))
+            .finish()
+    }
+}
+
+#[repr(C)]
+#[allow(dead_code)]
+pub struct AwraRailItem {
+    _data: [u8; 0],
+    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
+}
+
+impl ::std::fmt::Debug for AwraRailItem {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        f.debug_struct(&format!("AwraRailItem @ {self:p}")).finish()
+    }
+}
+
+#[repr(C)]
+#[allow(dead_code)]
 pub struct AwraResponsiveBin {
     _data: [u8; 0],
     _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
@@ -1973,6 +2677,20 @@ pub struct AwraResponsiveBin {
 impl ::std::fmt::Debug for AwraResponsiveBin {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
         f.debug_struct(&format!("AwraResponsiveBin @ {self:p}"))
+            .finish()
+    }
+}
+
+#[repr(C)]
+#[allow(dead_code)]
+pub struct AwraRichLabel {
+    _data: [u8; 0],
+    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
+}
+
+impl ::std::fmt::Debug for AwraRichLabel {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        f.debug_struct(&format!("AwraRichLabel @ {self:p}"))
             .finish()
     }
 }
@@ -2115,6 +2833,20 @@ impl ::std::fmt::Debug for AwraSplitView {
 
 #[repr(C)]
 #[allow(dead_code)]
+pub struct AwraSpringAnimation {
+    _data: [u8; 0],
+    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
+}
+
+impl ::std::fmt::Debug for AwraSpringAnimation {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        f.debug_struct(&format!("AwraSpringAnimation @ {self:p}"))
+            .finish()
+    }
+}
+
+#[repr(C)]
+#[allow(dead_code)]
 pub struct AwraStatBar {
     _data: [u8; 0],
     _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
@@ -2248,6 +2980,33 @@ impl ::std::fmt::Debug for AwraTextureStream {
 
 #[repr(C)]
 #[allow(dead_code)]
+pub struct AwraTileView {
+    _data: [u8; 0],
+    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
+}
+
+impl ::std::fmt::Debug for AwraTileView {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        f.debug_struct(&format!("AwraTileView @ {self:p}")).finish()
+    }
+}
+
+#[repr(C)]
+#[allow(dead_code)]
+pub struct AwraTimedAnimation {
+    _data: [u8; 0],
+    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
+}
+
+impl ::std::fmt::Debug for AwraTimedAnimation {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        f.debug_struct(&format!("AwraTimedAnimation @ {self:p}"))
+            .finish()
+    }
+}
+
+#[repr(C)]
+#[allow(dead_code)]
 pub struct AwraTimeline {
     _data: [u8; 0],
     _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
@@ -2315,6 +3074,34 @@ impl ::std::fmt::Debug for AwraToolbar {
 
 #[repr(C)]
 #[allow(dead_code)]
+pub struct AwraTransitionBin {
+    _data: [u8; 0],
+    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
+}
+
+impl ::std::fmt::Debug for AwraTransitionBin {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        f.debug_struct(&format!("AwraTransitionBin @ {self:p}"))
+            .finish()
+    }
+}
+
+#[repr(C)]
+#[allow(dead_code)]
+pub struct AwraTypingIndicator {
+    _data: [u8; 0],
+    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
+}
+
+impl ::std::fmt::Debug for AwraTypingIndicator {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        f.debug_struct(&format!("AwraTypingIndicator @ {self:p}"))
+            .finish()
+    }
+}
+
+#[repr(C)]
+#[allow(dead_code)]
 pub struct AwraVolumeControl {
     _data: [u8; 0],
     _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
@@ -2355,6 +3142,20 @@ impl ::std::fmt::Debug for AwraWindow {
     }
 }
 
+#[repr(C)]
+#[allow(dead_code)]
+pub struct AwraZoomController {
+    _data: [u8; 0],
+    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
+}
+
+impl ::std::fmt::Debug for AwraZoomController {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        f.debug_struct(&format!("AwraZoomController @ {self:p}"))
+            .finish()
+    }
+}
+
 unsafe extern "C" {
 
     //=========================================================================
@@ -2363,9 +3164,23 @@ unsafe extern "C" {
     pub fn awra_accent_source_get_type() -> GType;
 
     //=========================================================================
+    // AwraAnimationState
+    //=========================================================================
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_animation_state_get_type() -> GType;
+
+    //=========================================================================
     // AwraAppearance
     //=========================================================================
     pub fn awra_appearance_get_type() -> GType;
+
+    //=========================================================================
+    // AwraAvatarShape
+    //=========================================================================
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_avatar_shape_get_type() -> GType;
 
     //=========================================================================
     // AwraBadgeAppearance
@@ -2383,9 +3198,54 @@ unsafe extern "C" {
     pub fn awra_card_appearance_get_type() -> GType;
 
     //=========================================================================
+    // AwraChipAppearance
+    //=========================================================================
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_chip_appearance_get_type() -> GType;
+
+    //=========================================================================
+    // AwraConversationAlign
+    //=========================================================================
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_conversation_align_get_type() -> GType;
+
+    //=========================================================================
     // AwraDataViewState
     //=========================================================================
     pub fn awra_data_view_state_get_type() -> GType;
+
+    //=========================================================================
+    // AwraDividerAppearance
+    //=========================================================================
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_divider_appearance_get_type() -> GType;
+
+    //=========================================================================
+    // AwraDividerLabelPosition
+    //=========================================================================
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_divider_label_position_get_type() -> GType;
+
+    //=========================================================================
+    // AwraEasing
+    //=========================================================================
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_easing_get_type() -> GType;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_easing_ease(self_: AwraEasing, value: c_double) -> c_double;
+
+    //=========================================================================
+    // AwraEdgeStatus
+    //=========================================================================
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_edge_status_get_type() -> GType;
 
     //=========================================================================
     // AwraElevation
@@ -2433,6 +3293,13 @@ unsafe extern "C" {
     // AwraPanelEdge
     //=========================================================================
     pub fn awra_panel_edge_get_type() -> GType;
+
+    //=========================================================================
+    // AwraPresence
+    //=========================================================================
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_presence_get_type() -> GType;
 
     //=========================================================================
     // AwraRadius
@@ -2490,12 +3357,68 @@ unsafe extern "C" {
     ) -> *mut gtk::GtkWidget;
     pub fn awra_action_row_get_icon_name(self_: *mut AwraActionRow) -> *const c_char;
     pub fn awra_action_row_get_subtitle(self_: *mut AwraActionRow) -> *const c_char;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_action_row_get_subtitle_lines(self_: *mut AwraActionRow) -> c_int;
     pub fn awra_action_row_get_suffix(self_: *mut AwraActionRow) -> *mut gtk::GtkWidget;
     pub fn awra_action_row_get_title(self_: *mut AwraActionRow) -> *const c_char;
     pub fn awra_action_row_set_icon_name(self_: *mut AwraActionRow, icon_name: *const c_char);
     pub fn awra_action_row_set_subtitle(self_: *mut AwraActionRow, subtitle: *const c_char);
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_action_row_set_subtitle_lines(self_: *mut AwraActionRow, lines: c_int);
     pub fn awra_action_row_set_suffix(self_: *mut AwraActionRow, suffix: *mut gtk::GtkWidget);
     pub fn awra_action_row_set_title(self_: *mut AwraActionRow, title: *const c_char);
+
+    //=========================================================================
+    // AwraAnimation
+    //=========================================================================
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_animation_get_type() -> GType;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_animation_get_follow_reduced_motion(self_: *mut AwraAnimation) -> gboolean;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_animation_get_state(self_: *mut AwraAnimation) -> AwraAnimationState;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_animation_get_target(self_: *mut AwraAnimation) -> *mut AwraAnimationTarget;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_animation_get_value(self_: *mut AwraAnimation) -> c_double;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_animation_get_widget(self_: *mut AwraAnimation) -> *mut gtk::GtkWidget;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_animation_pause(self_: *mut AwraAnimation);
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_animation_play(self_: *mut AwraAnimation);
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_animation_reset(self_: *mut AwraAnimation);
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_animation_resume(self_: *mut AwraAnimation);
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_animation_set_follow_reduced_motion(self_: *mut AwraAnimation, follow: gboolean);
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_animation_set_target(self_: *mut AwraAnimation, target: *mut AwraAnimationTarget);
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_animation_skip(self_: *mut AwraAnimation);
+
+    //=========================================================================
+    // AwraAnimationTarget
+    //=========================================================================
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_animation_target_get_type() -> GType;
 
     //=========================================================================
     // AwraAspectPaintable
@@ -2517,6 +3440,78 @@ unsafe extern "C" {
     pub fn awra_aspect_paintable_get_paintable(
         self_: *mut AwraAspectPaintable,
     ) -> *mut gdk::GdkPaintable;
+
+    //=========================================================================
+    // AwraAvatar
+    //=========================================================================
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_avatar_get_type() -> GType;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_avatar_new(size: c_int, text: *const c_char) -> *mut gtk::GtkWidget;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_avatar_get_custom_image(self_: *mut AwraAvatar) -> *mut gdk::GdkPaintable;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_avatar_get_icon_name(self_: *mut AwraAvatar) -> *const c_char;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_avatar_get_presence(self_: *mut AwraAvatar) -> AwraPresence;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_avatar_get_shape(self_: *mut AwraAvatar) -> AwraAvatarShape;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_avatar_get_show_initials(self_: *mut AwraAvatar) -> gboolean;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_avatar_get_size(self_: *mut AwraAvatar) -> c_int;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_avatar_get_speaking(self_: *mut AwraAvatar) -> gboolean;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_avatar_get_text(self_: *mut AwraAvatar) -> *const c_char;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_avatar_set_custom_image(self_: *mut AwraAvatar, image: *mut gdk::GdkPaintable);
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_avatar_set_icon_name(self_: *mut AwraAvatar, icon_name: *const c_char);
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_avatar_set_presence(self_: *mut AwraAvatar, presence: AwraPresence);
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_avatar_set_shape(self_: *mut AwraAvatar, shape: AwraAvatarShape);
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_avatar_set_show_initials(self_: *mut AwraAvatar, show_initials: gboolean);
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_avatar_set_size(self_: *mut AwraAvatar, size: c_int);
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_avatar_set_speaking(self_: *mut AwraAvatar, speaking: gboolean);
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_avatar_set_text(self_: *mut AwraAvatar, text: *const c_char);
+
+    //=========================================================================
+    // AwraAvatarGroup
+    //=========================================================================
+    pub fn awra_avatar_group_get_type() -> GType;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_avatar_group_new() -> *mut gtk::GtkWidget;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_avatar_group_append(self_: *mut AwraAvatarGroup, avatar: *mut gtk::GtkWidget);
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_avatar_group_remove_all(self_: *mut AwraAvatarGroup);
 
     //=========================================================================
     // AwraBadge
@@ -2573,9 +3568,61 @@ unsafe extern "C" {
     pub fn awra_button_get_type() -> GType;
     pub fn awra_button_new() -> *mut gtk::GtkWidget;
     pub fn awra_button_new_from_icon_name(icon_name: *const c_char) -> *mut gtk::GtkWidget;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_button_new_with_icon_and_label(
+        icon_name: *const c_char,
+        label: *const c_char,
+    ) -> *mut gtk::GtkWidget;
     pub fn awra_button_new_with_label(label: *const c_char) -> *mut gtk::GtkWidget;
     pub fn awra_button_get_appearance(self_: *mut AwraButton) -> AwraButtonAppearance;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_button_get_busy(self_: *mut AwraButton) -> gboolean;
     pub fn awra_button_set_appearance(self_: *mut AwraButton, appearance: AwraButtonAppearance);
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_button_set_busy(self_: *mut AwraButton, busy: gboolean);
+
+    //=========================================================================
+    // AwraButtonContent
+    //=========================================================================
+    pub fn awra_button_content_get_type() -> GType;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_button_content_new(
+        icon_name: *const c_char,
+        label: *const c_char,
+    ) -> *mut gtk::GtkWidget;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_button_content_get_icon_name(self_: *mut AwraButtonContent) -> *const c_char;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_button_content_get_label(self_: *mut AwraButtonContent) -> *const c_char;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_button_content_set_icon_name(
+        self_: *mut AwraButtonContent,
+        icon_name: *const c_char,
+    );
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_button_content_set_label(self_: *mut AwraButtonContent, label: *const c_char);
+
+    //=========================================================================
+    // AwraCallbackAnimationTarget
+    //=========================================================================
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_callback_animation_target_get_type() -> GType;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_callback_animation_target_new(
+        callback: AwraAnimationTargetFunc,
+        user_data: gpointer,
+        destroy: glib::GDestroyNotify,
+    ) -> *mut AwraAnimationTarget;
 
     //=========================================================================
     // AwraCard
@@ -2597,6 +3644,64 @@ unsafe extern "C" {
     pub fn awra_check_button_new() -> *mut gtk::GtkWidget;
     pub fn awra_check_button_new_with_label(label: *const c_char) -> *mut gtk::GtkWidget;
     pub fn awra_check_button_set_group(self_: *mut AwraCheckButton, group: *mut AwraCheckButton);
+
+    //=========================================================================
+    // AwraChip
+    //=========================================================================
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_chip_get_type() -> GType;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_chip_new(label: *const c_char) -> *mut gtk::GtkWidget;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_chip_get_active(self_: *mut AwraChip) -> gboolean;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_chip_get_appearance(self_: *mut AwraChip) -> AwraChipAppearance;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_chip_get_count(self_: *mut AwraChip) -> c_int;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_chip_get_emoji(self_: *mut AwraChip) -> *const c_char;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_chip_get_icon_name(self_: *mut AwraChip) -> *const c_char;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_chip_get_label(self_: *mut AwraChip) -> *const c_char;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_chip_get_paintable(self_: *mut AwraChip) -> *mut gdk::GdkPaintable;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_chip_get_toggleable(self_: *mut AwraChip) -> gboolean;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_chip_set_active(self_: *mut AwraChip, active: gboolean);
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_chip_set_appearance(self_: *mut AwraChip, appearance: AwraChipAppearance);
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_chip_set_count(self_: *mut AwraChip, count: c_int);
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_chip_set_emoji(self_: *mut AwraChip, emoji: *const c_char);
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_chip_set_icon_name(self_: *mut AwraChip, icon_name: *const c_char);
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_chip_set_label(self_: *mut AwraChip, label: *const c_char);
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_chip_set_paintable(self_: *mut AwraChip, paintable: *mut gdk::GdkPaintable);
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_chip_set_toggleable(self_: *mut AwraChip, toggleable: gboolean);
 
     //=========================================================================
     // AwraChoiceGroup
@@ -2622,6 +3727,51 @@ unsafe extern "C" {
     );
     pub fn awra_choice_group_set_exclusive(self_: *mut AwraChoiceGroup, exclusive: gboolean);
     pub fn awra_choice_group_set_title(self_: *mut AwraChoiceGroup, title: *const c_char);
+
+    //=========================================================================
+    // AwraColorPalette
+    //=========================================================================
+    pub fn awra_color_palette_get_type() -> GType;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_color_palette_new() -> *mut gtk::GtkWidget;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_color_palette_add_color(
+        self_: *mut AwraColorPalette,
+        color: *const gdk::GdkRGBA,
+        name: *const c_char,
+    );
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_color_palette_clear(self_: *mut AwraColorPalette);
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_color_palette_get_allows_custom(self_: *mut AwraColorPalette) -> gboolean;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_color_palette_get_automatic_label(self_: *mut AwraColorPalette) -> *const c_char;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_color_palette_get_selected(self_: *mut AwraColorPalette) -> *const gdk::GdkRGBA;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_color_palette_set_allows_custom(
+        self_: *mut AwraColorPalette,
+        allows_custom: gboolean,
+    );
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_color_palette_set_automatic_label(
+        self_: *mut AwraColorPalette,
+        label: *const c_char,
+    );
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_color_palette_set_selected(
+        self_: *mut AwraColorPalette,
+        color: *const gdk::GdkRGBA,
+    );
 
     //=========================================================================
     // AwraCommandPalette
@@ -2652,6 +3802,147 @@ unsafe extern "C" {
     pub fn awra_command_palette_set_title(self_: *mut AwraCommandPalette, title: *const c_char);
 
     //=========================================================================
+    // AwraCompletionPopover
+    //=========================================================================
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_completion_popover_get_type() -> GType;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_completion_popover_new() -> *mut gtk::GtkWidget;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_completion_popover_attach(
+        self_: *mut AwraCompletionPopover,
+        text_widget: *mut gtk::GtkWidget,
+    );
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_completion_popover_get_attached_widget(
+        self_: *mut AwraCompletionPopover,
+    ) -> *mut gtk::GtkWidget;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_completion_popover_get_factory(
+        self_: *mut AwraCompletionPopover,
+    ) -> *mut gtk::GtkListItemFactory;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_completion_popover_get_model(
+        self_: *mut AwraCompletionPopover,
+    ) -> *mut gio::GListModel;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_completion_popover_get_selected(self_: *mut AwraCompletionPopover) -> c_uint;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_completion_popover_present_at_cursor(self_: *mut AwraCompletionPopover);
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_completion_popover_set_factory(
+        self_: *mut AwraCompletionPopover,
+        factory: *mut gtk::GtkListItemFactory,
+    );
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_completion_popover_set_model(
+        self_: *mut AwraCompletionPopover,
+        model: *mut gio::GListModel,
+    );
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_completion_popover_set_selected(
+        self_: *mut AwraCompletionPopover,
+        position: c_uint,
+    );
+
+    //=========================================================================
+    // AwraComposer
+    //=========================================================================
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_composer_get_type() -> GType;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_composer_new() -> *mut gtk::GtkWidget;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_composer_get_attachments(self_: *mut AwraComposer) -> *mut gtk::GtkWidget;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_composer_get_banner(self_: *mut AwraComposer) -> *mut gtk::GtkWidget;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_composer_get_buffer(self_: *mut AwraComposer) -> *mut gtk::GtkTextBuffer;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_composer_get_busy(self_: *mut AwraComposer) -> gboolean;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_composer_get_can_send(self_: *mut AwraComposer) -> gboolean;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_composer_get_end_widget(self_: *mut AwraComposer) -> *mut gtk::GtkWidget;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_composer_get_max_lines(self_: *mut AwraComposer) -> c_uint;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_composer_get_placeholder_text(self_: *mut AwraComposer) -> *const c_char;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_composer_get_send_on_enter(self_: *mut AwraComposer) -> gboolean;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_composer_get_start_widget(self_: *mut AwraComposer) -> *mut gtk::GtkWidget;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_composer_get_text(self_: *mut AwraComposer) -> *const c_char;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_composer_get_view(self_: *mut AwraComposer) -> *mut gtk::GtkTextView;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_composer_set_attachments(
+        self_: *mut AwraComposer,
+        attachments: *mut gtk::GtkWidget,
+    );
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_composer_set_banner(self_: *mut AwraComposer, banner: *mut gtk::GtkWidget);
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_composer_set_busy(self_: *mut AwraComposer, busy: gboolean);
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_composer_set_can_send(self_: *mut AwraComposer, can_send: gboolean);
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_composer_set_end_widget(self_: *mut AwraComposer, widget: *mut gtk::GtkWidget);
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_composer_set_max_lines(self_: *mut AwraComposer, lines: c_uint);
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_composer_set_placeholder_text(self_: *mut AwraComposer, text: *const c_char);
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_composer_set_send_on_enter(self_: *mut AwraComposer, send_on_enter: gboolean);
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_composer_set_start_widget(self_: *mut AwraComposer, widget: *mut gtk::GtkWidget);
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_composer_set_text(self_: *mut AwraComposer, text: *const c_char);
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_composer_show_banner(
+        self_: *mut AwraComposer,
+        text: *const c_char,
+        closable: gboolean,
+    );
+
+    //=========================================================================
     // AwraContext
     //=========================================================================
     pub fn awra_context_get_type() -> GType;
@@ -2666,6 +3957,126 @@ unsafe extern "C" {
         window_active: gboolean,
         elevation: c_uint,
     ) -> *mut AwraMaterialResolution;
+
+    //=========================================================================
+    // AwraConversationView
+    //=========================================================================
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_conversation_view_get_type() -> GType;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_conversation_view_new(
+        model: *mut gio::GListModel,
+        factory: *mut gtk::GtkListItemFactory,
+    ) -> *mut gtk::GtkWidget;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_conversation_view_get_at_bottom(self_: *mut AwraConversationView) -> gboolean;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_conversation_view_get_delegate(
+        self_: *mut AwraConversationView,
+    ) -> *mut gtk::GtkListView;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_conversation_view_get_edge_status(
+        self_: *mut AwraConversationView,
+        edge: gtk::GtkPositionType,
+    ) -> AwraEdgeStatus;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_conversation_view_get_edge_threshold(self_: *mut AwraConversationView) -> c_int;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_conversation_view_get_factory(
+        self_: *mut AwraConversationView,
+    ) -> *mut gtk::GtkListItemFactory;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_conversation_view_get_follow(self_: *mut AwraConversationView) -> gboolean;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_conversation_view_get_header_factory(
+        self_: *mut AwraConversationView,
+    ) -> *mut gtk::GtkListItemFactory;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_conversation_view_get_jump_label(self_: *mut AwraConversationView)
+        -> *const c_char;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_conversation_view_get_model(
+        self_: *mut AwraConversationView,
+    ) -> *mut gio::GListModel;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_conversation_view_get_unread_count(self_: *mut AwraConversationView) -> c_uint;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_conversation_view_get_visible_range(
+        self_: *mut AwraConversationView,
+        first: *mut c_uint,
+        last: *mut c_uint,
+    ) -> gboolean;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_conversation_view_scroll_to_end(
+        self_: *mut AwraConversationView,
+        animate: gboolean,
+    );
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_conversation_view_scroll_to_item(
+        self_: *mut AwraConversationView,
+        position: c_uint,
+        align: AwraConversationAlign,
+        highlight: gboolean,
+    );
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_conversation_view_set_edge_status(
+        self_: *mut AwraConversationView,
+        edge: gtk::GtkPositionType,
+        status: AwraEdgeStatus,
+        label: *const c_char,
+    );
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_conversation_view_set_edge_threshold(
+        self_: *mut AwraConversationView,
+        threshold: c_int,
+    );
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_conversation_view_set_factory(
+        self_: *mut AwraConversationView,
+        factory: *mut gtk::GtkListItemFactory,
+    );
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_conversation_view_set_follow(self_: *mut AwraConversationView, follow: gboolean);
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_conversation_view_set_header_factory(
+        self_: *mut AwraConversationView,
+        factory: *mut gtk::GtkListItemFactory,
+    );
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_conversation_view_set_jump_label(
+        self_: *mut AwraConversationView,
+        label: *const c_char,
+    );
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_conversation_view_set_model(
+        self_: *mut AwraConversationView,
+        model: *mut gio::GListModel,
+    );
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_conversation_view_set_unread_count(self_: *mut AwraConversationView, count: c_uint);
 
     //=========================================================================
     // AwraDataColumn
@@ -2783,6 +4194,9 @@ unsafe extern "C" {
     );
     #[cfg(feature = "v1_1")]
     #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_dialog_close(self_: *mut AwraDialog);
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
     pub fn awra_dialog_get_body(self_: *mut AwraDialog) -> *mut gtk::GtkWidget;
     #[cfg(feature = "v1_1")]
     #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
@@ -2790,6 +4204,9 @@ unsafe extern "C" {
     #[cfg(feature = "v1_1")]
     #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
     pub fn awra_dialog_get_default_response(self_: *mut AwraDialog) -> *const c_char;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_dialog_get_response_closes(self_: *mut AwraDialog, id: *const c_char) -> gboolean;
     #[cfg(feature = "v1_1")]
     #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
     pub fn awra_dialog_respond(self_: *mut AwraDialog, id: *const c_char);
@@ -2811,10 +4228,78 @@ unsafe extern "C" {
     );
     #[cfg(feature = "v1_1")]
     #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_dialog_set_response_busy(self_: *mut AwraDialog, id: *const c_char, busy: gboolean);
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_dialog_set_response_closes(
+        self_: *mut AwraDialog,
+        id: *const c_char,
+        closes: gboolean,
+    );
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
     pub fn awra_dialog_set_response_enabled(
         self_: *mut AwraDialog,
         id: *const c_char,
         enabled: gboolean,
+    );
+
+    //=========================================================================
+    // AwraDivider
+    //=========================================================================
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_divider_get_type() -> GType;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_divider_new(label: *const c_char) -> *mut gtk::GtkWidget;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_divider_get_appearance(self_: *mut AwraDivider) -> AwraDividerAppearance;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_divider_get_label(self_: *mut AwraDivider) -> *const c_char;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_divider_get_label_position(self_: *mut AwraDivider) -> AwraDividerLabelPosition;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_divider_set_appearance(self_: *mut AwraDivider, appearance: AwraDividerAppearance);
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_divider_set_label(self_: *mut AwraDivider, label: *const c_char);
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_divider_set_label_position(
+        self_: *mut AwraDivider,
+        position: AwraDividerLabelPosition,
+    );
+
+    //=========================================================================
+    // AwraDragPreview
+    //=========================================================================
+    pub fn awra_drag_preview_get_type() -> GType;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_drag_preview_new() -> *mut gtk::GtkWidget;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_drag_preview_get_count(self_: *mut AwraDragPreview) -> c_uint;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_drag_preview_get_icon_size(self_: *mut AwraDragPreview) -> c_int;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_drag_preview_set_count(self_: *mut AwraDragPreview, count: c_uint);
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_drag_preview_set_icon_size(self_: *mut AwraDragPreview, size: c_int);
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_drag_preview_set_item(
+        self_: *mut AwraDragPreview,
+        index: c_uint,
+        paintable: *mut gdk::GdkPaintable,
     );
 
     //=========================================================================
@@ -2936,6 +4421,88 @@ unsafe extern "C" {
     pub fn awra_edge_panel_set_panel_width(self_: *mut AwraEdgePanel, width: c_uint);
     pub fn awra_edge_panel_set_reveal_width(self_: *mut AwraEdgePanel, width: c_uint);
     pub fn awra_edge_panel_set_revealed(self_: *mut AwraEdgePanel, revealed: gboolean);
+
+    //=========================================================================
+    // AwraEmojiItem
+    //=========================================================================
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_emoji_item_get_type() -> GType;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_emoji_item_new(
+        id: *const c_char,
+        name: *const c_char,
+        text: *const c_char,
+    ) -> *mut AwraEmojiItem;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_emoji_item_new_for_paintable(
+        id: *const c_char,
+        name: *const c_char,
+        paintable: *mut gdk::GdkPaintable,
+    ) -> *mut AwraEmojiItem;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_emoji_item_get_id(self_: *mut AwraEmojiItem) -> *const c_char;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_emoji_item_get_keywords(self_: *mut AwraEmojiItem) -> *const *const c_char;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_emoji_item_get_name(self_: *mut AwraEmojiItem) -> *const c_char;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_emoji_item_get_paintable(self_: *mut AwraEmojiItem) -> *mut gdk::GdkPaintable;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_emoji_item_get_text(self_: *mut AwraEmojiItem) -> *const c_char;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_emoji_item_matches(self_: *mut AwraEmojiItem, query: *const c_char) -> gboolean;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_emoji_item_set_keywords(self_: *mut AwraEmojiItem, keywords: *const *const c_char);
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_emoji_item_set_paintable(
+        self_: *mut AwraEmojiItem,
+        paintable: *mut gdk::GdkPaintable,
+    );
+
+    //=========================================================================
+    // AwraEmojiPicker
+    //=========================================================================
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_emoji_picker_get_type() -> GType;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_emoji_picker_new() -> *mut gtk::GtkWidget;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_emoji_picker_add_section(
+        self_: *mut AwraEmojiPicker,
+        id: *const c_char,
+        title: *const c_char,
+        icon_name: *const c_char,
+        items: *mut gio::GListModel,
+    );
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_emoji_picker_clear(self_: *mut AwraEmojiPicker);
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_emoji_picker_get_search_text(self_: *mut AwraEmojiPicker) -> *const c_char;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_emoji_picker_remove_section(self_: *mut AwraEmojiPicker, id: *const c_char);
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_emoji_picker_set_recent(self_: *mut AwraEmojiPicker, items: *mut gio::GListModel);
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_emoji_picker_set_search_text(self_: *mut AwraEmojiPicker, text: *const c_char);
 
     //=========================================================================
     // AwraEmptyState
@@ -3086,24 +4653,64 @@ unsafe extern "C" {
     pub fn awra_frame_pool_get_width(self_: *mut AwraFramePool) -> c_uint;
 
     //=========================================================================
+    // AwraGridView
+    //=========================================================================
+    pub fn awra_grid_view_get_type() -> GType;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_grid_view_new(
+        model: *mut gtk::GtkSelectionModel,
+        factory: *mut gtk::GtkListItemFactory,
+    ) -> *mut gtk::GtkWidget;
+    pub fn awra_grid_view_get_delegate(self_: *mut AwraGridView) -> *mut gtk::GtkGridView;
+    pub fn awra_grid_view_get_factory(self_: *mut AwraGridView) -> *mut gtk::GtkListItemFactory;
+    pub fn awra_grid_view_get_model(self_: *mut AwraGridView) -> *mut gtk::GtkSelectionModel;
+    pub fn awra_grid_view_set_factory(
+        self_: *mut AwraGridView,
+        factory: *mut gtk::GtkListItemFactory,
+    );
+    pub fn awra_grid_view_set_model(self_: *mut AwraGridView, model: *mut gtk::GtkSelectionModel);
+
+    //=========================================================================
     // AwraHeader
     //=========================================================================
     pub fn awra_header_get_type() -> GType;
     pub fn awra_header_new() -> *mut gtk::GtkWidget;
     pub fn awra_header_get_blend_with_window(self_: *mut AwraHeader) -> gboolean;
     pub fn awra_header_get_center_widget(self_: *mut AwraHeader) -> *mut gtk::GtkWidget;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_header_get_compact(self_: *mut AwraHeader) -> gboolean;
     pub fn awra_header_get_drag_enabled(self_: *mut AwraHeader) -> gboolean;
     pub fn awra_header_get_end_widget(self_: *mut AwraHeader) -> *mut gtk::GtkWidget;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_header_get_expand_center(self_: *mut AwraHeader) -> gboolean;
     pub fn awra_header_get_material(self_: *mut AwraHeader) -> *mut AwraMaterial;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_header_get_max_width(self_: *mut AwraHeader) -> c_uint;
     pub fn awra_header_get_show_window_controls(self_: *mut AwraHeader) -> gboolean;
     pub fn awra_header_get_start_widget(self_: *mut AwraHeader) -> *mut gtk::GtkWidget;
     pub fn awra_header_get_subtitle(self_: *mut AwraHeader) -> *const c_char;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_header_get_surface(self_: *mut AwraHeader) -> *mut AwraSurface;
     pub fn awra_header_get_title(self_: *mut AwraHeader) -> *const c_char;
     pub fn awra_header_set_blend_with_window(self_: *mut AwraHeader, blend: gboolean);
     pub fn awra_header_set_center_widget(self_: *mut AwraHeader, widget: *mut gtk::GtkWidget);
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_header_set_compact(self_: *mut AwraHeader, compact: gboolean);
     pub fn awra_header_set_drag_enabled(self_: *mut AwraHeader, drag_enabled: gboolean);
     pub fn awra_header_set_end_widget(self_: *mut AwraHeader, widget: *mut gtk::GtkWidget);
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_header_set_expand_center(self_: *mut AwraHeader, expand: gboolean);
     pub fn awra_header_set_material(self_: *mut AwraHeader, material: *mut AwraMaterial);
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_header_set_max_width(self_: *mut AwraHeader, width: c_uint);
     pub fn awra_header_set_show_window_controls(self_: *mut AwraHeader, show_controls: gboolean);
     pub fn awra_header_set_start_widget(self_: *mut AwraHeader, widget: *mut gtk::GtkWidget);
     pub fn awra_header_set_subtitle(self_: *mut AwraHeader, subtitle: *const c_char);
@@ -3556,12 +5163,35 @@ unsafe extern "C" {
     pub fn awra_navigation_item_get_type() -> GType;
     pub fn awra_navigation_item_new() -> *mut gtk::GtkWidget;
     pub fn awra_navigation_item_new_with_label(label: *const c_char) -> *mut gtk::GtkWidget;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_navigation_item_get_emphasized(self_: *mut AwraNavigationItem) -> gboolean;
     pub fn awra_navigation_item_get_icon_name(self_: *mut AwraNavigationItem) -> *const c_char;
     pub fn awra_navigation_item_get_label(self_: *mut AwraNavigationItem) -> *const c_char;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_navigation_item_get_label_color(
+        self_: *mut AwraNavigationItem,
+    ) -> *const gdk::GdkRGBA;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_navigation_item_get_muted(self_: *mut AwraNavigationItem) -> gboolean;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_navigation_item_get_prefix(self_: *mut AwraNavigationItem) -> *mut gtk::GtkWidget;
     pub fn awra_navigation_item_get_selected(self_: *mut AwraNavigationItem) -> gboolean;
     #[cfg(feature = "v1_1")]
     #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_navigation_item_get_subtitle(self_: *mut AwraNavigationItem) -> *const c_char;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
     pub fn awra_navigation_item_get_suffix(self_: *mut AwraNavigationItem) -> *mut gtk::GtkWidget;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_navigation_item_set_emphasized(
+        self_: *mut AwraNavigationItem,
+        emphasized: gboolean,
+    );
     pub fn awra_navigation_item_set_group(
         self_: *mut AwraNavigationItem,
         group: *mut AwraNavigationItem,
@@ -3571,7 +5201,28 @@ unsafe extern "C" {
         icon_name: *const c_char,
     );
     pub fn awra_navigation_item_set_label(self_: *mut AwraNavigationItem, label: *const c_char);
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_navigation_item_set_label_color(
+        self_: *mut AwraNavigationItem,
+        color: *const gdk::GdkRGBA,
+    );
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_navigation_item_set_muted(self_: *mut AwraNavigationItem, muted: gboolean);
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_navigation_item_set_prefix(
+        self_: *mut AwraNavigationItem,
+        prefix: *mut gtk::GtkWidget,
+    );
     pub fn awra_navigation_item_set_selected(self_: *mut AwraNavigationItem, selected: gboolean);
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_navigation_item_set_subtitle(
+        self_: *mut AwraNavigationItem,
+        subtitle: *const c_char,
+    );
     #[cfg(feature = "v1_1")]
     #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
     pub fn awra_navigation_item_set_suffix(
@@ -3720,6 +5371,70 @@ unsafe extern "C" {
     pub fn awra_password_entry_set_text(self_: *mut AwraPasswordEntry, text: *const c_char);
 
     //=========================================================================
+    // AwraPathBar
+    //=========================================================================
+    pub fn awra_path_bar_get_type() -> GType;
+    pub fn awra_path_bar_new() -> *mut gtk::GtkWidget;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_path_bar_begin_edit(self_: *mut AwraPathBar, text: *const c_char);
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_path_bar_get_edit_text(self_: *mut AwraPathBar) -> *const c_char;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_path_bar_get_editing(self_: *mut AwraPathBar) -> gboolean;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_path_bar_get_end_widget(self_: *mut AwraPathBar) -> *mut gtk::GtkWidget;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_path_bar_get_icon_name(self_: *mut AwraPathBar) -> *const c_char;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_path_bar_get_item_at(
+        self_: *mut AwraPathBar,
+        x: c_double,
+        y: c_double,
+    ) -> *mut AwraBreadcrumbItem;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_path_bar_get_model(self_: *mut AwraPathBar) -> *mut gio::GListModel;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_path_bar_get_placeholder_text(self_: *mut AwraPathBar) -> *const c_char;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_path_bar_get_suggestions(self_: *mut AwraPathBar) -> *mut gio::GListModel;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_path_bar_get_text(self_: *mut AwraPathBar) -> *const c_char;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_path_bar_set_drop_item(self_: *mut AwraPathBar, item: *mut AwraBreadcrumbItem);
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_path_bar_set_editing(self_: *mut AwraPathBar, editing: gboolean);
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_path_bar_set_end_widget(self_: *mut AwraPathBar, widget: *mut gtk::GtkWidget);
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_path_bar_set_icon_name(self_: *mut AwraPathBar, icon_name: *const c_char);
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_path_bar_set_model(self_: *mut AwraPathBar, model: *mut gio::GListModel);
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_path_bar_set_placeholder_text(self_: *mut AwraPathBar, text: *const c_char);
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_path_bar_set_suggestions(self_: *mut AwraPathBar, model: *mut gio::GListModel);
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_path_bar_set_text(self_: *mut AwraPathBar, text: *const c_char);
+
+    //=========================================================================
     // AwraPopover
     //=========================================================================
     pub fn awra_popover_get_type() -> GType;
@@ -3744,6 +5459,192 @@ unsafe extern "C" {
     pub fn awra_progress_bar_set_text(self_: *mut AwraProgressBar, text: *const c_char);
 
     //=========================================================================
+    // AwraPropertyAnimationTarget
+    //=========================================================================
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_property_animation_target_get_type() -> GType;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_property_animation_target_new(
+        object: *mut gobject::GObject,
+        property_name: *const c_char,
+    ) -> *mut AwraAnimationTarget;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_property_animation_target_get_object(
+        self_: *mut AwraPropertyAnimationTarget,
+    ) -> *mut gobject::GObject;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_property_animation_target_get_property_name(
+        self_: *mut AwraPropertyAnimationTarget,
+    ) -> *const c_char;
+
+    //=========================================================================
+    // AwraRail
+    //=========================================================================
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_rail_get_type() -> GType;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_rail_new() -> *mut gtk::GtkWidget;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_rail_add_separator(self_: *mut AwraRail) -> *mut gtk::GtkWidget;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_rail_append(self_: *mut AwraRail, widget: *mut gtk::GtkWidget);
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_rail_get_entry(self_: *mut AwraRail, position: c_uint) -> *mut gtk::GtkWidget;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_rail_get_footer(self_: *mut AwraRail) -> *mut gtk::GtkWidget;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_rail_get_header(self_: *mut AwraRail) -> *mut gtk::GtkWidget;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_rail_get_n_entries(self_: *mut AwraRail) -> c_uint;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_rail_get_reorderable(self_: *mut AwraRail) -> gboolean;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_rail_get_selected_item(self_: *mut AwraRail) -> *mut AwraRailItem;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_rail_insert(self_: *mut AwraRail, widget: *mut gtk::GtkWidget, position: c_int);
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_rail_prepend(self_: *mut AwraRail, widget: *mut gtk::GtkWidget);
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_rail_remove(self_: *mut AwraRail, widget: *mut gtk::GtkWidget);
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_rail_set_footer(self_: *mut AwraRail, footer: *mut gtk::GtkWidget);
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_rail_set_header(self_: *mut AwraRail, header: *mut gtk::GtkWidget);
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_rail_set_reorderable(self_: *mut AwraRail, reorderable: gboolean);
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_rail_set_selected_item(self_: *mut AwraRail, item: *mut AwraRailItem);
+
+    //=========================================================================
+    // AwraRailGroup
+    //=========================================================================
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_rail_group_get_type() -> GType;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_rail_group_new(label: *const c_char) -> *mut gtk::GtkWidget;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_rail_group_append(self_: *mut AwraRailGroup, item: *mut AwraRailItem);
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_rail_group_get_color(self_: *mut AwraRailGroup) -> *const gdk::GdkRGBA;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_rail_group_get_expanded(self_: *mut AwraRailGroup) -> gboolean;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_rail_group_get_icon_name(self_: *mut AwraRailGroup) -> *const c_char;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_rail_group_get_item(
+        self_: *mut AwraRailGroup,
+        position: c_uint,
+    ) -> *mut AwraRailItem;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_rail_group_get_label(self_: *mut AwraRailGroup) -> *const c_char;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_rail_group_get_n_items(self_: *mut AwraRailGroup) -> c_uint;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_rail_group_insert(
+        self_: *mut AwraRailGroup,
+        item: *mut AwraRailItem,
+        position: c_int,
+    );
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_rail_group_remove(self_: *mut AwraRailGroup, item: *mut AwraRailItem);
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_rail_group_set_color(self_: *mut AwraRailGroup, color: *const gdk::GdkRGBA);
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_rail_group_set_expanded(self_: *mut AwraRailGroup, expanded: gboolean);
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_rail_group_set_icon_name(self_: *mut AwraRailGroup, icon_name: *const c_char);
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_rail_group_set_label(self_: *mut AwraRailGroup, label: *const c_char);
+
+    //=========================================================================
+    // AwraRailItem
+    //=========================================================================
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_rail_item_get_type() -> GType;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_rail_item_new(label: *const c_char) -> *mut gtk::GtkWidget;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_rail_item_get_child(self_: *mut AwraRailItem) -> *mut gtk::GtkWidget;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_rail_item_get_icon_name(self_: *mut AwraRailItem) -> *const c_char;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_rail_item_get_label(self_: *mut AwraRailItem) -> *const c_char;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_rail_item_get_mention_count(self_: *mut AwraRailItem) -> c_uint;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_rail_item_get_muted(self_: *mut AwraRailItem) -> gboolean;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_rail_item_get_selected(self_: *mut AwraRailItem) -> gboolean;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_rail_item_get_unread(self_: *mut AwraRailItem) -> gboolean;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_rail_item_set_child(self_: *mut AwraRailItem, child: *mut gtk::GtkWidget);
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_rail_item_set_icon_name(self_: *mut AwraRailItem, icon_name: *const c_char);
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_rail_item_set_label(self_: *mut AwraRailItem, label: *const c_char);
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_rail_item_set_mention_count(self_: *mut AwraRailItem, count: c_uint);
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_rail_item_set_muted(self_: *mut AwraRailItem, muted: gboolean);
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_rail_item_set_selected(self_: *mut AwraRailItem, selected: gboolean);
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_rail_item_set_unread(self_: *mut AwraRailItem, unread: gboolean);
+
+    //=========================================================================
     // AwraResponsiveBin
     //=========================================================================
     pub fn awra_responsive_bin_get_type() -> GType;
@@ -3755,6 +5656,32 @@ unsafe extern "C" {
     pub fn awra_responsive_bin_set_child(self_: *mut AwraResponsiveBin, child: *mut gtk::GtkWidget);
     pub fn awra_responsive_bin_set_compact_width(self_: *mut AwraResponsiveBin, width: c_uint);
     pub fn awra_responsive_bin_set_expanded_width(self_: *mut AwraResponsiveBin, width: c_uint);
+
+    //=========================================================================
+    // AwraRichLabel
+    //=========================================================================
+    pub fn awra_rich_label_get_type() -> GType;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_rich_label_new() -> *mut gtk::GtkWidget;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_rich_label_append_paintable(
+        self_: *mut AwraRichLabel,
+        paintable: *mut gdk::GdkPaintable,
+    );
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_rich_label_clear_paintables(self_: *mut AwraRichLabel);
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_rich_label_get_inline_size(self_: *mut AwraRichLabel) -> c_int;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_rich_label_get_label(self_: *mut AwraRichLabel) -> *mut gtk::GtkLabel;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_rich_label_set_inline_size(self_: *mut AwraRichLabel, size: c_int);
 
     //=========================================================================
     // AwraSearchEntry
@@ -3804,6 +5731,11 @@ unsafe extern "C" {
         self_: *mut AwraSelectionToolbar,
     ) -> *mut gtk::GtkWidget;
     pub fn awra_selection_toolbar_get_auto_hide(self_: *mut AwraSelectionToolbar) -> gboolean;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_selection_toolbar_get_clear_label(
+        self_: *mut AwraSelectionToolbar,
+    ) -> *const c_char;
     pub fn awra_selection_toolbar_get_model(
         self_: *mut AwraSelectionToolbar,
     ) -> *mut gtk::GtkSelectionModel;
@@ -3819,6 +5751,12 @@ unsafe extern "C" {
     pub fn awra_selection_toolbar_set_auto_hide(
         self_: *mut AwraSelectionToolbar,
         auto_hide: gboolean,
+    );
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_selection_toolbar_set_clear_label(
+        self_: *mut AwraSelectionToolbar,
+        label: *const c_char,
     );
     pub fn awra_selection_toolbar_set_model(
         self_: *mut AwraSelectionToolbar,
@@ -3973,6 +5911,89 @@ unsafe extern "C" {
     pub fn awra_split_view_set_sidebar(self_: *mut AwraSplitView, sidebar: *mut gtk::GtkWidget);
 
     //=========================================================================
+    // AwraSpringAnimation
+    //=========================================================================
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_spring_animation_get_type() -> GType;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_spring_animation_new(
+        widget: *mut gtk::GtkWidget,
+        from: c_double,
+        to: c_double,
+        damping_ratio: c_double,
+        stiffness: c_double,
+        target: *mut AwraAnimationTarget,
+    ) -> *mut AwraAnimation;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_spring_animation_get_clamp(self_: *mut AwraSpringAnimation) -> gboolean;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_spring_animation_get_damping_ratio(self_: *mut AwraSpringAnimation) -> c_double;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_spring_animation_get_epsilon(self_: *mut AwraSpringAnimation) -> c_double;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_spring_animation_get_estimated_duration(self_: *mut AwraSpringAnimation) -> c_uint;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_spring_animation_get_initial_velocity(self_: *mut AwraSpringAnimation) -> c_double;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_spring_animation_get_mass(self_: *mut AwraSpringAnimation) -> c_double;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_spring_animation_get_stiffness(self_: *mut AwraSpringAnimation) -> c_double;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_spring_animation_get_value_from(self_: *mut AwraSpringAnimation) -> c_double;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_spring_animation_get_value_to(self_: *mut AwraSpringAnimation) -> c_double;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_spring_animation_get_velocity(self_: *mut AwraSpringAnimation) -> c_double;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_spring_animation_retarget(self_: *mut AwraSpringAnimation, value_to: c_double);
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_spring_animation_set_clamp(self_: *mut AwraSpringAnimation, clamp: gboolean);
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_spring_animation_set_damping_ratio(
+        self_: *mut AwraSpringAnimation,
+        damping_ratio: c_double,
+    );
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_spring_animation_set_epsilon(self_: *mut AwraSpringAnimation, epsilon: c_double);
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_spring_animation_set_initial_velocity(
+        self_: *mut AwraSpringAnimation,
+        velocity: c_double,
+    );
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_spring_animation_set_mass(self_: *mut AwraSpringAnimation, mass: c_double);
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_spring_animation_set_stiffness(
+        self_: *mut AwraSpringAnimation,
+        stiffness: c_double,
+    );
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_spring_animation_set_value_from(self_: *mut AwraSpringAnimation, value: c_double);
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_spring_animation_set_value_to(self_: *mut AwraSpringAnimation, value: c_double);
+
+    //=========================================================================
     // AwraStatBar
     //=========================================================================
     pub fn awra_stat_bar_get_type() -> GType;
@@ -4122,6 +6143,9 @@ unsafe extern "C" {
     pub fn awra_surface_get_type() -> GType;
     pub fn awra_surface_new() -> *mut gtk::GtkWidget;
     pub fn awra_surface_new_with_role(role: AwraSurfaceRole) -> *mut gtk::GtkWidget;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_surface_get_backdrop_widget(self_: *mut AwraSurface) -> *mut gtk::GtkWidget;
     pub fn awra_surface_get_child(self_: *mut AwraSurface) -> *mut gtk::GtkWidget;
     pub fn awra_surface_get_clip_child(self_: *mut AwraSurface) -> gboolean;
     pub fn awra_surface_get_corner_mask(self_: *mut AwraSurface) -> AwraSurfaceCorner;
@@ -4131,6 +6155,9 @@ unsafe extern "C" {
     pub fn awra_surface_get_material(self_: *mut AwraSurface) -> *mut AwraMaterial;
     pub fn awra_surface_get_radius(self_: *mut AwraSurface) -> c_double;
     pub fn awra_surface_get_role(self_: *mut AwraSurface) -> AwraSurfaceRole;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_surface_set_backdrop_widget(self_: *mut AwraSurface, widget: *mut gtk::GtkWidget);
     pub fn awra_surface_set_child(self_: *mut AwraSurface, child: *mut gtk::GtkWidget);
     pub fn awra_surface_set_clip_child(self_: *mut AwraSurface, clip_child: gboolean);
     pub fn awra_surface_set_corner_mask(self_: *mut AwraSurface, corners: AwraSurfaceCorner);
@@ -4169,12 +6196,37 @@ unsafe extern "C" {
     ) -> *mut gtk::GtkWidget;
     pub fn awra_tab_view_close_page(self_: *mut AwraTabView, page: *mut gtk::GtkWidget);
     pub fn awra_tab_view_get_content_visible(self_: *mut AwraTabView) -> gboolean;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_tab_view_get_insertion_position(self_: *mut AwraTabView, x: c_double) -> c_uint;
+    pub fn awra_tab_view_get_page_tab(
+        self_: *mut AwraTabView,
+        page: *mut gtk::GtkWidget,
+    ) -> *mut gtk::GtkWidget;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_tab_view_get_scroll_selects(self_: *mut AwraTabView) -> gboolean;
     pub fn awra_tab_view_get_selected_name(self_: *mut AwraTabView) -> *const c_char;
     pub fn awra_tab_view_get_selected_page(self_: *mut AwraTabView) -> *mut gtk::GtkWidget;
     pub fn awra_tab_view_get_stack(self_: *mut AwraTabView) -> *mut gtk::GtkStack;
     pub fn awra_tab_view_get_tab_bar(self_: *mut AwraTabView) -> *mut gtk::GtkWidget;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_tab_view_hide_placeholder(self_: *mut AwraTabView);
     pub fn awra_tab_view_remove(self_: *mut AwraTabView, page: *mut gtk::GtkWidget);
+    pub fn awra_tab_view_reorder_page(
+        self_: *mut AwraTabView,
+        page: *mut gtk::GtkWidget,
+        position: c_uint,
+    );
     pub fn awra_tab_view_set_content_visible(self_: *mut AwraTabView, visible: gboolean);
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_tab_view_set_page_dragged(
+        self_: *mut AwraTabView,
+        page: *mut gtk::GtkWidget,
+        dragged: gboolean,
+    );
     #[cfg(feature = "v1_1")]
     #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
     pub fn awra_tab_view_set_page_icon(
@@ -4206,8 +6258,14 @@ unsafe extern "C" {
         page: *mut gtk::GtkWidget,
         tooltip: *const c_char,
     );
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_tab_view_set_scroll_selects(self_: *mut AwraTabView, selects: gboolean);
     pub fn awra_tab_view_set_selected_name(self_: *mut AwraTabView, name: *const c_char);
     pub fn awra_tab_view_set_selected_page(self_: *mut AwraTabView, page: *mut gtk::GtkWidget);
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_tab_view_show_placeholder(self_: *mut AwraTabView, position: c_uint);
 
     //=========================================================================
     // AwraTagEntry
@@ -4310,6 +6368,152 @@ unsafe extern "C" {
     );
 
     //=========================================================================
+    // AwraTileView
+    //=========================================================================
+    pub fn awra_tile_view_get_type() -> GType;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_tile_view_new() -> *mut gtk::GtkWidget;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_tile_view_compute_insertion(
+        self_: *mut AwraTileView,
+        beside: *mut gtk::GtkWidget,
+        side: gtk::GtkPositionType,
+        bounds: *mut gdk::GdkRectangle,
+    ) -> gboolean;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_tile_view_equalize(self_: *mut AwraTileView);
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_tile_view_get_arrangement(self_: *mut AwraTileView) -> *mut glib::GVariant;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_tile_view_get_child_bounds(
+        self_: *mut AwraTileView,
+        child: *mut gtk::GtkWidget,
+        bounds: *mut gdk::GdkRectangle,
+    ) -> gboolean;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_tile_view_get_children(self_: *mut AwraTileView) -> *mut glib::GList;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_tile_view_get_column_spacing(self_: *mut AwraTileView) -> c_int;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_tile_view_get_row_spacing(self_: *mut AwraTileView) -> c_int;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_tile_view_insert(
+        self_: *mut AwraTileView,
+        child: *mut gtk::GtkWidget,
+        beside: *mut gtk::GtkWidget,
+        side: gtk::GtkPositionType,
+    );
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_tile_view_move(
+        self_: *mut AwraTileView,
+        child: *mut gtk::GtkWidget,
+        beside: *mut gtk::GtkWidget,
+        side: gtk::GtkPositionType,
+    );
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_tile_view_remove(self_: *mut AwraTileView, child: *mut gtk::GtkWidget);
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_tile_view_set_arrangement(
+        self_: *mut AwraTileView,
+        arrangement: *mut glib::GVariant,
+    ) -> gboolean;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_tile_view_set_column_spacing(self_: *mut AwraTileView, spacing: c_int);
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_tile_view_set_row_spacing(self_: *mut AwraTileView, spacing: c_int);
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_tile_view_touches_edge(
+        self_: *mut AwraTileView,
+        child: *mut gtk::GtkWidget,
+        side: gtk::GtkPositionType,
+    ) -> gboolean;
+
+    //=========================================================================
+    // AwraTimedAnimation
+    //=========================================================================
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_timed_animation_get_type() -> GType;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_timed_animation_new(
+        widget: *mut gtk::GtkWidget,
+        from: c_double,
+        to: c_double,
+        duration: c_uint,
+        target: *mut AwraAnimationTarget,
+    ) -> *mut AwraAnimation;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_timed_animation_new_for_preset(
+        widget: *mut gtk::GtkWidget,
+        from: c_double,
+        to: c_double,
+        preset: AwraMotionPreset,
+        target: *mut AwraAnimationTarget,
+    ) -> *mut AwraAnimation;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_timed_animation_get_alternate(self_: *mut AwraTimedAnimation) -> gboolean;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_timed_animation_get_duration(self_: *mut AwraTimedAnimation) -> c_uint;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_timed_animation_get_easing(self_: *mut AwraTimedAnimation) -> AwraEasing;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_timed_animation_get_repeat_count(self_: *mut AwraTimedAnimation) -> c_uint;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_timed_animation_get_reverse(self_: *mut AwraTimedAnimation) -> gboolean;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_timed_animation_get_value_from(self_: *mut AwraTimedAnimation) -> c_double;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_timed_animation_get_value_to(self_: *mut AwraTimedAnimation) -> c_double;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_timed_animation_set_alternate(self_: *mut AwraTimedAnimation, alternate: gboolean);
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_timed_animation_set_duration(self_: *mut AwraTimedAnimation, duration: c_uint);
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_timed_animation_set_easing(self_: *mut AwraTimedAnimation, easing: AwraEasing);
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_timed_animation_set_repeat_count(
+        self_: *mut AwraTimedAnimation,
+        repeat_count: c_uint,
+    );
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_timed_animation_set_reverse(self_: *mut AwraTimedAnimation, reverse: gboolean);
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_timed_animation_set_value_from(self_: *mut AwraTimedAnimation, value: c_double);
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_timed_animation_set_value_to(self_: *mut AwraTimedAnimation, value: c_double);
+
+    //=========================================================================
     // AwraTimeline
     //=========================================================================
     #[cfg(feature = "v1_1")]
@@ -4349,6 +6553,9 @@ unsafe extern "C" {
     pub fn awra_timeline_get_offset(self_: *mut AwraTimeline) -> c_double;
     #[cfg(feature = "v1_1")]
     #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_timeline_get_page_increment(self_: *mut AwraTimeline) -> c_double;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
     pub fn awra_timeline_get_position(self_: *mut AwraTimeline) -> c_double;
     #[cfg(feature = "v1_1")]
     #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
@@ -4356,6 +6563,9 @@ unsafe extern "C" {
     #[cfg(feature = "v1_1")]
     #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
     pub fn awra_timeline_get_preview_popover(self_: *mut AwraTimeline) -> *mut AwraPopover;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_timeline_get_step_increment(self_: *mut AwraTimeline) -> c_double;
     #[cfg(feature = "v1_1")]
     #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
     pub fn awra_timeline_get_view_duration(self_: *mut AwraTimeline) -> c_double;
@@ -4373,10 +6583,16 @@ unsafe extern "C" {
     pub fn awra_timeline_set_offset(self_: *mut AwraTimeline, offset: c_double);
     #[cfg(feature = "v1_1")]
     #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_timeline_set_page_increment(self_: *mut AwraTimeline, increment: c_double);
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
     pub fn awra_timeline_set_position(self_: *mut AwraTimeline, position: c_double);
     #[cfg(feature = "v1_1")]
     #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
     pub fn awra_timeline_set_preview(self_: *mut AwraTimeline, preview: *mut gtk::GtkWidget);
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_timeline_set_step_increment(self_: *mut AwraTimeline, increment: c_double);
     #[cfg(feature = "v1_1")]
     #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
     pub fn awra_timeline_set_view_duration(self_: *mut AwraTimeline, duration: c_double);
@@ -4476,6 +6692,9 @@ unsafe extern "C" {
     pub fn awra_token_set_get_selection(self_: *mut AwraTokenSet) -> *const gdk::GdkRGBA;
     pub fn awra_token_set_get_separator(self_: *mut AwraTokenSet) -> *const gdk::GdkRGBA;
     pub fn awra_token_set_get_spacing(self_: *mut AwraTokenSet, spacing: AwraSpacing) -> c_double;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_token_set_get_success(self_: *mut AwraTokenSet) -> *const gdk::GdkRGBA;
     pub fn awra_token_set_get_surface_canvas(self_: *mut AwraTokenSet) -> *const gdk::GdkRGBA;
     pub fn awra_token_set_get_surface_chrome(self_: *mut AwraTokenSet) -> *const gdk::GdkRGBA;
     pub fn awra_token_set_get_surface_content(self_: *mut AwraTokenSet) -> *const gdk::GdkRGBA;
@@ -4483,6 +6702,9 @@ unsafe extern "C" {
     pub fn awra_token_set_get_surface_layer(self_: *mut AwraTokenSet) -> *const gdk::GdkRGBA;
     pub fn awra_token_set_get_surface_opacity(self_: *mut AwraTokenSet) -> c_double;
     pub fn awra_token_set_get_surface_opaque(self_: *mut AwraTokenSet) -> *const gdk::GdkRGBA;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_token_set_get_warning(self_: *mut AwraTokenSet) -> *const gdk::GdkRGBA;
     pub fn awra_token_set_get_window_opacity(self_: *mut AwraTokenSet) -> c_double;
 
     //=========================================================================
@@ -4498,6 +6720,55 @@ unsafe extern "C" {
     pub fn awra_toolbar_set_compact(self_: *mut AwraToolbar, compact: gboolean);
     pub fn awra_toolbar_set_end_widget(self_: *mut AwraToolbar, widget: *mut gtk::GtkWidget);
     pub fn awra_toolbar_set_start_widget(self_: *mut AwraToolbar, widget: *mut gtk::GtkWidget);
+
+    //=========================================================================
+    // AwraTransitionBin
+    //=========================================================================
+    pub fn awra_transition_bin_get_type() -> GType;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_transition_bin_new() -> *mut gtk::GtkWidget;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_transition_bin_get_child(self_: *mut AwraTransitionBin) -> *mut gtk::GtkWidget;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_transition_bin_get_fixed_top(self_: *mut AwraTransitionBin) -> c_int;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_transition_bin_play(
+        self_: *mut AwraTransitionBin,
+        offset_x: c_double,
+        offset_y: c_double,
+    );
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_transition_bin_set_child(self_: *mut AwraTransitionBin, child: *mut gtk::GtkWidget);
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_transition_bin_set_fixed_top(self_: *mut AwraTransitionBin, height: c_int);
+
+    //=========================================================================
+    // AwraTypingIndicator
+    //=========================================================================
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_typing_indicator_get_type() -> GType;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_typing_indicator_new() -> *mut gtk::GtkWidget;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_typing_indicator_get_active(self_: *mut AwraTypingIndicator) -> gboolean;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_typing_indicator_get_label(self_: *mut AwraTypingIndicator) -> *const c_char;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_typing_indicator_set_active(self_: *mut AwraTypingIndicator, active: gboolean);
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_typing_indicator_set_label(self_: *mut AwraTypingIndicator, label: *const c_char);
 
     //=========================================================================
     // AwraVolumeControl
@@ -4612,6 +6883,55 @@ unsafe extern "C" {
     #[cfg(feature = "v1_1")]
     #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
     pub fn awra_window_set_overlay_chrome(self_: *mut AwraWindow, overlaid: gboolean);
+
+    //=========================================================================
+    // AwraZoomController
+    //=========================================================================
+    pub fn awra_zoom_controller_get_type() -> GType;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_zoom_controller_new(target: *mut gtk::GtkWidget) -> *mut AwraZoomController;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_zoom_controller_get_scale(self_: *mut AwraZoomController) -> c_double;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_zoom_controller_get_scale_text(self_: *mut AwraZoomController) -> gboolean;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_zoom_controller_get_target(self_: *mut AwraZoomController) -> *mut gtk::GtkWidget;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_zoom_controller_handle_scroll(
+        self_: *mut AwraZoomController,
+        delta: c_double,
+        modifiers: gdk::GdkModifierType,
+    ) -> gboolean;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_zoom_controller_reset(self_: *mut AwraZoomController);
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_zoom_controller_set_range(
+        self_: *mut AwraZoomController,
+        minimum: c_double,
+        maximum: c_double,
+    );
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_zoom_controller_set_scale(self_: *mut AwraZoomController, scale: c_double);
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_zoom_controller_set_scale_text(
+        self_: *mut AwraZoomController,
+        scale_text: gboolean,
+    );
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_zoom_controller_zoom_in(self_: *mut AwraZoomController);
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_zoom_controller_zoom_out(self_: *mut AwraZoomController);
 
     //=========================================================================
     // Other functions

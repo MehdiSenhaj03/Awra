@@ -356,10 +356,44 @@ make_submenu_chevron (void)
   return chevron;
 }
 
+static char *
+get_item_accel_label (GMenuModel *model,
+                      int         position,
+                      const char *action,
+                      GVariant   *target,
+                      GtkWidget  *anchor)
+{
+  g_autofree char *accel = NULL;
+  g_autofree char *detailed = NULL;
+  g_auto (GStrv) accels = NULL;
+  GdkModifierType modifiers;
+  guint key;
+
+  if (!g_menu_model_get_item_attribute (model, position, "accel", "s", &accel) &&
+      action != NULL) {
+    GtkRoot *root = anchor != NULL ? gtk_widget_get_root (anchor) : NULL;
+    GtkApplication *application = GTK_IS_WINDOW (root)
+                                    ? gtk_window_get_application (GTK_WINDOW (root))
+                                    : NULL;
+
+    if (application == NULL)
+      return NULL;
+    detailed = g_action_print_detailed_name (action, target);
+    accels = gtk_application_get_accels_for_action (application, detailed);
+    if (accels[0] == NULL)
+      return NULL;
+    accel = g_strdup (accels[0]);
+  }
+  if (accel == NULL || !gtk_accelerator_parse (accel, &key, &modifiers))
+    return NULL;
+  return gtk_accelerator_get_label (key, modifiers);
+}
+
 static GtkWidget *
 make_menu_item_content (GMenuModel *model,
                         int         position,
                         const char *label,
+                        const char *accel_label,
                         gboolean    submenu)
 {
   g_autoptr (GVariant) serialized_icon = NULL;
@@ -383,6 +417,12 @@ make_menu_item_content (GMenuModel *model,
   gtk_label_set_ellipsize (GTK_LABEL (text), PANGO_ELLIPSIZE_END);
   gtk_widget_add_css_class (text, "awra-menu-item-label");
   gtk_box_append (GTK_BOX (box), text);
+  if (accel_label != NULL) {
+    GtkWidget *accel = gtk_label_new (accel_label);
+
+    gtk_widget_add_css_class (accel, "awra-menu-item-accel");
+    gtk_box_append (GTK_BOX (box), accel);
+  }
   if (submenu)
     gtk_box_append (GTK_BOX (box), make_submenu_chevron ());
   gtk_widget_add_css_class (box, "awra-menu-item-content");
@@ -449,7 +489,7 @@ append_menu_model (AwraPopover *self,
       GtkWidget *popover = awra_popover_new ();
       awra_menu_button_set_child (
         AWRA_MENU_BUTTON (button),
-        make_menu_item_content (model, i, label, TRUE));
+        make_menu_item_content (model, i, label, NULL, TRUE));
       awra_popover_set_menu_model (AWRA_POPOVER (popover), submenu);
       gtk_popover_set_position (GTK_POPOVER (popover), GTK_POS_RIGHT);
       awra_menu_button_set_popover (AWRA_MENU_BUTTON (button), AWRA_POPOVER (popover));
@@ -458,22 +498,34 @@ append_menu_model (AwraPopover *self,
       continue;
     }
 
-    GtkWidget *button = awra_button_new ();
-    gtk_button_set_child (GTK_BUTTON (button),
-                          make_menu_item_content (model, i, label, FALSE));
+    /* A toggle button lets GtkActionHelper report a boolean action's state,
+     * or whether a stateful action currently equals this item's target. */
+    GtkWidget *button = gtk_toggle_button_new ();
+    GtkWidget *check = gtk_image_new_from_icon_name ("object-select-symbolic");
+    GtkWidget *content;
+    g_autofree char *accel_label = NULL;
+
     if (g_menu_model_get_item_attribute (model,
                                          i,
                                          G_MENU_ATTRIBUTE_ACTION,
                                          "s",
                                          &action)) {
-      gtk_actionable_set_action_name (GTK_ACTIONABLE (button), action);
       target = g_menu_model_get_item_attribute_value (model,
                                                        i,
                                                        G_MENU_ATTRIBUTE_TARGET,
                                                        NULL);
       if (target != NULL)
         gtk_actionable_set_action_target_value (GTK_ACTIONABLE (button), target);
+      gtk_actionable_set_action_name (GTK_ACTIONABLE (button), action);
     }
+    accel_label = get_item_accel_label (model, i, action, target,
+                                        gtk_widget_get_parent (GTK_WIDGET (self)));
+    content = make_menu_item_content (model, i, label, accel_label, FALSE);
+    gtk_widget_add_css_class (check, "awra-menu-item-check");
+    g_object_bind_property (button, "active", check, "visible",
+                            G_BINDING_SYNC_CREATE);
+    gtk_box_append (GTK_BOX (content), check);
+    gtk_button_set_child (GTK_BUTTON (button), content);
     gtk_widget_add_css_class (button, "awra-menu-item");
     g_signal_connect (button, "clicked",
                       G_CALLBACK (menu_item_clicked_cb), self);
@@ -487,11 +539,30 @@ static void
 rebuild_menu (AwraPopover *self)
 {
   GtkWidget *box = gtk_box_new (GTK_ORIENTATION_VERTICAL, 0);
+  GtkWidget *scroller = gtk_scrolled_window_new ();
+  int maximum_height = 600;
+  GtkWidget *parent = gtk_widget_get_parent (GTK_WIDGET (self));
+  GtkNative *native = parent != NULL ? gtk_widget_get_native (parent) : NULL;
+  if (native != NULL) {
+    GdkSurface *surface = gtk_native_get_surface (native);
+    GdkMonitor *monitor = surface != NULL ? gdk_display_get_monitor_at_surface (gtk_widget_get_display (GTK_WIDGET (self)), surface) : NULL;
+    if (monitor != NULL) {
+      GdkRectangle geometry;
+      gdk_monitor_get_geometry (monitor, &geometry);
+      maximum_height = MAX (120, geometry.height - 64);
+    }
+  }
 
   awra_box_set_spacing (GTK_BOX (box), AWRA_SPACING_XS);
   gtk_widget_add_css_class (box, "awra-menu");
+  gtk_widget_add_css_class (scroller, "awra-menu-scroller");
   append_menu_model (self, GTK_BOX (box), self->menu_model);
-  awra_surface_set_child (self->surface, box);
+  gtk_scrolled_window_set_policy (GTK_SCROLLED_WINDOW (scroller), GTK_POLICY_NEVER, GTK_POLICY_AUTOMATIC);
+  gtk_scrolled_window_set_propagate_natural_width (GTK_SCROLLED_WINDOW (scroller), TRUE);
+  gtk_scrolled_window_set_propagate_natural_height (GTK_SCROLLED_WINDOW (scroller), TRUE);
+  gtk_scrolled_window_set_max_content_height (GTK_SCROLLED_WINDOW (scroller), maximum_height);
+  gtk_scrolled_window_set_child (GTK_SCROLLED_WINDOW (scroller), box);
+  awra_surface_set_child (self->surface, scroller);
 }
 
 GMenuModel *

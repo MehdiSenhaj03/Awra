@@ -6,6 +6,7 @@ typedef struct {
   GtkWidget *widget;
   AwraPopover *popover;
   GtkEventController *gesture;
+  gulong destroy_handler;
 } ContextMenuAttachment;
 
 static GQuark attachment_quark;
@@ -25,10 +26,26 @@ context_pressed_cb (GtkGestureClick       *gesture,
   gtk_popover_popup (GTK_POPOVER (attachment->popover));
 }
 
+/* A widget being disposed unparents the popover itself: by the time its
+ * data is freed, GTK has already found a child left on it ("Finalizing
+ * ... still has children left"), as recycled list rows showed. */
+static void
+widget_destroy_cb (GtkWidget             *widget,
+                   ContextMenuAttachment *attachment)
+{
+  if (attachment->popover != NULL &&
+      gtk_widget_get_parent (GTK_WIDGET (attachment->popover)) == widget)
+    gtk_widget_unparent (GTK_WIDGET (attachment->popover));
+  attachment->popover = NULL;
+}
+
 static void
 attachment_free (gpointer data)
 {
   ContextMenuAttachment *attachment = data;
+
+  if (attachment->widget != NULL && attachment->destroy_handler != 0)
+    g_signal_handler_disconnect (attachment->widget, attachment->destroy_handler);
 
   if (attachment->widget != NULL && attachment->gesture != NULL)
     gtk_widget_remove_controller (attachment->widget, attachment->gesture);
@@ -80,10 +97,13 @@ awra_widget_set_context_menu_model (GtkWidget  *widget,
     g_signal_connect (gesture, "pressed",
                       G_CALLBACK (context_pressed_cb), attachment);
     gtk_widget_add_controller (widget, GTK_EVENT_CONTROLLER (gesture));
+    attachment->destroy_handler = g_signal_connect (widget, "destroy",
+                                                    G_CALLBACK (widget_destroy_cb), attachment);
     g_object_set_qdata_full (G_OBJECT (widget), attachment_quark,
                              attachment, attachment_free);
   }
-  awra_popover_set_menu_model (attachment->popover, model);
+  if (attachment->popover != NULL)
+    awra_popover_set_menu_model (attachment->popover, model);
 }
 
 GMenuModel *
@@ -93,7 +113,7 @@ awra_widget_get_context_menu_model (GtkWidget *widget)
 
   g_return_val_if_fail (GTK_IS_WIDGET (widget), NULL);
   attachment = get_attachment (widget);
-  return attachment != NULL
+  return attachment != NULL && attachment->popover != NULL
            ? awra_popover_get_menu_model (attachment->popover)
            : NULL;
 }

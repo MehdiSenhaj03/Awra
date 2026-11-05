@@ -80,6 +80,19 @@ impl SelectionToolbar {
         }
     }
 
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    #[doc(alias = "awra_selection_toolbar_get_clear_label")]
+    #[doc(alias = "get_clear_label")]
+    #[doc(alias = "clear-label")]
+    pub fn clear_label(&self) -> glib::GString {
+        unsafe {
+            from_glib_none(ffi::awra_selection_toolbar_get_clear_label(
+                self.to_glib_none().0,
+            ))
+        }
+    }
+
     #[doc(alias = "awra_selection_toolbar_get_model")]
     #[doc(alias = "get_model")]
     pub fn model(&self) -> Option<gtk::SelectionModel> {
@@ -129,6 +142,19 @@ impl SelectionToolbar {
         }
     }
 
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    #[doc(alias = "awra_selection_toolbar_set_clear_label")]
+    #[doc(alias = "clear-label")]
+    pub fn set_clear_label(&self, label: Option<&str>) {
+        unsafe {
+            ffi::awra_selection_toolbar_set_clear_label(
+                self.to_glib_none().0,
+                label.to_glib_none().0,
+            );
+        }
+    }
+
     #[doc(alias = "awra_selection_toolbar_set_model")]
     #[doc(alias = "model")]
     pub fn set_model(&self, model: Option<&impl IsA<gtk::SelectionModel>>) {
@@ -157,6 +183,20 @@ impl SelectionToolbar {
         unsafe {
             ffi::awra_selection_toolbar_set_title(self.to_glib_none().0, title.to_glib_none().0);
         }
+    }
+
+    #[cfg(not(feature = "v1_1"))]
+    #[cfg_attr(docsrs, doc(cfg(not(feature = "v1_1"))))]
+    #[doc(alias = "clear-label")]
+    pub fn clear_label(&self) -> Option<glib::GString> {
+        ObjectExt::property(self, "clear-label")
+    }
+
+    #[cfg(not(feature = "v1_1"))]
+    #[cfg_attr(docsrs, doc(cfg(not(feature = "v1_1"))))]
+    #[doc(alias = "clear-label")]
+    pub fn set_clear_label(&self, clear_label: Option<&str>) {
+        ObjectExt::set_property(self, "clear-label", clear_label)
     }
 
     #[doc(alias = "actions")]
@@ -203,6 +243,31 @@ impl SelectionToolbar {
                 c"notify::auto-hide".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_auto_hide_trampoline::<F> as *const (),
+                )),
+                Box_::into_raw(f),
+            )
+        }
+    }
+
+    #[doc(alias = "clear-label")]
+    pub fn connect_clear_label_notify<F: Fn(&Self) + 'static>(&self, f: F) -> SignalHandlerId {
+        unsafe extern "C" fn notify_clear_label_trampoline<F: Fn(&SelectionToolbar) + 'static>(
+            this: *mut ffi::AwraSelectionToolbar,
+            _param_spec: glib::ffi::gpointer,
+            f: glib::ffi::gpointer,
+        ) {
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this))
+            }
+        }
+        unsafe {
+            let f: Box_<F> = Box_::new(f);
+            connect_raw(
+                self.as_ptr() as *mut _,
+                c"notify::clear-label".as_ptr(),
+                Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
+                    notify_clear_label_trampoline::<F> as *const (),
                 )),
                 Box_::into_raw(f),
             )
@@ -343,6 +408,12 @@ impl SelectionToolbarBuilder {
     pub fn auto_hide(self, auto_hide: bool) -> Self {
         Self {
             builder: self.builder.property("auto-hide", auto_hide),
+        }
+    }
+
+    pub fn clear_label(self, clear_label: impl Into<glib::GString>) -> Self {
+        Self {
+            builder: self.builder.property("clear-label", clear_label.into()),
         }
     }
 

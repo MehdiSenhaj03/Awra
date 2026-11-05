@@ -40,6 +40,29 @@ const GdkRGBA *awra_token_set_get_focus_ring     (AwraTokenSet  *self);
 const GdkRGBA *awra_token_set_get_disabled_foreground (AwraTokenSet *self);
 const GdkRGBA *awra_token_set_get_on_accent       (AwraTokenSet  *self);
 const GdkRGBA *awra_token_set_get_danger          (AwraTokenSet  *self);
+/**
+ * awra_token_set_get_success:
+ * @self: a token set
+ *
+ * The colour of a positive or available state, strong enough for a small
+ * indicator such as a presence dot.
+ *
+ * Returns: (transfer none): the success colour
+ *
+ * Since: 1.1
+ */
+const GdkRGBA *awra_token_set_get_success         (AwraTokenSet  *self);
+/**
+ * awra_token_set_get_warning:
+ * @self: a token set
+ *
+ * The colour of a state that needs attention without being critical.
+ *
+ * Returns: (transfer none): the warning colour
+ *
+ * Since: 1.1
+ */
+const GdkRGBA *awra_token_set_get_warning         (AwraTokenSet  *self);
 const GdkRGBA *awra_token_set_get_accent_soft     (AwraTokenSet  *self);
 const GdkRGBA *awra_token_set_get_surface_canvas  (AwraTokenSet  *self);
 const GdkRGBA *awra_token_set_get_surface_content (AwraTokenSet  *self);

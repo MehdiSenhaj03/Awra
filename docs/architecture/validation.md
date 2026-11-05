@@ -91,11 +91,11 @@ hash as clean Breeze, with GTK warnings fatal. `GtkWindowControls` still owns
 the desktop operation layout and symbols; Awra now protects their safe metrics
 and surrounding button chrome.
 
-The Pokedia validation also exposed a generic-class collision: the desktop
+The a reference application validation also exposed a generic-class collision: the desktop
 theme's `.sidebar-pane:first-child` rule painted an opaque 9000-pixel shadow
 beside the sidebar only while the window was active. All public style roles are
 now mapped to private `awra-role-*` classes. The regression fixture carries the
-same hostile rule, and real active/inactive captures of Pokedia's Frosted
+same hostile rule, and real active/inactive captures of a reference application Frosted
 window compare with zero differing pixels while retaining the native blur
 request.
 
@@ -139,7 +139,7 @@ Validated on 2026-08-19 after the complete roadmap execution:
 - clean staged install, Meson subproject consumer, gettext catalogue and
   structurally complete installed `gi-docgen` reference;
 - clean Git-tree `meson dist`: `awra-1.0.0.tar.xz`;
-- fresh PokediaAwra Rust target linked to `libawra-1.so.1`, with tests, Clippy,
+- fresh a reference application Rust target linked to `libawra-1.so.1`, with tests, Clippy,
   public-only boundary and all page/detail/dialog smoke paths passing;
 - external AT-SPI/Orca bridge audit of mapped Showcase semantics;
 - KWin built-in-only and no-blur fallback transaction, with the initial

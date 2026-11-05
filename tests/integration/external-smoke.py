@@ -30,6 +30,14 @@ def main() -> int:
     assert surface.get_child() is child
     surface.set_child(None)
     assert surface.get_child() is None
+    source = Gtk.Picture()
+    surface.set_backdrop_widget(source)
+    assert surface.get_backdrop_widget() is source
+    surface.set_backdrop_widget(None)
+    header = Awra.Header.new()
+    header.set_max_width(1000)
+    assert header.get_max_width() == 1000
+    assert isinstance(header.get_surface(), Awra.Surface)
 
     task = Awra.TaskRow.new("Export")
     task.set_subtitle("Preparing")
@@ -133,6 +141,9 @@ def main() -> int:
     breadcrumbs = Awra.BreadcrumbBar.new()
     assert breadcrumb.get_name() == "library"
     assert breadcrumbs.get_model() is None
+    path_bar = Awra.PathBar.new()
+    path_bar.set_text("/library")
+    assert path_bar.get_text() == "/library" and not path_bar.get_editing()
     palette = Awra.CommandPalette.new(None)
     palette.set_title("Quick actions")
     palette.set_empty_text("Nothing found")
@@ -176,6 +187,10 @@ def main() -> int:
     assert volume.get_effective_volume() == 0
     timeline = Awra.Timeline.new()
     timeline.set_duration(120)
+    timeline.set_step_increment(5)
+    timeline.set_page_increment(30)
+    assert timeline.get_step_increment() == 5
+    assert timeline.get_page_increment() == 30
     timeline.add_interval(10, 15, "Cue")
     timeline.set_offset(-0.5)
     assert timeline.get_n_intervals() == 1

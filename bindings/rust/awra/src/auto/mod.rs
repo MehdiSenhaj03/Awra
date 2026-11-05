@@ -8,10 +8,34 @@ pub use self::action_row::ActionRow;
 
 #[cfg(feature = "v1_1")]
 #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+mod animation;
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+pub use self::animation::Animation;
+
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+mod animation_target;
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+pub use self::animation_target::AnimationTarget;
+
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
 mod aspect_paintable;
 #[cfg(feature = "v1_1")]
 #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
 pub use self::aspect_paintable::AspectPaintable;
+
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+mod avatar;
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+pub use self::avatar::Avatar;
+
+mod avatar_group;
+pub use self::avatar_group::AvatarGroup;
 
 mod badge;
 pub use self::badge::Badge;
@@ -28,20 +52,61 @@ pub use self::breadcrumb_item::BreadcrumbItem;
 mod button;
 pub use self::button::Button;
 
+mod button_content;
+pub use self::button_content::ButtonContent;
+
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+mod callback_animation_target;
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+pub use self::callback_animation_target::CallbackAnimationTarget;
+
 mod card;
 pub use self::card::Card;
 
 mod check_button;
 pub use self::check_button::CheckButton;
 
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+mod chip;
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+pub use self::chip::Chip;
+
 mod choice_group;
 pub use self::choice_group::ChoiceGroup;
+
+mod color_palette;
+pub use self::color_palette::ColorPalette;
 
 mod command_palette;
 pub use self::command_palette::CommandPalette;
 
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+mod completion_popover;
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+pub use self::completion_popover::CompletionPopover;
+
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+mod composer;
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+pub use self::composer::Composer;
+
 mod context;
 pub use self::context::Context;
+
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+mod conversation_view;
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+pub use self::conversation_view::ConversationView;
 
 mod data_column;
 pub use self::data_column::DataColumn;
@@ -60,6 +125,16 @@ pub use self::dialog::Dialog;
 
 #[cfg(feature = "v1_1")]
 #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+mod divider;
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+pub use self::divider::Divider;
+
+mod drag_preview;
+pub use self::drag_preview::DragPreview;
+
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
 mod drop_zone;
 #[cfg(feature = "v1_1")]
 #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
@@ -70,6 +145,20 @@ pub use self::dropdown::Dropdown;
 
 mod edge_panel;
 pub use self::edge_panel::EdgePanel;
+
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+mod emoji_item;
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+pub use self::emoji_item::EmojiItem;
+
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+mod emoji_picker;
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+pub use self::emoji_picker::EmojiPicker;
 
 mod empty_state;
 pub use self::empty_state::EmptyState;
@@ -176,14 +265,48 @@ pub use self::page_header::PageHeader;
 mod password_entry;
 pub use self::password_entry::PasswordEntry;
 
+mod path_bar;
+pub use self::path_bar::PathBar;
+
 mod popover;
 pub use self::popover::Popover;
 
 mod progress_bar;
 pub use self::progress_bar::ProgressBar;
 
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+mod property_animation_target;
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+pub use self::property_animation_target::PropertyAnimationTarget;
+
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+mod rail;
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+pub use self::rail::Rail;
+
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+mod rail_group;
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+pub use self::rail_group::RailGroup;
+
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+mod rail_item;
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+pub use self::rail_item::RailItem;
+
 mod responsive_bin;
 pub use self::responsive_bin::ResponsiveBin;
+
+mod rich_label;
+pub use self::rich_label::RichLabel;
 
 mod search_entry;
 pub use self::search_entry::SearchEntry;
@@ -218,6 +341,13 @@ pub use self::spin_button::SpinButton;
 
 mod split_view;
 pub use self::split_view::SplitView;
+
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+mod spring_animation;
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+pub use self::spring_animation::SpringAnimation;
 
 mod stat_bar;
 pub use self::stat_bar::StatBar;
@@ -257,6 +387,16 @@ mod texture_stream;
 #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
 pub use self::texture_stream::TextureStream;
 
+mod tile_view;
+pub use self::tile_view::TileView;
+
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+mod timed_animation;
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+pub use self::timed_animation::TimedAnimation;
+
 #[cfg(feature = "v1_1")]
 #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
 mod timeline;
@@ -275,6 +415,16 @@ pub use self::token_set::TokenSet;
 
 mod toolbar;
 pub use self::toolbar::Toolbar;
+
+mod transition_bin;
+pub use self::transition_bin::TransitionBin;
+
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+mod typing_indicator;
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+pub use self::typing_indicator::TypingIndicator;
 
 #[cfg(feature = "v1_1")]
 #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
@@ -295,11 +445,35 @@ pub use self::window::Window;
 
 mod enums;
 pub use self::enums::AccentSource;
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+pub use self::enums::AnimationState;
 pub use self::enums::Appearance;
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+pub use self::enums::AvatarShape;
 pub use self::enums::BadgeAppearance;
 pub use self::enums::ButtonAppearance;
 pub use self::enums::CardAppearance;
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+pub use self::enums::ChipAppearance;
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+pub use self::enums::ConversationAlign;
 pub use self::enums::DataViewState;
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+pub use self::enums::DividerAppearance;
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+pub use self::enums::DividerLabelPosition;
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+pub use self::enums::Easing;
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+pub use self::enums::EdgeStatus;
 pub use self::enums::Elevation;
 #[cfg(feature = "v1_1")]
 #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
@@ -311,6 +485,9 @@ pub use self::enums::MaterialKind;
 pub use self::enums::MaterialPreset;
 pub use self::enums::MotionPreset;
 pub use self::enums::PanelEdge;
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+pub use self::enums::Presence;
 pub use self::enums::Radius;
 pub use self::enums::Spacing;
 pub use self::enums::StatusAppearance;
@@ -324,6 +501,9 @@ pub use self::flags::SurfaceCorner;
 pub use self::flags::SurfaceEdge;
 
 pub(crate) mod traits {
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub use super::animation::AnimationExt;
     pub use super::window::WindowExt;
 }
 pub(crate) mod builders {
@@ -331,24 +511,52 @@ pub(crate) mod builders {
     #[cfg(feature = "v1_1")]
     #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
     pub use super::aspect_paintable::AspectPaintableBuilder;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub use super::avatar::AvatarBuilder;
+    pub use super::avatar_group::AvatarGroupBuilder;
     pub use super::badge::BadgeBuilder;
     pub use super::badge_group::BadgeGroupBuilder;
     pub use super::breadcrumb_bar::BreadcrumbBarBuilder;
     pub use super::breadcrumb_item::BreadcrumbItemBuilder;
     pub use super::button::ButtonBuilder;
+    pub use super::button_content::ButtonContentBuilder;
     pub use super::card::CardBuilder;
     pub use super::check_button::CheckButtonBuilder;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub use super::chip::ChipBuilder;
     pub use super::choice_group::ChoiceGroupBuilder;
+    pub use super::color_palette::ColorPaletteBuilder;
     pub use super::command_palette::CommandPaletteBuilder;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub use super::completion_popover::CompletionPopoverBuilder;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub use super::composer::ComposerBuilder;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub use super::conversation_view::ConversationViewBuilder;
     pub use super::data_column::DataColumnBuilder;
     pub use super::data_view::DataViewBuilder;
     pub use super::detail_pane::DetailPaneBuilder;
     pub use super::dialog::DialogBuilder;
     #[cfg(feature = "v1_1")]
     #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub use super::divider::DividerBuilder;
+    pub use super::drag_preview::DragPreviewBuilder;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
     pub use super::drop_zone::DropZoneBuilder;
     pub use super::dropdown::DropdownBuilder;
     pub use super::edge_panel::EdgePanelBuilder;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub use super::emoji_item::EmojiItemBuilder;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub use super::emoji_picker::EmojiPickerBuilder;
     pub use super::empty_state::EmptyStateBuilder;
     pub use super::entry::EntryBuilder;
     pub use super::error_state::ErrorStateBuilder;
@@ -380,9 +588,23 @@ pub(crate) mod builders {
     pub use super::page::PageBuilder;
     pub use super::page_header::PageHeaderBuilder;
     pub use super::password_entry::PasswordEntryBuilder;
+    pub use super::path_bar::PathBarBuilder;
     pub use super::popover::PopoverBuilder;
     pub use super::progress_bar::ProgressBarBuilder;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub use super::property_animation_target::PropertyAnimationTargetBuilder;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub use super::rail::RailBuilder;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub use super::rail_group::RailGroupBuilder;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub use super::rail_item::RailItemBuilder;
     pub use super::responsive_bin::ResponsiveBinBuilder;
+    pub use super::rich_label::RichLabelBuilder;
     pub use super::search_entry::SearchEntryBuilder;
     pub use super::section::SectionBuilder;
     pub use super::segmented_control::SegmentedControlBuilder;
@@ -395,6 +617,9 @@ pub(crate) mod builders {
     pub use super::slider::SliderBuilder;
     pub use super::spin_button::SpinButtonBuilder;
     pub use super::split_view::SplitViewBuilder;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub use super::spring_animation::SpringAnimationBuilder;
     pub use super::stat_bar::StatBarBuilder;
     pub use super::status_banner::StatusBannerBuilder;
     pub use super::style_manager::StyleManagerBuilder;
@@ -406,12 +631,20 @@ pub(crate) mod builders {
     #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
     pub use super::task_row::TaskRowBuilder;
     pub use super::text_area::TextAreaBuilder;
+    pub use super::tile_view::TileViewBuilder;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub use super::timed_animation::TimedAnimationBuilder;
     #[cfg(feature = "v1_1")]
     #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
     pub use super::timeline::TimelineBuilder;
     pub use super::toast_overlay::ToastOverlayBuilder;
     pub use super::toggle_button::ToggleButtonBuilder;
     pub use super::toolbar::ToolbarBuilder;
+    pub use super::transition_bin::TransitionBinBuilder;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub use super::typing_indicator::TypingIndicatorBuilder;
     #[cfg(feature = "v1_1")]
     #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
     pub use super::volume_control::VolumeControlBuilder;

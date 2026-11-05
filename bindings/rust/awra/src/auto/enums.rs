@@ -106,6 +106,128 @@ impl From<AccentSource> for glib::Value {
     }
 }
 
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+#[derive(Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Clone, Copy)]
+#[non_exhaustive]
+#[doc(alias = "AwraAnimationState")]
+pub enum AnimationState {
+    #[doc(alias = "AWRA_ANIMATION_STATE_IDLE")]
+    Idle,
+    #[doc(alias = "AWRA_ANIMATION_STATE_PAUSED")]
+    Paused,
+    #[doc(alias = "AWRA_ANIMATION_STATE_PLAYING")]
+    Playing,
+    #[doc(alias = "AWRA_ANIMATION_STATE_FINISHED")]
+    Finished,
+    #[doc(hidden)]
+    __Unknown(i32),
+}
+
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+#[doc(hidden)]
+impl IntoGlib for AnimationState {
+    type GlibType = ffi::AwraAnimationState;
+
+    #[inline]
+    fn into_glib(self) -> ffi::AwraAnimationState {
+        match self {
+            Self::Idle => ffi::AWRA_ANIMATION_STATE_IDLE,
+            Self::Paused => ffi::AWRA_ANIMATION_STATE_PAUSED,
+            Self::Playing => ffi::AWRA_ANIMATION_STATE_PLAYING,
+            Self::Finished => ffi::AWRA_ANIMATION_STATE_FINISHED,
+            Self::__Unknown(value) => value,
+        }
+    }
+}
+
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+#[doc(hidden)]
+impl FromGlib<ffi::AwraAnimationState> for AnimationState {
+    #[inline]
+    unsafe fn from_glib(value: ffi::AwraAnimationState) -> Self {
+        skip_assert_initialized!();
+
+        match value {
+            ffi::AWRA_ANIMATION_STATE_IDLE => Self::Idle,
+            ffi::AWRA_ANIMATION_STATE_PAUSED => Self::Paused,
+            ffi::AWRA_ANIMATION_STATE_PLAYING => Self::Playing,
+            ffi::AWRA_ANIMATION_STATE_FINISHED => Self::Finished,
+            value => Self::__Unknown(value),
+        }
+    }
+}
+
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+impl StaticType for AnimationState {
+    #[inline]
+    #[doc(alias = "awra_animation_state_get_type")]
+    fn static_type() -> glib::Type {
+        unsafe { from_glib(ffi::awra_animation_state_get_type()) }
+    }
+}
+
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+impl glib::HasParamSpec for AnimationState {
+    type ParamSpec = glib::ParamSpecEnum;
+    type SetValue = Self;
+    type BuilderFn = fn(&str, Self) -> glib::ParamSpecEnumBuilder<Self>;
+
+    fn param_spec_builder() -> Self::BuilderFn {
+        Self::ParamSpec::builder_with_default
+    }
+}
+
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+impl glib::value::ValueType for AnimationState {
+    type Type = Self;
+}
+
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+unsafe impl<'a> glib::value::FromValue<'a> for AnimationState {
+    type Checker = glib::value::GenericValueTypeChecker<Self>;
+
+    #[inline]
+    unsafe fn from_value(value: &'a glib::Value) -> Self {
+        skip_assert_initialized!();
+        unsafe { from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0)) }
+    }
+}
+
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+impl ToValue for AnimationState {
+    #[inline]
+    fn to_value(&self) -> glib::Value {
+        let mut value = glib::Value::for_value_type::<Self>();
+        unsafe {
+            glib::gobject_ffi::g_value_set_enum(value.to_glib_none_mut().0, self.into_glib());
+        }
+        value
+    }
+
+    #[inline]
+    fn value_type(&self) -> glib::Type {
+        Self::static_type()
+    }
+}
+
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+impl From<AnimationState> for glib::Value {
+    #[inline]
+    fn from(v: AnimationState) -> Self {
+        skip_assert_initialized!();
+        ToValue::to_value(&v)
+    }
+}
+
 #[derive(Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Clone, Copy)]
 #[non_exhaustive]
 #[doc(alias = "AwraAppearance")]
@@ -201,6 +323,120 @@ impl ToValue for Appearance {
 impl From<Appearance> for glib::Value {
     #[inline]
     fn from(v: Appearance) -> Self {
+        skip_assert_initialized!();
+        ToValue::to_value(&v)
+    }
+}
+
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+#[derive(Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Clone, Copy)]
+#[non_exhaustive]
+#[doc(alias = "AwraAvatarShape")]
+pub enum AvatarShape {
+    #[doc(alias = "AWRA_AVATAR_SHAPE_CIRCLE")]
+    Circle,
+    #[doc(alias = "AWRA_AVATAR_SHAPE_ROUNDED")]
+    Rounded,
+    #[doc(hidden)]
+    __Unknown(i32),
+}
+
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+#[doc(hidden)]
+impl IntoGlib for AvatarShape {
+    type GlibType = ffi::AwraAvatarShape;
+
+    #[inline]
+    fn into_glib(self) -> ffi::AwraAvatarShape {
+        match self {
+            Self::Circle => ffi::AWRA_AVATAR_SHAPE_CIRCLE,
+            Self::Rounded => ffi::AWRA_AVATAR_SHAPE_ROUNDED,
+            Self::__Unknown(value) => value,
+        }
+    }
+}
+
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+#[doc(hidden)]
+impl FromGlib<ffi::AwraAvatarShape> for AvatarShape {
+    #[inline]
+    unsafe fn from_glib(value: ffi::AwraAvatarShape) -> Self {
+        skip_assert_initialized!();
+
+        match value {
+            ffi::AWRA_AVATAR_SHAPE_CIRCLE => Self::Circle,
+            ffi::AWRA_AVATAR_SHAPE_ROUNDED => Self::Rounded,
+            value => Self::__Unknown(value),
+        }
+    }
+}
+
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+impl StaticType for AvatarShape {
+    #[inline]
+    #[doc(alias = "awra_avatar_shape_get_type")]
+    fn static_type() -> glib::Type {
+        unsafe { from_glib(ffi::awra_avatar_shape_get_type()) }
+    }
+}
+
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+impl glib::HasParamSpec for AvatarShape {
+    type ParamSpec = glib::ParamSpecEnum;
+    type SetValue = Self;
+    type BuilderFn = fn(&str, Self) -> glib::ParamSpecEnumBuilder<Self>;
+
+    fn param_spec_builder() -> Self::BuilderFn {
+        Self::ParamSpec::builder_with_default
+    }
+}
+
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+impl glib::value::ValueType for AvatarShape {
+    type Type = Self;
+}
+
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+unsafe impl<'a> glib::value::FromValue<'a> for AvatarShape {
+    type Checker = glib::value::GenericValueTypeChecker<Self>;
+
+    #[inline]
+    unsafe fn from_value(value: &'a glib::Value) -> Self {
+        skip_assert_initialized!();
+        unsafe { from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0)) }
+    }
+}
+
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+impl ToValue for AvatarShape {
+    #[inline]
+    fn to_value(&self) -> glib::Value {
+        let mut value = glib::Value::for_value_type::<Self>();
+        unsafe {
+            glib::gobject_ffi::g_value_set_enum(value.to_glib_none_mut().0, self.into_glib());
+        }
+        value
+    }
+
+    #[inline]
+    fn value_type(&self) -> glib::Type {
+        Self::static_type()
+    }
+}
+
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+impl From<AvatarShape> for glib::Value {
+    #[inline]
+    fn from(v: AvatarShape) -> Self {
         skip_assert_initialized!();
         ToValue::to_value(&v)
     }
@@ -332,6 +568,8 @@ pub enum ButtonAppearance {
     Destructive,
     #[doc(alias = "AWRA_BUTTON_APPEARANCE_TOOLBAR")]
     Toolbar,
+    #[doc(alias = "AWRA_BUTTON_APPEARANCE_SUCCESS")]
+    Success,
     #[doc(hidden)]
     __Unknown(i32),
 }
@@ -348,6 +586,7 @@ impl IntoGlib for ButtonAppearance {
             Self::Ghost => ffi::AWRA_BUTTON_APPEARANCE_GHOST,
             Self::Destructive => ffi::AWRA_BUTTON_APPEARANCE_DESTRUCTIVE,
             Self::Toolbar => ffi::AWRA_BUTTON_APPEARANCE_TOOLBAR,
+            Self::Success => ffi::AWRA_BUTTON_APPEARANCE_SUCCESS,
             Self::__Unknown(value) => value,
         }
     }
@@ -365,6 +604,7 @@ impl FromGlib<ffi::AwraButtonAppearance> for ButtonAppearance {
             ffi::AWRA_BUTTON_APPEARANCE_GHOST => Self::Ghost,
             ffi::AWRA_BUTTON_APPEARANCE_DESTRUCTIVE => Self::Destructive,
             ffi::AWRA_BUTTON_APPEARANCE_TOOLBAR => Self::Toolbar,
+            ffi::AWRA_BUTTON_APPEARANCE_SUCCESS => Self::Success,
             value => Self::__Unknown(value),
         }
     }
@@ -526,6 +766,238 @@ impl From<CardAppearance> for glib::Value {
     }
 }
 
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+#[derive(Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Clone, Copy)]
+#[non_exhaustive]
+#[doc(alias = "AwraChipAppearance")]
+pub enum ChipAppearance {
+    #[doc(alias = "AWRA_CHIP_APPEARANCE_NEUTRAL")]
+    Neutral,
+    #[doc(alias = "AWRA_CHIP_APPEARANCE_ACCENT")]
+    Accent,
+    #[doc(hidden)]
+    __Unknown(i32),
+}
+
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+#[doc(hidden)]
+impl IntoGlib for ChipAppearance {
+    type GlibType = ffi::AwraChipAppearance;
+
+    #[inline]
+    fn into_glib(self) -> ffi::AwraChipAppearance {
+        match self {
+            Self::Neutral => ffi::AWRA_CHIP_APPEARANCE_NEUTRAL,
+            Self::Accent => ffi::AWRA_CHIP_APPEARANCE_ACCENT,
+            Self::__Unknown(value) => value,
+        }
+    }
+}
+
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+#[doc(hidden)]
+impl FromGlib<ffi::AwraChipAppearance> for ChipAppearance {
+    #[inline]
+    unsafe fn from_glib(value: ffi::AwraChipAppearance) -> Self {
+        skip_assert_initialized!();
+
+        match value {
+            ffi::AWRA_CHIP_APPEARANCE_NEUTRAL => Self::Neutral,
+            ffi::AWRA_CHIP_APPEARANCE_ACCENT => Self::Accent,
+            value => Self::__Unknown(value),
+        }
+    }
+}
+
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+impl StaticType for ChipAppearance {
+    #[inline]
+    #[doc(alias = "awra_chip_appearance_get_type")]
+    fn static_type() -> glib::Type {
+        unsafe { from_glib(ffi::awra_chip_appearance_get_type()) }
+    }
+}
+
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+impl glib::HasParamSpec for ChipAppearance {
+    type ParamSpec = glib::ParamSpecEnum;
+    type SetValue = Self;
+    type BuilderFn = fn(&str, Self) -> glib::ParamSpecEnumBuilder<Self>;
+
+    fn param_spec_builder() -> Self::BuilderFn {
+        Self::ParamSpec::builder_with_default
+    }
+}
+
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+impl glib::value::ValueType for ChipAppearance {
+    type Type = Self;
+}
+
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+unsafe impl<'a> glib::value::FromValue<'a> for ChipAppearance {
+    type Checker = glib::value::GenericValueTypeChecker<Self>;
+
+    #[inline]
+    unsafe fn from_value(value: &'a glib::Value) -> Self {
+        skip_assert_initialized!();
+        unsafe { from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0)) }
+    }
+}
+
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+impl ToValue for ChipAppearance {
+    #[inline]
+    fn to_value(&self) -> glib::Value {
+        let mut value = glib::Value::for_value_type::<Self>();
+        unsafe {
+            glib::gobject_ffi::g_value_set_enum(value.to_glib_none_mut().0, self.into_glib());
+        }
+        value
+    }
+
+    #[inline]
+    fn value_type(&self) -> glib::Type {
+        Self::static_type()
+    }
+}
+
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+impl From<ChipAppearance> for glib::Value {
+    #[inline]
+    fn from(v: ChipAppearance) -> Self {
+        skip_assert_initialized!();
+        ToValue::to_value(&v)
+    }
+}
+
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+#[derive(Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Clone, Copy)]
+#[non_exhaustive]
+#[doc(alias = "AwraConversationAlign")]
+pub enum ConversationAlign {
+    #[doc(alias = "AWRA_CONVERSATION_ALIGN_TOP")]
+    Top,
+    #[doc(alias = "AWRA_CONVERSATION_ALIGN_CENTER")]
+    Center,
+    #[doc(alias = "AWRA_CONVERSATION_ALIGN_END")]
+    End,
+    #[doc(hidden)]
+    __Unknown(i32),
+}
+
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+#[doc(hidden)]
+impl IntoGlib for ConversationAlign {
+    type GlibType = ffi::AwraConversationAlign;
+
+    #[inline]
+    fn into_glib(self) -> ffi::AwraConversationAlign {
+        match self {
+            Self::Top => ffi::AWRA_CONVERSATION_ALIGN_TOP,
+            Self::Center => ffi::AWRA_CONVERSATION_ALIGN_CENTER,
+            Self::End => ffi::AWRA_CONVERSATION_ALIGN_END,
+            Self::__Unknown(value) => value,
+        }
+    }
+}
+
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+#[doc(hidden)]
+impl FromGlib<ffi::AwraConversationAlign> for ConversationAlign {
+    #[inline]
+    unsafe fn from_glib(value: ffi::AwraConversationAlign) -> Self {
+        skip_assert_initialized!();
+
+        match value {
+            ffi::AWRA_CONVERSATION_ALIGN_TOP => Self::Top,
+            ffi::AWRA_CONVERSATION_ALIGN_CENTER => Self::Center,
+            ffi::AWRA_CONVERSATION_ALIGN_END => Self::End,
+            value => Self::__Unknown(value),
+        }
+    }
+}
+
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+impl StaticType for ConversationAlign {
+    #[inline]
+    #[doc(alias = "awra_conversation_align_get_type")]
+    fn static_type() -> glib::Type {
+        unsafe { from_glib(ffi::awra_conversation_align_get_type()) }
+    }
+}
+
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+impl glib::HasParamSpec for ConversationAlign {
+    type ParamSpec = glib::ParamSpecEnum;
+    type SetValue = Self;
+    type BuilderFn = fn(&str, Self) -> glib::ParamSpecEnumBuilder<Self>;
+
+    fn param_spec_builder() -> Self::BuilderFn {
+        Self::ParamSpec::builder_with_default
+    }
+}
+
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+impl glib::value::ValueType for ConversationAlign {
+    type Type = Self;
+}
+
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+unsafe impl<'a> glib::value::FromValue<'a> for ConversationAlign {
+    type Checker = glib::value::GenericValueTypeChecker<Self>;
+
+    #[inline]
+    unsafe fn from_value(value: &'a glib::Value) -> Self {
+        skip_assert_initialized!();
+        unsafe { from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0)) }
+    }
+}
+
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+impl ToValue for ConversationAlign {
+    #[inline]
+    fn to_value(&self) -> glib::Value {
+        let mut value = glib::Value::for_value_type::<Self>();
+        unsafe {
+            glib::gobject_ffi::g_value_set_enum(value.to_glib_none_mut().0, self.into_glib());
+        }
+        value
+    }
+
+    #[inline]
+    fn value_type(&self) -> glib::Type {
+        Self::static_type()
+    }
+}
+
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+impl From<ConversationAlign> for glib::Value {
+    #[inline]
+    fn from(v: ConversationAlign) -> Self {
+        skip_assert_initialized!();
+        ToValue::to_value(&v)
+    }
+}
+
 #[derive(Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Clone, Copy)]
 #[non_exhaustive]
 #[doc(alias = "AwraDataViewState")]
@@ -625,6 +1097,504 @@ impl ToValue for DataViewState {
 impl From<DataViewState> for glib::Value {
     #[inline]
     fn from(v: DataViewState) -> Self {
+        skip_assert_initialized!();
+        ToValue::to_value(&v)
+    }
+}
+
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+#[derive(Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Clone, Copy)]
+#[non_exhaustive]
+#[doc(alias = "AwraDividerAppearance")]
+pub enum DividerAppearance {
+    #[doc(alias = "AWRA_DIVIDER_APPEARANCE_NEUTRAL")]
+    Neutral,
+    #[doc(alias = "AWRA_DIVIDER_APPEARANCE_ACCENT")]
+    Accent,
+    #[doc(alias = "AWRA_DIVIDER_APPEARANCE_DANGER")]
+    Danger,
+    #[doc(hidden)]
+    __Unknown(i32),
+}
+
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+#[doc(hidden)]
+impl IntoGlib for DividerAppearance {
+    type GlibType = ffi::AwraDividerAppearance;
+
+    #[inline]
+    fn into_glib(self) -> ffi::AwraDividerAppearance {
+        match self {
+            Self::Neutral => ffi::AWRA_DIVIDER_APPEARANCE_NEUTRAL,
+            Self::Accent => ffi::AWRA_DIVIDER_APPEARANCE_ACCENT,
+            Self::Danger => ffi::AWRA_DIVIDER_APPEARANCE_DANGER,
+            Self::__Unknown(value) => value,
+        }
+    }
+}
+
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+#[doc(hidden)]
+impl FromGlib<ffi::AwraDividerAppearance> for DividerAppearance {
+    #[inline]
+    unsafe fn from_glib(value: ffi::AwraDividerAppearance) -> Self {
+        skip_assert_initialized!();
+
+        match value {
+            ffi::AWRA_DIVIDER_APPEARANCE_NEUTRAL => Self::Neutral,
+            ffi::AWRA_DIVIDER_APPEARANCE_ACCENT => Self::Accent,
+            ffi::AWRA_DIVIDER_APPEARANCE_DANGER => Self::Danger,
+            value => Self::__Unknown(value),
+        }
+    }
+}
+
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+impl StaticType for DividerAppearance {
+    #[inline]
+    #[doc(alias = "awra_divider_appearance_get_type")]
+    fn static_type() -> glib::Type {
+        unsafe { from_glib(ffi::awra_divider_appearance_get_type()) }
+    }
+}
+
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+impl glib::HasParamSpec for DividerAppearance {
+    type ParamSpec = glib::ParamSpecEnum;
+    type SetValue = Self;
+    type BuilderFn = fn(&str, Self) -> glib::ParamSpecEnumBuilder<Self>;
+
+    fn param_spec_builder() -> Self::BuilderFn {
+        Self::ParamSpec::builder_with_default
+    }
+}
+
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+impl glib::value::ValueType for DividerAppearance {
+    type Type = Self;
+}
+
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+unsafe impl<'a> glib::value::FromValue<'a> for DividerAppearance {
+    type Checker = glib::value::GenericValueTypeChecker<Self>;
+
+    #[inline]
+    unsafe fn from_value(value: &'a glib::Value) -> Self {
+        skip_assert_initialized!();
+        unsafe { from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0)) }
+    }
+}
+
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+impl ToValue for DividerAppearance {
+    #[inline]
+    fn to_value(&self) -> glib::Value {
+        let mut value = glib::Value::for_value_type::<Self>();
+        unsafe {
+            glib::gobject_ffi::g_value_set_enum(value.to_glib_none_mut().0, self.into_glib());
+        }
+        value
+    }
+
+    #[inline]
+    fn value_type(&self) -> glib::Type {
+        Self::static_type()
+    }
+}
+
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+impl From<DividerAppearance> for glib::Value {
+    #[inline]
+    fn from(v: DividerAppearance) -> Self {
+        skip_assert_initialized!();
+        ToValue::to_value(&v)
+    }
+}
+
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+#[derive(Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Clone, Copy)]
+#[non_exhaustive]
+#[doc(alias = "AwraDividerLabelPosition")]
+pub enum DividerLabelPosition {
+    #[doc(alias = "AWRA_DIVIDER_LABEL_POSITION_CENTER")]
+    Center,
+    #[doc(alias = "AWRA_DIVIDER_LABEL_POSITION_END")]
+    End,
+    #[doc(hidden)]
+    __Unknown(i32),
+}
+
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+#[doc(hidden)]
+impl IntoGlib for DividerLabelPosition {
+    type GlibType = ffi::AwraDividerLabelPosition;
+
+    #[inline]
+    fn into_glib(self) -> ffi::AwraDividerLabelPosition {
+        match self {
+            Self::Center => ffi::AWRA_DIVIDER_LABEL_POSITION_CENTER,
+            Self::End => ffi::AWRA_DIVIDER_LABEL_POSITION_END,
+            Self::__Unknown(value) => value,
+        }
+    }
+}
+
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+#[doc(hidden)]
+impl FromGlib<ffi::AwraDividerLabelPosition> for DividerLabelPosition {
+    #[inline]
+    unsafe fn from_glib(value: ffi::AwraDividerLabelPosition) -> Self {
+        skip_assert_initialized!();
+
+        match value {
+            ffi::AWRA_DIVIDER_LABEL_POSITION_CENTER => Self::Center,
+            ffi::AWRA_DIVIDER_LABEL_POSITION_END => Self::End,
+            value => Self::__Unknown(value),
+        }
+    }
+}
+
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+impl StaticType for DividerLabelPosition {
+    #[inline]
+    #[doc(alias = "awra_divider_label_position_get_type")]
+    fn static_type() -> glib::Type {
+        unsafe { from_glib(ffi::awra_divider_label_position_get_type()) }
+    }
+}
+
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+impl glib::HasParamSpec for DividerLabelPosition {
+    type ParamSpec = glib::ParamSpecEnum;
+    type SetValue = Self;
+    type BuilderFn = fn(&str, Self) -> glib::ParamSpecEnumBuilder<Self>;
+
+    fn param_spec_builder() -> Self::BuilderFn {
+        Self::ParamSpec::builder_with_default
+    }
+}
+
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+impl glib::value::ValueType for DividerLabelPosition {
+    type Type = Self;
+}
+
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+unsafe impl<'a> glib::value::FromValue<'a> for DividerLabelPosition {
+    type Checker = glib::value::GenericValueTypeChecker<Self>;
+
+    #[inline]
+    unsafe fn from_value(value: &'a glib::Value) -> Self {
+        skip_assert_initialized!();
+        unsafe { from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0)) }
+    }
+}
+
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+impl ToValue for DividerLabelPosition {
+    #[inline]
+    fn to_value(&self) -> glib::Value {
+        let mut value = glib::Value::for_value_type::<Self>();
+        unsafe {
+            glib::gobject_ffi::g_value_set_enum(value.to_glib_none_mut().0, self.into_glib());
+        }
+        value
+    }
+
+    #[inline]
+    fn value_type(&self) -> glib::Type {
+        Self::static_type()
+    }
+}
+
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+impl From<DividerLabelPosition> for glib::Value {
+    #[inline]
+    fn from(v: DividerLabelPosition) -> Self {
+        skip_assert_initialized!();
+        ToValue::to_value(&v)
+    }
+}
+
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+#[derive(Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Clone, Copy)]
+#[non_exhaustive]
+#[doc(alias = "AwraEasing")]
+pub enum Easing {
+    #[doc(alias = "AWRA_EASING_LINEAR")]
+    Linear,
+    #[doc(alias = "AWRA_EASING_EASE_OUT_QUAD")]
+    EaseOutQuad,
+    #[doc(alias = "AWRA_EASING_EASE_OUT_CUBIC")]
+    EaseOutCubic,
+    #[doc(alias = "AWRA_EASING_EASE_IN_OUT_CUBIC")]
+    EaseInOutCubic,
+    #[doc(alias = "AWRA_EASING_EASE_OUT_QUART")]
+    EaseOutQuart,
+    #[doc(alias = "AWRA_EASING_EASE_OUT_EXPO")]
+    EaseOutExpo,
+    #[doc(alias = "AWRA_EASING_EASE_OUT_BACK")]
+    EaseOutBack,
+    #[doc(alias = "AWRA_EASING_EASE_IN_OUT_SINE")]
+    EaseInOutSine,
+    #[doc(hidden)]
+    __Unknown(i32),
+}
+
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+impl Easing {
+    #[doc(alias = "awra_easing_ease")]
+    pub fn ease(self, value: f64) -> f64 {
+        skip_assert_initialized!();
+        unsafe { ffi::awra_easing_ease(self.into_glib(), value) }
+    }
+}
+
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+#[doc(hidden)]
+impl IntoGlib for Easing {
+    type GlibType = ffi::AwraEasing;
+
+    #[inline]
+    fn into_glib(self) -> ffi::AwraEasing {
+        match self {
+            Self::Linear => ffi::AWRA_EASING_LINEAR,
+            Self::EaseOutQuad => ffi::AWRA_EASING_EASE_OUT_QUAD,
+            Self::EaseOutCubic => ffi::AWRA_EASING_EASE_OUT_CUBIC,
+            Self::EaseInOutCubic => ffi::AWRA_EASING_EASE_IN_OUT_CUBIC,
+            Self::EaseOutQuart => ffi::AWRA_EASING_EASE_OUT_QUART,
+            Self::EaseOutExpo => ffi::AWRA_EASING_EASE_OUT_EXPO,
+            Self::EaseOutBack => ffi::AWRA_EASING_EASE_OUT_BACK,
+            Self::EaseInOutSine => ffi::AWRA_EASING_EASE_IN_OUT_SINE,
+            Self::__Unknown(value) => value,
+        }
+    }
+}
+
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+#[doc(hidden)]
+impl FromGlib<ffi::AwraEasing> for Easing {
+    #[inline]
+    unsafe fn from_glib(value: ffi::AwraEasing) -> Self {
+        skip_assert_initialized!();
+
+        match value {
+            ffi::AWRA_EASING_LINEAR => Self::Linear,
+            ffi::AWRA_EASING_EASE_OUT_QUAD => Self::EaseOutQuad,
+            ffi::AWRA_EASING_EASE_OUT_CUBIC => Self::EaseOutCubic,
+            ffi::AWRA_EASING_EASE_IN_OUT_CUBIC => Self::EaseInOutCubic,
+            ffi::AWRA_EASING_EASE_OUT_QUART => Self::EaseOutQuart,
+            ffi::AWRA_EASING_EASE_OUT_EXPO => Self::EaseOutExpo,
+            ffi::AWRA_EASING_EASE_OUT_BACK => Self::EaseOutBack,
+            ffi::AWRA_EASING_EASE_IN_OUT_SINE => Self::EaseInOutSine,
+            value => Self::__Unknown(value),
+        }
+    }
+}
+
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+impl StaticType for Easing {
+    #[inline]
+    #[doc(alias = "awra_easing_get_type")]
+    fn static_type() -> glib::Type {
+        unsafe { from_glib(ffi::awra_easing_get_type()) }
+    }
+}
+
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+impl glib::HasParamSpec for Easing {
+    type ParamSpec = glib::ParamSpecEnum;
+    type SetValue = Self;
+    type BuilderFn = fn(&str, Self) -> glib::ParamSpecEnumBuilder<Self>;
+
+    fn param_spec_builder() -> Self::BuilderFn {
+        Self::ParamSpec::builder_with_default
+    }
+}
+
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+impl glib::value::ValueType for Easing {
+    type Type = Self;
+}
+
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+unsafe impl<'a> glib::value::FromValue<'a> for Easing {
+    type Checker = glib::value::GenericValueTypeChecker<Self>;
+
+    #[inline]
+    unsafe fn from_value(value: &'a glib::Value) -> Self {
+        skip_assert_initialized!();
+        unsafe { from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0)) }
+    }
+}
+
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+impl ToValue for Easing {
+    #[inline]
+    fn to_value(&self) -> glib::Value {
+        let mut value = glib::Value::for_value_type::<Self>();
+        unsafe {
+            glib::gobject_ffi::g_value_set_enum(value.to_glib_none_mut().0, self.into_glib());
+        }
+        value
+    }
+
+    #[inline]
+    fn value_type(&self) -> glib::Type {
+        Self::static_type()
+    }
+}
+
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+impl From<Easing> for glib::Value {
+    #[inline]
+    fn from(v: Easing) -> Self {
+        skip_assert_initialized!();
+        ToValue::to_value(&v)
+    }
+}
+
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+#[derive(Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Clone, Copy)]
+#[non_exhaustive]
+#[doc(alias = "AwraEdgeStatus")]
+pub enum EdgeStatus {
+    #[doc(alias = "AWRA_EDGE_STATUS_NONE")]
+    None,
+    #[doc(alias = "AWRA_EDGE_STATUS_LOADING")]
+    Loading,
+    #[doc(alias = "AWRA_EDGE_STATUS_FAILED")]
+    Failed,
+    #[doc(hidden)]
+    __Unknown(i32),
+}
+
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+#[doc(hidden)]
+impl IntoGlib for EdgeStatus {
+    type GlibType = ffi::AwraEdgeStatus;
+
+    #[inline]
+    fn into_glib(self) -> ffi::AwraEdgeStatus {
+        match self {
+            Self::None => ffi::AWRA_EDGE_STATUS_NONE,
+            Self::Loading => ffi::AWRA_EDGE_STATUS_LOADING,
+            Self::Failed => ffi::AWRA_EDGE_STATUS_FAILED,
+            Self::__Unknown(value) => value,
+        }
+    }
+}
+
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+#[doc(hidden)]
+impl FromGlib<ffi::AwraEdgeStatus> for EdgeStatus {
+    #[inline]
+    unsafe fn from_glib(value: ffi::AwraEdgeStatus) -> Self {
+        skip_assert_initialized!();
+
+        match value {
+            ffi::AWRA_EDGE_STATUS_NONE => Self::None,
+            ffi::AWRA_EDGE_STATUS_LOADING => Self::Loading,
+            ffi::AWRA_EDGE_STATUS_FAILED => Self::Failed,
+            value => Self::__Unknown(value),
+        }
+    }
+}
+
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+impl StaticType for EdgeStatus {
+    #[inline]
+    #[doc(alias = "awra_edge_status_get_type")]
+    fn static_type() -> glib::Type {
+        unsafe { from_glib(ffi::awra_edge_status_get_type()) }
+    }
+}
+
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+impl glib::HasParamSpec for EdgeStatus {
+    type ParamSpec = glib::ParamSpecEnum;
+    type SetValue = Self;
+    type BuilderFn = fn(&str, Self) -> glib::ParamSpecEnumBuilder<Self>;
+
+    fn param_spec_builder() -> Self::BuilderFn {
+        Self::ParamSpec::builder_with_default
+    }
+}
+
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+impl glib::value::ValueType for EdgeStatus {
+    type Type = Self;
+}
+
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+unsafe impl<'a> glib::value::FromValue<'a> for EdgeStatus {
+    type Checker = glib::value::GenericValueTypeChecker<Self>;
+
+    #[inline]
+    unsafe fn from_value(value: &'a glib::Value) -> Self {
+        skip_assert_initialized!();
+        unsafe { from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0)) }
+    }
+}
+
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+impl ToValue for EdgeStatus {
+    #[inline]
+    fn to_value(&self) -> glib::Value {
+        let mut value = glib::Value::for_value_type::<Self>();
+        unsafe {
+            glib::gobject_ffi::g_value_set_enum(value.to_glib_none_mut().0, self.into_glib());
+        }
+        value
+    }
+
+    #[inline]
+    fn value_type(&self) -> glib::Type {
+        Self::static_type()
+    }
+}
+
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+impl From<EdgeStatus> for glib::Value {
+    #[inline]
+    fn from(v: EdgeStatus) -> Self {
         skip_assert_initialized!();
         ToValue::to_value(&v)
     }
@@ -1580,6 +2550,132 @@ impl From<PanelEdge> for glib::Value {
     }
 }
 
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+#[derive(Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Clone, Copy)]
+#[non_exhaustive]
+#[doc(alias = "AwraPresence")]
+pub enum Presence {
+    #[doc(alias = "AWRA_PRESENCE_NONE")]
+    None,
+    #[doc(alias = "AWRA_PRESENCE_ONLINE")]
+    Online,
+    #[doc(alias = "AWRA_PRESENCE_IDLE")]
+    Idle,
+    #[doc(alias = "AWRA_PRESENCE_BUSY")]
+    Busy,
+    #[doc(alias = "AWRA_PRESENCE_OFFLINE")]
+    Offline,
+    #[doc(hidden)]
+    __Unknown(i32),
+}
+
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+#[doc(hidden)]
+impl IntoGlib for Presence {
+    type GlibType = ffi::AwraPresence;
+
+    #[inline]
+    fn into_glib(self) -> ffi::AwraPresence {
+        match self {
+            Self::None => ffi::AWRA_PRESENCE_NONE,
+            Self::Online => ffi::AWRA_PRESENCE_ONLINE,
+            Self::Idle => ffi::AWRA_PRESENCE_IDLE,
+            Self::Busy => ffi::AWRA_PRESENCE_BUSY,
+            Self::Offline => ffi::AWRA_PRESENCE_OFFLINE,
+            Self::__Unknown(value) => value,
+        }
+    }
+}
+
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+#[doc(hidden)]
+impl FromGlib<ffi::AwraPresence> for Presence {
+    #[inline]
+    unsafe fn from_glib(value: ffi::AwraPresence) -> Self {
+        skip_assert_initialized!();
+
+        match value {
+            ffi::AWRA_PRESENCE_NONE => Self::None,
+            ffi::AWRA_PRESENCE_ONLINE => Self::Online,
+            ffi::AWRA_PRESENCE_IDLE => Self::Idle,
+            ffi::AWRA_PRESENCE_BUSY => Self::Busy,
+            ffi::AWRA_PRESENCE_OFFLINE => Self::Offline,
+            value => Self::__Unknown(value),
+        }
+    }
+}
+
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+impl StaticType for Presence {
+    #[inline]
+    #[doc(alias = "awra_presence_get_type")]
+    fn static_type() -> glib::Type {
+        unsafe { from_glib(ffi::awra_presence_get_type()) }
+    }
+}
+
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+impl glib::HasParamSpec for Presence {
+    type ParamSpec = glib::ParamSpecEnum;
+    type SetValue = Self;
+    type BuilderFn = fn(&str, Self) -> glib::ParamSpecEnumBuilder<Self>;
+
+    fn param_spec_builder() -> Self::BuilderFn {
+        Self::ParamSpec::builder_with_default
+    }
+}
+
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+impl glib::value::ValueType for Presence {
+    type Type = Self;
+}
+
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+unsafe impl<'a> glib::value::FromValue<'a> for Presence {
+    type Checker = glib::value::GenericValueTypeChecker<Self>;
+
+    #[inline]
+    unsafe fn from_value(value: &'a glib::Value) -> Self {
+        skip_assert_initialized!();
+        unsafe { from_glib(glib::gobject_ffi::g_value_get_enum(value.to_glib_none().0)) }
+    }
+}
+
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+impl ToValue for Presence {
+    #[inline]
+    fn to_value(&self) -> glib::Value {
+        let mut value = glib::Value::for_value_type::<Self>();
+        unsafe {
+            glib::gobject_ffi::g_value_set_enum(value.to_glib_none_mut().0, self.into_glib());
+        }
+        value
+    }
+
+    #[inline]
+    fn value_type(&self) -> glib::Type {
+        Self::static_type()
+    }
+}
+
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+impl From<Presence> for glib::Value {
+    #[inline]
+    fn from(v: Presence) -> Self {
+        skip_assert_initialized!();
+        ToValue::to_value(&v)
+    }
+}
+
 #[derive(Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Clone, Copy)]
 #[non_exhaustive]
 #[doc(alias = "AwraRadius")]
@@ -2070,6 +3166,8 @@ pub enum Typography {
     Monospace,
     #[doc(alias = "AWRA_TYPOGRAPHY_LABEL")]
     Label,
+    #[doc(alias = "AWRA_TYPOGRAPHY_READING")]
+    Reading,
     #[doc(hidden)]
     __Unknown(i32),
 }
@@ -2090,6 +3188,7 @@ impl IntoGlib for Typography {
             Self::Display => ffi::AWRA_TYPOGRAPHY_DISPLAY,
             Self::Monospace => ffi::AWRA_TYPOGRAPHY_MONOSPACE,
             Self::Label => ffi::AWRA_TYPOGRAPHY_LABEL,
+            Self::Reading => ffi::AWRA_TYPOGRAPHY_READING,
             Self::__Unknown(value) => value,
         }
     }
@@ -2111,6 +3210,7 @@ impl FromGlib<ffi::AwraTypography> for Typography {
             ffi::AWRA_TYPOGRAPHY_DISPLAY => Self::Display,
             ffi::AWRA_TYPOGRAPHY_MONOSPACE => Self::Monospace,
             ffi::AWRA_TYPOGRAPHY_LABEL => Self::Label,
+            ffi::AWRA_TYPOGRAPHY_READING => Self::Reading,
             value => Self::__Unknown(value),
         }
     }

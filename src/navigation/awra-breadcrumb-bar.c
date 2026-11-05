@@ -86,8 +86,10 @@ void awra_breadcrumb_item_set_name (AwraBreadcrumbItem *self, const char *name) 
 struct _AwraBreadcrumbBar {
   GtkWidget parent_instance;
   GtkBox *box;
+  GtkScrolledWindow *scroller;
   GListModel *model;
   gulong items_changed_handler;
+  guint reveal_idle;
 };
 
 enum { BAR_PROP_0, BAR_PROP_MODEL, BAR_N_PROPS };
@@ -152,19 +154,24 @@ static void
 awra_breadcrumb_bar_dispose (GObject *object)
 {
   AwraBreadcrumbBar *self = AWRA_BREADCRUMB_BAR (object);
+  if (self->reveal_idle != 0) {
+    g_source_remove (self->reveal_idle);
+    self->reveal_idle = 0;
+  }
   if (self->items_changed_handler != 0) {
     g_signal_handler_disconnect (self->model, self->items_changed_handler);
     self->items_changed_handler = 0;
   }
   g_clear_object (&self->model);
-  if (self->box != NULL) {
-    gtk_widget_unparent (GTK_WIDGET (self->box));
+  if (self->scroller != NULL) {
+    gtk_widget_unparent (GTK_WIDGET (self->scroller));
+    self->scroller = NULL;
     self->box = NULL;
   }
   G_OBJECT_CLASS (awra_breadcrumb_bar_parent_class)->dispose (object);
 }
 
-static void awra_breadcrumb_bar_snapshot (GtkWidget *widget, GtkSnapshot *snapshot) { gtk_widget_snapshot_child (widget, GTK_WIDGET (AWRA_BREADCRUMB_BAR (widget)->box), snapshot); }
+static void awra_breadcrumb_bar_snapshot (GtkWidget *widget, GtkSnapshot *snapshot) { gtk_widget_snapshot_child (widget, GTK_WIDGET (AWRA_BREADCRUMB_BAR (widget)->scroller), snapshot); }
 static void awra_breadcrumb_bar_get_property (GObject *object, guint id, GValue *value, GParamSpec *pspec) { if (id == BAR_PROP_MODEL) g_value_set_object (value, AWRA_BREADCRUMB_BAR (object)->model); else G_OBJECT_WARN_INVALID_PROPERTY_ID (object, id, pspec); }
 static void awra_breadcrumb_bar_set_property (GObject *object, guint id, const GValue *value, GParamSpec *pspec) { if (id == BAR_PROP_MODEL) awra_breadcrumb_bar_set_model (AWRA_BREADCRUMB_BAR (object), g_value_get_object (value)); else G_OBJECT_WARN_INVALID_PROPERTY_ID (object, id, pspec); }
 
@@ -190,12 +197,41 @@ awra_breadcrumb_bar_class_init (AwraBreadcrumbBarClass *klass)
                                         GTK_ACCESSIBLE_ROLE_NAVIGATION);
 }
 
+static gboolean
+reveal_current_idle (gpointer data)
+{
+  AwraBreadcrumbBar *self = data;
+  GtkAdjustment *adjustment = gtk_scrolled_window_get_hadjustment (self->scroller);
+  self->reveal_idle = 0;
+  double value = gtk_widget_get_direction (GTK_WIDGET (self)) == GTK_TEXT_DIR_RTL
+                   ? gtk_adjustment_get_lower (adjustment)
+                   : gtk_adjustment_get_upper (adjustment) - gtk_adjustment_get_page_size (adjustment);
+  gtk_adjustment_set_value (adjustment, value);
+  return G_SOURCE_REMOVE;
+}
+
+static void
+reveal_current_cb (GtkAdjustment *adjustment, AwraBreadcrumbBar *self)
+{
+  (void) adjustment;
+  /* GtkViewport configures the range while allocating its child. Scrolling
+   * synchronously there can leave a correct adjustment with an old viewport
+   * transform. Reveal after allocation, once the viewport can consume it. */
+  if (self->reveal_idle == 0)
+    self->reveal_idle = g_idle_add (reveal_current_idle, self);
+}
+
 static void
 awra_breadcrumb_bar_init (AwraBreadcrumbBar *self)
 {
   self->box = GTK_BOX (gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 0));
   awra_box_set_spacing (self->box, AWRA_SPACING_XS);
-  gtk_widget_set_parent (GTK_WIDGET (self->box), GTK_WIDGET (self));
+  self->scroller = GTK_SCROLLED_WINDOW (gtk_scrolled_window_new ());
+  gtk_scrolled_window_set_policy (self->scroller, GTK_POLICY_EXTERNAL, GTK_POLICY_NEVER);
+  gtk_scrolled_window_set_child (self->scroller, GTK_WIDGET (self->box));
+  gtk_widget_set_parent (GTK_WIDGET (self->scroller), GTK_WIDGET (self));
+  g_signal_connect (gtk_scrolled_window_get_hadjustment (self->scroller),
+                    "changed", G_CALLBACK (reveal_current_cb), self);
 }
 
 GtkWidget *awra_breadcrumb_bar_new (void) { return g_object_new (AWRA_TYPE_BREADCRUMB_BAR, NULL); }

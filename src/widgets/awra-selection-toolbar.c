@@ -32,6 +32,7 @@ enum {
   PROP_ACTIONS,
   PROP_SELECTED_COUNT,
   PROP_AUTO_HIDE,
+  PROP_CLEAR_LABEL,
   N_PROPS,
 };
 
@@ -130,6 +131,7 @@ awra_selection_toolbar_get_property (GObject    *object,
   AwraSelectionToolbar *self = AWRA_SELECTION_TOOLBAR (object);
 
   switch (property_id) {
+  case PROP_CLEAR_LABEL: g_value_set_string (value, awra_selection_toolbar_get_clear_label (self)); break;
   case PROP_MODEL: g_value_set_object (value, self->model); break;
   case PROP_TITLE: g_value_set_string (value, self->title); break;
   case PROP_PLURAL_TITLE: g_value_set_string (value, self->plural_title); break;
@@ -149,6 +151,7 @@ awra_selection_toolbar_set_property (GObject      *object,
   AwraSelectionToolbar *self = AWRA_SELECTION_TOOLBAR (object);
 
   switch (property_id) {
+  case PROP_CLEAR_LABEL: awra_selection_toolbar_set_clear_label (self, g_value_get_string (value)); break;
   case PROP_MODEL: awra_selection_toolbar_set_model (self, g_value_get_object (value)); break;
   case PROP_TITLE: awra_selection_toolbar_set_title (self, g_value_get_string (value)); break;
   case PROP_PLURAL_TITLE: awra_selection_toolbar_set_plural_title (self, g_value_get_string (value)); break;
@@ -186,6 +189,9 @@ awra_selection_toolbar_class_init (AwraSelectionToolbarClass *klass)
     G_PARAM_READABLE | G_PARAM_STATIC_STRINGS);
   properties[PROP_AUTO_HIDE] = g_param_spec_boolean (
     "auto-hide", NULL, NULL, TRUE,
+    G_PARAM_READWRITE | G_PARAM_EXPLICIT_NOTIFY | G_PARAM_STATIC_STRINGS);
+  properties[PROP_CLEAR_LABEL] = g_param_spec_string (
+    "clear-label", NULL, NULL, NULL,
     G_PARAM_READWRITE | G_PARAM_EXPLICIT_NOTIFY | G_PARAM_STATIC_STRINGS);
   g_object_class_install_properties (object_class, N_PROPS, properties);
   gtk_widget_class_set_layout_manager_type (widget_class, GTK_TYPE_BIN_LAYOUT);
@@ -360,4 +366,21 @@ awra_selection_toolbar_clear_selection (AwraSelectionToolbar *self)
   g_return_if_fail (AWRA_IS_SELECTION_TOOLBAR (self));
   if (self->model != NULL)
     gtk_selection_model_unselect_all (self->model);
+}
+
+const char *
+awra_selection_toolbar_get_clear_label (AwraSelectionToolbar *self)
+{
+  g_return_val_if_fail (AWRA_IS_SELECTION_TOOLBAR (self), NULL);
+  return gtk_button_get_label (GTK_BUTTON (self->clear_button));
+}
+
+void
+awra_selection_toolbar_set_clear_label (AwraSelectionToolbar *self, const char *label)
+{
+  g_return_if_fail (AWRA_IS_SELECTION_TOOLBAR (self));
+  const char *effective = label != NULL ? label : _("Clear");
+  if (g_strcmp0 (gtk_button_get_label (GTK_BUTTON (self->clear_button)), effective) == 0) return;
+  gtk_button_set_label (GTK_BUTTON (self->clear_button), effective);
+  g_object_notify_by_pspec (G_OBJECT (self), properties[PROP_CLEAR_LABEL]);
 }

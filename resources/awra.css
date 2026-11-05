@@ -44,6 +44,7 @@ awrachoicegroup,
 awrastatusbanner,
 awraresponsivebin,
 awrabreadcrumbbar,
+awrapathbar,
 awrametricrow,
 awrastatbar,
 awrabadgegroup,
@@ -57,7 +58,20 @@ awratimeline,
 awravolumecontrol,
 awramediarow,
 awrataskrow,
-awradropzone {
+awradropzone,
+awraavatar,
+awrarail,
+awraraillist,
+awrarailitem,
+awrarailgroup,
+awrarailgroupface,
+awrarailseparator,
+awratypingindicator,
+awrachip,
+awraconversationview,
+awracomposer,
+awradivider,
+awraemojipicker {
   min-width: 0;
   min-height: 0;
   margin: 0;
@@ -117,15 +131,15 @@ window.awra-command-palette row > button {
 }
 
 window.awra-command-palette row > button.awra-command-row {
-  min-height: 32px;
-  padding: 5px 12px;
-  border-radius: 10px;
+  min-height: 22px;
+  padding: 5px 8px;
+  border-radius: 8px;
   color: @awra_foreground;
-  font-weight: 560;
+  font-weight: 400;
 }
 
 window.awra-command-palette .awra-command-heading {
-  margin: 12px 12px 4px;
+  margin: 12px 8px 4px;
 }
 
 window.awra-command-palette .awra-command-icon {
@@ -140,7 +154,8 @@ window.awra-command-palette .awra-command-accel {
 }
 
 window.awra-command-palette row > button.awra-command-row:hover,
-window.awra-command-palette row > button.awra-command-row:focus-visible {
+window.awra-command-palette row > button.awra-command-row:focus-visible,
+window.awra-command-palette row > button.awra-command-row.awra-command-current {
   background-color: @awra_cap_hover;
 }
 
@@ -171,6 +186,99 @@ awrabreadcrumbbar .awra-breadcrumb-current {
 awrabreadcrumbbar .awra-breadcrumb-separator {
   color: @awra_disabled;
   -gtk-icon-size: 12px;
+}
+
+/* The location field keeps one silhouette in both modes: breadcrumbs and text
+ * swap inside it, so entering an edit never moves the surrounding chrome. */
+awrapathbar {
+  min-height: 30px;
+  padding: 0 3px 0 6px;
+  border-radius: 9px;
+  border: 1px solid transparent;
+  background-color: alpha(@awra_foreground, .055);
+  color: @awra_foreground;
+  transition: background-color 120ms ease-out, border-color 120ms ease-out;
+}
+
+awrapathbar:hover {
+  background-color: alpha(@awra_foreground, .085);
+}
+
+awrapathbar.awra-path-bar-editing {
+  background-color: @awra_well;
+  border-color: @awra_focus;
+}
+
+awrapathbar.awra-path-bar-invalid {
+  border-color: @awra_danger;
+}
+
+awrapathbar > box,
+awrapathbar stack {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+awrapathbar .awra-path-bar-icon {
+  margin: 0 4px 0 2px;
+  color: @awra_muted;
+  -gtk-icon-size: 15px;
+}
+
+awrapathbar text.awra-path-bar-text {
+  min-height: 0;
+  margin: 0 4px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: @awra_foreground;
+  caret-color: @awra_focus;
+  outline: 0;
+  box-shadow: none;
+}
+
+awrapathbar text.awra-path-bar-text > selection {
+  background-color: @awra_selection;
+  color: @awra_accent_content;
+}
+
+/* However long the trail, some of the field stays empty and opens the editor. */
+awrapathbar awrabreadcrumbbar {
+  margin-right: 36px;
+}
+
+awrapathbar awrabreadcrumbbar .awra-breadcrumb-button {
+  min-height: 22px;
+  padding: 1px 6px;
+  border-radius: 6px;
+}
+
+awrapathbar awrabreadcrumbbar .awra-breadcrumb-current {
+  background-color: transparent;
+  box-shadow: none;
+  font-weight: 600;
+}
+
+awrapathbar awrabreadcrumbbar .awra-breadcrumb-button:hover {
+  background-color: @awra_control_hover;
+}
+
+awrapathbar awrabreadcrumbbar .awra-breadcrumb-button.awra-breadcrumb-drop {
+  color: @awra_accent_content;
+  background-color: @awra_accent_soft;
+  box-shadow: inset 0 0 0 1px @awra_accent;
+}
+
+.awra-menu-item.awra-path-bar-suggestion-highlighted {
+  background-color: @awra_selection;
+  color: @awra_accent_content;
+}
+
+.awra-reduced-motion awrapathbar {
+  transition: none;
 }
 
 awrapage > scrolledwindow,
@@ -257,13 +365,15 @@ awrastatusbanner > awrasurface > box > box {
   filter: none;
 }
 
+/* Every field is the same well: an entry, a text area and a tag entry
+ * side by side read as one family. */
 awratextarea {
   min-height: 112px;
-  border: 1px solid @awra_border;
-  border-radius: 12px;
+  border: 1px solid transparent;
+  border-radius: 11px;
   color: @awra_foreground;
-  background-color: @awra_control;
-  box-shadow: inset 0 1px @awra_rim;
+  background-color: @awra_well;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.20);
 }
 
 awratextarea:focus-within {
@@ -271,8 +381,14 @@ awratextarea:focus-within {
   box-shadow: inset 0 0 0 1px @awra_focus;
 }
 
+/* GtkTextView uses the widget foreground for Pango text too; setting only
+ * the internal text node leaves read-only previews in the desktop theme color. */
+awratextarea textview {
+  color: @awra_foreground;
+  caret-color: @awra_accent_content;
+}
+
 awratextarea textview text {
-  padding: 10px 12px;
   color: @awra_foreground;
   caret-color: @awra_accent_content;
 }
@@ -569,13 +685,29 @@ awradropzone.awra-drop-rejecting image.awra-drop-hint-icon {
 }
 
 awratagentry {
-  min-height: 38px;
-  padding: 7px;
-  border: 1px solid @awra_border;
-  border-radius: 12px;
+  min-height: 22px;
+  padding: 5px;
+  border: 1px solid transparent;
+  border-radius: 11px;
   color: @awra_foreground;
-  background-color: @awra_control;
-  box-shadow: inset 0 1px @awra_rim;
+  background-color: @awra_well;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.20);
+}
+
+/* The entry inside a tag entry is the well's own text, not a second well. */
+awratagentry .awra-entry,
+awratagentry .awra-entry:focus-within,
+awratagentry .awra-entry > text {
+  min-height: 22px;
+  padding: 0 4px;
+  border: 0;
+  outline: 0;
+  background-color: transparent;
+  box-shadow: none;
+}
+
+awratagentry:focus-within {
+  border-color: @awra_focus;
 }
 
 awratagentry button.awra-tag {
@@ -653,6 +785,10 @@ awradataview columnview > header > button {
   font-weight: 700;
 }
 
+/* The header is a layout row, not a padded cell. Outer padding makes GTK
+ * allocate the data rows narrower than their fixed column widths. */
+awradataview columnview > header { padding: 0; }
+
 awradataview columnview > header > button:hover {
   color: @awra_foreground;
   background-color: alpha(@awra_foreground, .065);
@@ -719,7 +855,7 @@ awradetailpane image {
 }
 
 awraformrow {
-  min-height: 38px;
+  min-height: 34px;
   color: @awra_foreground;
 }
 
@@ -853,6 +989,36 @@ awrasplitview paned > separator {
   min-height: 1px;
   margin: 0;
   padding: 0;
+}
+
+awratileview,
+awratileview > .awra-tile-divider {
+  background-color: transparent;
+  background-image: none;
+  border: 0;
+  box-shadow: none;
+}
+
+awratileview > .awra-tile-divider > separator {
+  min-width: 1px;
+  min-height: 1px;
+  margin: 0;
+  padding: 0;
+  background-color: @awra_separator;
+  background-image: none;
+  border: 0;
+  box-shadow: none;
+  transition: background-color 120ms ease-out, box-shadow 120ms ease-out;
+}
+
+awratileview > .awra-tile-divider:hover > separator,
+awratileview > .awra-tile-divider:active > separator {
+  background-color: @awra_accent;
+  box-shadow: 0 0 0 1px @awra_accent;
+}
+
+.awra-reduced-motion awratileview > .awra-tile-divider > separator {
+  transition: none;
 }
 
 .awra-edge-trigger {
@@ -1034,7 +1200,9 @@ awrasplitview paned > separator {
  * generic :hover fill and an action such as Cancel never acknowledges the
  * pointer. */
 .awra-button.awra-ghost:hover,
-.awra-menu-button.awra-ghost:hover {
+.awra-button.awra-toolbar-button:hover,
+.awra-menu-button.awra-ghost:hover,
+.awra-menu-button.awra-toolbar-button:hover {
   color: @awra_foreground;
   background-color: @awra_cap_hover;
   box-shadow: inset 0 1px @awra_rim;
@@ -1042,9 +1210,14 @@ awrasplitview paned > separator {
 
 .awra-button.awra-ghost:active,
 .awra-button.awra-ghost:checked,
+.awra-button.awra-toolbar-button:active,
+.awra-button.awra-toolbar-button:checked,
 .awra-menu-button.awra-ghost:active,
 .awra-menu-button.awra-ghost:checked,
-.awra-menu-button.awra-ghost.awra-open {
+.awra-menu-button.awra-ghost.awra-open,
+.awra-menu-button.awra-toolbar-button:active,
+.awra-menu-button.awra-toolbar-button:checked,
+.awra-menu-button.awra-toolbar-button.awra-open {
   color: @awra_foreground;
   background-color: @awra_control_pressed;
   box-shadow: inset 0 1px 2px rgba(10, 8, 18, 0.16);
@@ -1062,6 +1235,44 @@ awrasplitview paned > separator {
 .awra-menu-button.awra-destructive {
   color: @awra_on_accent;
   background-color: @awra_danger;
+}
+
+/* A positive action that isn't the view's main one, such as answering a
+ * call beside declining it. */
+.awra-button.awra-success,
+.awra-menu-button.awra-success {
+  color: #ffffff;
+  background-color: @awra_success;
+  box-shadow: inset 0 1px rgba(255, 255, 255, 0.18);
+}
+
+.awra-button.awra-success:hover,
+.awra-menu-button.awra-success:hover {
+  background-color: shade(@awra_success, 1.08);
+}
+
+.awra-button.awra-success:active,
+.awra-menu-button.awra-success:active {
+  background-color: shade(@awra_success, 0.9);
+}
+
+/* A destructive action that stays quiet until it's meant: ghost at rest,
+ * danger under the pointer, as hanging up beside other controls. */
+.awra-button.awra-ghost.awra-role-quiet-destructive:hover,
+.awra-button.awra-toolbar-button.awra-role-quiet-destructive:hover {
+  color: @awra_on_accent;
+  background-color: @awra_danger;
+  box-shadow: none;
+}
+
+/* A toggle that warns when on, such as a muted microphone: a danger tint
+ * rather than the full red of a destructive action. */
+.awra-toggle-button.awra-secondary.awra-role-danger-when-on:checked,
+.awra-toggle-button.awra-ghost.awra-role-danger-when-on:checked,
+.awra-toggle-button.awra-toolbar-button.awra-role-danger-when-on:checked {
+  color: @awra_danger;
+  background-color: alpha(@awra_danger, 0.16);
+  box-shadow: inset 0 1px @awra_rim;
 }
 
 /* Appearance rules share :disabled's specificity and come later; restate the
@@ -1100,6 +1311,40 @@ awrasplitview paned > separator {
   text-shadow: none;
   opacity: 1;
   filter: none;
+}
+
+awracolorpalette .awra-color-swatch {
+  min-width: 0;
+  min-height: 0;
+  padding: 3px;
+  border-radius: 999px;
+  background: none;
+  box-shadow: none;
+  outline: 0;
+}
+
+awracolorpalette .awra-color-swatch:hover {
+  background-color: @awra_cap_hover;
+}
+
+awracolorpalette .awra-color-swatch:focus-visible {
+  box-shadow: inset 0 0 0 2px @awra_focus;
+}
+
+awracolorpalette .awra-color-more {
+  min-width: 24px;
+  min-height: 24px;
+  color: @awra_muted;
+}
+
+awracolorpalette flowboxchild {
+  padding: 0;
+  margin: 0;
+  background: none;
+}
+
+awrabuttoncontent {
+  border-spacing: 6px;
 }
 
 .awra-menu-button-content {
@@ -1191,7 +1436,8 @@ popover.awra-popover > arrow {
  * with a compact but still balanced title/control rhythm. */
 window.awra-dialog .awra-header-content {
   min-height: 48px;
-  padding: 6px 18px;
+  /* 16 px, as the body and the responses under the title. */
+  padding: 6px 16px;
 }
 
 .awra-header-title {
@@ -1211,8 +1457,8 @@ window.awra-dialog .awra-header-content {
 .awra-entry,
 .awra-entry > text {
   min-width: 64px;
-  min-height: 24px;
-  padding: 6px 11px;
+  min-height: 22px;
+  padding: 5px 11px;
   border-radius: 11px;
   border: 1px solid transparent;
   background-color: @awra_well;
@@ -1223,7 +1469,9 @@ window.awra-dialog .awra-header-content {
   outline: 0;
   opacity: 1;
   margin: 0;
-  background-clip: padding-box;
+  /* The well fills its transparent border too: it draws its full 34 px,
+   * as tall as the buttons beside it, not 32 inside them. */
+  background-clip: border-box;
   filter: none;
   transition: none;
   animation: none;
@@ -1245,10 +1493,16 @@ window.awra-dialog .awra-header-content {
   outline-offset: 2px;
 }
 
-.awra-entry:disabled,
-.awra-entry:disabled > text {
+.awra-entry:disabled {
   color: @awra_disabled;
   background-color: @awra_well;
+  opacity: 1;
+}
+
+/* The text inside a field never paints a box of its own, enabled or not. */
+.awra-entry:disabled > text {
+  color: @awra_disabled;
+  background-color: transparent;
   opacity: 1;
 }
 
@@ -1309,7 +1563,8 @@ window.awra-dialog .awra-header-content {
 }
 
 .awra-switch:checked {
-  background-color: @awra_accent_soft;
+  /* On must read at a glance, not only by the thumb's place. */
+  background-color: @awra_accent;
   border-color: rgba(255, 255, 255, 0.08);
 }
 
@@ -1530,6 +1785,20 @@ window.awra-dialog .awra-header-content {
   opacity: 1;
 }
 
+popover .awra-menu-scroller {
+  min-width: 0;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background-color: transparent;
+  background-image: none;
+  box-shadow: none;
+  outline: 0;
+  opacity: 1;
+}
+
 .awra-menu {
   min-width: 210px;
   padding: 7px;
@@ -1540,9 +1809,9 @@ window.awra-dialog .awra-header-content {
 
 .awra-menu-item {
   min-width: 0;
-  min-height: 24px;
+  min-height: 22px;
   margin: 0;
-  padding: 6px 9px;
+  padding: 5px 9px;
   border: 0;
   border-radius: 9px;
   color: @awra_foreground;
@@ -1589,6 +1858,27 @@ window.awra-dialog .awra-header-content {
   font-weight: 520;
 }
 
+.awra-menu-item-accel {
+  min-width: 0;
+  min-height: 0;
+  margin: 0 0 0 18px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  color: @awra_muted;
+  background-color: transparent;
+  background-image: none;
+  box-shadow: none;
+  outline: 0;
+  opacity: 1;
+  font-size: .86em;
+}
+
+.awra-menu-item-check {
+  color: @awra_accent_content;
+  -gtk-icon-size: 14px;
+}
+
 .awra-menu-item-icon,
 .awra-menu-item-chevron {
   min-width: 16px;
@@ -1601,6 +1891,13 @@ window.awra-dialog .awra-header-content {
   min-height: 1px;
   margin: 5px 8px;
   background-color: @awra_separator;
+}
+
+button.awra-menu-item:checked {
+  background-color: transparent;
+  background-image: none;
+  box-shadow: none;
+  color: @awra_foreground;
 }
 
 button.awra-menu-item:hover,
@@ -1653,9 +1950,10 @@ popoverbin.awra-dropdown-bin {
 
 button.awra-dropdown-button {
   min-width: 96px;
-  min-height: 24px;
+  /* 34 px as every control, its transparent border included. */
+  min-height: 22px;
   margin: 0;
-  padding: 6px 11px;
+  padding: 5px 11px;
   border: 1px solid transparent;
   border-radius: 11px;
   color: @awra_foreground;
@@ -1837,14 +2135,14 @@ button.awra-dropdown-button:disabled {
 }
 
 .awra-toast-label {
-  padding: 10px 18px;
+  padding: 8px 16px;
   color: @awra_foreground;
   font-weight: 600;
 }
 
 box.awra-toast-content {
   margin: 0;
-  padding: 0 6px 0 0;
+  padding: 0 4px 0 0;
   border-spacing: 2px;
   background: transparent;
   border: 0;
@@ -2003,7 +2301,9 @@ awrabadge.awra-badge-custom {
 
 .awra-segment:checked {
   background-color: @awra_cap_hover;
-  color: @awra_accent_content;
+  /* Full contrast: an accent that resolves to grey must not read as
+   * disabled. */
+  color: @awra_foreground;
   box-shadow: inset 0 1px @awra_rim;
 }
 
@@ -2074,6 +2374,12 @@ awrabadge.awra-badge-custom {
   padding: 0;
   transition: none;
   animation: none;
+}
+
+/* Desktop themes give the slider negative margins, which GTK rejects when they
+ * exceed its minimum size. A scrollbar in an Awra interface never needs them. */
+.awra-window scrollbar slider {
+  margin: 0;
 }
 
 /* The rail scrolls through wheel/touchpad gestures and deliberately has no
@@ -2395,6 +2701,586 @@ awralistview scrollbar.dragging {
   animation: none;
 }
 
+/* A conversation is the page itself: rows carry no card, only a quiet hover
+ * and the two short-lived marks the view adds (arrival and highlight). */
+awraconversationview {
+  min-width: 0;
+  min-height: 0;
+  color: @awra_foreground;
+  background-color: transparent;
+  background-image: none;
+}
+
+awraconversationview > scrolledwindow,
+awraconversationview > scrolledwindow > undershoot,
+awraconversationview > scrolledwindow > overshoot,
+awraconversationview > scrolledwindow > awraconversationport,
+awraconversationview > scrolledwindow > awraconversationport > listview.awra-conversation-list,
+awraconversationview > scrolledwindow > awraconversationport > listview.awra-conversation-list > header {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  color: @awra_foreground;
+  background-color: transparent;
+  background-image: none;
+  box-shadow: none;
+  outline: 0;
+  opacity: 1;
+  filter: none;
+}
+
+awraconversationview > scrolledwindow > awraconversationport > listview.awra-conversation-list {
+  padding: 8px 0;
+}
+
+awraconversationview > scrolledwindow > awraconversationport > listview.awra-conversation-list > row {
+  min-width: 0;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  color: @awra_foreground;
+  background-color: transparent;
+  background-image: none;
+  box-shadow: none;
+  outline: 0;
+  opacity: 1;
+  filter: none;
+  transition: background-color 90ms ease-out;
+}
+
+awraconversationview > scrolledwindow > awraconversationport > listview.awra-conversation-list > row:hover {
+  background-color: alpha(@awra_foreground, .035);
+}
+
+/* When a row also carries what comes before its entry, such as a date or
+ * the start of the conversation, only the entry answers the pointer. */
+awraconversationview.awra-role-entry-hover > scrolledwindow > awraconversationport > listview.awra-conversation-list > row:hover {
+  background-color: transparent;
+}
+
+awraconversationview .awra-role-conversation-entry {
+  transition: background-color 90ms ease-out;
+}
+
+awraconversationview .awra-role-conversation-entry:hover {
+  background-color: alpha(@awra_foreground, .035);
+}
+
+.awra-reduced-motion awraconversationview .awra-role-conversation-entry {
+  transition: none;
+}
+
+awraconversationview > scrolledwindow > awraconversationport > listview.awra-conversation-list > row:selected {
+  background-color: transparent;
+}
+
+awraconversationview > scrolledwindow > awraconversationport > listview.awra-conversation-list > row:focus-visible {
+  outline: 2px solid @awra_focus;
+  outline-offset: -2px;
+}
+
+awraconversationview > scrolledwindow > scrollbar {
+  min-width: 8px;
+  min-height: 8px;
+  margin: 3px;
+  opacity: 0;
+  transition: opacity 120ms ease;
+}
+
+awraconversationview:hover > scrolledwindow > scrollbar,
+awraconversationview > scrolledwindow > scrollbar:hover,
+awraconversationview > scrolledwindow > scrollbar.dragging {
+  opacity: 1;
+}
+
+@keyframes awra-conversation-arrive {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: none; }
+}
+
+/* Two identical highlights, so highlighting the same row again replays. */
+@keyframes awra-conversation-highlight {
+  from { background-color: @awra_accent_soft; box-shadow: inset 3px 0 @awra_accent; }
+  35% { background-color: @awra_accent_soft; box-shadow: inset 3px 0 @awra_accent; }
+  to { background-color: alpha(@awra_accent_soft, 0); box-shadow: inset 3px 0 alpha(@awra_accent, 0); }
+}
+
+@keyframes awra-conversation-highlight-again {
+  from { background-color: @awra_accent_soft; box-shadow: inset 3px 0 @awra_accent; }
+  35% { background-color: @awra_accent_soft; box-shadow: inset 3px 0 @awra_accent; }
+  to { background-color: alpha(@awra_accent_soft, 0); box-shadow: inset 3px 0 alpha(@awra_accent, 0); }
+}
+
+awraconversationview .awra-conversation-arriving {
+  animation: awra-conversation-arrive 220ms cubic-bezier(.2, .8, .2, 1);
+}
+
+awraconversationview .awra-conversation-highlight {
+  animation: awra-conversation-highlight 1500ms ease-out;
+}
+
+awraconversationview .awra-conversation-highlight-again {
+  animation: awra-conversation-highlight-again 1500ms ease-out;
+}
+
+.awra-reduced-motion awraconversationview .awra-conversation-arriving {
+  animation: none;
+}
+
+/* Without motion, the highlight still says where to look, then leaves. */
+.awra-reduced-motion awraconversationview .awra-conversation-highlight,
+.awra-reduced-motion awraconversationview .awra-conversation-highlight-again {
+  animation: none;
+  background-color: @awra_accent_soft;
+  box-shadow: inset 3px 0 @awra_accent;
+}
+
+awraconversationview > .awra-button.awra-conversation-jump {
+  min-height: 20px;
+  padding: 6px 15px 6px 11px;
+  border-radius: 999px;
+  color: @awra_foreground;
+  background-color: @awra_background;
+  background-image: linear-gradient(@awra_cap, @awra_cap);
+  box-shadow:
+    0 0 0 1px @awra_outline,
+    0 6px 16px -4px rgba(0, 0, 0, .30),
+    inset 0 1px @awra_rim;
+  font-size: .92em;
+  font-weight: 600;
+}
+
+awraconversationview > .awra-button.awra-conversation-jump:hover {
+  background-image: linear-gradient(@awra_cap_hover, @awra_cap_hover);
+}
+
+awraconversationview > .awra-button.awra-conversation-jump:active {
+  background-image: linear-gradient(@awra_control_pressed, @awra_control_pressed);
+}
+
+awraconversationview > .awra-button.awra-conversation-jump.awra-conversation-jump-unread {
+  color: @awra_on_accent;
+  background-color: @awra_accent;
+  background-image: none;
+  box-shadow:
+    0 6px 16px -4px alpha(@awra_accent, .55),
+    inset 0 1px rgba(255, 255, 255, .20);
+}
+
+awraconversationview > .awra-button.awra-conversation-jump.awra-conversation-jump-unread:hover {
+  background-image: linear-gradient(alpha(@awra_on_accent, .10), alpha(@awra_on_accent, .10));
+}
+
+awraconversationview > .awra-button.awra-conversation-jump image {
+  -gtk-icon-size: 14px;
+}
+
+/* A floating status at an edge of the conversation: opaque, so the
+ * messages under it never show through. */
+awraconversationview > revealer > .awra-conversation-edge {
+  min-height: 20px;
+  margin: 2px 8px 10px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  color: @awra_foreground;
+  background-color: @awra_background;
+  background-image: linear-gradient(@awra_cap, @awra_cap);
+  box-shadow:
+    0 0 0 1px @awra_outline,
+    0 6px 16px -4px rgba(0, 0, 0, .30),
+    inset 0 1px @awra_rim;
+  font-size: .92em;
+  font-weight: 600;
+}
+
+awraconversationview > revealer.awra-failed > .awra-conversation-edge image {
+  color: @awra_danger;
+}
+
+awraconversationview > revealer > .awra-conversation-edge .awra-conversation-edge-retry {
+  min-height: 0;
+  margin: -3px -8px -3px 0;
+  padding: 3px 10px;
+  color: @awra_accent_content;
+}
+
+/* The composer is one well: banner, attachments and the row of text and
+ * actions share its matter, and the focus ring surrounds all of them. */
+awracomposer {
+  min-height: 0;
+  padding: 6px;
+  border-radius: 18px;
+  color: @awra_foreground;
+  background-color: @awra_control;
+  background-image: none;
+  box-shadow: inset 0 0 0 1px @awra_border, inset 0 1px @awra_rim;
+  transition: box-shadow 120ms ease-out, background-color 120ms ease-out;
+}
+
+awracomposer:focus-within {
+  box-shadow: inset 0 0 0 1px @awra_focus, 0 0 0 3px alpha(@awra_focus, .16);
+}
+
+awracomposer:disabled {
+  color: @awra_disabled;
+  background-color: alpha(@awra_control, .5);
+  box-shadow: inset 0 0 0 1px alpha(@awra_border, .6);
+}
+
+awracomposer > overlay.awra-composer-field,
+awracomposer > overlay.awra-composer-field > scrolledwindow,
+awracomposer > overlay.awra-composer-field > scrolledwindow > undershoot,
+awracomposer > overlay.awra-composer-field > scrolledwindow > overshoot,
+awracomposer > overlay.awra-composer-field > scrolledwindow > textview,
+awracomposer > overlay.awra-composer-field > scrolledwindow > textview > text,
+awracomposer > overlay.awra-composer-field > label.awra-composer-placeholder {
+  min-width: 0;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background-color: transparent;
+  background-image: none;
+  box-shadow: none;
+  outline: 0;
+  text-shadow: none;
+  opacity: 1;
+  filter: none;
+}
+
+awracomposer > overlay.awra-composer-field > scrolledwindow > textview,
+awracomposer > overlay.awra-composer-field > scrolledwindow > textview > text {
+  color: @awra_foreground;
+  caret-color: @awra_accent_content;
+}
+
+awracomposer > overlay.awra-composer-field > scrolledwindow > textview > text selection {
+  background-color: alpha(@awra_accent, .32);
+  color: @awra_foreground;
+}
+
+awracomposer:disabled > overlay.awra-composer-field > scrolledwindow > textview > text {
+  color: @awra_disabled;
+}
+
+awracomposer > overlay.awra-composer-field > label.awra-composer-placeholder {
+  color: @awra_muted;
+}
+
+/* A one-line field must not inherit the height of a theme's scrollbar. */
+awracomposer > overlay.awra-composer-field > scrollbar,
+awracomposer > overlay.awra-composer-field > scrolledwindow > scrollbar,
+awracomposer > overlay.awra-composer-field > scrolledwindow > scrollbar > range,
+awracomposer > overlay.awra-composer-field > scrolledwindow > scrollbar > range > trough {
+  min-width: 0;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background-color: transparent;
+  background-image: none;
+  box-shadow: none;
+}
+
+awracomposer > overlay.awra-composer-field > scrolledwindow > scrollbar {
+  margin: 4px 0;
+}
+
+awracomposer > overlay.awra-composer-field > scrolledwindow > scrollbar > range > trough > slider {
+  min-width: 4px;
+  min-height: 12px;
+  margin: 0 1px;
+  border: 0;
+  border-radius: 999px;
+  background-color: alpha(@awra_foreground, .28);
+  background-image: none;
+  box-shadow: none;
+}
+
+awracomposer > overlay.awra-composer-field > scrolledwindow > scrollbar > button {
+  min-width: 0;
+  min-height: 0;
+  padding: 0;
+  margin: 0;
+  border: 0;
+  -gtk-icon-size: 0;
+  opacity: 0;
+}
+
+awracomposer > .awra-composer-banner {
+  min-height: 28px;
+  padding: 2px 2px 2px 10px;
+  border-radius: 12px;
+  background-color: alpha(@awra_foreground, .045);
+}
+
+awracomposer > .awra-composer-banner-text > label {
+  color: @awra_muted;
+  font-size: .92em;
+}
+
+awracomposer > .awra-composer-banner .awra-button.awra-composer-banner-close {
+  min-width: 24px;
+  min-height: 24px;
+  padding: 0;
+  border-radius: 999px;
+}
+
+awracomposer > .awra-composer-banner .awra-button.awra-composer-banner-close image {
+  -gtk-icon-size: 12px;
+}
+
+awracomposer > .awra-button.awra-composer-send {
+  min-width: 32px;
+  min-height: 32px;
+  padding: 0;
+  border-radius: 999px;
+}
+
+awracomposer > .awra-button.awra-composer-send image {
+  -gtk-icon-size: 16px;
+}
+
+/* Busy: the icon steps back behind the turning arc. */
+awracomposer > .awra-button.awra-composer-send.awra-composer-busy image {
+  opacity: .35;
+}
+
+/* Completion: a short floating list next to the caret. The selected row is
+ * the one Enter takes, so it reads as chosen, not merely hovered. */
+popover.awra-completion-popover scrolledwindow,
+popover.awra-completion-popover scrolledwindow > undershoot,
+popover.awra-completion-popover scrolledwindow > overshoot,
+popover.awra-completion-popover listview.awra-completion-list,
+popover.awra-completion-popover listview.awra-completion-list > row {
+  min-width: 0;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  color: @awra_foreground;
+  background-color: transparent;
+  background-image: none;
+  box-shadow: none;
+  outline: 0;
+  opacity: 1;
+  filter: none;
+}
+
+popover.awra-completion-popover listview.awra-completion-list {
+  padding: 5px;
+}
+
+popover.awra-completion-popover listview.awra-completion-list > row {
+  min-height: 30px;
+  margin: 1px 0;
+  padding: 3px 10px;
+  border-radius: 9px;
+  transition: background-color 80ms ease-out;
+}
+
+popover.awra-completion-popover listview.awra-completion-list > row:selected {
+  color: @awra_foreground;
+  background-color: @awra_accent_soft;
+  box-shadow: inset 0 0 0 1px alpha(@awra_accent, .22);
+}
+
+popover.awra-completion-popover listview.awra-completion-list > row label {
+  color: inherit;
+}
+
+popover.awra-completion-popover scrolledwindow > scrollbar {
+  min-width: 6px;
+  margin: 4px 2px;
+  opacity: .6;
+}
+
+.awra-reduced-motion popover.awra-completion-popover listview.awra-completion-list > row {
+  transition: none;
+}
+
+/* Dividers draw their line in their own colour; the label carries the
+ * meaning: a muted day, an accent marker, or a pill for unread messages. */
+awradivider {
+  min-height: 1px;
+  padding: 6px 0;
+  color: @awra_separator;
+}
+
+awradivider > label {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background-color: transparent;
+  background-image: none;
+  box-shadow: none;
+  color: @awra_muted;
+  font-size: .84em;
+  font-weight: 600;
+}
+
+awradivider.awra-divider-accent {
+  color: alpha(@awra_accent, .55);
+}
+
+awradivider.awra-divider-accent > label {
+  color: @awra_accent_content;
+}
+
+awradivider.awra-divider-danger {
+  color: @awra_danger;
+}
+
+awradivider.awra-divider-danger > label {
+  padding: 1px 7px;
+  border-radius: 999px;
+  color: @awra_on_accent;
+  background-color: @awra_danger;
+  font-size: .72em;
+  font-weight: 700;
+}
+
+.awra-high-contrast awradivider.awra-divider-neutral {
+  color: @awra_outline;
+}
+
+/* Emoji picker: the search and the tabs on top, a quiet grid whose cells
+ * answer the pointer, and a preview of the item about to be picked. */
+awraemojipicker {
+  min-width: 0;
+  color: @awra_foreground;
+}
+
+awraemojipicker > .awra-emoji-header {
+  padding: 10px 10px 4px;
+}
+
+awraemojipicker scrolledwindow,
+awraemojipicker scrolledwindow > undershoot,
+awraemojipicker scrolledwindow > overshoot,
+awraemojipicker overlay,
+awraemojipicker listview.awra-emoji-grid,
+awraemojipicker listview.awra-emoji-grid > row,
+awraemojipicker listview.awra-emoji-grid > header,
+awraemojipicker .awra-emoji-row,
+awraemojipicker .awra-emoji-tabs {
+  min-width: 0;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  color: @awra_foreground;
+  background-color: transparent;
+  background-image: none;
+  box-shadow: none;
+  outline: 0;
+  opacity: 1;
+  filter: none;
+}
+
+awraemojipicker listview.awra-emoji-grid {
+  padding: 0 6px 6px;
+}
+
+awraemojipicker listview.awra-emoji-grid > header {
+  padding: 10px 6px 4px;
+}
+
+awraemojipicker .awra-emoji-section-title {
+  color: @awra_muted;
+}
+
+awraemojipicker .awra-emoji-cell {
+  min-width: 36px;
+  min-height: 36px;
+  margin: 2px;
+  border-radius: 9px;
+  background-color: transparent;
+  transition: background-color 90ms ease-out, transform 90ms ease-out;
+}
+
+awraemojipicker .awra-emoji-cell:hover {
+  background-color: @awra_control_hover;
+}
+
+awraemojipicker .awra-emoji-cell:active {
+  background-color: @awra_control_pressed;
+  transform: scale(.92);
+}
+
+/* The keyboard cursor reads as chosen, like a selected row. */
+awraemojipicker .awra-emoji-cell.awra-emoji-cursor {
+  background-color: @awra_accent_soft;
+  box-shadow: inset 0 0 0 1px alpha(@awra_accent, .35);
+}
+
+awraemojipicker .awra-emoji-glyph {
+  font-size: 22px;
+  color: @awra_foreground;
+}
+
+awraemojipicker .awra-emoji-image {
+  margin: 5px;
+}
+
+awraemojipicker .awra-button.awra-emoji-tab {
+  min-width: 26px;
+  min-height: 26px;
+  padding: 2px 4px;
+  border-radius: 8px;
+  color: @awra_muted;
+  font-size: 16px;
+}
+
+awraemojipicker .awra-button.awra-emoji-tab.awra-emoji-tab-current {
+  color: @awra_accent_content;
+  background-color: @awra_accent_soft;
+}
+
+awraemojipicker .awra-emoji-empty {
+  color: @awra_muted;
+}
+
+awraemojipicker > .awra-emoji-preview {
+  min-height: 44px;
+  padding: 6px 12px;
+  border-top: 1px solid @awra_separator;
+}
+
+awraemojipicker .awra-emoji-preview-glyph {
+  font-size: 30px;
+}
+
+awraemojipicker .awra-emoji-preview-image {
+  min-width: 32px;
+  min-height: 32px;
+}
+
+awraemojipicker .awra-emoji-preview-name {
+  color: @awra_muted;
+  font-weight: 600;
+}
+
+awraemojipicker scrolledwindow > scrollbar {
+  min-width: 6px;
+  margin: 4px 2px;
+  opacity: .6;
+}
+
+.awra-reduced-motion awraemojipicker .awra-emoji-cell {
+  transition: none;
+}
+
+.awra-reduced-motion awraemojipicker .awra-emoji-cell:active {
+  transform: none;
+}
+
 /* A filter bar is structural chrome rather than another content card. Its
  * own MD inset already controls the children; the quiet outer plane makes
  * its edges align predictably with adjacent sidebars and data views. */
@@ -2503,16 +3389,18 @@ awrafilterbar {
   border-width: 2px;
 }
 
-/* Typography is semantic public API; implementation classes are identity-scoped. */
-.awra-body,
-.awra-muted,
-.awra-eyebrow,
-.awra-title-3,
-.awra-title-2,
-.awra-title-1,
-.awra-display,
-.awra-monospace,
-.awra-label {
+/* Typography is semantic public API; implementation classes are identity-scoped.
+ * The reset is for text: a field given a typography keeps its own chrome. */
+label.awra-body,
+label.awra-muted,
+label.awra-eyebrow,
+label.awra-title-3,
+label.awra-title-2,
+label.awra-title-1,
+label.awra-display,
+label.awra-monospace,
+label.awra-label,
+label.awra-reading {
   min-width: 0;
   min-height: 0;
   margin: 0;
@@ -2540,6 +3428,15 @@ awrafilterbar {
   color: @awra_foreground;
   font-size: 1em;
   font-weight: 700;
+}
+
+/* Text read at length, such as messages and documents: a step larger than
+ * the interface around it, with open leading, so it holds on glass. */
+.awra-reading {
+  color: @awra_foreground;
+  font-size: 1.07em;
+  font-weight: 400;
+  line-height: 1.04;
 }
 
 .awra-display {
@@ -2651,6 +3548,30 @@ awrasidebar .awra-navigation-item {
   margin-left: 4px;
 }
 
+.awra-navigation-item-subtitle {
+  color: @awra_muted;
+  font-size: 0.86em;
+  font-weight: 400;
+}
+
+/* Something new: the label reads at full contrast and weight. */
+.awra-navigation-item.awra-emphasized {
+  color: @awra_foreground;
+}
+
+.awra-navigation-item.awra-emphasized .awra-navigation-item-label {
+  font-weight: 700;
+}
+
+/* Silenced: it recedes until hovered or selected. */
+.awra-navigation-item.awra-muted:not(:hover):not(:checked) {
+  color: alpha(@awra_muted, 0.6);
+}
+
+.awra-navigation-item-prefix {
+  margin: -3px 0;
+}
+
 .awra-navigation-item:checked .awra-navigation-item-icon {
   color: @awra_accent_content;
 }
@@ -2670,10 +3591,42 @@ awrasidebar .awra-navigation-item {
 .awra-dropdown,
 .awra-switch,
 .awra-switch slider,
-.awra-slider slider {
-  transition-property: background-color, color, box-shadow, border-color, opacity;
+.awra-slider slider,
+.awra-tab-pill,
+.awra-menu-item,
+awrabreadcrumbbar .awra-breadcrumb-button,
+awradataview columnview > header > button,
+awradataview columnview listview > row,
+.awra-role-collection-view > child,
+.awra-role-drop-zone {
+  transition-property: background-color, color, box-shadow, border-color, opacity, transform;
   transition-duration: 110ms;
   transition-timing-function: ease-out;
+}
+
+/* A press gives way under the pointer; transforms leave the layout alone. */
+.awra-button:active:not(:disabled),
+.awra-menu-button:active:not(:disabled),
+.awra-navigation-item:active {
+  transform: scale(.96);
+}
+
+.awra-menu-button-chevron {
+  transition: -gtk-icon-transform 110ms ease-out;
+}
+
+.awra-menu-button.awra-open .awra-menu-button-chevron {
+  -gtk-icon-transform: rotate(180deg);
+}
+
+/* Menus and dialogs unfold from where they appear instead of popping in. */
+@keyframes awra-unfold {
+  from { opacity: 0; transform: translateY(-4px) scale(.98); }
+  to { opacity: 1; transform: none; }
+}
+
+.awra-menu {
+  animation: awra-unfold 120ms cubic-bezier(.2, .8, .2, 1);
 }
 
 .awra-reduced-motion .awra-button,
@@ -2690,8 +3643,26 @@ awrasidebar .awra-navigation-item {
 .awra-reduced-motion .awra-dropdown,
 .awra-reduced-motion .awra-switch,
 .awra-reduced-motion .awra-switch slider,
-.awra-reduced-motion .awra-slider slider {
+.awra-reduced-motion .awra-slider slider,
+.awra-reduced-motion .awra-tab-pill,
+.awra-reduced-motion .awra-menu-item,
+.awra-reduced-motion awrabreadcrumbbar .awra-breadcrumb-button,
+.awra-reduced-motion awradataview columnview > header > button,
+.awra-reduced-motion awradataview columnview listview > row,
+.awra-reduced-motion .awra-role-collection-view > child,
+.awra-reduced-motion .awra-role-drop-zone,
+.awra-reduced-motion .awra-menu-button-chevron {
   transition-duration: 0s;
+}
+
+.awra-reduced-motion .awra-menu {
+  animation: none;
+}
+
+.awra-reduced-motion .awra-button:active,
+.awra-reduced-motion .awra-menu-button:active,
+.awra-reduced-motion .awra-navigation-item:active {
+  transform: none;
 }
 
 /* Windows: DWM provides the window shadow and corner rounding. */
@@ -2771,4 +3742,675 @@ awrataskrow spinner {
   border: 0;
   box-shadow: none;
   opacity: 1;
+}
+
+/* Virtualized collections share the list interaction grammar. Geometry belongs
+ * here so consumers only provide content and a GtkListItemFactory. */
+awragridview scrolledwindow, .awra-grid { background: transparent; }
+.awra-grid child {
+  padding: 12px;
+  margin: 4px;
+  min-width: 108px;
+  border-radius: 12px;
+  color: @awra_foreground;
+  background: transparent;
+  transition: background-color 110ms ease-out;
+}
+.awra-grid child:hover { background-color: @awra_control_hover; }
+.awra-grid child:selected { background-color: @awra_cap; }
+.awra-grid child:focus-visible {
+  outline: 2px solid @awra_focus;
+  outline-offset: -2px;
+}
+.awra-grid rubberband {
+  background-color: alpha(@awra_focus, .15);
+  border: 1px solid @awra_focus;
+  border-radius: 6px;
+}
+.awra-reduced-motion .awra-grid child { transition-duration: 0s; }
+
+/* Compact desktop composition. The header keeps its existing spacious default;
+ * desktop workspaces opt into a tighter titlebar through a typed property. */
+awraheader.awra-compact .awra-header-content {
+  min-height: 36px;
+  padding: 6px 14px;
+}
+awraheader.awra-compact .awra-header-controls button { min-height: 28px; }
+awraheader.awra-compact .awra-button.awra-toolbar-button,
+awraheader.awra-compact .awra-menu-button.awra-toolbar-button {
+  min-height: 22px;
+  min-width: 22px;
+  padding: 5px 8px;
+  border-radius: 8px;
+}
+
+/* Public workspace roles: structural planes rather than additional cards. */
+.awra-role-workspace-canvas {
+  background-color: alpha(@awra_foreground, .016);
+  border-top: 1px solid @awra_separator;
+}
+.awra-role-inspector-pane {
+  background-color: alpha(@awra_foreground, .022);
+  border-left: 1px solid @awra_separator;
+}
+.awra-role-sidebar-heading {
+  font-size: .76em;
+  font-weight: 650;
+  color: @awra_muted;
+  margin: 20px 16px 6px;
+}
+.awra-role-view-switcher {
+  background: alpha(@awra_foreground, .05);
+  border: 1px solid alpha(@awra_foreground, .045);
+  border-radius: 8px;
+  padding: 2px;
+}
+.awra-role-view-switcher button { min-width: 24px; min-height: 24px; padding: 2px 6px; border-radius: 5px; }
+.awra-role-view-switcher button:checked {
+  background: @awra_cap_hover;
+  color: @awra_foreground;
+  box-shadow: 0 1px 3px alpha(black, .10);
+}
+.awra-role-floating-selection { margin: 16px; }
+.awra-role-floating-selection > awrasurface {
+  border: 1px solid @awra_border;
+  border-radius: 12px;
+  box-shadow: 0 6px 24px alpha(black, .14);
+}
+.awra-role-document-preview {
+  border: 0;
+  border-radius: 8px;
+  background-color: alpha(@awra_foreground, .035);
+  box-shadow: none;
+}
+.awra-role-document-preview textview text {
+  padding: 14px;
+  font-size: .92em;
+}
+.awra-role-document-preview:focus-within { box-shadow: none; border: 0; }
+.awra-role-collection-tile { margin: 0; }
+.awra-role-collection-tile label { font-size: .92em; }
+
+/* A collection item has one quiet selection plane; it never becomes a card.
+ * Its icon footprint remains fixed when a thumbnail arrives. */
+.awra-grid child { padding: 8px; margin: 4px; min-width: 108px; border-radius: 8px; }
+.awra-grid child:selected { background: @awra_selection; box-shadow: inset 0 0 0 1px alpha(@awra_focus, .28); }
+.awra-grid child:focus-visible { outline-offset: -1px; }
+/* Dense navigation: 32 px rows, as long lists of places want. Selection
+ * stays neutral, as everywhere in navigation; only the icon takes the
+ * accent. */
+.awra-role-compact-navigation .awra-navigation-item { min-height: 20px; padding: 6px 8px; margin: 1px 8px; border-radius: 8px; }
+.awra-role-compact-navigation .awra-navigation-item:checked { background-color: @awra_cap; color: @awra_foreground; box-shadow: inset 0 1px @awra_rim; }
+.awra-role-compact-table columnview cell { padding: 5px 10px; }
+.awra-role-compact-table columnview listview > row { min-height: 30px; border-radius: 4px; }
+.awra-role-compact-table columnview > header > button { min-height: 26px; padding: 4px 10px; }
+/* A place held under a drag says it is about to open. */
+@keyframes awra-about-to-open {
+  from { background-color: alpha(@awra_accent, .10); }
+  50% { background-color: alpha(@awra_accent, .32); }
+  to { background-color: alpha(@awra_accent, .10); }
+}
+.awra-role-about-to-open { animation: awra-about-to-open 300ms ease-in-out infinite; }
+.awra-reduced-motion .awra-role-about-to-open { animation: none; }
+
+/* What was refused shakes its head, without moving what surrounds it. */
+@keyframes awra-refused {
+  20% { transform: translateX(-4px); }
+  40% { transform: translateX(4px); }
+  60% { transform: translateX(-3px); }
+  80% { transform: translateX(2px); }
+  to { transform: none; }
+}
+.awra-role-refused { animation: awra-refused 260ms ease-in-out; }
+.awra-reduced-motion .awra-role-refused { animation: none; }
+
+popover.awra-popover > contents { animation: awra-unfold 120ms cubic-bezier(.2, .8, .2, 1); }
+.awra-reduced-motion popover.awra-popover > contents { animation: none; }
+
+/* Selected neighbours stay two items, and the gap belongs to the view. */
+.awra-role-spaced-rows columnview listview > row { margin-bottom: 3px; }
+.awra-role-compact-navigation .awra-navigation-item-label { font-weight: 400; }
+.awra-role-compact-navigation .awra-navigation-item:checked .awra-navigation-item-label { font-weight: 600; }
+.awra-role-compact-navigation .awra-navigation-item.awra-emphasized .awra-navigation-item-label { font-weight: 650; }
+.awra-role-compact-navigation .awra-navigation-item-box { border-spacing: 8px; }
+@keyframes awra-rise {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: none; }
+}
+.awra-role-floating-selection > awrasurface { animation: awra-rise 160ms cubic-bezier(.2, .8, .2, 1); }
+.awra-reduced-motion .awra-role-floating-selection > awrasurface { animation: none; }
+.awra-role-floating-selection { margin-bottom: 48px; }
+.awra-role-floating-selection > awrasurface > box { padding: 2px 6px 2px 14px; }
+.awra-role-inline-search { min-width: 0; }
+awratoolbar.awra-role-focused-pane {
+  background: alpha(@awra_foreground, .025);
+  box-shadow: inset 0 -1px alpha(@awra_focus, .28);
+}
+.awra-role-inline-search .awra-entry {
+  min-height: 22px;
+  min-width: 0;
+  padding: 1px 4px;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  box-shadow: none;
+  background: transparent;
+  font-size: .88em;
+}
+.awra-role-inline-search .awra-entry:focus-within { background: @awra_cap; outline: 0; border-color: @awra_border; }
+.awra-role-inline-search .awra-entry image { min-width: 16px; min-height: 16px; padding: 0 4px; }
+/* A search field that takes over the location slot keeps its silhouette. */
+.awra-role-location-search .awra-entry {
+  min-height: 20px;
+  padding: 5px 8px;
+  border-radius: 9px;
+}
+/* Metadata read as prose: dates and kinds, not figures to compare in columns. */
+.awra-role-prose-metadata .awra-monospace {
+  font-family: inherit;
+  font-size: inherit;
+}
+window.awra-window separator { background: @awra_separator; }
+window.awra-window separator.horizontal { min-height: 1px; }
+window.awra-window separator.vertical { min-width: 1px; }
+window.awra-window paned > separator {
+  min-width: 1px;
+  min-height: 1px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: @awra_separator;
+  box-shadow: none;
+}
+/* Workspace tabs merge into compact window chrome; the normal rounded rail
+ * remains available to galleries and standalone tab workspaces. */
+.awra-role-workspace-tabs .awra-tab-bar {
+  margin: 0;
+  min-height: 32px;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  border-radius: 6px;
+}
+.awra-role-workspace-tabs .awra-tab-pill { border-radius: 6px; }
+.awra-role-workspace-tabs .awra-tab-item { min-height: 30px; }
+.awra-tab-placeholder {
+  margin: 2px 4px;
+  border-radius: 6px;
+  background-color: alpha(@awra_focus, .14);
+  box-shadow: inset 0 0 0 1px alpha(@awra_focus, .55);
+}
+/* The focused view of a divided workspace, told apart by its current tab. */
+.awra-role-active-tabs .awra-tab-item.awra-tab-selected > .awra-tab-pill { background-color: @awra_selection; }
+.awra-role-active-tabs .awra-tab-item.awra-tab-selected .awra-tab-title { color: @awra_accent_content; }
+
+/* Reading guides on the continuous Canvas, without another toolbar plane. */
+.awra-role-canvas-table columnview > header,
+.awra-role-canvas-table columnview > header > button {
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+}
+.awra-role-canvas-table columnview > header > button {
+  min-height: 24px;
+  font-weight: 500;
+  padding: 4px 10px 8px;
+}
+.awra-role-canvas-table columnview > header > button:hover {
+  background-color: @awra_control_hover;
+  border-radius: 7px;
+}
+.awra-role-pane-caption { color: @awra_muted; font-size: .86em; font-weight: 600; min-height: 20px; }
+.awra-role-active-pane-caption { color: @awra_accent_content; }
+
+/* GTK marks an accepting GtkDropTarget automatically. Domain consumers choose
+ * which targets accept a payload; Awra supplies the shared destination feedback. */
+.awra-role-drop-zone:drop(active) {
+  background: @awra_selection;
+  outline: 2px solid @awra_focus;
+  outline-offset: -2px;
+  border-radius: 8px;
+}
+
+/* Editing a name in place keeps the height of the text it replaces. */
+.awra-role-inline-edit,
+.awra-role-inline-edit > text {
+  min-height: 0;
+  min-width: 0;
+}
+
+.awra-role-inline-edit {
+  padding: 1px 5px;
+  margin: -2px 0;
+  border-radius: 6px;
+}
+
+/* A button inside a row: quiet, and as tall as the text beside it. */
+.awra-button.awra-toolbar-button.awra-role-inline-action {
+  min-width: 18px;
+  min-height: 18px;
+  padding: 2px;
+  border-radius: 6px;
+}
+
+/* How full something is, under the row that names it. */
+.awra-role-usage-meter {
+  margin: 0 18px 4px 40px;
+}
+
+.awra-role-usage-meter trough,
+.awra-role-usage-meter progress {
+  min-height: 3px;
+  border-radius: 2px;
+}
+
+.awra-role-usage-meter.awra-usage-low progress {
+  background-color: @awra_danger;
+}
+
+/* Drag preview */
+.awra-drag-preview-count {
+  min-width: 14px;
+  min-height: 14px;
+  padding: 3px 7px;
+  border-radius: 999px;
+  color: @awra_on_accent;
+  background-color: @awra_accent;
+  font-size: 12px;
+  font-weight: 700;
+  box-shadow: 0 2px 6px rgba(10, 8, 18, 0.35);
+}
+
+/* A rail item's name, beside the rail. */
+popover.awra-rail-tooltip,
+popover.awra-rail-tooltip.background {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  box-shadow: none;
+  outline: 0;
+  opacity: 1;
+  filter: none;
+}
+
+popover.awra-rail-tooltip > contents {
+  min-width: 0;
+  min-height: 0;
+  margin: 6px;
+  padding: 6px 11px;
+  border: 1px solid @awra_outline;
+  border-radius: 9px;
+  background-color: @awra_floating;
+  background-image: none;
+  color: @awra_foreground;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.22);
+  outline: 0;
+  font-weight: 650;
+  opacity: 1;
+  filter: none;
+  animation: awra-rail-tooltip-in 140ms cubic-bezier(.2, .8, .2, 1);
+}
+
+popover.awra-rail-tooltip > contents label {
+  color: inherit;
+  background: none;
+  text-shadow: none;
+}
+
+@keyframes awra-rail-tooltip-in {
+  from { opacity: 0; transform: translateX(-6px); }
+  to { opacity: 1; transform: none; }
+}
+.awra-reduced-motion popover.awra-rail-tooltip > contents { animation: none; }
+
+/* Chips are drawn by Awra; only their text follows the theme's font. */
+awrachip {
+  font-size: 0.92em;
+  font-weight: 600;
+}
+
+/* A sidebar heading may be a button that folds its section: it keeps the
+ * heading's eyebrow and alignment, and only its colour answers the pointer. */
+.awra-button.awra-role-sidebar-heading,
+.awra-button.awra-role-sidebar-heading:hover,
+.awra-button.awra-role-sidebar-heading:active,
+.awra-button.awra-role-sidebar-heading:checked {
+  min-height: 0;
+  min-width: 0;
+  margin: 14px 8px 2px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  background-color: transparent;
+  box-shadow: none;
+  color: @awra_muted;
+  /* The label's eyebrow typography sets the size; the role's own label
+   * recipe must not shrink it a second time. */
+  font-size: 1em;
+  font-weight: 400;
+}
+
+.awra-button.awra-role-sidebar-heading:hover {
+  color: @awra_foreground;
+}
+
+.awra-button.awra-role-sidebar-heading image {
+  min-width: 12px;
+  min-height: 12px;
+  -gtk-icon-size: 12px;
+}
+
+/* A search field is as tall as the buttons beside it: its icon must not
+ * add its own height to the field's padding. */
+.awra-entry.awra-search-entry {
+  min-height: 22px;
+  padding: 5px 8px;
+  border-radius: 9px;
+}
+
+.awra-search-entry image {
+  min-width: 16px;
+  min-height: 16px;
+  padding: 0 4px 0 0;
+}
+
+/* In a sidebar or a side panel, a search is a quiet line rather than a
+ * well until it is used, so it does not outweigh the list under it. */
+awrasidebar .awra-entry.awra-search-entry,
+.awra-role-quiet-search .awra-entry.awra-search-entry {
+  background-color: @awra_control_hover;
+  box-shadow: none;
+}
+
+awrasidebar .awra-entry.awra-search-entry:focus-within,
+.awra-role-quiet-search .awra-entry.awra-search-entry:focus-within {
+  background-color: @awra_well;
+}
+
+/* inline-action on any GTK button, not only on Awra's: a quiet action
+ * inside content, transparent at rest. Owning every identity property keeps
+ * the desktop theme from drawing its own button around it. */
+button.awra-role-inline-action:not(.awra-button),
+button.awra-role-inline-action:not(.awra-button):backdrop,
+menubutton.awra-role-inline-action > button,
+menubutton.awra-role-inline-action > button:backdrop {
+  min-width: 18px;
+  min-height: 18px;
+  margin: 0;
+  padding: 3px 6px;
+  border: 0;
+  border-radius: 7px;
+  outline: 0;
+  background-color: transparent;
+  background-image: none;
+  box-shadow: none;
+  text-shadow: none;
+  color: @awra_muted;
+  -gtk-icon-shadow: none;
+  -gtk-icon-filter: none;
+}
+
+button.awra-role-inline-action:not(.awra-button):hover,
+menubutton.awra-role-inline-action > button:hover {
+  color: @awra_foreground;
+  background-color: @awra_cap_hover;
+  box-shadow: inset 0 1px @awra_rim;
+}
+
+button.awra-role-inline-action:not(.awra-button):active,
+button.awra-role-inline-action:not(.awra-button):checked,
+menubutton.awra-role-inline-action > button:active,
+menubutton.awra-role-inline-action > button:checked {
+  color: @awra_foreground;
+  background-color: @awra_control_pressed;
+  box-shadow: none;
+}
+
+button.awra-role-inline-action:not(.awra-button):focus-visible,
+menubutton.awra-role-inline-action > button:focus-visible {
+  outline: 2px solid @awra_focus;
+  outline-offset: 1px;
+}
+
+button.awra-role-inline-action:not(.awra-button) label:not(.awra-muted),
+button.awra-role-inline-action:not(.awra-button) image,
+menubutton.awra-role-inline-action > button label,
+menubutton.awra-role-inline-action > button image,
+menubutton.awra-role-inline-action arrow {
+  color: inherit;
+  background: transparent;
+  text-shadow: none;
+  -gtk-icon-shadow: none;
+}
+
+/* A GTK button that is a whole row of a list or a menu: flat and full
+ * width, with the navigation row's hover and press. */
+button.awra-role-row-action:not(.awra-button),
+button.awra-role-row-action:not(.awra-button):backdrop {
+  min-width: 0;
+  min-height: 0;
+  margin: 1px 0;
+  padding: 6px 8px;
+  border: 0;
+  border-radius: 8px;
+  outline: 0;
+  background-color: transparent;
+  background-image: none;
+  box-shadow: none;
+  text-shadow: none;
+  color: @awra_foreground;
+  -gtk-icon-shadow: none;
+  -gtk-icon-filter: none;
+}
+
+button.awra-role-row-action:not(.awra-button):hover {
+  background-color: @awra_control_hover;
+}
+
+button.awra-role-row-action:not(.awra-button):active,
+button.awra-role-row-action:not(.awra-button):checked {
+  background-color: @awra_control_pressed;
+}
+
+button.awra-role-row-action:not(.awra-button):focus-visible {
+  outline: 2px solid @awra_focus;
+  outline-offset: -2px;
+}
+
+button.awra-role-row-action:not(.awra-button) label:not(.awra-muted),
+button.awra-role-row-action:not(.awra-button) image {
+  color: inherit;
+  background: transparent;
+  text-shadow: none;
+  -gtk-icon-shadow: none;
+}
+
+/* A GTK button that opens a search or a command palette, drawn as the
+ * quiet field it stands for. */
+button.awra-role-search-launcher,
+button.awra-role-search-launcher:backdrop {
+  min-height: 0;
+  margin: 0;
+  padding: 5px 12px;
+  border: 0;
+  border-radius: 999px;
+  outline: 0;
+  background-color: @awra_control_hover;
+  background-image: none;
+  box-shadow: inset 0 0 0 1px alpha(@awra_foreground, .06);
+  text-shadow: none;
+  color: @awra_muted;
+  -gtk-icon-shadow: none;
+}
+
+button.awra-role-search-launcher:hover {
+  background-color: @awra_cap_hover;
+  color: @awra_foreground;
+}
+
+button.awra-role-search-launcher:focus-visible {
+  outline: 2px solid @awra_focus;
+  outline-offset: 1px;
+}
+
+button.awra-role-search-launcher label,
+button.awra-role-search-launcher image {
+  color: inherit;
+  background: transparent;
+}
+
+/* A row the person is acting on, such as a message being replied to. */
+.awra-role-chosen-row {
+  border-radius: 8px;
+  background-color: @awra_selection;
+  box-shadow: inset 2px 0 @awra_accent;
+}
+
+/* A GTK button whose child is a tile or a card: it draws no frame of its
+ * own, so the tile is the whole target, and hover lifts it gently. */
+button.awra-role-collection-tile:not(.awra-button),
+button.awra-role-collection-tile:not(.awra-button):backdrop {
+  min-width: 0;
+  min-height: 0;
+  padding: 4px;
+  border: 0;
+  border-radius: 12px;
+  outline: 0;
+  background-color: transparent;
+  background-image: none;
+  box-shadow: none;
+  text-shadow: none;
+  color: @awra_foreground;
+  -gtk-icon-shadow: none;
+}
+
+button.awra-role-collection-tile:not(.awra-button):hover {
+  background-color: @awra_control_hover;
+}
+
+button.awra-role-collection-tile:not(.awra-button):active {
+  background-color: @awra_control_pressed;
+}
+
+button.awra-role-collection-tile:not(.awra-button):focus-visible {
+  outline: 2px solid @awra_focus;
+  outline-offset: -2px;
+}
+
+/* A button that holds only an icon is square, whatever its appearance:
+ * the label padding would make it a wide pill and push what follows away.
+ * GTK marks such a button image-button by itself. */
+.awra-button.image-button,
+.awra-menu-button.image-button {
+  min-width: 22px;
+  min-height: 22px;
+  padding: 6px;
+}
+
+.awra-button.awra-toolbar-button.image-button,
+.awra-menu-button.awra-toolbar-button.image-button {
+  min-width: 22px;
+  min-height: 22px;
+  padding: 5px;
+}
+
+/* A GTK list or grid whose items draw their own states: no background,
+ * padding, hover or selection of the desktop theme's around them. */
+listview.awra-role-flat-list,
+listview.awra-role-flat-list:backdrop,
+flowbox.awra-role-flat-list,
+listview.awra-role-flat-list > row,
+listview.awra-role-flat-list > row:hover,
+listview.awra-role-flat-list > row:selected,
+listview.awra-role-flat-list > row:backdrop,
+flowbox.awra-role-flat-list > flowboxchild,
+flowbox.awra-role-flat-list > flowboxchild:hover,
+flowbox.awra-role-flat-list > flowboxchild:selected {
+  min-width: 0;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  outline: 0;
+  background-color: transparent;
+  background-image: none;
+  box-shadow: none;
+  color: inherit;
+}
+
+listview.awra-role-flat-list > row:focus-visible,
+flowbox.awra-role-flat-list > flowboxchild:focus-visible {
+  outline: 2px solid @awra_focus;
+  outline-offset: -2px;
+  border-radius: 8px;
+}
+
+/* Links in text take the readable accent, not the desktop theme's blue,
+ * which falls under 3:1 on a dark canvas. */
+window.awra-window label link,
+window.awra-window label link:visited {
+  color: @awra_accent_content;
+}
+
+window.awra-window label link:hover {
+  color: @awra_foreground;
+}
+
+/* People or things listed as content rather than places to go: names at
+ * full contrast, their second line muted, the row aligned on the column
+ * as navigation rows are. Someone set aside (offline) still recedes. */
+.awra-role-people-list .awra-navigation-item {
+  margin: 1px 8px;
+  padding: 6px 8px;
+  color: @awra_foreground;
+}
+
+.awra-role-people-list .awra-navigation-item-box {
+  border-spacing: 12px;
+}
+
+.awra-role-people-list .awra-navigation-item-label {
+  font-weight: 500;
+}
+
+.awra-role-people-list .awra-navigation-item.awra-muted:not(:hover):not(:checked) {
+  color: @awra_muted;
+}
+
+/* A GTK button that is a whole card: a post in a list, a suggestion. It
+ * is drawn as a tinted card and lifts on hover, rather than a card inside
+ * a button that draws a second frame around it. */
+button.awra-role-card-action,
+button.awra-role-card-action:backdrop {
+  min-width: 0;
+  min-height: 0;
+  margin: 0;
+  padding: 16px;
+  border: 0;
+  border-radius: 12px;
+  outline: 0;
+  background-color: alpha(@awra_foreground, .045);
+  background-image: none;
+  box-shadow: inset 0 1px @awra_rim;
+  text-shadow: none;
+  color: @awra_foreground;
+  -gtk-icon-shadow: none;
+  transition: background-color 120ms ease-out;
+}
+
+button.awra-role-card-action:hover {
+  background-color: alpha(@awra_foreground, .075);
+}
+
+button.awra-role-card-action:active {
+  background-color: @awra_control_pressed;
+}
+
+button.awra-role-card-action:focus-visible {
+  outline: 2px solid @awra_focus;
+  outline-offset: 2px;
+}
+
+.awra-reduced-motion button.awra-role-card-action {
+  transition: none;
 }

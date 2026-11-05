@@ -209,13 +209,17 @@ impl PopoverBuilder {
         }
     }
 
-    //pub fn pointing_to(self, pointing_to: /*Ignored*/&gdk::Rectangle) -> Self {
-    //    Self { builder: self.builder.property("pointing-to", pointing_to), }
-    //}
+    pub fn pointing_to(self, pointing_to: &gdk::Rectangle) -> Self {
+        Self {
+            builder: self.builder.property("pointing-to", pointing_to),
+        }
+    }
 
-    //pub fn position(self, position: /*Ignored*/gtk::PositionType) -> Self {
-    //    Self { builder: self.builder.property("position", position), }
-    //}
+    pub fn position(self, position: gtk::PositionType) -> Self {
+        Self {
+            builder: self.builder.property("position", position),
+        }
+    }
 
     pub fn can_focus(self, can_focus: bool) -> Self {
         Self {

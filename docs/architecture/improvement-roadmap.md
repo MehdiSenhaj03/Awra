@@ -9,8 +9,7 @@
 
 ## Objet du document
 
-Ce document transforme les enseignements du Showcase et du port complet de
-Pokedia en feuille de route pour Awra. Il ne décrit pas seulement les widgets
+Ce document transforme les enseignements du Showcase et du port complet de l’application de référence en feuille de route pour Awra. Il ne décrit pas seulement les widgets
 à ajouter : il couvre la stabilité, les invariants visuels, l’ergonomie de
 l’API, l’accessibilité, les performances, les tests, les bindings, la
 documentation et la préparation d’une future version stable.
@@ -18,7 +17,7 @@ documentation et la préparation d’une future version stable.
 Awra 0.1 a validé sa direction fondamentale : une application riche peut
 conserver les comportements GTK, utiliser un matériau Frosted natif et une
 identité indépendante du thème, sans CSS applicatif, sans libadwaita, sans API
-privée Awra et sans appel direct au compositeur. Pokedia a également validé un
+privée Awra et sans appel direct au compositeur. L’application de référence a également validé un
 invariant difficile : le rendu Canvas/Frosted est identique entre focus et
 unfocus, tout en conservant la demande de blur native.
 
@@ -46,12 +45,12 @@ utiliser dans une nouvelle application.
   couleur et contraste — restent disponibles.
 - Les composants interactifs conservent les comportements GTK : actions,
   modèles, sélection, IME, clavier et accessibilité.
-- Les corrections faites dans Awra se propagent à Showcase et Pokedia au lieu
+- Les corrections faites dans Awra se propagent à Showcase et l’application de référence au lieu
   d’être dupliquées dans leurs feuilles CSS.
 - Les primitives bas niveau Solid, Translucent et Frosted coexistent avec les
   presets Canvas, Chrome, Content, Layer, Floating et Opaque.
 
-### Ce que Pokedia a révélé
+### Ce que l’application de référence a révélé
 
 - Une vraie application de données demande davantage de primitives de page,
   de formulaires, de tableaux et d’états applicatifs qu’une galerie de
@@ -219,7 +218,7 @@ contre une installation propre.
 
 ## Axe 5 — Construction de pages et ergonomie développeur (P1)
 
-Le manque principal observé dans Pokedia est la quantité de composition
+Le manque principal observé dans l’application de référence est la quantité de composition
 manuelle nécessaire pour obtenir une page pourtant conventionnelle. Les
 nouveaux composants doivent fournir de bons espacements et un comportement
 responsive par défaut, tout en restant composables.
@@ -289,7 +288,7 @@ d’implémentation d’Awra.
 
 Chaque composant ajouté doit supprimer une composition récurrente observée
 dans au moins deux scénarios génériques. Awra ne doit pas incorporer de widget
-« Pokémon », « musique » ou autre concept métier.
+« fiche », « musique » ou autre concept métier.
 
 ## Axe 7 — Navigation, layout et responsive (P1)
 
@@ -407,7 +406,7 @@ dans au moins deux scénarios génériques. Awra ne doit pas incorporer de widge
 - **Isolation** : thèmes opposés, user CSS et provider USER hostiles.
 - **Visuels** : scènes déterministes Light/Dark, accent bleu et niveaux de
   gris.
-- **Applications externes** : Showcase, Pokedia et petites fixtures C/Vala/
+- **Applications externes** : Showcase, l’application de référence et petites fixtures C/Vala/
   Python.
 - **Manuels compositor** : KWin intégré, Better Blur DX, blur désactivé et
   fractional scaling.
@@ -501,7 +500,7 @@ pas le gel du reste de l’ABI.
 2. `AwraForm`, `AwraFormRow` et états vide/loading/error.
 3. `AwraFilterBar`, `AwraMasterDetail` et `AwraDetailPane`.
 4. Catalogue de rôles, exemples Blueprint et guide de migration.
-5. Migration du Showcase et d’une partie de Pokedia vers ces primitives pour
+5. Migration du Showcase et d’une partie de l’application de référence vers ces primitives pour
    prouver qu’elles réduisent réellement le code.
 
 ### Phase C — Données, navigation et contrôles, 0.3
@@ -558,7 +557,7 @@ l’ordre suivant est recommandé :
 - Ne pas figer trop tôt les valeurs artistiques numériques.
 - Ne pas introduire Liquid ou la réfraction avant stabilisation complète du
   Frosted.
-- Ne pas adapter les primitives à un seul Showcase ou à Pokedia.
+- Ne pas adapter les primitives à un seul Showcase ou à l’application de référence.
 - Ne pas accepter une correction applicative lorsqu’un défaut est
   généralisable au framework.
 
@@ -572,6 +571,6 @@ CSS, ni code compositor, ni logique de focus visuel, tout en conservant la
 possibilité de composer des interfaces atypiques à partir des primitives bas
 niveau.
 
-Pokedia montre que cet objectif est atteignable. La feuille de route consiste
+L’application de référence montre que cet objectif est atteignable. La feuille de route consiste
 maintenant à rendre ce résultat systématique et rapide, plutôt qu’obtenu après
 avoir découvert les primitives manquantes pendant le développement.

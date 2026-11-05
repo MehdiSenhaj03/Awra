@@ -44,7 +44,9 @@ guint        awra_sidebar_get_inset   (AwraSidebar *self);
  * @inset: uniform inset in logical pixels
  *
  * Makes the semantic Chrome surface float inside the layout allocation while
- * preserving the sidebar's structural role. Set to zero for a docked sidebar.
+ * preserving the sidebar's structural role. Set to zero for a docked sidebar:
+ * a straight band that draws only the edge it shares with the content, while
+ * the window's frame rounds its outer corners.
  */
 void         awra_sidebar_set_inset   (AwraSidebar *self,
                                        guint        inset);

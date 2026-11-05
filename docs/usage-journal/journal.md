@@ -4,7 +4,7 @@
 
 Les entrées des 17 et 18 août ci-dessous reconstruisent rétrospectivement les
 enseignements conservés de la conception d’Awra, des passes successives du
-Showcase et du port de Pokedia. Leur ordre est significatif, mais leur heure
+Showcase et du port de l’application de référence. Leur ordre est significatif, mais leur heure
 n’avait pas été consignée à l’époque.
 
 # 2026-08-17
@@ -147,12 +147,12 @@ de layout ont donc été centralisés dans des tokens et helpers publics. Une
 application peut encore composer librement, mais elle ne devrait pas recopier
 une collection de valeurs magiques.
 
-## Heure non consignée — reconstruction — PokediaAwra — Le premier test externe n’était pas suffisant
+## Heure non consignée — reconstruction — Application de référence — Le premier test externe n’était pas suffisant
 
-Le premier essai de reproduction de Pokedia ressemblait à une maquette
+Le premier essai de reproduction de l’application de référence ressemblait à une maquette
 incomplète : densité trop faible, vues manquantes et structures très éloignées
 du produit de référence. Le test a été repris comme un vrai port complet, avec
-les données, huit pages, les détails Pokémon/attaques/talents/objets, la
+les données, huit pages, les détails fiche/attaques/talents/objets, la
 comparaison, les types, les espaces de travail, les onglets et les dialogs.
 
 Cette exigence a été utile : une bibliothèque n’est pas validée parce qu’elle
@@ -161,9 +161,9 @@ dense sans obliger l’application à la contourner.
 
 # 2026-08-18
 
-## Heure non consignée — reconstruction — PokediaAwra — Un port public complet
+## Heure non consignée — reconstruction — Application de référence — Un port public complet
 
-PokediaAwra a conservé la logique métier, SQLite, les datasets, les modèles,
+L’application de référence a conservé la logique métier, SQLite, les datasets, les modèles,
 les recherches et les factories GTK. La couche d’interface a été recomposée
 avec les seules API publiques d’Awra et GTK, sans libadwaita, provider CSS
 applicatif, API Wayland/KWin ou header privé.
@@ -172,14 +172,14 @@ Le port a déclenché des primitives réutilisables plutôt que des exceptions
 locales : FilterBar, badges à couleurs de domaine, tabs dynamiques, fusion du
 chrome et du canvas, rôles de données isolés et meilleurs overlays.
 
-## Heure non consignée — reconstruction — PokediaAwra — Focus et thème utilisateur
+## Heure non consignée — reconstruction — Application de référence — Focus et thème utilisateur
 
 Une règle réelle du thème utilisateur visant `.sidebar-pane:first-child`
 créait une ombre opaque de 9 000 pixels uniquement lorsque la fenêtre était
 active. Les rôles publics sont désormais traduits en classes privées
 `awra-role-*`, ce qui évite les collisions avec les thèmes GTK.
 
-La comparaison active/inactive de Pokedia a ensuite été rendue strictement
+La comparaison active/inactive de l’application de référence a ensuite été rendue strictement
 identique. Awra a finalement choisi l’invariant le plus fort : fill, tint,
 grain, radius, border, highlight, shadow et demande de blur ne changent pas
 avec le focus.
@@ -197,7 +197,7 @@ widget Awra typé plutôt qu’une accumulation de chaînes de rôles.
 
 ## Heure non consignée — reconstruction — Awra — Roadmap issue de l’usage réel
 
-L’expérience Showcase/Pokedia a produit une roadmap couvrant stabilité,
+L’expérience du Showcase et de l’application de référence a produit une roadmap couvrant stabilité,
 lifecycle natif, isolation, ergonomie de construction, données, navigation,
 accessibilité, performances, diagnostics, documentation, bindings, packaging
 et gouvernance du design system.
@@ -205,7 +205,7 @@ et gouvernance du design system.
 La Phase A a durci les fondations, l’ownership, le backend natif, GIR et les
 consumers. La Phase B a ajouté Page, PageHeader, Section, Toolbar, Form,
 FormRow, états d’application, FilterBar, MasterDetail et DetailPane, puis a
-migré Showcase et une première composition réelle de Pokedia.
+migré Showcase et une première composition réelle de l’application de référence.
 
 # 2026-08-19
 
@@ -249,11 +249,11 @@ L’état validé a été publié sur le dépôt GitHub officiel, branche `main`
 le commit `2a93c7a` intitulé `Release Awra 1.0.0`. Les builds Meson, les
 dépendances GIR téléchargées et les artefacts Cargo sont exclus du dépôt.
 
-## 02:02 — PokediaAwra — Expérience de développement face à libadwaita
+## 02:02 — Application de référence — Expérience de développement face à libadwaita
 
 Pour une application GNOME classique, libadwaita reste aujourd’hui plus simple
 grâce à sa maturité, sa documentation, son écosystème et son catalogue. Pour
-une application transparente et fortement identitaire comme Pokedia, Awra est
+une application transparente et fortement identitaire comme l’application de référence, Awra est
 désormais plus naturel : on ne lutte plus contre des fonds opaques, des
 sous-widgets privés ou des contournements CSS pour obtenir le verre, le blur et
 une hiérarchie de surfaces cohérente.
@@ -264,13 +264,13 @@ données SQLite, navigation métier et callbacks peuvent rester. Il faut surtout
 recomposer les fenêtres, headers, sidebars, rows, cards, overlays et pages
 libadwaita avec les primitives sémantiques Awra.
 
-Le port historique n’a pas été parfaitement fluide parce que Pokedia a servi à
+Le port historique n’a pas été parfaitement fluide parce que l’application de référence a servi à
 construire une partie du framework. Les difficultés rencontrées ont néanmoins
 été transformées en API réutilisables plutôt qu’en hacks applicatifs.
 
-## 02:02 — PokediaAwra — Dette technique encore visible
+## 02:02 — Application de référence — Dette technique encore visible
 
-PokediaAwra conserve actuellement un wrapper FFI Rust manuel d’environ 448
+L’application de référence conserve actuellement un wrapper FFI Rust manuel d’environ 448
 lignes, écrit avant les bindings générés. Il fonctionne et respecte l’API
 publique, mais il ne représente plus le chemin recommandé. Le migrer vers le
 crate Rust sûr supprimerait beaucoup de pointeurs, conversions GLib et blocs
@@ -289,14 +289,14 @@ bindings sûrs adoptés par les vraies applications, composants typés faciles �
 découvrir, moins de rôles nécessaires, davantage d’exemples complets et une
 documentation au niveau de maturité attendu d’un toolkit public.
 
-Si Pokedia était recommencé aujourd’hui avec Awra 1.0, les modèles et la logique
+Si l’application de référence était recommencé aujourd’hui avec Awra 1.0, les modèles et la logique
 métier resteraient les mêmes, mais la couche UI demanderait moins de FFI, moins
 de compositions manuelles et presque aucun combat contre le thème ou la
 transparence. C’est le signe le plus concret qu’Awra va dans la bonne direction.
 
-## 03:19 — PokediaAwra — La finition d’un vrai produit révèle les petits contrats
+## 03:19 — Application de référence — La finition d’un vrai produit révèle les petits contrats
 
-La comparaison côte à côte avec Pokedia standard a montré que la matière et le
+La comparaison côte à côte avec l’application de référence standard a montré que la matière et le
 blur étaient déjà cohérents, mais que plusieurs petits contrats par défaut
 restaient trop faibles : un widget central de header s’étirait verticalement,
 un dropdown publiait sa sélection avant le clic, une page épinglée imposait une
@@ -307,18 +307,18 @@ Ces défauts ont été corrigés dans Awra. Les widgets de header sont centrés 
 défaut, les dropdowns ne valident qu’à l’activation, les tabs ont une identité
 optionnelle et distribuent l’espace, les actions inline disposent d’un état
 sélectionné discret, et les scrollbars de données se révèlent seulement quand
-elles sont utiles. Pokedia ne contient toujours aucun CSS local.
+elles sont utiles. L’application de référence ne contient toujours aucun CSS local.
 
-## 03:19 — PokediaAwra — Densité et couleur de domaine
+## 03:19 — Application de référence — Densité et couleur de domaine
 
-Les types Pokémon ont servi de test sévère aux badges : une couleur de texte
+Les types fiche ont servi de test sévère aux badges : une couleur de texte
 qui alternait entre noir et blanc cassait la cohérence du vocabulaire, tandis
 qu’un blanc forcé sur les anciennes teintes jaunes ou cyan ne respectait pas le
 contraste. La solution retenue combine un contenu blanc stable fourni par
-AwraBadge et une palette Pokedia volontairement assombrie ; les dix-huit teintes
+AwraBadge et une palette l’application de référence volontairement assombrie ; les dix-huit teintes
 restent reconnaissables et dépassent toutes un ratio de contraste de 4,5:1.
 
-## 03:58 — PokediaAwra — Les métriques peintes ne suffisent pas
+## 03:58 — Application de référence — Les métriques peintes ne suffisent pas
 
 La dernière comparaison géométrique a révélé un contrat GTK facile à manquer :
 le padding CSS d’un widget final utilisant `GtkBinLayout` améliorait la peinture
@@ -328,22 +328,22 @@ sur son contenu mesuré, avec un test de taille minimale ; le blanc, le contrast
 et la densité deviennent un contrat du composant plutôt qu’une heureuse
 conséquence du parent.
 
-## 03:58 — PokediaAwra — Une barre d’onglets est une géométrie complète
+## 03:58 — Application de référence — Une barre d’onglets est une géométrie complète
 
 Partager la largeur entre onglets ne suffisait pas : le bouton interne gardait
 sa taille naturelle et tassait titre et fermeture à gauche. `AwraTabView`
 possède désormais une capsule continue, des séparateurs discrets et une cellule
-interactive qui occupe réellement toute sa part. Pokedia ne règle que son
+interactive qui occupe réellement toute sa part. L’application de référence ne règle que son
 contenu et son shell ; les formes, le focus, le hover et la distribution restent
 la responsabilité d’Awra.
 
 Le même passage a clarifié la frontière des responsabilités : Awra fournit les
-métriques stables des badges, onglets, filtres et actions inline ; Pokedia décide
+métriques stables des badges, onglets, filtres et actions inline ; l’application de référence décide
 que sa colonne Type comporte deux emplacements et qu’un type unique les couvre
 pour être centré. C’est une composition métier, pas une règle universelle du
 framework.
 
-## 04:14 — PokediaAwra — Les tests ne remplacent pas la comparaison Dark
+## 04:14 — Application de référence — Les tests ne remplacent pas la comparaison Dark
 
 Une première correction des onglets passait les tests et paraissait correcte
 dans la capture Xvfb claire, mais restait insuffisante face au rendu Dark réel :
@@ -357,9 +357,9 @@ courts et hover de navigation visible. Ce cas rappelle que les gates techniques
 prouvent la stabilité, mais qu’une décision esthétique doit aussi être comparée
 dans l’apparence artistique de référence.
 
-## 21:01 — PokediaAwra — Le débordement des onglets est un contrat de layout
+## 21:01 — Application de référence — Le débordement des onglets est un contrat de layout
 
-Les captures complètes de Pokedia Standard ont montré que la barre ne se
+Les captures complètes de l’application de référence Standard ont montré que la barre ne se
 résumait pas à une capsule et quelques séparateurs. Avec peu de pages, chaque
 onglet grandit jusqu’à une largeur maximale puis laisse respirer la fin du rail.
 Avec davantage de pages, les cellules se contractent uniformément jusqu’à un
@@ -379,7 +379,7 @@ fenêtre reste bornée, que le rail déborde et que la sélection du dernier ong
 fait défiler le viewport. Cette fois, le comportement observé est devenu un
 invariant mesuré plutôt qu’une simple approximation visuelle.
 
-## 21:21 — PokediaAwra — Un grand rayon ne constitue pas un cercle
+## 21:21 — Application de référence — Un grand rayon ne constitue pas un cercle
 
 La dernière comparaison a isolé une erreur récurrente : appliquer un rayon
 « pill » à un bouton rectangulaire ne le rend pas circulaire. Le Home épinglé
@@ -394,7 +394,7 @@ vérifient largeur égale à hauteur et les tailles exactes, afin qu’une règl
 ou un futur changement de padding ne puisse plus les transformer silencieusement
 en ovales. Les boutons texte restent, eux, des rectangles arrondis.
 
-## 22:02 — PokediaAwra — La capsule ne doit pas posséder le séparateur
+## 22:02 — Application de référence — La capsule ne doit pas posséder le séparateur
 
 La vérification suivante a isolé une seconde erreur structurelle dans la barre
 d’onglets : même avec des tailles carrées correctes, peindre le hover et la
@@ -411,14 +411,14 @@ seulement l’espace de son séparateur terminal. Les tests mappés prouvent le
 centrage de l’icône à un demi-pixel, un espace minimal de 6 px entre deux
 capsules accentuées et des marges gauche/droite symétriques à un pixel près.
 
-Cette passe a aussi révélé un piège de validation : lancer Pokedia avec le même
+Cette passe a aussi révélé un piège de validation : lancer l’application de référence avec le même
 identifiant d’application activait l’instance déjà ouverte, laquelle conservait
 l’ancienne bibliothèque Awra en mémoire. Les captures sont maintenant faites
 sur un bus D-Bus privé et les smoke tests utilisent un répertoire de données
 temporaire. Ils ne peuvent donc plus valider une ancienne instance ni modifier
 le workspace réel du développeur.
 
-## 22:25 — PokediaAwra — Le titre et le rail suivent l’intention utilisateur
+## 22:25 — Application de référence — Le titre et le rail suivent l’intention utilisateur
 
 La barre restait imparfaite sur deux comportements subtils. D’abord, les
 transitions hover déclenchées lorsque les onglets défilaient sous le pointeur
@@ -437,11 +437,11 @@ ellipse dure. Le comportement s’inverse également en RTL.
 Les tests couvrent maintenant le centre avant/après sélection, le débordement
 du titre, le maintien du rail à son extrémité pendant un hover et l’isolation
 face à un thème hostile. Une capture Dark avec vingt-deux onglets a confirmé
-les mêmes proportions dans Pokedia.
+les mêmes proportions dans l’application de référence.
 
-## 23:12 — PokediaAwra — La respiration prime sur le nombre d’onglets visibles
+## 23:12 — Application de référence — La respiration prime sur le nombre d’onglets visibles
 
-Une comparaison à géométrie de fenêtre comparable avec Pokedia Standard a
+Une comparaison à géométrie de fenêtre comparable avec l’application de référence Standard a
 montré pourquoi la nouvelle mécanique, pourtant plus robuste, paraissait encore
 moins premium :
 son pas minimal de 118 px faisait entrer un onglet supplémentaire dans le même
@@ -467,9 +467,9 @@ pas d’un effet supplémentaire.
 
 # 2026-08-24
 
-## 02:19 — PokediaAwra — Le bord du viewport fait partie du composant
+## 02:19 — Application de référence — Le bord du viewport fait partie du composant
 
-La comparaison finale avec la barre de Pokedia Standard a mis en évidence trois
+La comparaison finale avec la barre de l’application de référence Standard a mis en évidence trois
 écarts encore liés à la primitive Awra : Home conservait une faible capsule au
 repos, le rail réservait trop d’air vertical autour des onglets et une capsule
 partiellement visible se terminait sur la coupe dure du `GtkScrolledWindow`.
@@ -486,35 +486,35 @@ RTL, tandis que le scroller GTK conserve son comportement natif.
 
 Le test géométrique échoue maintenant si l’inset vertical dépasse 3 px et
 vérifie la présence du masque autour du scroller. La suite Awra (27 tests), les
-tests et le lint Rust de Pokedia ainsi que la frontière d’API publique restent
-valides. Aucun style local n’a été ajouté à Pokedia pour obtenir ce résultat.
+tests et le lint Rust de l’application de référence ainsi que la frontière d’API publique restent
+valides. Aucun style local n’a été ajouté à l’application de référence pour obtenir ce résultat.
 
-## 02:41 — PokediaAwra — La couleur d’une catégorie se suffit à elle-même
+## 02:41 — Application de référence — La couleur d’une catégorie se suffit à elle-même
 
 Les badges de types révélaient un liseré clair que `AwraBadge` ajoutait
 systématiquement aux couleurs personnalisées. Sur une suite dense de capsules,
 ce rim fragmentait les aplats et donnait à chaque type l’aspect d’un petit
-bouton. La référence Pokedia montre au contraire que la silhouette, la couleur
+bouton. La référence l’application de référence montre au contraire que la silhouette, la couleur
 pleine et le texte blanc suffisent à identifier la catégorie.
 
 Le rendu `custom-color` est désormais entièrement borderless. La couleur et
 les métriques restent contrôlées par Awra, le texte reste blanc et stable en
 Light/Dark, mais aucun outline ou highlight décoratif n’est ajouté. Ce choix
 vaut pour tous les vocabulaires de catégories utilisant la primitive publique,
-pas seulement pour les types Pokémon.
+pas seulement pour les types fiche.
 
-## 02:56 — PokediaAwra — Une miniature de domaine reste une primitive d’onglet
+## 02:56 — Application de référence — Une miniature de domaine reste une primitive d’onglet
 
-Les onglets Pokémon gagnent leur sprite avant le titre pour accélérer le
+Les onglets fiche gagnent leur sprite avant le titre pour accélérer le
 repérage visuel. L’ancien contrat d’`AwraTabView` ne savait afficher que des
 icônes nommées du thème. Awra accepte maintenant une `GtkImage` applicative
 optionnelle et garde la maîtrise de sa taille, de son espacement, des états et
-de l’overflow. Pokedia alimente cette image avec son chargeur asynchrone sans
+de l’overflow. L’application de référence alimente cette image avec son chargeur asynchrone sans
 reconstruire la barre d’onglets.
 
 # 2026-08-25
 
-## 02:04 — PokediaAwra — Un dialogue court doit assumer sa hauteur naturelle
+## 02:04 — Application de référence — Un dialogue court doit assumer sa hauteur naturelle
 
 Les dialogues de workspace révélaient deux défauts génériques. Le bloc de
 titres d’`AwraHeader` remplissait verticalement le header : avec un seul titre,
@@ -523,15 +523,15 @@ Le texte et la croix appartenaient donc visiblement à deux lignes différentes.
 Le bloc de titres possède maintenant un alignement vertical central explicite,
 couvert par un test de géométrie mappée.
 
-`AwraDialog` imposait aussi une hauteur initiale de 250 px, puis Pokedia en
+`AwraDialog` imposait aussi une hauteur initiale de 250 px, puis l’application de référence en
 imposait une de 230 px à ses formulaires. Cette valeur laissait une bande vide
 sous les actions dès que le contenu était court. Awra ne fixe désormais que la
-largeur par défaut ; la hauteur provient du contenu. Pokedia applique le preset
+largeur par défaut ; la hauteur provient du contenu. L’application de référence applique le preset
 public `OVERLAY` à ses contenus et ne définit plus que la largeur souhaitée.
 Des captures isolées des dialogues New Workspace et Manage Workspaces ont
 confirmé des marges finales symétriques sans toucher aux données utilisateur.
 
-## 02:23 — PokediaAwra — Une action discrète doit quand même répondre
+## 02:23 — Application de référence — Une action discrète doit quand même répondre
 
 Le formulaire Rename Workspace a révélé un conflit de spécificité dans la
 grammaire des boutons. L'apparence Ghost annulait la couleur de fond après la
@@ -542,16 +542,16 @@ pointeur. Le primaire simulait quant à lui son survol avec une ombre inset de
 Awra définit maintenant explicitement les états hover et pressed de Ghost et
 remplace le voile du primaire par un rim intérieur contenu dans sa silhouette ;
 la couleur d'accent et son contraste restent stables. Dans les dialogues
-Pokedia, Cancel utilise Secondary : l'action est identifiable au repos, puis
+L’application de référence, Cancel utilise Secondary : l'action est identifiable au repos, puis
 renforce son plan au survol. Ghost reste disponible pour les actions inline
 réellement calmes. La décision appartient donc au vocabulaire public du
 framework et non à un style local du consumer.
 
-## 03:44 — PokediaAwra — Un binding et des composants, pas une couche de traduction
+## 03:44 — Application de référence — Un binding et des composants, pas une couche de traduction
 
 La revue finale du port a isolé deux dettes qui n'étaient plus justifiées : une
 façade Rust locale de 37 appels `unsafe` et des rôles visuels qui remplaçaient
-encore des composants désormais disponibles. Pokedia dépend maintenant du
+encore des composants désormais disponibles. L’application de référence dépend maintenant du
 crate sûr officiel `awra`; l'apparence, l'accent, les layouts, les widgets et
 les rôles passent par cette projection GIR unique. Une gate interdit tout
 retour de `extern "C"`, `awra-sys` ou d'un module `src/awra.rs` dans le projet.
@@ -559,22 +559,22 @@ retour de `extern "C"`, `awra-sys` ou d'un module `src/awra.rs` dans le projet.
 La même passe remplace les rôles de composition par `AwraCard`, `AwraSection`,
 `AwraFormRow`, `AwraFilterBar`, `AwraStatusBanner`, `AwraEmptyState`,
 `AwraBadge`, `AwraStatBar` et `AwraMetricRow`. Le besoin tabulaire a conduit à
-faire posséder à `AwraListView` son viewport et son header optionnel : Pokedia
+faire posséder à `AwraListView` son viewport et son header optionnel : l’application de référence
 ne reconstruit plus une table avec un scroller, trois rôles et un container.
 Les rôles restants décrivent uniquement le domaine (types, matchups, matrice,
 relations, sprites) ou une ligne GTK dont le comportement doit rester GTK.
 
 # 2026-10-23
 
-## 01:45 — KeyToMusicAwra — Un clavier, un lecteur et une zone de dépôt génériques
+## 01:45 — Application de référence — Un clavier, un lecteur et une zone de dépôt génériques
 
-KeyToMusic est une table de sons : chaque touche du clavier déclenche des
+L’application de référence est une table de sons : chaque touche du clavier déclenche des
 sons, avec des pistes, des formes d'onde, un point de départ et une
 découverte de morceaux. Préparer son portage natif a montré que Awra n'avait
 ni touche, ni clavier physique, ni capture de raccourci, ni forme d'onde, ni
 ligne de lecture. Les reconstruire dans l'application aurait exigé du CSS
 local, du dessin GSK et de la sémantique clavier que le contrat des
-consommateurs interdit, et ces besoins ne sont pas propres à KeyToMusic :
+consommateurs interdit, et ces besoins ne sont pas propres à l’application de référence :
 lanceur de macros, éditeur de raccourcis, lecteur de podcasts ou importateur
 de fichiers les partagent.
 
@@ -597,11 +597,11 @@ Décisions confirmées :
 - Les toasts gagnent une action (« Annuler ») liée à une `GAction`, sans
   changer `show_message()`.
 
-À tester dans KeyToMusicAwra : le glisser-déposer réel sur les touches (GTK
+À tester dans l’application de référence : le glisser-déposer réel sur les touches (GTK
 n'offre pas de synthèse publique d'un drop) et la capture de raccourcis
 lorsque des accélérateurs d'application sont actifs.
 
-## 02:10 — KeyToMusicAwra — Premier assemblage de l'application réelle
+## 02:10 — Application de référence — Premier assemblage de l'application réelle
 
 L'application complète (clavier, inspecteur, pistes, ajout de sons, Découvrir,
 Mood AI, Bibliothèque, Réglages) a été assemblée sur les nouveaux composants
@@ -639,7 +639,7 @@ Encore à vérifier sur un vrai bureau Wayland : le flou natif, le
 glisser-déposer de fichiers sur les touches et la capture de raccourcis
 pendant que la détection globale du clavier est active.
 
-## 03:03 — KeyToMusicAwra — Seconde passe de finition après un vrai retour
+## 03:03 — Application de référence — Seconde passe de finition après un vrai retour
 
 Le premier retour d'utilisation réelle a été sévère : icônes trompeuses,
 panneau d'ajout illisible sans flou, espacements irréguliers, artefact au clic
@@ -674,16 +674,16 @@ libellé d'état et une bannière avec action règlent le problème. Un panneau
 qui se révèle à côté d'une grille fait recalculer la grille à chaque
 sélection ; une colonne de contexte permanente évite l'artefact.
 
-## 17:54 — KeyToMusicAwra — Troisième passe : respiration et détails
+## 17:54 — Application de référence — Troisième passe : respiration et détails
 
-Retour de l'utilisateur, captures à l'appui : la barre latérale de KeyToMusic
-collait ses éléments aux bords, là où celle de PokediaAwra respire. La cause
+Retour de l'utilisateur, captures à l'appui : la barre latérale de l’application de référence
+collait ses éléments aux bords, là où celle de l’application de référence respire. La cause
 était dans Awra, et d'autres défauts sont sortis en refaisant le tour.
 
 - **Éléments de navigation collés aux bords : corrigé.** Dans un
   `AwraSidebar`, un `AwraNavigationItem` prend désormais 8 px de marge de
   chaque côté ; son libellé s'aligne sur les intitulés de section posés avec
-  la même marge que dans PokediaAwra.
+  la même marge que dans l’application de référence.
 - **Formulaire empilé sans regroupement : corrigé.** En mode compact, le
   libellé d'un `AwraFormRow` était aussi loin de son champ que de la ligne
   suivante. L'écart libellé–champ tombe à SM ; l'écart entre lignes reste LG.
@@ -707,7 +707,7 @@ clavier. Un `GtkScrolledWindow` sans défilement ni largeur naturelle propagée
 fige la colonne à sa largeur minimale. À retenir pour toute colonne latérale
 qui ne doit jamais bouger.
 
-## 02:30 — KeyToMusicAwra — Awra sous Windows
+## 02:30 — Application de référence — Awra sous Windows
 
 L'application devait exister aussi sous Windows, avec le même verre. Awra ne
 connaissait que Wayland (`ext-background-effect-v1`) et le repli opaque.
@@ -739,7 +739,7 @@ GTK 4.22 est recompilé pour MinGW (Fedora fournit 4.21, et Awra utilise
 s'affiche, en repli opaque puisque Wine n'a pas DWM. Le flou réel reste à voir
 sur un vrai Windows.
 
-## 2026-10-29 — VLC Awra
+## 2026-10-29 — Application de référence
 
 A real libVLC consumer exposed a missing interval ruler. Added `AwraTimeline`
 for seek requests, point markers, zoomed viewports, hovered-time previews and
@@ -749,12 +749,12 @@ modes; cancellation restores the initial edit. The API is projected through
 GIR and gtk-rs, with a Showcase example and external Python consumer.
 
 Media libraries also need GTK's virtualized collections. Added the semantic
-`collection-view` style role instead of wrapping GtkGridView or giving VLC its
-own stylesheet. VLC Awra composes existing navigation, panels, materials,
+`collection-view` style role instead of wrapping GtkGridView or giving l’application de référence its
+own stylesheet. L’application de référence composes existing navigation, panels, materials,
 controls, volume and waveform widgets without framework bypasses.
 
 
-## 2026-10-30 — VLC workflow audit
+## 2026-10-30 — Application de référence workflow audit
 
 Real pointer/keyboard and 5,000-item queue workflows exposed gaps missed by
 constructor/render smoke tests. `AwraOverlayBar` now owns the floating surface,
@@ -798,7 +798,7 @@ surface-sized preview. Both views sustain approximately 60 measured paints/s.
 
 ## 2026-10-30 — Window frame policy
 
-VLC Awra exposed rounded gaps at the edges of a maximized window. AwraWindow
+L’application de référence exposed rounded gaps at the edges of a maximized window. AwraWindow
 now resolves the outer frame and native blur region from the actual GTK window
 state: square, borderless and shadowless in maximized/fullscreen states by
 default. The public `keep-rounded-corners` boolean lets applications retain
@@ -820,7 +820,7 @@ API remain available after integration.
 Cross-application tests caught an Escape conflict: a focused search entry
 consumed the key before the new dialog class binding. Dialog capture now uses
 the same close-response path and leaves focused popovers their own dismissal
-sequence. The native VLC settings workflow covers that interaction. A DWM
+sequence. The native l’application de référence settings workflow covers that interaction. A DWM
 frame-style initialization also needed to run before the explicit radius
 policy, retaining both square expanded frames and small popup rounding.
 
@@ -842,3 +842,318 @@ sur une grande fenêtre peuvent retarder les callbacks de priorité DEFAULT_IDLE
 Le consommateur livre ses mises à jour de processus à la priorité DEFAULT.
 Aucune boucle réseau ni attente de processus ne tourne dans le thread GTK.
 Le guide background-tasks documente ce contrat de livraison.
+
+# 2026-10-30
+
+## l’application de référence — collections et panneaux de fichiers
+
+Le développement de l’explorateur a exposé quatre besoins génériques : une
+grille virtualisée partageant la sélection du tableau, un fil d’Ariane pouvant
+déborder sans élargir la fenêtre, des états de contenu utilisables dans un
+panneau étroit, et des en-têtes de colonnes cohérents lors du défilement
+horizontal. Ils sont traités dans Awra avec `AwraGridView`, un viewport de
+breadcrumb révélant le segment courant (LTR/RTL), des descriptions à largeur
+préférée et une correction du padding d’en-tête. L’application de référence n’ajoute aucun
+fournisseur CSS ni accès aux enfants privés.
+
+La validation ajoute un scénario C à 20 000 éléments (virtualisation,
+sélection, détachement du modèle/factory, destruction) et un chemin de trente
+segments dans une fenêtre de 320 pixels avec vérification RTL. La suite
+complète passe : 34 succès, un test d’état de fenêtre ignoré sous Xvfb.
+Les gates d’installation C/Python/Vala et de sous-projet Meson passent.
+
+Les miniatures, la recherche et les opérations restent dans l’application :
+ce sont des services du domaine fichiers. Le benchmark de 30 000 fichiers a
+également révélé qu’un tri Python/GI relancé à chaque lot renouvelle trop de
+cellules. Le classement initial des métadonnées est donc effectué hors du fil
+GTK, avant leur transfert borné au modèle. Cela ne nécessite pas une nouvelle
+API de framework.
+
+
+La revue des captures a aussi révélé que `AwraTextArea` ne posait la couleur
+sémantique que sur le nœud CSS `text`, alors que GtkTextView utilise aussi sa
+propre couleur pour le rendu. Le delegate reçoit maintenant explicitement la
+couleur de premier plan ; un test vérifie le contraste d’un aperçu non éditable
+en apparences claire et sombre. Aucun correctif local à l’application de référence.
+
+## Reprise visuelle — Application de référence
+
+Le premier explorateur empilait des barres, réservait trop d’espace aux cellules
+et déplaçait le contenu à chaque sélection. La reprise utilise des onglets dans
+le chrome, une navigation indépendante par panneau, un tableau compact avec
+colonnes adaptatives, des filtres persistants et une sélection flottante.
+Un explorateur de fichiers existant sert ici de référence de composition et de densité, pas seulement
+de liste de fonctionnalités.
+
+Les besoins réutilisables sont portés dans Awra : propriété `compact` du header,
+libellé de désélection personnalisable, recettes publiques de workspace,
+ellipsisation des valeurs de métadonnées. Les captures ont révélé un cas où la
+valeur de défilement du breadcrumb était correcte mais son viewport conservait
+l’ancienne transformation ; la révélation est désormais différée après
+l’allocation. Les tests couvrent aussi le chrome compact et les métadonnées
+longues dans un panneau étroit.
+
+## Canvas continu et zoom
+
+Le retour d’utilisation a précisé que le workspace devait rester un seul Canvas,
+avec les éléments posés dessus. L’application de référence fusionne maintenant navigation et
+chemin dans l’en-tête, réutilise le sidebar arrondi/inset d’Awra, et supprime les
+plaques séparant les intitulés de colonnes et le contenu.
+
+Le besoin Ctrl+molette devient un contrôleur réutilisable dans Awra. Il capture
+le geste modifié, conserve le défilement GTK ordinaire et expose une échelle
+bornée/observable. Le texte est agrandi localement à partir de la police système ;
+l’application adapte les icônes et miniatures en conservant modèles et sélection.
+Les tests C vérifient isolation et durée de vie ; le consommateur vérifie aussi
+l’interaction réelle avec XTest, sans événement synthétique limité au callback.
+
+La fusion du chemin dans le chrome a montré que la réservation symétrique des
+contrôles latéraux gaspillait la place d’une barre d’adresse. La propriété
+optionnelle `AwraHeader:expand-center` utilise tout l’intervalle disponible sans
+modifier l’allocation des en-têtes existants. Le test de géométrie vérifie les
+deux modes et l’absence de recouvrement avec les commandes latérales.
+
+Le dépôt de fichiers sur un dossier utilise GtkDropTarget. Le rôle générique
+`drop-zone` exprime la destination acceptée ; la décision d’accepter un dossier,
+le presse-papiers et les opérations restent dans l’application.
+
+## 2026-11-04 — Yapfast — Mouvement interruptible et composants de messagerie
+
+La réécriture de Yapfast sur Awra demandait une interface fluide, et chaque
+écran du client de discussion réécrivait ses propres callbacks de tick. Awra
+fournit maintenant `AwraTimedAnimation` et `AwraSpringAnimation`, pilotées par
+l’horloge du widget, qui respectent le mouvement réduit et s’arrêtent avec
+lui. Le besoin décisif venait du survol rapide d’une liste de serveurs : un
+ressort qu’on peut recibler en vol (`awra_spring_animation_retarget()`)
+conserve sa valeur et sa vitesse, donc rien ne saute ni ne repart de zéro.
+
+Un client de discussion affiche partout des personnes et des lieux. `AwraAvatar`
+donne des initiales sur une couleur stable dérivée du nom, une pastille de
+présence découpée dans le coin (lisible sur tout fond, et par sa forme autant
+que par sa couleur) et un anneau qui respire quand quelqu’un parle en vocal.
+
+La barre des serveurs devient `AwraRail`, générique : des destinations, des
+dossiers qui résument leur activité, des pastilles de non-lu et des badges de
+mentions, la réorganisation au glisser. Le rail ne décide jamais seul de créer
+un dossier : il signale le dépôt d’un élément sur un autre et l’application
+tranche. `AwraTypingIndicator` répond à « X est en train d’écrire » sans faire
+bouger la conversation, et `AwraChip` couvre réactions, filtres et étiquettes
+avec un compteur dont seuls les chiffres modifiés défilent. Les jetons gagnent
+`success` et `warning`, nécessaires aux états dessinés par les widgets.
+
+
+## 2026-11-04 — Yapfast — Des lignes de navigation qui portent une personne
+
+La liste des conversations de Yapfast mêlait salons et messages privés :
+un salon se lit avec une icône, un MP avec l'avatar de la personne, son
+statut en seconde ligne, et un salon non lu doit ressortir alors qu'un salon
+en sourdine doit s'effacer. Les lignes faites à la main avec des rôles
+`nav-row` donnaient des plaques grises trop présentes. `AwraNavigationItem`
+gagne donc un `prefix` (n'importe quel widget à la place de l'icône), un
+`subtitle`, et deux états sémantiques, `emphasized` et `muted`, rendus par
+Awra : contraste et graisse pour le premier, recul jusqu'au survol pour le
+second. Rien de propre à la messagerie : une boîte mail, une liste de
+comptes ou de projets s'en servent de la même façon.
+## 2026-11-04 — Yapfast — Une chronologie de conversation
+
+Yapfast, client de discussion Discord et Matrix, affiche des salons de dizaines
+de milliers de messages. Sous Slint, il recalculait lui-même la position de
+défilement à chaque message reçu et à chaque page d’historique chargée, avec des
+sauts visibles. Le besoin est générique : toute application de messagerie, fil
+de commentaires ou visionneuse de journaux lit une chronologie qui grandit vers
+le bas.
+
+`AwraConversationView` enveloppe un `GtkListView` virtualisé et part de la fin.
+Il suit les nouveaux éléments tant que la fin est visible (glissement doux,
+apparition des seuls éléments ajoutés), cesse de suivre quand l’utilisateur
+remonte, et propose une pastille « revenir au présent » qui peut compter les
+non-lus. L’historique inséré au début ne déplace pas ce qui est à l’écran ;
+`edge-reached` demande la page suivante. Pour savoir quelle rangée montre quelle
+position sans lire les rangées privées de GTK, la vue s’intercale entre la liste
+et la fabrique de l’application (signal ou modèle GtkBuilder). Un `GtkScrollable`
+privé encadre l’allocation de la liste : les positions que la liste fixe
+elle-même en réancrant ne sont jamais prises pour un défilement de
+l’utilisateur. Les tests couvrent 50 000 éléments, les ajouts en rafale, le
+chargement au début et le mouvement réduit.
+
+## 2026-11-04 — Yapfast — Un champ de saisie de message
+
+Le champ de message de Yapfast cumulait des besoins que chaque client de
+discussion réécrit : bandeau « Réponse à … » avec fermeture, aperçu des pièces
+jointes, boutons avant et après le texte, bouton d’envoi, texte qui grandit
+jusqu’à une limite puis défile, Entrée pour envoyer et Maj+Entrée pour un saut
+de ligne, sans jamais envoyer pendant une composition IME.
+
+`AwraComposer` regroupe tout cela dans un seul puits arrondi. La hauteur suit le
+texte en glissant (la rangée est découpée pendant la croissance plutôt que
+relayoutée ligne à ligne), le bandeau et les pièces jointes glissent en entrée
+et en sortie, le bouton d’envoi grandit depuis rien. Le `GtkTextView` reste
+accessible pour les balises, les ancres d’images et les raccourcis propres à
+l’application. Un `GtkTextView` ne connaît sa hauteur qu’après sa première
+allocation : une ligne sert de plancher dès le départ, sinon le champ démarrait
+à la hauteur minimale de la barre de défilement du thème.
+
+## 2026-11-04 — Yapfast — Des suggestions au curseur
+
+Mentionner quelqu’un avec `@`, insérer un emoji avec `:nom:` ou lancer une
+commande avec `/` demandent tous une liste de suggestions au curseur qui ne
+vole pas le focus du texte. `GtkEntryCompletion` est dépréciée et ne couvre pas
+`GtkTextView`.
+
+`AwraCompletionPopover` se rattache à un `GtkTextView` ou à un `GtkEditable`,
+se place au-dessus de la ligne du curseur (en dessous s’il manque de place) et
+intercepte seulement Haut, Bas, Tab, Entrée et Échap tant qu’il est visible.
+L’application garde le filtrage et l’insertion. Deux pièges rencontrés : un
+popover dont la taille minimale grandit après son affichage est refermé par GTK,
+d’où une largeur minimale fixe ; et un `GtkTextView` détruit se plaint de tout
+enfant qu’il ne connaît pas, d’où un rattachement qui suit l’entrée et la sortie
+du widget dans une fenêtre. Le composeur consulte une marque privée pour ne pas
+envoyer quand Entrée choisit une suggestion.
+
+## 2026-11-04 — Yapfast — Séparateurs de jours et ligne des non-lus
+
+Un salon de discussion sépare les messages par jour et marque l’endroit où
+commencent les messages non lus. Yapfast dessinait ces lignes à la main dans
+chaque délégué de message. `AwraDivider` est une ligne avec une étiquette
+facultative (au centre ou au bout), neutre, accentuée ou « danger » (étiquette
+dans une pastille, pour les non-lus). La ligne prend la couleur CSS du widget,
+donc le thème à fort contraste et les apparences restent possédés par Awra ; le
+rôle accessible est celui d’un séparateur nommé par son étiquette. Dans la
+vitrine, la chronologie l’emploie comme en-tête de section d’un
+`GtkSortListModel` trié par jour.
+
+## 2026-11-04 — Yapfast — Un sélecteur d’emoji alimenté par l’application
+
+Les réactions et le champ de message de Yapfast ont besoin d’un sélecteur
+d’emoji où les emoji personnalisés d’un serveur et les autocollants côtoient
+les emoji Unicode. `GtkEmojiChooser` ne connaît que les siens et ne se nourrit
+pas d’un modèle.
+
+`AwraEmojiPicker` reçoit des sections de `AwraEmojiItem` (texte Unicode ou
+image), une section « Récents » tenue par l’application, et offre recherche
+sur les noms et mots-clés, onglets qui suivent le défilement, grille
+virtualisée, aperçu en grand et navigation au clavier même pendant la saisie de
+la recherche. `GtkGridView` n’affiche pas de titres de section : la grille est
+une liste de rangées de cellules dont le nombre de colonnes suit la largeur. Les
+données Unicode de GTK vivent dans une ressource privée dont le chemin et le
+format ne sont pas une API : Awra ne les lit pas, l’application fournit sa base
+d’emoji.
+
+
+## 2026-11-04 — Yapfast — Formulaires qui attendent le serveur
+
+Rejoindre un serveur, créer un fil ou envoyer une invitation part au réseau :
+le dialogue doit rester ouvert, montrer que le travail est en cours, afficher
+une erreur s’il échoue, puis se fermer. `AwraDialog` fermait sur chaque
+réponse, donc Yapfast mettait ses propres boutons dans le corps. Une réponse
+peut désormais rester ouverte (`awra_dialog_set_response_closes()`), son
+bouton passe en état « occupé » (`AwraButton:busy`, un spinner à taille
+constante qui ignore les clics, plutôt qu’un bouton grisé qui laisse croire à
+une erreur), et `awra_dialog_close()` ferme sans réponse, là où
+`gtk_window_close()` donne la réponse de fermeture comme Échap.
+
+Autres manques rencontrés en portant les réglages et les listes :
+- Un bouton avec icône et libellé (`AwraButtonContent`), comme
+  `AdwButtonContent`.
+- Un sous-titre de ligne qui se replie (`AwraActionRow:subtitle-lines`) : les
+  réglages s’expliquent en une phrase entière.
+- La couleur d’un rôle sur le nom d’un membre
+  (`AwraNavigationItem:label-color`) : Awra garde la teinte et l’éclaircit ou
+  l’assombrit jusqu’à un contraste de texte (4,5:1) selon l’apparence, au lieu
+  de laisser l’application deviner le fond.
+- Deux bogues : `AwraPage` ne mesurait pas son contenu pour sa largeur (un
+  widget sans gestionnaire de mise en page est « de taille constante » pour
+  GTK, donc le texte replié était trop court et la page ne défilait pas
+  jusqu’au bout) ; un `AwraSlider` sous le pointeur volait la molette à la page
+  qui défilait. Il ne la prend plus que s’il a le focus.
+
+## 2026-11-04 — Yapfast — Un sélecteur jamais ouvert pesait 25 Mo
+
+En mesurant Yapfast (un profileur d’allocations en `LD_PRELOAD`, qui range les
+allocations vivantes par pile d’appel), 25 Mo du tas venaient de
+`row_setup_cb` du sélecteur d’emoji. Yapfast remplit ses deux sélecteurs (le
+champ principal et celui du fil) dès le départ, sans jamais les ouvrir. Une
+`GtkListView` qui n’a pas encore de taille fabrique les rangées de ses deux
+cents premiers éléments ; chaque rangée a seize cellules. Le sélecteur ne
+publie donc ses rangées qu’après sa première allocation, et les rend à sa
+fermeture. Mémoire anonyme de Yapfast au démarrage : 90 → 39 Mio.
+
+Leçon générale : une liste virtualisée dans un popover fermé n’est pas
+gratuite. Tout composant Awra à base de `GtkListView` caché devrait faire de
+même.
+
+## 2026-11-04 — Yapfast — Ce que trois portages parallèles ont révélé
+
+Trois agents ont porté en parallèle le reste de l'interface Slint de Yapfast
+(sondages, fils, forums, profils, réactions, navigateur de salons, glisser-
+déposer des salons). Leurs contournements ont donné ces ajouts à Awra :
+
+- **Bords d'une conversation** : chaque application superposait ses propres
+  cartes « Chargement des messages… », à travers lesquelles les messages se
+  voyaient. `awra_conversation_view_set_edge_status()` affiche une pastille
+  opaque (chargement, ou échec avec « Réessayer » et le signal `retry`) et
+  suspend `edge-reached` pour ce bord tant qu'il n'est pas revenu au repos.
+- **Menus contextuels invisibles** : GTK ne présente les popovers d'un widget
+  que par son gestionnaire de mise en page. Les widgets d'Awra qui allouent
+  eux-mêmes leurs enfants (élément et groupe du rail, rail, séparateur,
+  tuiles, conversation) ne montraient donc jamais de menu contextuel.
+  `awra_widget_present_popovers()` (privé) est appelé à la fin de leur
+  allocation. Une règle à suivre pour tout nouveau widget à allocation
+  manuelle.
+- **Popover orphelin** : le popover d'un menu contextuel n'était détaché
+  qu'à la finalisation du widget, trop tard (« Finalizing … still has
+  children left »), sur chaque ligne recyclée d'une liste. Il l'est
+  maintenant au signal `destroy`.
+- **Références flottantes** : trois nouveaux constructeurs annonçaient
+  `(transfer full)` en rendant la référence flottante de GTK ; la liaison
+  Rust relâchait alors la référence que le parent avait prise, et le widget
+  était détruit encore dans son parent. Seules les fenêtres, que GTK
+  possède, rendent une référence à elles ; les autres widgets gardent
+  l'annotation par défaut.
+- **Composants** : `AwraColorPalette` (pastilles, choix automatique, couleur
+  libre, signal `chosen` distinct de la sélection posée par l'application),
+  `AwraAvatarGroup` (visages qui se chevauchent, découpés par un masque
+  plutôt qu'entourés d'un anneau de la couleur supposée du fond),
+  `AwraSearchEntry::activate` et `search-changed`, et des libellés de
+  `AwraFormRow` alignés sur la première ligne du contrôle.
+
+## 2026-11-04 — Yapfast sur le verre : ce que le thème du bureau révélait
+
+Yapfast, sous KWin avec un flou fort et un thème GTK personnel (WhiteSur,
+avec son propre `gtk.css`), paraissait lourd et mal espacé. Les causes
+tenaient pour moitié à Awra.
+
+- **Rôles qui ne stylent rien** : le contrat d'isolation ne couvre que les
+  nœuds portant une classe `awra-*`. Un `GtkButton` portant un rôle qu'Awra
+  ne définit que sur `AwraButton` (`inline-action`), ou pas du tout,
+  restait dessiné par le thème du bureau : un bandeau gris sous un titre de
+  section, des boutons blancs, des cartes autour de chaque participant
+  vocal. `inline-action` possède maintenant tout bouton GTK (et le bouton
+  interne d'un `GtkMenuButton`), et `row-action`, `search-launcher`,
+  `collection-tile` et `chosen-row` donnent les recettes qui manquaient.
+  Vérifier une composition sous un thème hostile, pas seulement sous le
+  thème par défaut.
+- **Densité de navigation** : 42 px par ligne dans une barre latérale, c'est
+  trop pour une longue liste de lieux. `compact-navigation` donne 32 px,
+  et sa sélection reste neutre, comme le reste de la navigation (elle
+  passait à la couleur d'accent).
+- **Lire sur le verre** : un message de 13 px posé sur le flou se lit mal.
+  `AWRA_TYPOGRAPHY_READING` est un cran plus grand, avec un interligne
+  ouvert. Le `line-height` de GTK multiplie la hauteur de ligne de la
+  police, qui contient déjà environ un cinquième d'interligne : 1,12 donne
+  le rythme qu'on attendrait de 1,4 ailleurs. Une couche teintée (`LAYER`)
+  sous la conversation a été essayée puis retirée : trop faible pour aider,
+  elle ajoutait une forme. Ce sont le corps et le rythme qui portent la
+  lecture, pas un fond.
+- **Pas de couture** : la vue de conversation fondait déjà son contenu au
+  bord du haut ; elle le fond aussi au bord du bas, au-dessus d'un
+  compositeur. Une application n'a plus besoin d'un séparateur sous son
+  en-tête.
+- **Survol** : quand une ligne de conversation porte aussi une date ou le
+  début de la conversation, toute la ligne se teintait au survol. Les rôles
+  `entry-hover` (sur la vue) et `conversation-entry` (sur l'entrée) donnent
+  la teinte à l'entrée seule.
+- **Outil** : un KWin imbriqué (`kwin_wayland --virtual`) avec la
+  configuration de flou de la personne, son fond d'écran dans une fenêtre
+  plein écran et `spectacle -b -f` montre le vrai rendu sur verre, ce que
+  Xvfb ne peut pas.

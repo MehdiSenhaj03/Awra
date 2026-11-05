@@ -52,8 +52,9 @@ when the grouped object has meaning; ordinary page sections use typography and
 space directly on Content. Lists remain flat and highlight whole rows.
 
 Typography is selected through `awra_widget_set_typography()` rather than
-application CSS. Body, Muted, Eyebrow, three Title levels, Display and Monospace
-form the semantic hierarchy while retaining the desktop font and scale.
+application CSS. Body, Reading, Muted, Eyebrow, three Title levels, Display and
+Monospace form the semantic hierarchy while retaining the desktop font and scale. Reading is for text read at length:
+a step larger, with open leading, so long text holds on glass.
 
 Spacing follows a 4/8/12/16/24/32 scale. Current radii are small, medium, large,
 window and pill tokens. These numerical values are calibration points, not a

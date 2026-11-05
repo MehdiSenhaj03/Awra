@@ -11,9 +11,21 @@ G_DECLARE_FINAL_TYPE (AwraStatusBanner, awra_status_banner,
                       AWRA, STATUS_BANNER, GtkWidget)
 
 GtkWidget            *awra_status_banner_new             (void);
+/**
+ * awra_status_banner_get_title:
+ * @self: a status banner
+ *
+ * Returns: (transfer none): the title, empty when there is none
+ */
 const char           *awra_status_banner_get_title       (AwraStatusBanner    *self);
 void                  awra_status_banner_set_title       (AwraStatusBanner    *self,
                                                          const char          *title);
+/**
+ * awra_status_banner_get_description:
+ * @self: a status banner
+ *
+ * Returns: (transfer none): the description, empty when there is none
+ */
 const char           *awra_status_banner_get_description (AwraStatusBanner    *self);
 void                  awra_status_banner_set_description (AwraStatusBanner    *self,
                                                          const char          *description);

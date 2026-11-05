@@ -32,13 +32,16 @@ state_content_init (GtkWidget    *owner,
   gtk_widget_add_css_class (GTK_WIDGET (content->icon), "awra-state-icon");
   gtk_label_set_justify (content->title, GTK_JUSTIFY_CENTER);
   gtk_label_set_justify (content->description, GTK_JUSTIFY_CENTER);
+  gtk_label_set_wrap (content->title, TRUE);
+  gtk_label_set_wrap_mode (content->title, PANGO_WRAP_WORD_CHAR);
   gtk_label_set_wrap (content->description, TRUE);
+  gtk_label_set_wrap_mode (content->description, PANGO_WRAP_WORD_CHAR);
+  gtk_label_set_max_width_chars (content->description, 48);
   gtk_widget_set_halign (GTK_WIDGET (content->root), GTK_ALIGN_CENTER);
   gtk_widget_set_valign (GTK_WIDGET (content->root), GTK_ALIGN_CENTER);
   gtk_widget_set_halign (GTK_WIDGET (content->icon), GTK_ALIGN_CENTER);
   gtk_widget_set_halign (GTK_WIDGET (content->title), GTK_ALIGN_CENTER);
   gtk_widget_set_halign (GTK_WIDGET (content->description), GTK_ALIGN_CENTER);
-  gtk_widget_set_size_request (GTK_WIDGET (content->description), 280, -1);
   gtk_box_append (content->root, GTK_WIDGET (content->icon));
   gtk_box_append (content->root, GTK_WIDGET (content->title));
   gtk_box_append (content->root, GTK_WIDGET (content->description));

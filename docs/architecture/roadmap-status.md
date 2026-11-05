@@ -110,11 +110,11 @@ therefore build typed page primitives on top of the frozen foundation.
 
 - Showcase uses the typed page, section, toolbar, form, state and
   master/detail families through public API only.
-- PokediaAwra's real Pokédex filter composition now uses `AwraFilterBar` while
+- a reference application real catalogue filter composition now uses `AwraFilterBar` while
   retaining its GTK models and callbacks. This removes its manual
   `toolbar-card` composition from that page; the Rust port, public-boundary
   check and every page/detail/dialog smoke path pass.
-- The migration is recorded in PokediaAwra's `AWRA_PORT_REPORT.md`; it confirms
+- The migration is recorded in a reference application `AWRA_PORT_REPORT.md`; it confirms
   the new primitives can be adopted incrementally rather than forcing an
   application rewrite.
 
@@ -150,7 +150,7 @@ Phase C work item 2 now covers advanced inputs and reusable settings patterns.
 
 - `AwraKeyCap`, `AwraKeyboardView`, `AwraShortcutCapture`,
   `AwraWaveformView`, `AwraVolumeControl`, `AwraMediaRow`, `AwraDropZone` and
-  toast actions were added for KeyToMusicAwra and kept domain-neutral.
+  toast actions were added for a reference application and kept domain-neutral.
 - Widget behaviour/lifecycle, accessibility roles/Tab/RTL, hostile-provider
   isolation, GtkBuilder, GIR/API baselines, C/Python/Vala consumers, the
   generated Rust projection and the Showcase soundboard and media workspace
@@ -172,7 +172,7 @@ Phase C work item 2 now covers advanced inputs and reusable settings patterns.
 ### Dense data components — validated
 
 - `AwraMetricRow`, `AwraStatBar`, `AwraBadgeGroup` and `AwraMetadataGroup`
-  remove recurring manual compositions found in Showcase and Pokedia-like
+  remove recurring manual compositions found in Showcase and a reference application
   detail views. They remain domain-neutral and GtkBuilder compatible.
 - The deterministic visual suite already validates Light/Dark, custom blue
   accent and an automatically generated grayscale rendering with luminance
@@ -277,9 +277,9 @@ Phase D is complete.
   delegate/model types. The generator configuration now projects every such
   type safely, while a deterministic post-generation/test gate rejects both
   missing `ActionMap` support and any commented unsupported stub.
-- Showcase and the complete PokediaAwra port pass the public-consumer boundary
+- Showcase and the complete a reference application port pass the public-consumer boundary
   with no local CSS, private Awra header, libadwaita, compositor API or direct
-  Wayland call. A fresh Pokedia build links `libawra-1.so.1` and smoke-runs all
+  Wayland call. A fresh a reference application build links `libawra-1.so.1` and smoke-runs all
   eight pages, four entity details, tab closure and both workspace dialogs.
 
 ### Visual, accessibility and lifecycle qualification

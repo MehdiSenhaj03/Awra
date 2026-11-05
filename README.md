@@ -65,11 +65,11 @@ documented in [`docs/architecture/foundations.md`](docs/architecture/foundations
 the visual language in [`docs/architecture/visual-language.md`](docs/architecture/visual-language.md),
 the API families in [`docs/api/README.md`](docs/api/README.md), and validation
 in [`docs/architecture/validation.md`](docs/architecture/validation.md). The
-cross-cutting improvement plan derived from Showcase and Pokedia is maintained
+cross-cutting improvement plan derived from Showcase and reference applications is maintained
 in [`docs/architecture/improvement-roadmap.md`](docs/architecture/improvement-roadmap.md),
 with gate evidence in
 [`docs/architecture/roadmap-status.md`](docs/architecture/roadmap-status.md).
-The evolving observations from Showcase, PokediaAwra and future consumers are
+The evolving observations from Showcase and reference applications are
 kept in the [`usage journal`](docs/usage-journal/journal.md).
 
 Blueprint validation is optional (`-Dblueprint=auto`) and is performed when

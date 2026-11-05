@@ -51,6 +51,21 @@ impl Button {
         }
     }
 
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    #[doc(alias = "awra_button_new_with_icon_and_label")]
+    #[doc(alias = "new_with_icon_and_label")]
+    pub fn with_icon_and_label(icon_name: &str, label: &str) -> Button {
+        assert_initialized_main_thread!();
+        unsafe {
+            gtk::Widget::from_glib_none(ffi::awra_button_new_with_icon_and_label(
+                icon_name.to_glib_none().0,
+                label.to_glib_none().0,
+            ))
+            .unsafe_cast()
+        }
+    }
+
     #[doc(alias = "awra_button_new_with_label")]
     #[doc(alias = "new_with_label")]
     pub fn with_label(label: &str) -> Button {
@@ -75,12 +90,43 @@ impl Button {
         unsafe { from_glib(ffi::awra_button_get_appearance(self.to_glib_none().0)) }
     }
 
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    #[doc(alias = "awra_button_get_busy")]
+    #[doc(alias = "get_busy")]
+    #[doc(alias = "busy")]
+    pub fn is_busy(&self) -> bool {
+        unsafe { from_glib(ffi::awra_button_get_busy(self.to_glib_none().0)) }
+    }
+
     #[doc(alias = "awra_button_set_appearance")]
     #[doc(alias = "appearance")]
     pub fn set_appearance(&self, appearance: ButtonAppearance) {
         unsafe {
             ffi::awra_button_set_appearance(self.to_glib_none().0, appearance.into_glib());
         }
+    }
+
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    #[doc(alias = "awra_button_set_busy")]
+    #[doc(alias = "busy")]
+    pub fn set_busy(&self, busy: bool) {
+        unsafe {
+            ffi::awra_button_set_busy(self.to_glib_none().0, busy.into_glib());
+        }
+    }
+
+    #[cfg(not(feature = "v1_1"))]
+    #[cfg_attr(docsrs, doc(cfg(not(feature = "v1_1"))))]
+    pub fn is_busy(&self) -> bool {
+        ObjectExt::property(self, "busy")
+    }
+
+    #[cfg(not(feature = "v1_1"))]
+    #[cfg_attr(docsrs, doc(cfg(not(feature = "v1_1"))))]
+    pub fn set_busy(&self, busy: bool) {
+        ObjectExt::set_property(self, "busy", busy)
     }
 
     #[doc(alias = "appearance")]
@@ -102,6 +148,31 @@ impl Button {
                 c"notify::appearance".as_ptr(),
                 Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
                     notify_appearance_trampoline::<F> as *const (),
+                )),
+                Box_::into_raw(f),
+            )
+        }
+    }
+
+    #[doc(alias = "busy")]
+    pub fn connect_busy_notify<F: Fn(&Self) + 'static>(&self, f: F) -> SignalHandlerId {
+        unsafe extern "C" fn notify_busy_trampoline<F: Fn(&Button) + 'static>(
+            this: *mut ffi::AwraButton,
+            _param_spec: glib::ffi::gpointer,
+            f: glib::ffi::gpointer,
+        ) {
+            unsafe {
+                let f: &F = &*(f as *const F);
+                f(&from_glib_borrow(this))
+            }
+        }
+        unsafe {
+            let f: Box_<F> = Box_::new(f);
+            connect_raw(
+                self.as_ptr() as *mut _,
+                c"notify::busy".as_ptr(),
+                Some(std::mem::transmute::<*const (), unsafe extern "C" fn()>(
+                    notify_busy_trampoline::<F> as *const (),
                 )),
                 Box_::into_raw(f),
             )
@@ -134,6 +205,12 @@ impl ButtonBuilder {
     pub fn appearance(self, appearance: ButtonAppearance) -> Self {
         Self {
             builder: self.builder.property("appearance", appearance),
+        }
+    }
+
+    pub fn busy(self, busy: bool) -> Self {
+        Self {
+            builder: self.builder.property("busy", busy),
         }
     }
 

@@ -16,8 +16,15 @@ generate_builder = true
 generate = [
   "Awra.AccentSource",
   "Awra.ActionRow",
+  "Awra.Animation",
+  "Awra.AnimationState",
+  "Awra.AnimationTarget",
   "Awra.Appearance",
   "Awra.AspectPaintable",
+  "Awra.Avatar",
+  "Awra.AvatarGroup",
+  "Awra.RichLabel",
+  "Awra.AvatarShape",
   "Awra.TextureStream",
   "Awra.Badge",
   "Awra.BadgeAppearance",
@@ -25,19 +32,34 @@ generate = [
   "Awra.BreadcrumbBar",
   "Awra.BreadcrumbItem",
   "Awra.Button",
+  "Awra.ButtonContent",
   "Awra.ButtonAppearance",
   "Awra.Card",
+  "Awra.CallbackAnimationTarget",
   "Awra.CardAppearance",
+  "Awra.Chip",
+  "Awra.ChipAppearance",
   "Awra.CheckButton",
   "Awra.ChoiceGroup",
   "Awra.CommandPalette",
+  "Awra.CompletionPopover",
+  "Awra.Composer",
+  "Awra.ConversationAlign",
+  "Awra.ConversationView",
   "Awra.Context",
   "Awra.DataColumn",
   "Awra.DataView",
   "Awra.DataViewState",
   "Awra.DetailPane",
+  "Awra.Divider",
+  "Awra.EmojiItem",
+  "Awra.EmojiPicker",
+  "Awra.DividerAppearance",
+  "Awra.DividerLabelPosition",
+  "Awra.EdgeStatus",
   "Awra.Diagnostics",
   "Awra.Dialog",
+  "Awra.DragPreview",
   "Awra.DropZone",
   "Awra.Dropdown",
   "Awra.EdgePanel",
@@ -76,9 +98,15 @@ generate = [
   "Awra.PageHeader",
   "Awra.PanelEdge",
   "Awra.PasswordEntry",
+  "Awra.PathBar",
   "Awra.Popover",
   "Awra.ProgressBar",
+  "Awra.Presence",
+  "Awra.PropertyAnimationTarget",
   "Awra.Radius",
+  "Awra.Rail",
+  "Awra.RailGroup",
+  "Awra.RailItem",
   "Awra.ResponsiveBin",
   "Awra.SearchEntry",
   "Awra.Section",
@@ -91,6 +119,7 @@ generate = [
   "Awra.Spacing",
   "Awra.SpinButton",
   "Awra.SplitView",
+  "Awra.SpringAnimation",
   "Awra.StatBar",
   "Awra.StatusAppearance",
   "Awra.StatusBanner",
@@ -104,7 +133,11 @@ generate = [
   "Awra.TagEntry",
   "Awra.TextArea",
   "Awra.ToastOverlay",
+  "Awra.TimedAnimation",
   "Awra.Timeline",
+  "Awra.TileView",
+  "Awra.TransitionBin",
+  "Awra.TypingIndicator",
   "Awra.ToggleButton",
   "Awra.TokenSet",
   "Awra.Toolbar",
@@ -122,6 +155,7 @@ manual = [
   "Gio.ListModel",
   "Gio.MenuModel",
   "Gdk.Display",
+  "Gdk.Rectangle",
   "Gdk.Paintable",
   "Gdk.Texture",
   "Gdk.ColorState",
@@ -147,11 +181,13 @@ manual = [
   "Gtk.Expression",
   "Gtk.Image",
   "Gtk.ListItemFactory",
+  "Gtk.Label",
   "Gtk.ListView",
   "Gtk.Grid",
   "Gtk.Native",
   "Gtk.Orientable",
   "Gtk.Orientation",
+  "Gtk.PositionType",
   "Gtk.PasswordEntry",
   "Gtk.Popover",
   "Gtk.ProgressBar",
@@ -177,6 +213,13 @@ manual = [
 ]
 
 [[object]]
+name = "Awra.Easing"
+status = "generate"
+    [[object.function]]
+    name = "ease"
+    assertion = "skip"
+
+[[object]]
 name = "Awra.FramePool"
 status = "generate"
 concurrency = "send+sync"
@@ -194,3 +237,12 @@ status = "generate"
     [[object.function]]
     name = "export_report"
     ignore = true
+
+[[object]]
+name = "Awra.ColorPalette"
+status = "generate"
+    [[object.signal]]
+    name = "chosen"
+        [[object.signal.parameter]]
+        name = "object"
+        nullable = true

@@ -167,7 +167,7 @@ awra_status_banner_init (AwraStatusBanner *self)
   self->copy = GTK_BOX (gtk_box_new (GTK_ORIENTATION_VERTICAL, 0));
   self->title_label = GTK_LABEL (gtk_label_new (NULL));
   self->description_label = GTK_LABEL (gtk_label_new (NULL));
-  self->dismiss_button = awra_button_new_from_icon_name ("window-close-symbolic");
+  self->dismiss_button = awra_button_new_from_icon_name ("awra-close-symbolic");
   awra_button_set_appearance (AWRA_BUTTON (self->dismiss_button),
                               AWRA_BUTTON_APPEARANCE_GHOST);
   awra_box_set_spacing (self->root, AWRA_SPACING_MD);
@@ -199,9 +199,9 @@ awra_status_banner_init (AwraStatusBanner *self)
 }
 
 GtkWidget *awra_status_banner_new (void) { return g_object_new (AWRA_TYPE_STATUS_BANNER, NULL); }
-const char *awra_status_banner_get_title (AwraStatusBanner *self) { g_return_val_if_fail (AWRA_IS_STATUS_BANNER (self), NULL); return self->title; }
+const char *awra_status_banner_get_title (AwraStatusBanner *self) { g_return_val_if_fail (AWRA_IS_STATUS_BANNER (self), NULL); return self->title != NULL ? self->title : ""; }
 void awra_status_banner_set_title (AwraStatusBanner *self, const char *title) { g_return_if_fail (AWRA_IS_STATUS_BANNER (self)); if (g_strcmp0 (self->title, title) == 0) return; g_free (self->title); self->title = g_strdup (title); gtk_label_set_text (self->title_label, title != NULL ? title : ""); gtk_widget_set_visible (GTK_WIDGET (self->title_label), title != NULL && *title != '\0'); g_object_notify_by_pspec (G_OBJECT (self), properties[PROP_TITLE]); }
-const char *awra_status_banner_get_description (AwraStatusBanner *self) { g_return_val_if_fail (AWRA_IS_STATUS_BANNER (self), NULL); return self->description; }
+const char *awra_status_banner_get_description (AwraStatusBanner *self) { g_return_val_if_fail (AWRA_IS_STATUS_BANNER (self), NULL); return self->description != NULL ? self->description : ""; }
 void awra_status_banner_set_description (AwraStatusBanner *self, const char *description) { g_return_if_fail (AWRA_IS_STATUS_BANNER (self)); if (g_strcmp0 (self->description, description) == 0) return; g_free (self->description); self->description = g_strdup (description); gtk_label_set_text (self->description_label, description != NULL ? description : ""); gtk_widget_set_visible (GTK_WIDGET (self->description_label), description != NULL && *description != '\0'); g_object_notify_by_pspec (G_OBJECT (self), properties[PROP_DESCRIPTION]); }
 AwraStatusAppearance awra_status_banner_get_appearance (AwraStatusBanner *self) { g_return_val_if_fail (AWRA_IS_STATUS_BANNER (self), AWRA_STATUS_APPEARANCE_INFO); return self->appearance; }
 void awra_status_banner_set_appearance (AwraStatusBanner *self, AwraStatusAppearance appearance) { g_return_if_fail (AWRA_IS_STATUS_BANNER (self)); g_return_if_fail (appearance >= AWRA_STATUS_APPEARANCE_INFO && appearance <= AWRA_STATUS_APPEARANCE_ERROR); if (self->appearance == appearance) return; self->appearance = appearance; update_appearance (self); g_object_notify_by_pspec (G_OBJECT (self), properties[PROP_APPEARANCE]); }

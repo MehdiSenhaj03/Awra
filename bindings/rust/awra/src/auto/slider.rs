@@ -91,9 +91,11 @@ impl SliderBuilder {
         }
     }
 
-    //pub fn value_pos(self, value_pos: /*Ignored*/gtk::PositionType) -> Self {
-    //    Self { builder: self.builder.property("value-pos", value_pos), }
-    //}
+    pub fn value_pos(self, value_pos: gtk::PositionType) -> Self {
+        Self {
+            builder: self.builder.property("value-pos", value_pos),
+        }
+    }
 
     //pub fn adjustment(self, adjustment: &impl IsA</*Ignored*/gtk::Adjustment>) -> Self {
     //    Self { builder: self.builder.property("adjustment", adjustment.clone().upcast()), }

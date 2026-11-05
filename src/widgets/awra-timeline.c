@@ -13,6 +13,7 @@ typedef struct
 struct _AwraTimeline
 {
   GtkWidget parent_instance;
+  double step_increment, page_increment;
   GArray *intervals;
   double duration, position, view_start, view_duration, offset, hover_time;
   double drag_x, drag_offset, drag_target;
@@ -35,6 +36,8 @@ enum
   P_HOVER_TIME,
   P_HOVER_X,
   P_PREVIEW,
+  P_STEP_INCREMENT,
+  P_PAGE_INCREMENT,
   N_PROPS
 };
 enum
@@ -356,7 +359,8 @@ cancel (GtkGesture *g, GdkEventSequence *seq, AwraTimeline *s)
 static gboolean
 key (GtkEventControllerKey *c, guint k, guint code, GdkModifierType mods, AwraTimeline *s)
 {
-  double delta = (mods & GDK_SHIFT_MASK) ? 10 : 1, target = s->position;
+  double delta = (mods & GDK_SHIFT_MASK) ? s->page_increment : s->step_increment;
+  double target = s->position;
   double direction
       = gtk_widget_get_direction (GTK_WIDGET (s)) == GTK_TEXT_DIR_RTL ? -1 : 1;
   (void)c;
@@ -419,6 +423,12 @@ get_property (GObject *o, guint id, GValue *v, GParamSpec *p)
     case P_POSITION:
       g_value_set_double (v, s->position);
       break;
+    case P_STEP_INCREMENT:
+      g_value_set_double (v, s->step_increment);
+      break;
+    case P_PAGE_INCREMENT:
+      g_value_set_double (v, s->page_increment);
+      break;
     case P_VIEW_START:
       g_value_set_double (v, s->view_start);
       break;
@@ -455,6 +465,12 @@ set_property (GObject *o, guint id, const GValue *v, GParamSpec *p)
       break;
     case P_POSITION:
       awra_timeline_set_position (s, g_value_get_double (v));
+      break;
+    case P_STEP_INCREMENT:
+      awra_timeline_set_step_increment (s, g_value_get_double (v));
+      break;
+    case P_PAGE_INCREMENT:
+      awra_timeline_set_page_increment (s, g_value_get_double (v));
       break;
     case P_VIEW_START:
       awra_timeline_set_view_start (s, g_value_get_double (v));
@@ -493,6 +509,10 @@ awra_timeline_class_init (AwraTimelineClass *klass)
       = g_param_spec_double ("duration", NULL, "Total seconds", 0, G_MAXDOUBLE, 0, f);
   props[P_POSITION]
       = g_param_spec_double ("position", NULL, "Playback seconds", 0, G_MAXDOUBLE, 0, f);
+  props[P_STEP_INCREMENT] = g_param_spec_double (
+      "step-increment", NULL, "Arrow-key step in seconds", 0, G_MAXDOUBLE, 1, f);
+  props[P_PAGE_INCREMENT] = g_param_spec_double (
+      "page-increment", NULL, "Shift+arrow step in seconds", 0, G_MAXDOUBLE, 10, f);
   props[P_VIEW_START]
       = g_param_spec_double ("view-start", NULL, "Viewport start", 0, G_MAXDOUBLE, 0, f);
   props[P_VIEW_DURATION] = g_param_spec_double ("view-duration", NULL,
@@ -540,6 +560,8 @@ awra_timeline_class_init (AwraTimelineClass *klass)
 static void
 awra_timeline_init (AwraTimeline *s)
 {
+  s->step_increment = 1;
+  s->page_increment = 10;
   s->intervals = g_array_new (FALSE, FALSE, sizeof (Interval));
   g_array_set_clear_func (s->intervals, interval_clear);
   s->hover_x = s->hover_time = -1;
@@ -618,6 +640,10 @@ awra_timeline_set_duration (AwraTimeline *s, double value)
   g_object_notify_by_pspec (G_OBJECT (s), props[P_DURATION]);
 }
 DOUBLE_ACCESSOR (position, position, P_POSITION, value = CLAMP (value, 0, s->duration))
+DOUBLE_ACCESSOR (step_increment, step_increment, P_STEP_INCREMENT,
+                 value = value > 0 ? value : 1)
+DOUBLE_ACCESSOR (page_increment, page_increment, P_PAGE_INCREMENT,
+                 value = value > 0 ? value : 10)
 DOUBLE_ACCESSOR (view_start, view_start, P_VIEW_START, value = MAX (value, 0))
 DOUBLE_ACCESSOR (view_duration, view_duration, P_VIEW_DURATION, value = MAX (value, 0))
 DOUBLE_ACCESSOR (offset, offset, P_OFFSET, (void)0)

@@ -11,6 +11,7 @@
 typedef struct {
   char *id;
   GtkWidget *button;
+  gboolean stays;
 } Response;
 
 struct _AwraDialog {
@@ -353,6 +354,14 @@ awra_dialog_set_body (AwraDialog *self,
     gtk_box_remove (GTK_BOX (self->layout), self->body);
   self->body = body;
   if (body != NULL) {
+    /* A body that sets no inset of its own lines up with the title above
+     * it and the responses below it, rather than touching the window's
+     * edges. */
+    if (gtk_widget_get_margin_start (body) == 0 && gtk_widget_get_margin_end (body) == 0 &&
+        gtk_widget_get_margin_top (body) == 0 && gtk_widget_get_margin_bottom (body) == 0) {
+      awra_widget_set_horizontal_margin (body, AWRA_SPACING_LG);
+      gtk_widget_set_margin_top (body, awra_spacing_resolve (body, AWRA_SPACING_XS));
+    }
     gtk_widget_set_vexpand (body, TRUE);
     gtk_box_prepend (GTK_BOX (self->layout), body);
   }
@@ -444,15 +453,70 @@ awra_dialog_set_close_response (AwraDialog *self,
   g_object_notify_by_pspec (G_OBJECT (self), properties[PROP_CLOSE_RESPONSE]);
 }
 
+gboolean
+awra_dialog_get_response_closes (AwraDialog *self,
+                                 const char *id)
+{
+  Response *response;
+
+  g_return_val_if_fail (AWRA_IS_DIALOG (self), TRUE);
+  response = find_response (self, id);
+  g_return_val_if_fail (response != NULL, TRUE);
+  return !response->stays;
+}
+
+void
+awra_dialog_set_response_closes (AwraDialog *self,
+                                 const char *id,
+                                 gboolean    closes)
+{
+  Response *response;
+
+  g_return_if_fail (AWRA_IS_DIALOG (self));
+  response = find_response (self, id);
+  g_return_if_fail (response != NULL);
+  response->stays = !closes;
+}
+
+void
+awra_dialog_set_response_busy (AwraDialog *self,
+                               const char *id,
+                               gboolean    busy)
+{
+  Response *response;
+
+  g_return_if_fail (AWRA_IS_DIALOG (self));
+  response = find_response (self, id);
+  g_return_if_fail (response != NULL);
+  awra_button_set_busy (AWRA_BUTTON (response->button), busy);
+}
+
 void
 awra_dialog_respond (AwraDialog *self,
                      const char *id)
 {
+  Response *response;
+  gboolean closes;
+
   g_return_if_fail (AWRA_IS_DIALOG (self));
   g_return_if_fail (id != NULL);
+  response = find_response (self, id);
+  closes = response == NULL || !response->stays;
   g_object_ref (self);
   self->responding = TRUE;
   g_signal_emit (self, signals[SIGNAL_RESPONSE], g_quark_from_string (id), id);
+  if (closes)
+    gtk_window_close (GTK_WINDOW (self));
+  self->responding = FALSE;
+  g_object_unref (self);
+}
+
+void
+awra_dialog_close (AwraDialog *self)
+{
+  g_return_if_fail (AWRA_IS_DIALOG (self));
+  g_object_ref (self);
+  self->responding = TRUE;
   gtk_window_close (GTK_WINDOW (self));
   self->responding = FALSE;
   g_object_unref (self);
