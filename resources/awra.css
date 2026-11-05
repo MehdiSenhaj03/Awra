@@ -1275,6 +1275,15 @@ awratileview > .awra-tile-divider:active > separator {
   box-shadow: inset 0 1px @awra_rim;
 }
 
+/* How well something is going, read at a glance on its icon, such as a
+ * call's connection: good, fair or poor, in the status banners' colours. */
+image.awra-role-quality-good { color: #80dca5; }
+image.awra-role-quality-fair { color: #f0c66b; }
+image.awra-role-quality-poor { color: #ff929c; }
+.awra-light image.awra-role-quality-good { color: #217846; }
+.awra-light image.awra-role-quality-fair { color: #8a6215; }
+.awra-light image.awra-role-quality-poor { color: #a02f3a; }
+
 /* Appearance rules share :disabled's specificity and come later; restate the
  * disabled look so an unavailable primary action does not look clickable. */
 .awra-button.awra-primary:disabled,

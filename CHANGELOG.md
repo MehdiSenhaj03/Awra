@@ -14,6 +14,9 @@ unchanged (checked against the frozen 1.0.0 contract).
   rebuilds, submenus find it, and using it leaves the menu open.
   `awra::context_menu_popover()` gives Rust the popover of a widget's
   context menu.
+- Added the `quality-good`, `quality-fair` and `quality-poor` style roles:
+  an icon that says how well something goes, such as a call's connection,
+  in the status banners' colours, light and dark.
 - Added `AwraTaskRow`: backend-independent identity, status, determinate or
   indeterminate progress, themed icon and replaceable action suffix. Includes
   reduced-motion behavior, accessible naming, GTK Builder and C/GI/Vala/Rust

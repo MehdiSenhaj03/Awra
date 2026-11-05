@@ -77,6 +77,7 @@ preferences as the rest of Awra.
 | `card-action` | GtkButton that is a whole card | A tinted card that lifts on hover, with its own 16 px inset |
 | `quiet-destructive` | AwraButton (Ghost or Toolbar) | Quiet at rest, danger under the pointer, for hanging up or leaving among other controls |
 | `danger-when-on` | AwraToggleButton | A danger tint while on, such as a muted microphone, short of a destructive action's red |
+| `quality-good` / `quality-fair` / `quality-poor` | GtkImage | How well something is going, such as a call's connection, in the status colours; swap the role as it changes |
 | `inline-edit` | AwraEntry replacing text in a row | Edit in place at the height of the text |
 | `inline-action` | Any GtkButton inside a row or content | Quiet action, transparent at rest; Awra owns its look, so the desktop theme does not draw a button around it |
 | `usage-meter` | AwraProgressBar under a row | Thin capacity gauge; `awra-usage-low` turns it red |
