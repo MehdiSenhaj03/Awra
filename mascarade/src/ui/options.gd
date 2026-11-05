@@ -65,7 +65,7 @@ func _build() -> void:
 		st.sfx = clampf(st.sfx + d * 0.1, 0.0, 1.0)
 		Sound.set_volumes(st.music, st.sfx)
 		Sound.sfx("ui"))
-	_row(I18n.t("options.shake"), func() -> String: return pct.call(st.shake), func(d: int) -> void: st.shake = clampf(st.shake + d * 0.25, 0.0, 1.0))
+	_row(I18n.t("options.sens"), func() -> String: return pct.call(st.sens), func(d: int) -> void: st.sens = clampf(st.sens + d * 0.1, 0.3, 2.5))
 	_row(I18n.t("options.quality"), func() -> String: return I18n.t("options.q%d" % int(st.quality)), func(d: int) -> void: st.quality = (int(st.quality) + (1 if d > 0 else 2)) % 3)
 	_row(I18n.t("options.lang"), func() -> String: return "Français" if st.lang == "fr" else "English", func(_d: int) -> void:
 		st.lang = "en" if st.lang == "fr" else "fr"
@@ -159,7 +159,7 @@ func update(dt: float) -> void:
 			var tw := _dot.create_tween()
 			tw.tween_property(_dot, "scale", Vector2(1.6, 1.6), 0.05)
 			tw.tween_property(_dot, "scale", Vector2.ONE, 0.1)
-		if Keys.pressed("use") or Keys.pressed("confirm"):
+		if Keys.pressed("act") or Keys.pressed("confirm"):
 			var tap := _now()
 			var near := INF
 			for c in _clicks:

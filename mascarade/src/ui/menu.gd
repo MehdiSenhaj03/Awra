@@ -72,7 +72,7 @@ func handle() -> bool:
 				it.adjust.call(1)
 				Sound.sfx("ui", 1.1)
 				return true
-	if Keys.pressed("confirm") or Keys.pressed("use"):
+	if Keys.pressed("confirm") or Keys.pressed("act"):
 		activate()
 		return true
 	return false

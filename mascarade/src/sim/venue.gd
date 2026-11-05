@@ -34,7 +34,7 @@ func _init(d: Dictionary) -> void:
 			var t := 0
 			match c:
 				"#": t = 2
-				",": t = 1
+				",", "D": t = 1
 				"O": t = 3
 				"T": t = 4
 				"S": t = 5
@@ -66,6 +66,8 @@ func _init(d: Dictionary) -> void:
 	for p in pois:
 		p.face = _face_for(p)
 		p.field = _field(p.x, p.y)
+		if p.kind == "dance":
+			p.rad = _dance_radius(p.x, p.y)
 
 func walkable(x: int, y: int) -> bool:
 	if x < 0 or y < 0 or x >= w or y >= h:
@@ -76,6 +78,16 @@ func tile(x: int, y: int) -> int:
 	if x < 0 or y < 0 or x >= w or y >= h:
 		return 2
 	return tiles[y * w + x]
+
+## How far (units) the dance floor extends around a dance centre, all directions considered.
+func _dance_radius(cx: int, cy: int) -> int:
+	var best := 1 << 20
+	for y in h:
+		for x in w:
+			if tile(x, y) != 1:
+				var d := Vector2(x - cx, y - cy).length()
+				best = mini(best, int(d * 256.0))
+	return maxi(200, best - 200)
 
 ## Guests at a buffet, painting, statue, desk face the furniture or wall next to them.
 func _face_for(p: Dictionary) -> int:

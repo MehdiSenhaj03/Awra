@@ -33,8 +33,8 @@ def salon():
     for x in (5, 7, 9): m.put(x, 3, 'b')
     for x in (26, 28, 30): m.put(x, 3, 'b')
     m.put(27, 3, 'x')
-    # Paintings on the south and side walls.
-    for x in (4, 10, 16, 22, 28): m.put(x, 20, 'p')
+    # Paintings on the north and side walls (the south side is the gallery).
+    for x in (3, 12, 23, 32): m.put(x, 1, 'p')
     for y in (6, 12): m.put(1, y, 'p'); m.put(34, y, 'p')
     # Statues and their admirers.
     m.put(4, 9, 'S'); m.put(5, 9, 's'); m.put(31, 9, 'S'); m.put(30, 9, 'u'); m.put(31, 15, 'S'); m.put(30, 15, 's')
@@ -63,7 +63,7 @@ def serre():
     for (x, y) in ((4, 9), (34, 9), (4, 15), (34, 15)): m.put(x, y, 'S')
     m.put(5, 9, 's'); m.put(33, 9, 'u'); m.put(5, 15, 's'); m.put(33, 15, 's')
     for (x, y) in ((10, 3), (27, 3), (10, 20), (27, 20), (18, 18), (14, 7), (23, 7)): m.put(x, y, 'c')
-    for x in (3, 9, 15, 22, 28, 34): m.put(x, 22, 'n')
+    for x in (3, 9, 28, 34): m.put(x, 1, 'n')
     m.put(36, 20, 'W'); m.put(35, 20, 'l')
     m.rect(1, 11, 1, 12, 'H'); m.put(2, 11, 'h'); m.put(2, 12, 'h')
     for y in (5, 18): m.put(1, y, 'p'); m.put(36, y, 'p')

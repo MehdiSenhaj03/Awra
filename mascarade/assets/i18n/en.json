@@ -1,0 +1,408 @@
+{
+"common": {
+"back": "Back",
+"yes": "Yes",
+"no": "No",
+"skip": "Skip",
+"continue": "Continue"
+},
+"names": {
+"corbeau": "THE RAVEN",
+"lynx": "THE LYNX",
+"dogesse": "THE DOGARESSA"
+},
+"title": {
+"tagline": "A hundred masks. One of them lies. One bullet.",
+"press": "Press any key",
+"season": "The Season",
+"season_sub": "Nine balls, two sides — solo",
+"online": "The Contract",
+"online_sub": "Spy versus sniper, online for two",
+"party": "The Assassins' Ball",
+"party_sub": "2 to 4 players on one screen",
+"options": "Options",
+"quit": "Quit"
+},
+"venue": {
+"salon": "The Vermeil Salon",
+"serre": "The Orchid Glasshouse",
+"opera": "The Opera Foyer"
+},
+"season": {
+"title": "THE SEASON",
+"sub": "Nine balls at the Palazzo Vermeil. In turn the Raven and the Lynx.",
+"night": "Night {n}",
+"as_spy": "the spy",
+"as_hunter": "the sniper",
+"done": "✦ Done — best time {t}",
+"locked": "Win the previous night to open this one.",
+"open": "Opponent: {skill}",
+"skill0": "novice",
+"skill1": "attentive",
+"skill2": "formidable",
+"skill3": "relentless"
+},
+"night": {
+"1": {
+"name": "The First Ball",
+"desc": "Your first contract for the Dogaressa. Blend into the crowd, do two missions, don't get shot."
+},
+"2": {
+"name": "The Gallery",
+"desc": "Change of sides: you are the Lynx, up in the gallery. Someone below is not who they claim. One bullet."
+},
+"3": {
+"name": "The Minuet of Shadows",
+"desc": "Three missions out of four, and the Lynx knows the room now. Don't run. Don't double back."
+},
+"4": {
+"name": "The Orchids",
+"desc": "The glasshouse, its palms, its fountain. The spy below is subtler: watch who stops where nobody stops."
+},
+"5": {
+"name": "The Countess",
+"desc": "A bow before Countess Morosini: that is the agreed signal. You still have to find her among a hundred masks."
+},
+"6": {
+"name": "The Ambassador's Pockets",
+"desc": "Someone will pick the Viennese ambassador's pockets. It takes approaching him from behind: watch his back."
+},
+"7": {
+"name": "The Grand Staircase",
+"desc": "The Opera foyer, its mirrors, its boxes. Five possible missions, three to do, and a sniper who no longer forgives."
+},
+"8": {
+"name": "The Red Curtain",
+"desc": "The Raven is the best of the Season. Tonight it's you or him."
+},
+"9": {
+"name": "The Last Waltz",
+"desc": "Four missions out of five. The Dogaressa herself is at the ball. And the Lynx knows exactly who you are… almost."
+}
+},
+"mission": {
+"letter": {
+"name": "Copy the letter",
+"where": "at the writing desk"
+},
+"poison": {
+"name": "Pour the powder",
+"where": "into a glass at the marked buffet"
+},
+"bug": {
+"name": "Drop the cipher",
+"where": "inside a statue's plinth"
+},
+"contact": {
+"name": "Talk to the contact",
+"where": "stay by him when he stops"
+},
+"pocket": {
+"name": "Pick the ambassador's pocket",
+"where": "coming from behind him"
+},
+"countess": {
+"name": "Bow to the countess",
+"where": "a bow right next to her"
+}
+},
+"ball": {
+"you_spy": "THE RAVEN",
+"you_hunter": "THE LYNX",
+"goal_spy": "Do {n} missions. Don't get noticed.",
+"goal_hunter": "Find the spy among the guests. One bullet.",
+"missions": "YOUR MISSIONS",
+"missions_hunter": "WHAT THE SPY MAY DO",
+"progress": "MISSIONS DONE  {n} / {need}",
+"keys_spy": "<kbd>{move}</kbd> walk  ·  <kbd>{act}</kbd> hold: do as the others do (drink, admire, dance) — and do a mission  ·  <kbd>{hurry}</kbd> hurry (it shows)",
+"keys_hunter": "Mouse: aim  ·  <kbd>{scope}</kbd> shoulder (scope)  ·  <kbd>{fire}</kbd> fire — one bullet  ·  <kbd>{mark}</kbd> mark a suspect",
+"keys_party": "Blend in among the guests and stab the other players. Stabbing an innocent exposes you.",
+"hold": "Hold {key} — {m}",
+"scope_first": "Shoulder first ({key}) to fire.",
+"no_bullet": "no bullet left",
+"mission_ok": "Mission done: {m}",
+"mission_seen": "A candle flickers… a mission was just done: {m}",
+"won": "VICTORY",
+"lost": "DEFEAT",
+"why_spy_missions": "The Raven did his missions and melted into the night.",
+"why_spy_innocent": "The Lynx shot an innocent. In the uproar, the Raven slips away.",
+"why_spy_miss": "The bullet was lost in the stucco.",
+"why_hunter_spy": "The Lynx shot the Raven.",
+"why_hunter_time": "Midnight strikes: the ball ends before the Raven is done.",
+"party_title": "THE ASSASSINS' BALL",
+"party_goal": "First to {n} kills",
+"party_sub": "FIRST TO {n}",
+"player": "Player {n}",
+"dev_kb": "keyboard",
+"dev_kb2": "keyboard (right)",
+"dev_pad": "gamepad",
+"kill": "Player {a} stabbed player {b}!",
+"innocent": "Player {a} stabbed an innocent — exposed!",
+"respawn": "Player {a} is back under a new mask.",
+"respawning": "New mask in {s} s…",
+"exposed": "EXPOSED",
+"hidden": "hidden in the crowd",
+"party_win": "PLAYER {n} WINS",
+"party_why_score": "The count is complete.",
+"party_why_time": "Midnight: the best score wins."
+},
+"party": {
+"title": "THE ASSASSINS' BALL",
+"rules": "Each player is a guest among a hundred. Nobody knows who is who: spot the other players by the way they move, and stab them. Stabbing an innocent exposes you (everyone sees you) and costs a point. First to 3.",
+"players": "Players",
+"venue": "Venue",
+"start": "Open the ball",
+"keys_kb": "{up}{left}{down}{right} walk · {act} blend in · Shift hurry · {stab} stab",
+"keys_kb2": "arrows walk · Enter blend in · Ctrl hurry · / or . stab",
+"keys_pad": "stick walk · A blend in · RB hurry · X stab"
+},
+"results": {
+"won": "VICTORY",
+"lost": "DEFEAT",
+"party": "PLAYER {n}",
+"time": "Time of the outcome",
+"missions": "Missions done",
+"shot": "Shot fired",
+"shot_yes": "yes",
+"shot_no": "no",
+"next": "Next night",
+"retry": "Play again",
+"season": "Back to the Season",
+"menu": "Main menu",
+"again": "Another ball"
+},
+"pause": {
+"title": "PAUSE",
+"resume": "Resume",
+"restart": "Restart",
+"options": "Options",
+"quit": "Leave the ball"
+},
+"options": {
+"title": "OPTIONS",
+"music": "Music",
+"sfx": "Effects",
+"shake": "Screen shake",
+"quality": "Graphics quality",
+"q0": "Low",
+"q1": "Medium",
+"q2": "High",
+"lang": "Language",
+"controls": "Controls",
+"fullscreen": "Fullscreen",
+"on": "On",
+"off": "Off",
+"sens": "Scope sensitivity",
+"press": "Press a key…",
+"software": "Graphics acceleration unavailable: the game runs in software rendering. Update your graphics drivers."
+},
+"controls": {
+"up": "Up",
+"down": "Down",
+"left": "Left",
+"right": "Right",
+"act": "Act / blend in",
+"hurry": "Hurry",
+"fire": "Fire",
+"scope": "Shoulder",
+"mark": "Mark",
+"pause": "Pause",
+"reset": "Reset to default"
+},
+"online": {
+"title": "THE CONTRACT",
+"rules": "For two, online. One is the Raven among the guests, the other the Lynx in the gallery; roles swap every round. The host picks the venue.",
+"host": "Host",
+"join": "Join",
+"address": "Host address",
+"waiting": "Waiting for an opponent… Give them your address: {addr}",
+"connected": "Connected!",
+"failed": "Connection failed.",
+"lost": "Connection lost.",
+"upnp": "Automatic port opening: {s}",
+"pick_venue": "Pick the venue:",
+"wait_host": "Waiting for the host…",
+"next_round": "Next round (roles swapped)"
+},
+"ending": {
+"credits": "MASCARADE — design, code, music: a one-person studio, a hundred masks. Thanks for playing."
+},
+"brief": {
+"1": [
+[
+"dogesse",
+"Come closer, Raven. Tonight my Season opens: nine balls, a hundred masks each night, and all of Venice pretending to have fun."
+],
+[
+"dogesse",
+"A letter to copy at my writing desk, a powder to pour at the buffet, a friend to greet. Two of these will do."
+],
+[
+"corbeau",
+"And the woman with the rifle, up in the gallery?"
+],
+[
+"dogesse",
+"The Lynx. She has one bullet, and she hates being wrong. Do what the others do: drink, admire, dance. Never run."
+]
+],
+"2": [
+[
+"dogesse",
+"Lynx, my dear. A letter was stolen from me last night, under my own roof. The thief will come back: they always do."
+],
+[
+"lynx",
+"A hundred guests, one bullet. What am I looking for?"
+],
+[
+"dogesse",
+"The one who walks like someone with a purpose. Guests stroll; a spy goes somewhere. And when a candle flickers, he has just acted."
+],
+[
+"lynx",
+"Shoulder, aim, wait. I know the drill."
+]
+],
+"3": [
+[
+"corbeau",
+"The Lynx looked for me all last night. She shot a silk merchant. He had done nothing."
+],
+[
+"dogesse",
+"She learns. So do you, I hope. Three missions tonight, and she knows the room now."
+],
+[
+"dogesse",
+"A piece of advice: act when her laser looks elsewhere. The red dot tells you where her eyes are."
+]
+],
+"4": [
+[
+"lynx",
+"A glasshouse. Palms, a fountain, glass everywhere. A bad place to shoot."
+],
+[
+"dogesse",
+"The Raven likes plants, they say. He already has three of my secrets. I would rather he did not get a fourth."
+],
+[
+"lynx",
+"Mark him for me, then."
+],
+[
+"dogesse",
+"If I knew who he was, my dear, I would not need you."
+]
+],
+"5": [
+[
+"dogesse",
+"Countess Morosini wears a mask like everyone tonight. Bow to her: she will know what it means."
+],
+[
+"corbeau",
+"You have me rob your own guests, and you pay a sniper to shoot me. I'm starting not to understand your game."
+],
+[
+"dogesse",
+"My game is the Season. Nobody understands it before the last waltz."
+]
+],
+"6": [
+[
+"lynx",
+"The Raven works for you. I saw him leave your study."
+],
+[
+"dogesse",
+"All of Venice leaves my study, my dear. Tonight someone will pick the Viennese ambassador's pockets. If it is him, shoot him."
+],
+[
+"lynx",
+"And if you are the one sending him?"
+],
+[
+"dogesse",
+"Then you will have proof that I know how to pick my people."
+]
+],
+"7": [
+[
+"corbeau",
+"The Opera foyer. Mirrors everywhere: she will see me twice."
+],
+[
+"dogesse",
+"She has missed six times. She will not miss the seventh. Do your three missions, and do not dance with the same lady twice."
+]
+],
+"8": [
+[
+"lynx",
+"I know how he walks now. He stops a second too long in front of paintings. He never really drinks."
+],
+[
+"dogesse",
+"Then tonight, you will have him."
+],
+[
+"lynx",
+"And you, Dogaressa, which side are you on?"
+],
+[
+"dogesse",
+"On the side of whoever wins. It is always the same side."
+]
+],
+"9": [
+[
+"dogesse",
+"Last waltz, Raven. Tonight I am at the ball. Four missions: the letter, the cipher, the powder… and a bow for me."
+],
+[
+"corbeau",
+"And the Lynx?"
+],
+[
+"dogesse",
+"I told her who you are. Or rather, I described someone who looks a lot like you. Make her wrong."
+],
+[
+"dogesse",
+"Whichever of you is still standing at midnight inherits the House of Vermeil. That is what the Season was."
+]
+]
+},
+"cine": {
+"intro": [
+{
+"image": "bg_title",
+"text": "Venice, carnival of 1890. On the Grand Canal, the Palazzo Vermeil lights up for the Season: nine balls, a hundred masks each night."
+},
+{
+"image": "cine_contrat",
+"text": "The Dogaressa Vermeil holds Venice by its secrets. Tonight she hands a sealed letter to a man with no name. They call him the Raven."
+},
+{
+"image": "key_art",
+"text": "In the gallery, a woman shoulders a scoped rifle. The Lynx has one bullet. She is looking for the one, among a hundred guests, who did not come to dance."
+}
+],
+"finale": [
+{
+"image": "cine_tir",
+"text": "Midnight. The last waltz ends. In the Lynx’s scope, the Raven looks back at her — and does not look away."
+},
+{
+"image": "cine_contrat",
+"text": "The Dogaressa had hired them both. The best spy in Venice, the best sniper: she wanted to know which one deserved her House."
+},
+{
+"image": "bg_title",
+"text": "The Raven won the Season. The Lynx puts her rifle away; they say that next time, they will work together. The masks never come off."
+}
+]
+}
+}

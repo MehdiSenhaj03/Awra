@@ -1,0 +1,408 @@
+{
+"common": {
+"back": "Retour",
+"yes": "Oui",
+"no": "Non",
+"skip": "Passer",
+"continue": "Continuer"
+},
+"names": {
+"corbeau": "LE CORBEAU",
+"lynx": "LA LYNX",
+"dogesse": "LA DOGESSE"
+},
+"title": {
+"tagline": "Cent masques. Un seul ment. Une seule balle.",
+"press": "Appuie sur une touche",
+"season": "La Saison",
+"season_sub": "Neuf bals, deux points de vue — solo",
+"online": "Le Contrat",
+"online_sub": "Espion contre tireuse, en ligne à deux",
+"party": "Le Bal des Assassins",
+"party_sub": "2 à 4 joueurs sur un écran",
+"options": "Options",
+"quit": "Quitter"
+},
+"venue": {
+"salon": "Le Salon Vermeil",
+"serre": "La Serre aux Orchidées",
+"opera": "Le Foyer de l'Opéra"
+},
+"season": {
+"title": "LA SAISON",
+"sub": "Neuf bals au Palais Vermeil. Tour à tour le Corbeau et la Lynx.",
+"night": "Nuit {n}",
+"as_spy": "l'espion",
+"as_hunter": "la tireuse",
+"done": "✦ Réussie — meilleur temps {t}",
+"locked": "Réussis la nuit précédente pour ouvrir celle-ci.",
+"open": "Adversaire : {skill}",
+"skill0": "novice",
+"skill1": "attentive",
+"skill2": "redoutable",
+"skill3": "implacable"
+},
+"night": {
+"1": {
+"name": "Le Premier Bal",
+"desc": "Ton premier contrat pour la Dogesse. Fonds-toi dans la foule, accomplis deux missions, ne te fais pas abattre."
+},
+"2": {
+"name": "La Galerie",
+"desc": "Changement de point de vue : tu es la Lynx, dans la galerie. Quelqu'un en bas n'est pas ce qu'il prétend. Une balle."
+},
+"3": {
+"name": "Le Menuet des Ombres",
+"desc": "Trois missions sur quatre, et la Lynx a pris ses marques. Ne cours pas. Ne reviens pas sur tes pas."
+},
+"4": {
+"name": "Les Orchidées",
+"desc": "La serre de verre, ses palmiers, sa fontaine. L'espion d'en face est plus fin : regarde qui s'arrête là où personne ne s'arrête."
+},
+"5": {
+"name": "La Comtesse",
+"desc": "Une révérence devant la comtesse Morosini : c'est le signal convenu. Encore faut-il la trouver parmi cent masques."
+},
+"6": {
+"name": "Les Poches de l'Ambassadeur",
+"desc": "Quelqu'un va faire les poches de l'ambassadeur de Vienne. Il faut l'approcher par derrière : surveille son dos."
+},
+"7": {
+"name": "Le Grand Escalier",
+"desc": "Le foyer de l'Opéra, ses miroirs, ses loges. Cinq missions possibles, trois à faire, et une tireuse qui ne pardonne plus."
+},
+"8": {
+"name": "Le Rideau Rouge",
+"desc": "Le Corbeau est le meilleur de la Saison. Ce soir, c'est toi ou lui."
+},
+"9": {
+"name": "La Dernière Valse",
+"desc": "Quatre missions sur cinq. La Dogesse elle-même est au bal. Et la Lynx sait exactement qui tu es… ou presque."
+}
+},
+"mission": {
+"letter": {
+"name": "Recopier la lettre",
+"where": "au secrétaire d'écriture"
+},
+"poison": {
+"name": "Verser la poudre",
+"where": "dans une coupe du buffet marqué"
+},
+"bug": {
+"name": "Déposer le chiffre",
+"where": "dans le socle d'une statue"
+},
+"contact": {
+"name": "Parler au contact",
+"where": "rester près de lui quand il s'arrête"
+},
+"pocket": {
+"name": "Faire les poches de l'ambassadeur",
+"where": "en arrivant derrière lui"
+},
+"countess": {
+"name": "Saluer la comtesse",
+"where": "une révérence tout près d’elle"
+}
+},
+"ball": {
+"you_spy": "LE CORBEAU",
+"you_hunter": "LA LYNX",
+"goal_spy": "Accomplis {n} missions. Ne te fais pas remarquer.",
+"goal_hunter": "Trouve l'espion parmi les invités. Une seule balle.",
+"missions": "TES MISSIONS",
+"missions_hunter": "CE QUE L'ESPION PEUT FAIRE",
+"progress": "MISSIONS ACCOMPLIES  {n} / {need}",
+"keys_spy": "<kbd>{move}</kbd> marcher  ·  <kbd>{act}</kbd> maintenir : faire comme les autres (boire, admirer, danser) — et accomplir une mission  ·  <kbd>{hurry}</kbd> presser le pas (on le remarque)",
+"keys_hunter": "Souris : viser  ·  <kbd>{scope}</kbd> épauler (lunette)  ·  <kbd>{fire}</kbd> tirer — une seule balle  ·  <kbd>{mark}</kbd> marquer un suspect",
+"keys_party": "Fonds-toi parmi les invités et poignarde les autres joueurs. Poignarder un innocent te démasque.",
+"hold": "Maintiens {key} — {m}",
+"scope_first": "Épaule d'abord ({key}) pour tirer.",
+"no_bullet": "plus de balle",
+"mission_ok": "Mission accomplie : {m}",
+"mission_seen": "Une bougie vacille… une mission vient d’être accomplie : {m}",
+"won": "VICTOIRE",
+"lost": "DÉFAITE",
+"why_spy_missions": "Le Corbeau a accompli ses missions et s'est fondu dans la nuit.",
+"why_spy_innocent": "La Lynx a abattu un innocent. Dans le scandale, le Corbeau s'éclipse.",
+"why_spy_miss": "La balle s’est perdue dans le stuc.",
+"why_hunter_spy": "La Lynx a abattu le Corbeau.",
+"why_hunter_time": "Minuit sonne : le bal s'achève avant que le Corbeau ait fini.",
+"party_title": "LE BAL DES ASSASSINS",
+"party_goal": "Premier à {n} victimes",
+"party_sub": "PREMIER À {n}",
+"player": "Joueur {n}",
+"dev_kb": "clavier",
+"dev_kb2": "clavier (droite)",
+"dev_pad": "manette",
+"kill": "Le joueur {a} a poignardé le joueur {b} !",
+"innocent": "Le joueur {a} a poignardé un innocent — démasqué !",
+"respawn": "Le joueur {a} revient sous un nouveau masque.",
+"respawning": "Nouveau masque dans {s} s…",
+"exposed": "DÉMASQUÉ",
+"hidden": "caché dans la foule",
+"party_win": "LE JOUEUR {n} L’EMPORTE",
+"party_why_score": "Le compte est bon.",
+"party_why_time": "Minuit : le meilleur score l’emporte."
+},
+"party": {
+"title": "LE BAL DES ASSASSINS",
+"rules": "Chaque joueur est un invité parmi cent. Personne ne sait qui est qui : repère les autres joueurs à leur façon de bouger, et poignarde-les. Poignarder un innocent te démasque (tout le monde te voit) et te coûte un point. Premier à 3.",
+"players": "Joueurs",
+"venue": "Lieu",
+"start": "Ouvrir le bal",
+"keys_kb": "{up}{left}{down}{right} marcher · {act} se fondre · Maj presser · {stab} poignarder",
+"keys_kb2": "flèches marcher · Entrée se fondre · Ctrl presser · / ou . poignarder",
+"keys_pad": "stick marcher · A se fondre · RB presser · X poignarder"
+},
+"results": {
+"won": "VICTOIRE",
+"lost": "DÉFAITE",
+"party": "JOUEUR {n}",
+"time": "Heure du dénouement",
+"missions": "Missions accomplies",
+"shot": "Coup de feu",
+"shot_yes": "oui",
+"shot_no": "non",
+"next": "Nuit suivante",
+"retry": "Rejouer",
+"season": "Retour à la Saison",
+"menu": "Menu principal",
+"again": "Encore un bal"
+},
+"pause": {
+"title": "PAUSE",
+"resume": "Reprendre",
+"restart": "Recommencer",
+"options": "Options",
+"quit": "Quitter le bal"
+},
+"options": {
+"title": "OPTIONS",
+"music": "Musique",
+"sfx": "Effets",
+"shake": "Secousses de l'écran",
+"quality": "Qualité graphique",
+"q0": "Basse",
+"q1": "Moyenne",
+"q2": "Haute",
+"lang": "Langue",
+"controls": "Commandes",
+"fullscreen": "Plein écran",
+"on": "Oui",
+"off": "Non",
+"sens": "Sensibilité de la lunette",
+"press": "Appuie sur une touche…",
+"software": "Accélération graphique indisponible : le jeu tourne en rendu logiciel. Mets à jour tes pilotes graphiques."
+},
+"controls": {
+"up": "Haut",
+"down": "Bas",
+"left": "Gauche",
+"right": "Droite",
+"act": "Agir / se fondre",
+"hurry": "Presser le pas",
+"fire": "Tirer",
+"scope": "Épauler",
+"mark": "Marquer",
+"pause": "Pause",
+"reset": "Rétablir par défaut"
+},
+"online": {
+"title": "LE CONTRAT",
+"rules": "À deux, en ligne. L'un est le Corbeau parmi les invités, l'autre la Lynx dans la galerie ; on échange les rôles à chaque manche. L'hôte choisit le lieu.",
+"host": "Héberger",
+"join": "Rejoindre",
+"address": "Adresse de l'hôte",
+"waiting": "En attente d'un adversaire… Donne-lui ton adresse : {addr}",
+"connected": "Connecté !",
+"failed": "Connexion impossible.",
+"lost": "Connexion perdue.",
+"upnp": "Ouverture du port automatique : {s}",
+"pick_venue": "Choisis le lieu :",
+"wait_host": "En attente de l'hôte…",
+"next_round": "Manche suivante (rôles inversés)"
+},
+"ending": {
+"credits": "MASCARADE — conception, code, musique : un studio d'une seule personne, cent masques. Merci d'avoir joué."
+},
+"brief": {
+"1": [
+[
+"dogesse",
+"Approche, Corbeau. Ce soir s'ouvre ma Saison : neuf bals, cent masques chaque nuit, et Venise entière qui fait semblant de s'amuser."
+],
+[
+"dogesse",
+"Une lettre à recopier sur mon secrétaire, une poudre à verser au buffet, un ami à saluer. Deux de ces choses suffiront."
+],
+[
+"corbeau",
+"Et la femme au fusil, dans la galerie ?"
+],
+[
+"dogesse",
+"La Lynx. Elle n'a qu'une balle, et elle déteste se tromper. Fais ce que font les autres : bois, admire, danse. Ne cours jamais."
+]
+],
+"2": [
+[
+"dogesse",
+"Lynx, ma chère. On m'a volé une lettre hier soir, sous mon propre toit. Le voleur reviendra : ils reviennent toujours."
+],
+[
+"lynx",
+"Cent invités, une balle. Que dois-je chercher ?"
+],
+[
+"dogesse",
+"Celui qui marche comme quelqu'un qui a un but. Les invités flânent ; un espion, lui, va quelque part. Et quand une bougie vacille, c'est qu'il vient d'agir."
+],
+[
+"lynx",
+"Épauler, viser, attendre. Je connais."
+]
+],
+"3": [
+[
+"corbeau",
+"La Lynx m'a cherché toute la soirée d'hier. Elle a abattu un marchand de soie. Il n'avait rien fait."
+],
+[
+"dogesse",
+"Elle apprend. Toi aussi, j'espère. Trois missions ce soir, et elle connaît la salle maintenant."
+],
+[
+"dogesse",
+"Un conseil : agis quand son laser regarde ailleurs. Le point rouge te dit où sont ses yeux."
+]
+],
+"4": [
+[
+"lynx",
+"Une serre. Des palmiers, une fontaine, du verre partout. Mauvais endroit pour tirer."
+],
+[
+"dogesse",
+"Le Corbeau aime les plantes, paraît-il. Il a déjà trois de mes secrets. Je ne tiens pas à ce qu'il en ait un quatrième."
+],
+[
+"lynx",
+"Marquez-le pour moi, alors."
+],
+[
+"dogesse",
+"Si je savais qui il est, ma chère, je n'aurais pas besoin de vous."
+]
+],
+"5": [
+[
+"dogesse",
+"La comtesse Morosini porte ce soir un masque comme les autres. Fais-lui une révérence : elle saura ce que cela veut dire."
+],
+[
+"corbeau",
+"Vous me faites voler vos propres invités, et vous payez une tireuse pour m'abattre. Je commence à ne plus comprendre votre jeu."
+],
+[
+"dogesse",
+"Mon jeu, c'est la Saison. Personne ne la comprend avant la dernière valse."
+]
+],
+"6": [
+[
+"lynx",
+"Le Corbeau travaille pour vous. Je l'ai vu sortir de votre cabinet."
+],
+[
+"dogesse",
+"Tout Venise sort de mon cabinet, ma chère. Ce soir, quelqu'un va faire les poches de l'ambassadeur de Vienne. Si c'est lui, abattez-le."
+],
+[
+"lynx",
+"Et si c'est vous qui l'envoyez ?"
+],
+[
+"dogesse",
+"Alors vous aurez la preuve que je sais choisir mes gens."
+]
+],
+"7": [
+[
+"corbeau",
+"Le foyer de l'Opéra. Des miroirs partout : elle me verra deux fois."
+],
+[
+"dogesse",
+"Elle a manqué six fois. Elle ne manquera pas la septième. Fais tes trois missions, et ne danse pas avec la même dame deux fois."
+]
+],
+"8": [
+[
+"lynx",
+"Je sais comment il marche maintenant. Il s'arrête une seconde de trop devant les tableaux. Il ne boit jamais vraiment."
+],
+[
+"dogesse",
+"Alors ce soir, vous l'aurez."
+],
+[
+"lynx",
+"Et vous, Dogesse, de quel côté êtes-vous ?"
+],
+[
+"dogesse",
+"Du côté de celui qui gagne. C'est toujours le même."
+]
+],
+"9": [
+[
+"dogesse",
+"Dernière valse, Corbeau. Ce soir, je suis au bal. Quatre missions : la lettre, le chiffre, la poudre… et une révérence pour moi."
+],
+[
+"corbeau",
+"Et la Lynx ?"
+],
+[
+"dogesse",
+"Je lui ai dit qui tu es. Ou plutôt, je lui ai décrit quelqu'un qui te ressemble beaucoup. À toi de la faire mentir."
+],
+[
+"dogesse",
+"Celui de vous deux qui sera encore debout à minuit héritera de la Maison Vermeil. C'était cela, la Saison."
+]
+]
+},
+"cine": {
+"intro": [
+{
+"image": "bg_title",
+"text": "Venise, carnaval de 1890. Sur le Grand Canal, le Palais Vermeil s'allume pour la Saison : neuf bals, cent masques chaque nuit."
+},
+{
+"image": "cine_contrat",
+"text": "La Dogesse Vermeil tient Venise par ses secrets. Ce soir, elle confie une lettre cachetée à un homme qui n'a pas de nom. On l'appelle le Corbeau."
+},
+{
+"image": "key_art",
+"text": "Dans la galerie, une femme épaule un fusil à lunette. La Lynx n'a qu'une balle. Elle cherche celui qui, parmi cent invités, n'est pas venu pour danser."
+}
+],
+"finale": [
+{
+"image": "cine_tir",
+"text": "Minuit. La dernière valse s'achève. Dans la lunette de la Lynx, le Corbeau la regarde — et ne baisse pas les yeux."
+},
+{
+"image": "cine_contrat",
+"text": "La Dogesse avait engagé les deux. Le meilleur espion de Venise, la meilleure tireuse : elle voulait savoir lequel méritait sa Maison."
+},
+{
+"image": "bg_title",
+"text": "Le Corbeau a gagné la Saison. La Lynx range son fusil ; on dit qu'à la prochaine, ils travailleront ensemble. Les masques, eux, ne tombent jamais."
+}
+]
+}
+}

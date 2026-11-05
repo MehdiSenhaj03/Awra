@@ -8,7 +8,7 @@ signal right_clicked
 
 var bg := Color(1, 1, 1, 0.04)
 var border := Color(1, 1, 1, 0.09)
-var bg_on := Color(0.18, 0.95, 1.0, 0.1)
+var bg_on := Color(1.0, 0.66, 0.28, 0.1)
 var border_on := Kit.CYAN
 var inset := Color(0, 0, 0, 0)
 var lift := 2.0

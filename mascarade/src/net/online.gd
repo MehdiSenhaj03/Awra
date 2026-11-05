@@ -1,8 +1,8 @@
 class_name Online
 extends Node
 ## Network play without a server: one player hosts (port opened automatically by UPnP when the router allows
-## it), the other joins by address. Co-op runs in lockstep: only inputs travel, the deterministic simulation
-## does the rest. Duel only exchanges vaults and progress.
+## it), the other joins by address. A contract runs in lockstep: only inputs travel, the deterministic simulation
+## does the rest.
 
 signal connected
 signal disconnected
@@ -37,7 +37,7 @@ func _upnp() -> void:
 	var u := UPNP.new()
 	var r := u.discover(1500, 2, "InternetGatewayDevice")
 	if r == UPNP.UPNP_RESULT_SUCCESS and u.get_gateway() and u.get_gateway().is_valid_gateway():
-		var m := u.add_port_mapping(PORT, PORT, "CASSE", "UDP")
+		var m := u.add_port_mapping(PORT, PORT, "MASCARADE", "UDP")
 		external = u.query_external_address()
 		upnp_status = "ok" if m == UPNP.UPNP_RESULT_SUCCESS else "partial"
 	else:
@@ -94,7 +94,7 @@ func reset_lockstep() -> void:
 func _in(k: int, b: int, f: int) -> void:
 	_remote[k] = [b, f]
 
-## Called every physics frame while an online heist runs: sends this player's input DELAY frames ahead and
+## Called every physics frame while an online match runs: sends this player's input DELAY frames ahead and
 ## advances the shared simulation when both players' inputs for the frame are known.
 func net_step(heist: Object) -> void:
 	if peer == null:
@@ -114,5 +114,5 @@ func net_step(heist: Object) -> void:
 	_remote.erase(_exec_k)
 	var host_in: Array = a if is_host else b
 	var guest_in: Array = b if is_host else a
-	heist.call("step_net", [host_in[0], guest_in[0]], int(host_in[1]) | int(guest_in[1]))
+	heist.call("step_net", host_in, guest_in)
 	_exec_k += 1

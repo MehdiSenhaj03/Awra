@@ -84,7 +84,7 @@ func update(dt: float) -> void:
 	if _t > ln:
 		_next()
 		return
-	if Keys.pressed("confirm") or Keys.pressed("use"):
+	if Keys.pressed("confirm") or Keys.pressed("act"):
 		_next()
 		return
 	_held = _held + dt if (Keys.down("back") or Keys.down("pause")) else 0.0

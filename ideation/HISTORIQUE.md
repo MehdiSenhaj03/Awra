@@ -323,3 +323,16 @@ Risque : la physique de véhicule en réseau.
 
 Chaque jeu est terminé, testé (bots, captures, réseau entre deux instances), puis exporté en zips
 Linux et Windows avant de passer au suivant.
+
+---
+
+## Journal de développement
+
+- **CASSE** — terminé : moteur à boucles, 22 coffres de campagne, atelier, coop et duel en ligne, audio, zips
+  Windows/Linux envoyés.
+- **MASCARADE** — terminé : foule simulée (cent invités, routines, valse), IA espion et IA tireuse équilibrées
+  par simulation (≈50/50 à niveau égal, difficulté croissante sur les 9 nuits), rendu 3D (trois lieux,
+  invités en MultiMesh avec masques peints), Saison à double point de vue (briefings, cinématiques), Contrat en
+  ligne (lockstep vérifié : même état final sur deux instances), Bal des Assassins à 2-4 sur un écran,
+  valse en trois arrangements + couche de tension, zips Windows/Linux envoyés.
+  Écart assumé avec la fiche : la fête est à 2-4 joueurs (un écran, clavier ×2 + manettes) plutôt que 8.

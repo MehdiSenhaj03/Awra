@@ -1,6 +1,6 @@
 class_name MenuItem
 extends Control
-## One menu entry: display font, a cyan bar and a glow when focused, slides right; optional subtitle and value.
+## One menu entry: display font, a gold bar and a glow when focused, slides right; optional subtitle and value.
 
 signal clicked
 
@@ -53,7 +53,7 @@ func _refresh() -> void:
 		ls.shadow_size = 0
 	elif on:
 		ls.font_color = Color.WHITE
-		ls.shadow_color = Color(0.18, 0.95, 1.0, 0.6)
+		ls.shadow_color = Color(1.0, 0.62, 0.25, 0.6)
 		ls.shadow_size = 10
 		ls.shadow_offset = Vector2.ZERO
 	else:
@@ -83,7 +83,7 @@ func _draw() -> void:
 	var h := size.y
 	# Slanted gradient strip and the bar.
 	var pts := PackedVector2Array([Vector2(_x, 0), Vector2(_x + w, 0), Vector2(_x + w - 14, h), Vector2(_x, h)])
-	var cols := PackedColorArray([Color(0.18, 0.95, 1.0, 0.15 * _k), Color(0.18, 0.95, 1.0, 0.0), Color(0.18, 0.95, 1.0, 0.0), Color(0.18, 0.95, 1.0, 0.15 * _k)])
+	var cols := PackedColorArray([Color(1.0, 0.66, 0.28, 0.15 * _k), Color(1.0, 0.66, 0.28, 0.0), Color(1.0, 0.66, 0.28, 0.0), Color(1.0, 0.66, 0.28, 0.15 * _k)])
 	draw_polygon(pts, cols)
 	var bh := h * 0.7 * _k
 	draw_rect(Rect2(_x, (h - bh) / 2, 3, bh), Kit.CYAN * Color(1.5, 1.5, 1.5, _k))

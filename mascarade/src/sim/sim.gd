@@ -4,10 +4,12 @@ extends RefCounted
 ## match is identical on every machine (replays, lockstep network play).
 ##
 ## Modes: "contract" (a spy among the guests, a sniper above) and "party" (2-4 players, each hunting another).
-## Player input byte: bits 0-3 direction (0 none, 1..8 E SE S SW W NW N NE), bit 4 hurry, bit 5 act held.
+## Player input byte: bits 0-3 direction (0 none, 1..8 E SE S SW W NW N NE), bit 4 hurry, bit 5 act held,
+## bit 6 stab (party).
 
 const IN_HURRY := 16
 const IN_ACT := 32
+const IN_STAB := 64      # party mode: a stab (sent on the press only)
 const R := 60            # guest radius (1/256 tile)
 const WALK := 9          # units per frame (≈2.1 tiles/s)
 const HURRY := 15
@@ -83,7 +85,7 @@ var ambassador := -1
 var countess := -1
 ## Party: one entry per player {guest, target, score, exposed, respawn}.
 var players: Array[Dictionary] = []
-var party_goal := 5
+var party_goal := 3
 var _prev_act := PackedByteArray()
 
 func _init(v: Venue, m: String, seed_v: int, n_guests: int, n_players: int = 1, mission_list: Array = []) -> void:
@@ -202,7 +204,7 @@ func _choose(g: Guest, anywhere: bool = false) -> void:
 			g.sy = cy + Fx.sina(a) * 240 / 1024
 		"dance":
 			var a := rng.rint(0, 255)
-			var rr := rng.rint(100, 420)
+			var rr := rng.rint(100, mini(900, int(p.get("rad", 420))))
 			g.sx = cx + Fx.cosa(a) * rr / 1024
 			g.sy = cy + Fx.sina(a) * rr / 1024
 		_:
@@ -426,6 +428,8 @@ func _player(gi: int, g: Guest, b: int) -> void:
 			_npc(gi, g)
 			_missions_hold(gi, g, act)
 			return
+	if mode == "party" and (b & IN_STAB) != 0:
+		_stab(gi, g)
 	if d != 0:
 		if g.poi >= 0:
 			occ[g.poi] = maxi(0, occ[g.poi] - 1)
@@ -451,8 +455,6 @@ func _player(gi: int, g: Guest, b: int) -> void:
 		_blend(gi, g, pressed)
 	if mode == "contract" and gi == spy:
 		_missions_hold(gi, g, act)
-	elif mode == "party" and pressed:
-		_stab(gi, g)
 
 ## Doing what guests do at the nearest point of interest (the spy hides in plain sight).
 func _blend(gi: int, g: Guest, pressed: bool) -> void:
@@ -593,23 +595,20 @@ func _stab(gi: int, g: Guest) -> void:
 	g.gesture = G.STAB
 	g.g_t = 40
 	var o := guests[best]
-	var tp: Dictionary = players[int(p.target)]
-	if int(tp.guest) == best:
+	if o.ctrl >= 0 and o.ctrl != g.ctrl:
+		# Another player: a kill. They come back elsewhere with a new disguise.
 		p.score = int(p.score) + 1
 		o.st = St.OUT
-		tp.respawn = 180
-		_ev("kill", {"by": g.ctrl, "victim": int(p.target), "x": o.x, "y": o.y})
+		players[o.ctrl].respawn = 180
+		_ev("kill", {"by": g.ctrl, "victim": o.ctrl, "x": o.x, "y": o.y})
 		if int(p.score) >= party_goal:
 			_end("p%d" % g.ctrl, "score")
 	else:
+		# An innocent: the killer is exposed for a while (the others see who did it) and loses a point.
 		o.st = St.DEAD
 		p.exposed = 300
 		p.score = maxi(0, int(p.score) - 1)
-		_ev("innocent", {"by": g.ctrl, "x": o.x, "y": o.y, "victim_player": o.ctrl})
-		if o.ctrl >= 0:
-			# Stabbed another player who was not the target: they respawn too.
-			players[o.ctrl].respawn = 180
-			o.st = St.OUT
+		_ev("innocent", {"by": g.ctrl, "x": o.x, "y": o.y})
 
 func _party() -> void:
 	for pi in players.size():

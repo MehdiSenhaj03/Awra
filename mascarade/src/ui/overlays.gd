@@ -1,5 +1,5 @@
 class_name Overlays
-## Small overlays: dialogue, unlock card, boss card, pause, confirm, the end choice.
+## Small overlays: dialogue, pause, confirm.
 
 class Dialogue extends Screen:
 	var _lines: Array
@@ -77,91 +77,8 @@ class Dialogue extends Screen:
 		if _shown < full:
 			_shown = minf(full, _shown + dt * 70.0)
 			_txt.visible_characters = int(_shown)
-		if Keys.pressed("confirm") or Keys.pressed("use") or Keys.pressed("back"):
+		if Keys.pressed("confirm") or Keys.pressed("act") or Keys.pressed("back"):
 			_next()
-
-class Unlock extends Screen:
-	var _t := 0.0
-	var _on_done: Callable
-
-	func _init(kicker: String, name_: String, desc: String, icon: String, on_done: Callable) -> void:
-		super()
-		_on_done = on_done
-		var p := Kit.panel(self)
-		var m := Kit.margin(p, 46, 26, 46, 26)
-		var v := Kit.vbox(m, 10)
-		v.alignment = BoxContainer.ALIGNMENT_CENTER
-		if icon != "":
-			var i := Kit.image(v, icon, false)
-			i.custom_minimum_size = Vector2(84, 84)
-		for x in [[kicker, 12, Kit.GOLD, 500, 0.5, 0], [name_, 40, Color.WHITE, 800, 0.2, 1], [desc, 16, Color("#c9d3ea"), 400, 0.0, 2]]:
-			if x[0] == "":
-				continue
-			var l := Kit.label(v, x[0], x[1], x[2], "display" if x[5] < 2 else "body", x[3], x[4], Kit.CYAN if x[5] == 1 else Color(0, 0, 0, 0), 14)
-			l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-			if x[5] == 2:
-				l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-				l.custom_minimum_size.x = 620
-		p.ready.connect(func() -> void:
-			p.position = Vector2((Kit.W - p.size.x) / 2, Kit.H * 0.18)
-			p.pivot_offset = p.size / 2
-			p.scale = Vector2(0.9, 0.9)
-			var tw := p.create_tween()
-			tw.tween_property(p, "scale", Vector2.ONE, 0.6).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT))
-		Sound.sfx("fragment")
-
-	func _gui_input(e: InputEvent) -> void:
-		if e is InputEventMouseButton and e.pressed:
-			_close()
-
-	func _close() -> void:
-		if _t < 0.6:
-			return
-		_t = -99.0
-		_on_done.call()
-
-	func update(dt: float) -> void:
-		_t += dt
-		if Keys.pressed("confirm") or Keys.pressed("use") or Keys.pressed("back"):
-			_close()
-
-## The Conductor's name across the screen (non-blocking).
-class BossCard extends Control:
-	var _t := 0.0
-	var done := false
-	var _stripe: ColorRect
-	var _art: TextureRect
-	var _nm: Label
-	var _tt: Label
-
-	func _init(id: String) -> void:
-		Kit.full(self)
-		mouse_filter = Control.MOUSE_FILTER_IGNORE
-		_stripe = Kit.rect(self, Color(0, 0, 0, 0.85), Vector2(-100, Kit.H / 2 - 110), Vector2(Kit.W + 200, 220))
-		_stripe.rotation = deg_to_rad(-4)
-		_stripe.pivot_offset = _stripe.size / 2
-		_art = Kit.image(self, "boss_%s" % id, false)
-		_art.size = Vector2(Kit.H * 0.62, Kit.H * 0.62)
-		_art.position = Vector2(Kit.W * 0.92 - _art.size.x, Kit.H / 2 - _art.size.y / 2)
-		_nm = Kit.label(self, I18n.t("boss.%s.name" % id), 120, Color.WHITE, "display", 800, 0.25, Kit.MAGENTA, 30)
-		_nm.position = Vector2(Kit.W * 0.08, Kit.H / 2 - 90)
-		_tt = Kit.label(self, I18n.t("boss.%s.title" % id), 13, Kit.MAGENTA, "display", 500, 0.5)
-		_tt.position = Vector2(Kit.W * 0.1, Kit.H / 2 + 72)
-		update(0.0)
-
-	func update(dt: float) -> void:
-		_t += dt
-		var t := _t / 3.4
-		var a := clampf(t / 0.15, 0.0, 1.0) * (1.0 - clampf((t - 0.85) / 0.15, 0.0, 1.0))
-		_stripe.modulate.a = clampf(t / 0.12, 0.0, 1.0) * (1.0 - clampf((t - 0.85) / 0.15, 0.0, 1.0))
-		_stripe.scale.x = clampf(t / 0.12, 0.0, 1.0)
-		_nm.modulate.a = a
-		_tt.modulate.a = a
-		var ka := clampf(t / 0.18, 0.0, 1.0)
-		_art.modulate.a = ka * (1.0 - clampf((t - 0.85) / 0.15, 0.0, 1.0))
-		_art.position.x = Kit.W * 0.92 - _art.size.x + 80.0 * (1.0 - ka) - 20.0 * clampf((t - 0.85) / 0.15, 0.0, 1.0)
-		if _t > 3.5:
-			done = true
 
 class Pause extends Screen:
 	var _menu: UIMenu
@@ -214,26 +131,4 @@ class Confirm extends Screen:
 		if Keys.pressed("back"):
 			_no.call()
 			return
-		_menu.handle()
-
-## The last bar: end the symphony, or play forever.
-class Choice extends Screen:
-	var _menu: UIMenu
-
-	func _init(on_coda: Callable, on_encore: Callable) -> void:
-		super()
-		dim(0.78)
-		var v := Kit.vbox(self, 30)
-		v.alignment = BoxContainer.ALIGNMENT_CENTER
-		Kit.full(v)
-		var t := Kit.h_title(v, I18n.t("story.choice.title"))
-		t.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		var c := CenterContainer.new()
-		c.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		v.add_child(c)
-		_menu = UIMenu.new(c, true, 30)
-		_menu.add(I18n.t("story.choice.coda"), on_coda, {"sub": I18n.t("story.choice.codaDesc"), "width": 420})
-		_menu.add(I18n.t("story.choice.encore"), on_encore, {"sub": I18n.t("story.choice.encoreDesc"), "width": 420})
-
-	func update(_dt: float) -> void:
 		_menu.handle()

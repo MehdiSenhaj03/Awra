@@ -2,7 +2,7 @@
 shader_type canvas_item;
 uniform vec4 c0 : source_color = vec4(1.0);
 uniform vec4 c1 : source_color = vec4(0.75, 0.97, 1.0, 1.0);
-uniform vec4 c2 : source_color = vec4(0.18, 0.95, 1.0, 1.0);
+uniform vec4 c2 : source_color = vec4(1.0, 0.66, 0.28, 1.0);
 uniform vec4 c3 : source_color = vec4(1.0, 0.18, 0.72, 1.0);
 uniform vec4 c4 : source_color = vec4(1.0, 0.76, 0.29, 1.0);
 uniform float speed = 0.0;

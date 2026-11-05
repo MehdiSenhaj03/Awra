@@ -2,17 +2,19 @@ class_name Kit
 ## The interface kit: palette, fonts (the web version's Unbounded, Space Grotesk, JetBrains Mono), labels,
 ## panels, images, and a few shaders. Every screen is built in code at 1920×1080 and scaled to the window.
 
-const CYAN := Color("#7fd9e8")
+const CYAN := Color("#e8c27f")      # the kit's accent: candle gold in MASCARADE
 const BRASS := Color("#d8a84e")
 const RED := Color("#d8343c")
 const MAGENTA := Color("#ff2fb9")
-const GOLD := Color("#ffc34a")
+const GOLD := Color("#f1cf7f")
+const CRIMSON := Color("#b0182c")
+const IVORY := Color("#f3e8d2")
 const CREAM := Color("#f6ecd9")
 const INK := Color("#04050b")
-const PALE := Color("#e9f4ff")
-const DIM := Color("#7d8aa8")
-const SOFT := Color("#b9c6e4")
-const MUTED := Color("#8fa0c4")
+const PALE := Color("#f3e8d2")
+const DIM := Color("#8c7a68")
+const SOFT := Color("#d8c8b0")
+const MUTED := Color("#a89078")
 const W := 1920.0
 const H := 1080.0
 
@@ -109,10 +111,12 @@ static func html(s: String) -> String:
 static func tex(name: String) -> Texture2D:
 	var t: Texture2D = _tex.get(name)
 	if t == null:
-		var p := "res://assets/img/%s.webp" % name
-		if ResourceLoader.exists(p):
-			t = load(p)
-			_tex[name] = t
+		for ext in ["jpg", "png"]:
+			var p := "res://assets/art/%s.%s" % [name, ext]
+			if ResourceLoader.exists(p):
+				t = load(p)
+				_tex[name] = t
+				break
 	return t
 
 static func image(parent: Node, name: String, cover: bool = true) -> TextureRect:
@@ -147,8 +151,8 @@ static func rect(parent: Node, color: Color, pos: Vector2 = Vector2.ZERO, size: 
 static func panel(parent: Node) -> PanelContainer:
 	var p := GlassPanel.new()
 	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color(0.03, 0.045, 0.09, 0.92)
-	sb.border_color = Color(1, 1, 1, 0.1)
+	sb.bg_color = Color(0.07, 0.03, 0.035, 0.93)
+	sb.border_color = Color(0.85, 0.62, 0.3, 0.35)
 	sb.set_border_width_all(1)
 	sb.shadow_color = Color(0, 0, 0, 0.8)
 	sb.shadow_size = 40
@@ -187,10 +191,10 @@ static func hbox(parent: Node, gap: int = 0) -> HBoxContainer:
 	return b
 
 static func h_title(parent: Node, text: String, size: int = 34) -> Label:
-	return label(parent, text, size, Color.WHITE, "display", 800, 0.32, Color(0.18, 0.95, 1.0, 0.4), 16)
+	return label(parent, text, size, GOLD, "display", 700, 0.18, Color(1.0, 0.55, 0.2, 0.35), 14)
 
 static func h_sub(parent: Node, text: String) -> Label:
-	return label(parent, text, 12, CYAN, "display", 500, 0.45)
+	return label(parent, text, 13, BRASS, "display", 400, 0.35)
 
 static func fmt_int(v: float) -> String:
 	var s := str(int(roundf(v)))
