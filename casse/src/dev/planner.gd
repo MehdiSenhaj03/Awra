@@ -99,7 +99,7 @@ func next(sim: Sim) -> int:
 				_route = path(sim, tx, ty, g.x, g.y)
 				_goal = g
 				_stuck = 0
-			while not _route.is_empty() and (_route[0] as Vector2i) == Vector2i(tx, ty) and (absi(e.x - (tx * 256 + 128)) < 40 and absi(e.y - (ty * 256 + 128)) < 40):
+			while not _route.is_empty() and (_route[0] as Vector2i) == Vector2i(tx, ty):
 				_route.pop_front()
 			var nt := g if _route.is_empty() else (_route[0] as Vector2i)
 			# A closed manual door ahead: open it.
@@ -112,8 +112,14 @@ func next(sim: Sim) -> int:
 			# Align on the corridor before turning a corner.
 			var dx := tcx - e.x
 			var dy := tcy - e.y
-			if absi(dx) > 6 and absi(dy) > 6:
-				if absi(dx) < absi(dy):
+			# Align on the corridor first when far off-axis; small offsets are ignored (no dithering).
+			if absi(dx) >= absi(dy):
+				if absi(dy) > 24:
+					dx = 0
+				else:
+					dy = 0
+			else:
+				if absi(dx) > 24:
 					dy = 0
 				else:
 					dx = 0
