@@ -1,0 +1,14 @@
+{
+"common": {"back": "Back", "yes": "Yes", "no": "No", "skip": "Skip", "copy": "Copy", "paste": "Paste", "continue": "Continue", "locked": "Locked"},
+"echo": {"0": "Cyan echo", "1": "Magenta echo", "2": "Amber echo", "3": "Mint echo", "4": "Violet echo", "5": "White echo"},
+"heist": {
+ "par": "Architect's record:", "loop": "LOOP {n}", "echo_turn": "{name} — your turn", "ready": "Move to start the clock",
+ "keys": "<kbd>{use}</kbd> act (hold: crack, hack)  ·  <kbd>{sprint}</kbd> run (noisy)  ·  <kbd>{throw}</kbd> throw a coin  ·  <kbd>{rewind}</kbd> rewind  ·  <kbd>{restart}</kbd> restart the loop  ·  <kbd>{finish}</kbd> end this echo  ·  <kbd>{echoes}</kbd> echoes",
+ "loop_line": "LOOP {n}  ·  ECHO {echo} / {budget}", "loop_end": "END OF LOOP", "out": "NO ECHO LEFT", "out_sub": "Every version of you is already on the job.",
+ "rewind_loop": "Rewind this loop", "echoes": "Manage echoes", "restart_all": "Start over", "quit": "Leave the vault",
+ "rerecord": "Re-record: {name}", "erase_last": "Erase the last echo", "alarm": "SPOTTED", "by_guard": "a guard saw you", "by_camera": "a camera caught you", "by_laser": "you broke a laser",
+ "alarm_keys": "<kbd>{rewind}</kbd> hold: rewind  ·  <kbd>{restart}</kbd> restart the loop  ·  <kbd>{echoes}</kbd> echoes  ·  click the timeline: go back to that moment",
+ "won": "HEIST COMPLETE", "won_sub": "{n} echo(es)", "finishing": "The echo waits for the loop to end…"
+},
+"act": {"takedown": "Knock out", "lever": "Pull", "button": "Press", "vlever": "Pull the lever", "door_open": "Open", "door_close": "Close", "term": "Hack (hold)", "safe": "Crack (hold)", "card": "Take the keycard", "loot": "Take the loot", "drop": "Drop"}
+}

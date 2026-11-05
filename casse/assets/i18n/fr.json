@@ -1,0 +1,14 @@
+{
+"common": {"back": "Retour", "yes": "Oui", "no": "Non", "skip": "Passer", "copy": "Copier", "paste": "Coller", "continue": "Continuer", "locked": "Verrouillé"},
+"echo": {"0": "Écho cyan", "1": "Écho magenta", "2": "Écho ambre", "3": "Écho menthe", "4": "Écho violet", "5": "Écho blanc"},
+"heist": {
+ "par": "Record de l'architecte :", "loop": "BOUCLE {n}", "echo_turn": "{name} — à toi", "ready": "Bouge pour lancer l'horloge",
+ "keys": "<kbd>{use}</kbd> agir (maintenir : crocheter, pirater)  ·  <kbd>{sprint}</kbd> courir (bruyant)  ·  <kbd>{throw}</kbd> lancer une pièce  ·  <kbd>{rewind}</kbd> rembobiner  ·  <kbd>{restart}</kbd> reprendre la boucle  ·  <kbd>{finish}</kbd> terminer l'écho  ·  <kbd>{echoes}</kbd> échos",
+ "loop_line": "BOUCLE {n}  ·  ÉCHO {echo} / {budget}", "loop_end": "FIN DE BOUCLE", "out": "PLUS D'ÉCHO", "out_sub": "Toutes tes versions sont déjà sur le coup.",
+ "rewind_loop": "Rembobiner cette boucle", "echoes": "Gérer les échos", "restart_all": "Tout recommencer", "quit": "Quitter le coffre",
+ "rerecord": "Réenregistrer : {name}", "erase_last": "Effacer le dernier écho", "alarm": "REPÉRÉE", "by_guard": "un garde t'a vue", "by_camera": "une caméra t'a filmée", "by_laser": "tu as coupé un laser",
+ "alarm_keys": "<kbd>{rewind}</kbd> maintenir : rembobiner  ·  <kbd>{restart}</kbd> reprendre la boucle  ·  <kbd>{echoes}</kbd> échos  ·  clic sur la frise : revenir à cet instant",
+ "won": "CASSE RÉUSSI", "won_sub": "{n} écho(s)", "finishing": "L'écho attend la fin de la boucle…"
+},
+"act": {"takedown": "Assommer", "lever": "Actionner", "button": "Appuyer", "vlever": "Tirer le levier", "door_open": "Ouvrir", "door_close": "Fermer", "term": "Pirater (maintenir)", "safe": "Crocheter (maintenir)", "card": "Prendre le badge", "loot": "Prendre le butin", "drop": "Poser"}
+}
