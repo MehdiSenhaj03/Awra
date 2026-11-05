@@ -5439,9 +5439,22 @@ unsafe extern "C" {
     //=========================================================================
     pub fn awra_popover_get_type() -> GType;
     pub fn awra_popover_new() -> *mut gtk::GtkWidget;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_popover_add_menu_widget(
+        self_: *mut AwraPopover,
+        child: *mut gtk::GtkWidget,
+        id: *const c_char,
+    ) -> gboolean;
     pub fn awra_popover_get_child(self_: *mut AwraPopover) -> *mut gtk::GtkWidget;
     pub fn awra_popover_get_menu_model(self_: *mut AwraPopover) -> *mut gio::GMenuModel;
     pub fn awra_popover_get_surface(self_: *mut AwraPopover) -> *mut AwraSurface;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_popover_remove_menu_widget(
+        self_: *mut AwraPopover,
+        child: *mut gtk::GtkWidget,
+    ) -> gboolean;
     pub fn awra_popover_set_child(self_: *mut AwraPopover, child: *mut gtk::GtkWidget);
     pub fn awra_popover_set_menu_model(self_: *mut AwraPopover, model: *mut gio::GMenuModel);
 

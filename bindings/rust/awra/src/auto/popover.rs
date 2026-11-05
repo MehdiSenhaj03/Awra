@@ -47,6 +47,19 @@ impl Popover {
         PopoverBuilder::new()
     }
 
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    #[doc(alias = "awra_popover_add_menu_widget")]
+    pub fn add_menu_widget(&self, child: &impl IsA<gtk::Widget>, id: &str) -> bool {
+        unsafe {
+            from_glib(ffi::awra_popover_add_menu_widget(
+                self.to_glib_none().0,
+                child.as_ref().to_glib_none().0,
+                id.to_glib_none().0,
+            ))
+        }
+    }
+
     #[doc(alias = "awra_popover_get_child")]
     #[doc(alias = "get_child")]
     pub fn child(&self) -> Option<gtk::Widget> {
@@ -64,6 +77,18 @@ impl Popover {
     #[doc(alias = "get_surface")]
     pub fn surface(&self) -> Surface {
         unsafe { from_glib_none(ffi::awra_popover_get_surface(self.to_glib_none().0)) }
+    }
+
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    #[doc(alias = "awra_popover_remove_menu_widget")]
+    pub fn remove_menu_widget(&self, child: &impl IsA<gtk::Widget>) -> bool {
+        unsafe {
+            from_glib(ffi::awra_popover_remove_menu_widget(
+                self.to_glib_none().0,
+                child.as_ref().to_glib_none().0,
+            ))
+        }
     }
 
     #[doc(alias = "awra_popover_set_child")]

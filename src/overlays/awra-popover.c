@@ -21,6 +21,9 @@ struct _AwraPopover {
   gulong material_handler;
   gulong style_handler;
   GMenuModel *menu_model;
+  /* The application's widgets that menu items name by their "custom"
+   * attribute: id to a widget the popover holds a reference to. */
+  GHashTable *custom_children;
 };
 
 enum {
@@ -192,6 +195,7 @@ awra_popover_dispose (GObject *object)
   self->surface = NULL;
   self->context = NULL;
   g_clear_object (&self->menu_model);
+  g_clear_pointer (&self->custom_children, g_hash_table_unref);
 
   G_OBJECT_CLASS (awra_popover_parent_class)->dispose (object);
 }
@@ -452,6 +456,42 @@ menu_item_clicked_cb (GtkButton    *button,
   popdown_menu_chain (self);
 }
 
+/* The widget a custom item names: this popover's, else that of the menu
+ * it is a submenu of. */
+static GtkWidget *
+find_custom_child (AwraPopover *self,
+                   const char  *id)
+{
+  for (GtkWidget *cursor = GTK_WIDGET (self); cursor != NULL;
+       cursor = gtk_widget_get_parent (cursor)) {
+    AwraPopover *popover;
+    GtkWidget *child;
+
+    if (!AWRA_IS_POPOVER (cursor))
+      continue;
+    popover = AWRA_POPOVER (cursor);
+    child = popover->custom_children != NULL
+              ? g_hash_table_lookup (popover->custom_children, id)
+              : NULL;
+    if (child != NULL)
+      return child;
+  }
+  return NULL;
+}
+
+static void
+take_out_of_menu (GtkWidget *child)
+{
+  GtkWidget *parent = gtk_widget_get_parent (child);
+
+  if (parent == NULL)
+    return;
+  if (GTK_IS_BOX (parent))
+    gtk_box_remove (GTK_BOX (parent), child);
+  else
+    gtk_widget_unparent (child);
+}
+
 static void
 append_menu_model (AwraPopover *self,
                    GtkBox      *box,
@@ -476,6 +516,21 @@ append_menu_model (AwraPopover *self,
       }
       append_menu_model (self, box, section);
       continue;
+    }
+
+    {
+      g_autofree char *custom = NULL;
+
+      if (g_menu_model_get_item_attribute (model, i, "custom", "s", &custom)) {
+        GtkWidget *child = find_custom_child (self, custom);
+
+        /* Moved from the menu built before, which this one replaces. */
+        if (child != NULL) {
+          take_out_of_menu (child);
+          gtk_box_append (box, child);
+        }
+        continue;
+      }
     }
 
     (void) g_menu_model_get_item_attribute (model,
@@ -594,4 +649,51 @@ awra_popover_set_menu_model (AwraPopover *self,
   }
   g_object_notify_by_pspec (G_OBJECT (self), properties[PROP_CHILD]);
   g_object_notify_by_pspec (G_OBJECT (self), properties[PROP_MENU_MODEL]);
+}
+
+gboolean
+awra_popover_add_menu_widget (AwraPopover *self,
+                              GtkWidget   *child,
+                              const char  *id)
+{
+  g_return_val_if_fail (AWRA_IS_POPOVER (self), FALSE);
+  g_return_val_if_fail (GTK_IS_WIDGET (child), FALSE);
+  g_return_val_if_fail (gtk_widget_get_parent (child) == NULL, FALSE);
+  g_return_val_if_fail (id != NULL, FALSE);
+
+  if (self->custom_children == NULL)
+    self->custom_children = g_hash_table_new_full (g_str_hash, g_str_equal,
+                                                   g_free, g_object_unref);
+  if (g_hash_table_contains (self->custom_children, id))
+    return FALSE;
+  g_hash_table_insert (self->custom_children, g_strdup (id),
+                       g_object_ref_sink (child));
+  gtk_widget_add_css_class (child, "awra-menu-custom");
+  if (self->menu_model != NULL)
+    rebuild_menu (self);
+  return TRUE;
+}
+
+gboolean
+awra_popover_remove_menu_widget (AwraPopover *self,
+                                 GtkWidget   *child)
+{
+  GHashTableIter iter;
+  gpointer value;
+
+  g_return_val_if_fail (AWRA_IS_POPOVER (self), FALSE);
+  g_return_val_if_fail (GTK_IS_WIDGET (child), FALSE);
+
+  if (self->custom_children == NULL)
+    return FALSE;
+  g_hash_table_iter_init (&iter, self->custom_children);
+  while (g_hash_table_iter_next (&iter, NULL, &value)) {
+    if (value != child)
+      continue;
+    gtk_widget_remove_css_class (child, "awra-menu-custom");
+    take_out_of_menu (child);
+    g_hash_table_iter_remove (&iter);
+    return TRUE;
+  }
+  return FALSE;
 }

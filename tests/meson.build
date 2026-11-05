@@ -354,6 +354,8 @@ composer_test = executable('test-composer', 'widget/test-composer.c', dependenci
 test('composer', composer_test, env: ['G_DEBUG=fatal-warnings', 'GTK_A11Y=none'], is_parallel: false)
 completion_popover_test = executable('test-completion-popover', 'widget/test-completion-popover.c', dependencies: awra_dep)
 test('completion-popover', completion_popover_test, env: ['G_DEBUG=fatal-warnings', 'GTK_A11Y=none'], is_parallel: false)
+popover_menu_test = executable('test-popover-menu', 'widget/test-popover-menu.c', dependencies: awra_dep)
+test('popover-menu', popover_menu_test, env: ['G_DEBUG=fatal-warnings', 'GTK_A11Y=none'], is_parallel: false)
 divider_test = executable('test-divider', 'widget/test-divider.c', dependencies: awra_dep)
 test('divider', divider_test, env: ['G_DEBUG=fatal-warnings', 'GTK_A11Y=none'], is_parallel: false)
 emoji_picker_test = executable('test-emoji-picker', 'widget/test-emoji-picker.c', dependencies: awra_dep)

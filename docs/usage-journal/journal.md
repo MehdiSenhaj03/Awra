@@ -1157,3 +1157,21 @@ tenaient pour moitié à Awra.
   configuration de flou de la personne, son fond d'écran dans une fenêtre
   plein écran et `spectacle -b -f` montre le vrai rendu sur verre, ce que
   Xvfb ne peut pas.
+
+## 2026-11-05 — Dawra — Un curseur dans un menu
+
+Le clic droit sur quelqu'un dans un appel règle d'abord le volume de sa
+voix et celui de son stream, puis offre son menu, comme Discord le fait.
+Le menu d'Awra ne savait montrer que des éléments de `GMenuModel` : il
+aurait fallu remplacer tout le menu par un popover fait à la main, et
+perdre ses sous-menus (rôles, déplacer vers). `awra_popover_add_menu_widget()`
+donne au popover un widget de l'application sous un id, et l'élément dont
+l'attribut `custom` porte cet id l'affiche à sa place, comme le fait
+`GtkPopoverMenu`. Le popover garde le widget d'une reconstruction à l'autre,
+ses sous-menus le trouvent aussi, et le faire glisser ne ferme pas le menu.
+
+Un piège côté application : un menu accroché à une ligne de liste
+disparaissait aussitôt ouvert dès que la liste remplaçait la ligne (une
+image arrivée, une personne qui parle). Ces menus s'ancrent sur un parent
+stable, au point du clic.
+

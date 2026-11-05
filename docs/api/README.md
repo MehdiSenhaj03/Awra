@@ -256,6 +256,10 @@ while `show_message()` keeps its original behaviour. Menus consume
 Wayland or compositor API. `awra_widget_set_context_menu_model()` attaches the
 same Awra menu presentation and secondary-click lifecycle to any widget, so
 applications do not need to manually parent popovers or own input gestures.
+A menu can hold the application's own widgets: `awra_popover_add_menu_widget()`
+gives one an id, and the item whose `custom` attribute is that id shows it in
+its place, as with `GtkPopoverMenu`. `awra_widget_get_context_menu_popover()`
+reaches the popover of a context menu to give it such widgets.
 
 `AwraDialog` keeps a calm default width but deliberately leaves its height
 content-driven. Compose a short form or action group with

@@ -198,6 +198,19 @@ pub fn context_menu_model(widget: &impl glib::object::IsA<gtk::Widget>) -> Optio
     }
 }
 
+/// Returns the popover of the context menu attached with
+/// [`set_context_menu_model`], to give it widgets with
+/// [`Popover::add_menu_widget`].
+pub fn context_menu_popover(widget: &impl glib::object::IsA<gtk::Widget>) -> Option<Popover> {
+    use glib::translate::{from_glib_none, ToGlibPtr};
+
+    unsafe {
+        from_glib_none(ffi::awra_widget_get_context_menu_popover(
+            widget.as_ref().to_glib_none().0,
+        ))
+    }
+}
+
 /// Maps a GDK hardware keycode (Linux evdev code + 8) to its
 /// `KeyboardEvent.code` identifier, such as `"KeyA"`.
 #[cfg(feature = "v1_1")]

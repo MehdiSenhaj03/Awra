@@ -7,6 +7,13 @@
 API added in this release is documented `Since: 1.1`; every 1.0.0 API is
 unchanged (checked against the frozen 1.0.0 contract).
 
+- Added `awra_popover_add_menu_widget()` and
+  `awra_popover_remove_menu_widget()`: a menu item whose `custom` attribute
+  names an id shows the application's widget, such as a volume slider, as
+  `GtkPopoverMenu`'s custom items do. The popover keeps the widget across
+  rebuilds, submenus find it, and using it leaves the menu open.
+  `awra::context_menu_popover()` gives Rust the popover of a widget's
+  context menu.
 - Added `AwraTaskRow`: backend-independent identity, status, determinate or
   indeterminate progress, themed icon and replaceable action suffix. Includes
   reduced-motion behavior, accessible naming, GTK Builder and C/GI/Vala/Rust
