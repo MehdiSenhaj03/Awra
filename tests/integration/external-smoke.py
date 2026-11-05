@@ -31,6 +31,17 @@ def main() -> int:
     surface.set_child(None)
     assert surface.get_child() is None
 
+    task = Awra.TaskRow.new("Export")
+    task.set_subtitle("Preparing")
+    task.set_show_progress(True)
+    task.set_indeterminate(True)
+    task.set_suffix(Awra.Button.new_with_label("Cancel"))
+    task.set_indeterminate(False)
+    task.set_fraction(0.5)
+    assert task.get_fraction() == 0.5
+    task.set_suffix(None)
+    assert task.get_suffix() is None
+
     dropdown = Awra.Dropdown.new_from_strings(["One", "Two", "Three"])
     dropdown.set_selected(1)
     assert dropdown.get_selected() == 1

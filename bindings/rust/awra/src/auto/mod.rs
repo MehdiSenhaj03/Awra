@@ -240,6 +240,13 @@ pub use self::tab_view::TabView;
 mod tag_entry;
 pub use self::tag_entry::TagEntry;
 
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+mod task_row;
+#[cfg(feature = "v1_1")]
+#[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+pub use self::task_row::TaskRow;
+
 mod text_area;
 pub use self::text_area::TextArea;
 
@@ -395,6 +402,9 @@ pub(crate) mod builders {
     pub use super::switch::SwitchBuilder;
     pub use super::tab_view::TabViewBuilder;
     pub use super::tag_entry::TagEntryBuilder;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub use super::task_row::TaskRowBuilder;
     pub use super::text_area::TextAreaBuilder;
     #[cfg(feature = "v1_1")]
     #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]

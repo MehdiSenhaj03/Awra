@@ -329,6 +329,10 @@ make_probe_scene (void)
     GtkWidget *capture = awra_shortcut_capture_new ();
     GtkWidget *waveform = awra_waveform_view_new ();
     GtkWidget *row = awra_media_row_new ("Rain");
+    GtkWidget *task = awra_task_row_new ("Exporting");
+    awra_task_row_set_show_progress (AWRA_TASK_ROW (task), TRUE);
+    awra_task_row_set_fraction (AWRA_TASK_ROW (task), .5);
+    gtk_box_append (GTK_BOX (media), task);
     GtkWidget *drop = awra_drop_zone_new ();
     GdkRGBA tint = { 0.70, 0.20, 0.25, 1.0 };
 

@@ -7,6 +7,10 @@
 API added in this release is documented `Since: 1.1`; every 1.0.0 API is
 unchanged (checked against the frozen 1.0.0 contract).
 
+- Added `AwraTaskRow`: backend-independent identity, status, determinate or
+  indeterminate progress, themed icon and replaceable action suffix. Includes
+  reduced-motion behavior, accessible naming, GTK Builder and C/GI/Vala/Rust
+  projections, lifecycle tests and a Showcase scenario.
 - Responsive layout: `AwraMasterDetail`, `AwraFilterBar` and `AwraFormRow`
   are measured in the layout their width gives, so no frame is drawn with the
   previous layout's sizes after creation or a resize across a breakpoint.

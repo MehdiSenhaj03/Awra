@@ -140,6 +140,7 @@ public_headers = files(
   'include/awra-1/awra/awra-texture-stream.h',
   'include/awra-1/awra/awra-volume-control.h',
   'include/awra-1/awra/awra-media-row.h',
+  'include/awra-1/awra/awra-task-row.h',
   'include/awra-1/awra/awra-drop-zone.h',
 )
 
@@ -216,6 +217,7 @@ awra_sources = files(
   'src/widgets/awra-texture-stream.c',
   'src/widgets/awra-volume-control.c',
   'src/widgets/awra-media-row.c',
+  'src/widgets/awra-task-row.c',
   'src/widgets/awra-drop-zone.c',
 )
 

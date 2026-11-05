@@ -823,3 +823,22 @@ the same close-response path and leaves focused popovers their own dismissal
 sequence. The native VLC settings workflow covers that interaction. A DWM
 frame-style initialization also needed to run before the explicit radius
 policy, retaining both square expanded frames and small popup rounding.
+
+# 2026-10-30
+
+## 05:19 — VodRecoveryAwra — Travail en arrière-plan et suivi des transferts
+
+Le portage natif utilise les pages, formulaires, états, navigation, badges,
+matériaux et espacements publics sans CSS local ni inspection d’enfants privés.
+Le besoin commun identifié est une ligne de tâche avec titre, état, progression
+et actions remplaçables. Il est maintenant pris en charge par AwraTaskRow ; le
+moteur de récupération, FFmpeg et la file SQLite restent dans l’application.
+La durée inconnue utilise un spinner, remplacé par une icône statique lorsque
+le mouvement réduit est actif. Le suffixe appartient à GTK et sa substitution
+libère les anciennes actions. Le composant est exposé en C, GIR et Rust.
+
+Observation confirmée sous Xvfb avec rendu logiciel : des animations continues
+sur une grande fenêtre peuvent retarder les callbacks de priorité DEFAULT_IDLE.
+Le consommateur livre ses mises à jour de processus à la priorité DEFAULT.
+Aucune boucle réseau ni attente de processus ne tourne dans le thread GTK.
+Le guide background-tasks documente ce contrat de livraison.

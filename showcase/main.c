@@ -1862,6 +1862,24 @@ make_controls_page (void)
   gtk_grid_attach (GTK_GRID (grid), segments, 0, 3, 4, 1);
   gtk_grid_attach (GTK_GRID (grid), progress, 0, 4, 4, 1);
   gtk_box_append (GTK_BOX (body), make_plain_group (grid));
+  append_section (body, "Background tasks",
+                  "Backend-independent progress, unknown-duration work and composable actions.");
+  {
+    GtkWidget *tasks = make_box (GTK_ORIENTATION_VERTICAL, AWRA_SPACING_MD);
+    GtkWidget *known = awra_task_row_new ("Exporting an archive");
+    GtkWidget *unknown = awra_task_row_new ("Searching sources");
+    awra_task_row_set_subtitle (AWRA_TASK_ROW (known), "68% complete · original quality");
+    awra_task_row_set_icon_name (AWRA_TASK_ROW (known), "document-save-symbolic");
+    awra_task_row_set_show_progress (AWRA_TASK_ROW (known), TRUE);
+    awra_task_row_set_fraction (AWRA_TASK_ROW (known), 0.68);
+    awra_task_row_set_suffix (AWRA_TASK_ROW (known), awra_button_new_with_label ("Cancel"));
+    awra_task_row_set_subtitle (AWRA_TASK_ROW (unknown), "Duration is not known yet");
+    awra_task_row_set_show_progress (AWRA_TASK_ROW (unknown), TRUE);
+    awra_task_row_set_indeterminate (AWRA_TASK_ROW (unknown), TRUE);
+    gtk_box_append (GTK_BOX (tasks), known);
+    gtk_box_append (GTK_BOX (tasks), unknown);
+    gtk_box_append (GTK_BOX (body), make_plain_group (tasks));
+  }
   append_section (body, "Action rows",
                   "Reusable settings and list rows use hierarchy, spacing and "
                   "a quiet hover plane instead of individual card borders.");

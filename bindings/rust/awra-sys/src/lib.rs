@@ -1141,6 +1141,20 @@ impl ::std::fmt::Debug for AwraTagEntryClass {
 
 #[derive(Copy, Clone)]
 #[repr(C)]
+pub struct AwraTaskRowClass {
+    pub parent_class: gtk::GtkWidgetClass,
+}
+
+impl ::std::fmt::Debug for AwraTaskRowClass {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        f.debug_struct(&format!("AwraTaskRowClass @ {self:p}"))
+            .field("parent_class", &self.parent_class)
+            .finish()
+    }
+}
+
+#[derive(Copy, Clone)]
+#[repr(C)]
 pub struct AwraTextAreaClass {
     pub parent_class: gtk::GtkWidgetClass,
 }
@@ -2189,6 +2203,19 @@ pub struct AwraTagEntry {
 impl ::std::fmt::Debug for AwraTagEntry {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
         f.debug_struct(&format!("AwraTagEntry @ {self:p}")).finish()
+    }
+}
+
+#[repr(C)]
+#[allow(dead_code)]
+pub struct AwraTaskRow {
+    _data: [u8; 0],
+    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
+}
+
+impl ::std::fmt::Debug for AwraTaskRow {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        f.debug_struct(&format!("AwraTaskRow @ {self:p}")).finish()
     }
 }
 
@@ -4195,6 +4222,58 @@ unsafe extern "C" {
     pub fn awra_tag_entry_get_tag(self_: *mut AwraTagEntry, position: c_uint) -> *const c_char;
     pub fn awra_tag_entry_remove(self_: *mut AwraTagEntry, tag: *const c_char) -> gboolean;
     pub fn awra_tag_entry_set_editable(self_: *mut AwraTagEntry, editable: gboolean);
+
+    //=========================================================================
+    // AwraTaskRow
+    //=========================================================================
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_task_row_get_type() -> GType;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_task_row_new(title: *const c_char) -> *mut gtk::GtkWidget;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_task_row_get_fraction(self_: *mut AwraTaskRow) -> c_double;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_task_row_get_icon_name(self_: *mut AwraTaskRow) -> *const c_char;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_task_row_get_indeterminate(self_: *mut AwraTaskRow) -> gboolean;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_task_row_get_show_progress(self_: *mut AwraTaskRow) -> gboolean;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_task_row_get_subtitle(self_: *mut AwraTaskRow) -> *const c_char;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_task_row_get_suffix(self_: *mut AwraTaskRow) -> *mut gtk::GtkWidget;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_task_row_get_title(self_: *mut AwraTaskRow) -> *const c_char;
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_task_row_set_fraction(self_: *mut AwraTaskRow, value: c_double);
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_task_row_set_icon_name(self_: *mut AwraTaskRow, value: *const c_char);
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_task_row_set_indeterminate(self_: *mut AwraTaskRow, value: gboolean);
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_task_row_set_show_progress(self_: *mut AwraTaskRow, value: gboolean);
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_task_row_set_subtitle(self_: *mut AwraTaskRow, value: *const c_char);
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_task_row_set_suffix(self_: *mut AwraTaskRow, value: *mut gtk::GtkWidget);
+    #[cfg(feature = "v1_1")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "v1_1")))]
+    pub fn awra_task_row_set_title(self_: *mut AwraTaskRow, value: *const c_char);
 
     //=========================================================================
     // AwraTextArea

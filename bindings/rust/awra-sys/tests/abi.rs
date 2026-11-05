@@ -826,6 +826,13 @@ const RUST_LAYOUTS: &[(&str, Layout)] = &[
         },
     ),
     (
+        "AwraTaskRowClass",
+        Layout {
+            size: size_of::<AwraTaskRowClass>(),
+            alignment: align_of::<AwraTaskRowClass>(),
+        },
+    ),
+    (
         "AwraTextAreaClass",
         Layout {
             size: size_of::<AwraTextAreaClass>(),

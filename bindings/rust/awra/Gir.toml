@@ -65,6 +65,7 @@ generate = [
   "Awra.MaterialPreset",
   "Awra.MaterialResolution",
   "Awra.MediaRow",
+  "Awra.TaskRow",
   "Awra.MenuButton",
   "Awra.MetadataGroup",
   "Awra.MetricRow",

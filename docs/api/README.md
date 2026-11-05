@@ -172,6 +172,11 @@ provide dense reusable detail composition without application spacing.
 Display or Monospace hierarchy to any `GtkWidget`; its implementation classes
 remain private, while the system font family and scale remain authoritative.
 
+`AwraTaskRow` presents backend-independent background tasks with title, subtitle,
+icon, known or indeterminate progress and application-supplied actions. Unknown
+progress respects reduced motion; completed rows retain their identity and
+actions. See [background-tasks.md](../guides/background-tasks.md).
+
 The media and keyboard input family adds `AwraKeyCap`, `AwraKeyboardView`
 (ANSI/ISO through `AwraKeyboardPhysicalLayout`, layout-aware legends,
 `GtkSelectionMode` selection, roving focus and per-key file drops),

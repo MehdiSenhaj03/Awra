@@ -83,6 +83,7 @@
 #include <awra/awra-texture-stream.h>
 #include <awra/awra-volume-control.h>
 #include <awra/awra-media-row.h>
+#include <awra/awra-task-row.h>
 #include <awra/awra-drop-zone.h>
 
 G_BEGIN_DECLS

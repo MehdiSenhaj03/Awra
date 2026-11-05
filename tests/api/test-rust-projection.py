@@ -40,6 +40,7 @@ def main() -> int:
         "shortcut_capture.rs": ("pub fn keycodes", "pub fn connect_captured"),
         "waveform_view.rs": ("pub fn set_peaks", "pub fn connect_marker_committed"),
         "drop_zone.rs": ("pub fn connect_files_dropped", "pub fn accepts_file"),
+        "task_row.rs": ("pub fn set_fraction", "pub fn set_suffix", "pub fn set_indeterminate"),
         "toast_overlay.rs": ("pub fn show_with_action", "pub fn dismiss"),
     }.items():
         source = (generated / module).read_text(encoding="utf-8")
