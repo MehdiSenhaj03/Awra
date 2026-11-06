@@ -29,8 +29,8 @@ unchanged (checked against the frozen 1.0.0 contract).
   a row, actions inside a row and capacity gauges.
 - Style role `spaced-rows` keeps a small gap between the rows of a table, so
   neighbours selected together still read as separate items.
-- Style role `suggested` marks what the person will probably want next, quietly
-  and apart from the selection.
+- Style role `suggested` makes the icon of what the person will probably want
+  next glow softly, apart from the selection.
 - Style roles `about-to-open` and `refused` announce a place opening under a
   held drag and an input that was turned down.
 - `AwraPopover` content unfolds like menus do, and follows reduced motion.
