@@ -3884,6 +3884,11 @@ static int be_font_open(FontSlot *s, const char *family, int flags, int px)
   if (!(have & BUI_FONT_BOLD) || weight != 700) {
     bolder = (float)(weight - f->os2_weight) / 300.0f;
   }
+  /* fontconfig's 90-synthetic.conf, as Pango renders: embolden only when
+   * bold (700+) is asked of a face of medium weight or less */
+  if (weight < 700 || f->os2_weight > 500) {
+    bolder = 0.0f;
+  }
   if (bolder > 0.3f) { /* synthesize the missing weight, as Pango does */
     s->synth |= BUI_FONT_BOLD;
     s->embolden = (size < 24.0f ? 1.0f : size / 24.0f) * (bolder > 1.0f ? 1.0f : bolder);
@@ -4101,6 +4106,20 @@ static const GlyphBmp *glyph_get(int slot, const FontSlot *s, int glyph, int pha
 /* Walks the glyphs of a run: pen positions in pixels (unrounded). */
 typedef void (*GlyphFn)(void *user, int glyph, float pen);
 
+/* BUI-Awra: hinted metrics (GTK at scale 1 with gtk-hint-font-metrics, as
+ * Awra 1 set it there): advances on whole pixels, glyph positions rounded */
+static int g_hint_metrics = 1;
+
+void BUI_text_set_hint_metrics(int on)
+{
+  g_hint_metrics = on != 0;
+}
+
+int BUI_text_hint_metrics(void)
+{
+  return g_hint_metrics;
+}
+
 static float glyph_walk(const FontSlot *s, const char *utf8, int len, GlyphFn fn, void *user)
 {
   const stbtt_fontinfo *info = &g_faces[s->face].info;
@@ -4108,7 +4127,8 @@ static float glyph_walk(const FontSlot *s, const char *utf8, int len, GlyphFn fn
   /* advances of the instance in use (weight, optical size), unhinted */
   FT_Face ft = ft_use(s);
 #  endif
-  float pen = 0.0f;
+  const int hint = g_hint_metrics;
+  float pen = 0.0f, pending = 0.0f; /* hinted: the previous advance, kerning added */
   int prev = 0;
   for (int i = 0; i < len;) {
     int cp = utf8_next(utf8, len, &i);
@@ -4117,23 +4137,40 @@ static float glyph_walk(const FontSlot *s, const char *utf8, int len, GlyphFn fn
     }
     const int glyph = stbtt_FindGlyphIndex(info, cp);
     if (prev) {
-      pen += s->scale * (float)stbtt_GetGlyphKernAdvance(info, prev, glyph);
+      const float kern = s->scale * (float)stbtt_GetGlyphKernAdvance(info, prev, glyph);
+      if (hint) {
+        pen += roundf(pending + kern); /* pango_context_set_round_glyph_positions */
+      }
+      else {
+        pen += kern;
+      }
     }
     if (fn) {
       fn(user, glyph, pen);
     }
+    float adv = -1.0f;
 #  if TEXT_FT
     FT_Fixed ftadv;
     if (ft && FT_Get_Advance(ft, (FT_UInt)glyph, FT_LOAD_NO_HINTING, &ftadv) == 0) {
-      pen += (float)ftadv / 65536.0f + s->embolden;
-      prev = glyph;
-      continue;
+      adv = (float)ftadv / 65536.0f;
     }
 #  endif
-    int adv, lsb;
-    stbtt_GetGlyphHMetrics(info, glyph, &adv, &lsb);
-    pen += s->scale * (float)adv + s->embolden;
+    if (adv < 0.0f) {
+      int a, lsb;
+      stbtt_GetGlyphHMetrics(info, glyph, &a, &lsb);
+      adv = s->scale * (float)a;
+    }
+    adv += s->embolden;
+    if (hint) {
+      pending = roundf(adv); /* the hinted advance: whole pixels */
+    }
+    else {
+      pen += adv;
+    }
     prev = glyph;
+  }
+  if (hint && prev) {
+    pen += pending;
   }
   return pen;
 }

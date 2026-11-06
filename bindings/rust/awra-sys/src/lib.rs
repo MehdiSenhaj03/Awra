@@ -579,6 +579,8 @@ extern "C" {
     pub fn awra_command_palette_new() -> *mut AwraWidget;
     pub fn awra_command_palette_set_commands(palette: *mut AwraWidget, commands: *const AwraCommand, n: c_int);
     pub fn awra_command_palette_set_placeholder(palette: *mut AwraWidget, text: *const c_char);
+    pub fn awra_command_palette_set_title(palette: *mut AwraWidget, title: *const c_char);
+    pub fn awra_command_palette_set_empty_text(palette: *mut AwraWidget, text: *const c_char);
     pub fn awra_command_palette_present(palette: *mut AwraWidget, window: *mut AwraWidget);
     pub fn awra_command_palette_close(palette: *mut AwraWidget);
     pub fn awra_key_cap_new(code: *const c_char, label: *const c_char) -> *mut AwraWidget;

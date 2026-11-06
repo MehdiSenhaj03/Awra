@@ -86,10 +86,39 @@ static void label_finalize(AwraWidget *w)
   free(LX(w)->source);
 }
 
+/* GtkLabel's get_char_pixels: the larger of Pango's approximate char width
+ * (the sample string's average) and approximate digit width (the widest
+ * digit) */
 static float char_width(AwraWidget *w)
 {
   AwraFont f = label_font(w);
-  return awra_text_width(&f, "abcdefghijklmnopqrstuvwxyz", 26) / 26.0f;
+  static const char sample[] = "The quick brown fox jumps over the lazy dog.";
+  const float cw = awra_text_width(&f, sample, (int)sizeof(sample) - 1) / (float)(sizeof(sample) - 1);
+  float dw = 0.0f;
+  for (char d = '0'; d <= '9'; d++) {
+    dw = fmaxf(dw, awra_text_width(&f, &d, 1));
+  }
+  return fmaxf(cw, dw);
+}
+
+/* my_pango_layout_get_width_for_height (gtklabel.c): the smallest width
+ * in [min, max] whose wrapped height fits */
+static int label_width_for_height(AwraTextLayout *l, int height, int min, int max)
+{
+  while (min < max) {
+    int mid = (min + max) / 2, tw = 0, th = 0;
+    awra_text_layout_size(l, mid, &tw, &th);
+    if (tw > mid) {
+      min = mid = tw;
+    }
+    else if (th > height) {
+      min = mid + 1;
+    }
+    else {
+      max = tw;
+    }
+  }
+  return min;
 }
 
 static void label_measure(AwraWidget *w, int o, int for_size, int *r_min, int *r_nat)
@@ -103,8 +132,23 @@ static void label_measure(AwraWidget *w, int o, int for_size, int *r_min, int *r
     if (x->width_chars > 0) {
       mn = BK_MAX(mn, (int)ceilf(cw * x->width_chars));
     }
+    if (x->wrap != AWRA_WRAP_NONE && for_size >= 0) {
+      /* width for a height: GTK's get_width_for_height (natural wrap
+       * inherited, no ellipsis: minimum = natural) */
+      const int lo = x->width_chars > 0 ? (int)ceilf(cw * x->width_chars) : 0;
+      const int w4h = label_width_for_height(x->layout, for_size, lo, BK_MAX(lo, nt));
+      *r_min = *r_nat = w4h;
+      return;
+    }
     if (x->max_width_chars > 0 && (x->wrap != AWRA_WRAP_NONE || x->ellipsize)) {
-      nt = BK_MIN(nt, (int)ceilf(cw * x->max_width_chars));
+      const int limit = (int)ceilf(cw * BK_MAX(x->width_chars, x->max_width_chars));
+      if (x->wrap != AWRA_WRAP_NONE && nt > limit) {
+        /* the widest line laid out at that width (GtkLabel's natural) */
+        awra_text_layout_size(x->layout, limit, &nt, NULL);
+      }
+      else {
+        nt = BK_MIN(nt, limit);
+      }
     }
     *r_min = mn;
     *r_nat = BK_MAX(mn, nt);
@@ -114,12 +158,18 @@ static void label_measure(AwraWidget *w, int o, int for_size, int *r_min, int *r
   const bool limited = x->wrap != AWRA_WRAP_NONE;
   awra_text_layout_size(x->layout, limited ? for_size : -1, NULL, &h);
   if (x->wrap != AWRA_WRAP_NONE && for_size < 0) {
-    /* without a width: the height at the natural width */
+    /* GtkLabel get_height_for_width (-1): the minimum assumes an infinite
+     * width, the natural is the height at the natural width */
     int nw = awra_text_layout_natural_width(x->layout);
     if (x->max_width_chars > 0) {
-      nw = BK_MIN(nw, (int)ceilf(char_width(w) * x->max_width_chars));
+      const float cw = char_width(w);
+      nw = BK_MIN(nw, (int)ceilf(cw * BK_MAX(x->width_chars, x->max_width_chars)));
     }
-    awra_text_layout_size(x->layout, nw, NULL, &h);
+    int hn;
+    awra_text_layout_size(x->layout, nw, NULL, &hn);
+    *r_min = h;
+    *r_nat = BK_MAX(h, hn);
+    return;
   }
   *r_min = *r_nat = h;
 }

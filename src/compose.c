@@ -496,6 +496,24 @@ static bool row_compact(AwraWidget *w, int width)
                         width < BK_MAX(lm, awra_px(224)) + awra_px(16) + fm);
 }
 
+/* The label column beside the control for a row width: the row is a
+ * GtkBox (label at least 224 wide, the field expanding), so the label gets
+ * its natural width when there is room for it. */
+static int formrow_label_width(AwraWidget *w, int width)
+{
+  FormRowExt *x = FRX(w);
+  int lm, ln, fm, fn;
+  awra_measure(x->label, AWRA_ORIENTATION_HORIZONTAL, -1, &lm, &ln);
+  awra_measure(x->field, AWRA_ORIENTATION_HORIZONTAL, -1, &fm, &fn);
+  int sizes[2] = {BK_MAX(lm, awra_px(224)), fm};
+  const int nats[2] = {BK_MAX(ln, awra_px(224)), BK_MAX(fn, fm)};
+  const int extra = width - awra_px(16) - sizes[0] - sizes[1];
+  if (extra > 0) {
+    awra_distribute(extra, 2, sizes, nats);
+  }
+  return sizes[0];
+}
+
 static void formrow_measure(AwraWidget *w, int o, int for_size, int *r_min, int *r_nat)
 {
   FormRowExt *x = FRX(w);
@@ -521,7 +539,7 @@ static void formrow_measure(AwraWidget *w, int o, int for_size, int *r_min, int 
     *r_nat = ln + gap + fn;
   }
   else {
-    const int lw = awra_px(224);
+    const int lw = formrow_label_width(w, for_size);
     awra_measure(x->label, o, lw, &lm, &ln);
     awra_measure(x->field, o, for_size >= 0 ? for_size - lw - awra_px(16) : -1, &fm, &fn);
     *r_min = BK_MAX(lm, fm);
@@ -547,9 +565,7 @@ static void formrow_allocate(AwraWidget *w)
     awra_allocate(x->field, w->x, w->y + y, w->w, BK_MAX(0, w->h - y));
     return;
   }
-  int lw = awra_px(224), lm, ln;
-  awra_measure(x->label, AWRA_ORIENTATION_HORIZONTAL, -1, &lm, &ln);
-  lw = BK_MAX(lw, lm);
+  const int lw = formrow_label_width(w, w->w);
   int lh, fh, tmp;
   awra_measure(x->label, AWRA_ORIENTATION_VERTICAL, lw, &tmp, &lh);
   const int fx = lw + awra_px(16);
@@ -604,8 +620,20 @@ void awra_form_row_set_control(AwraWidget *w, AwraWidget *control)
   }
   x->control = control;
   if (control) {
+    /* text fields and pickers fill the field column; compact controls
+     * (spin buttons, switches, segmented controls, captures...) keep their
+     * natural width; an explicit hexpand wins (awra-form-row.c) */
     if (!awra_aux(control)->hexpand_set) {
-      awra_widget_set_hexpand(control, true);
+      const bool fills = (awra_widget_is(control, "AwraEntry") &&
+                          !awra_widget_is(control, "AwraSpinButton")) ||
+                         awra_widget_is(control, "AwraDropdown") ||
+                         awra_widget_is(control, "AwraScrolledWindow");
+      if (fills) {
+        awra_widget_set_hexpand(control, true);
+      }
+      else {
+        awra_widget_set_halign(control, AWRA_ALIGN_START);
+      }
     }
     awra_box_prepend(x->field, control);
   }

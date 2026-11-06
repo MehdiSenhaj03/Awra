@@ -40,6 +40,11 @@ enum {
  * flags | BUI_FONT_WEIGHT(650). Variable faces draw it on their wght axis,
  * static ones use the nearest file (fontconfig, Segoe UI's weights) and
  * synthesize what is still missing. 0 = BUI_FONT_BOLD ? 700 : 400. */
+/* BUI-Awra: hinted text metrics (whole-pixel advances and positions), as GTK
+ * lays text out at scale 1 with gtk-hint-font-metrics. */
+void BUI_text_set_hint_metrics(int on);
+int BUI_text_hint_metrics(void);
+
 #define BUI_FONT_WEIGHT_SHIFT 8
 #define BUI_FONT_WEIGHT(w) ((((int)(w)) & 0x3FF) << BUI_FONT_WEIGHT_SHIFT)
 

@@ -836,6 +836,8 @@ typedef struct AwraCommand {
 AwraWidget *awra_command_palette_new(void);
 void awra_command_palette_set_commands(AwraWidget *palette, const AwraCommand *commands, int n);
 void awra_command_palette_set_placeholder(AwraWidget *palette, const char *text);
+void awra_command_palette_set_title(AwraWidget *palette, const char *title);
+void awra_command_palette_set_empty_text(AwraWidget *palette, const char *text);
 void awra_command_palette_present(AwraWidget *palette, AwraWidget *window);
 void awra_command_palette_close(AwraWidget *palette);
 

@@ -1600,6 +1600,32 @@ static void allocate_rect(AwraWidget *w, int x, int y, int width, int height)
   }
 }
 
+/* adjust_for_align (gtkwidget.c) */
+static void align_span(int align, int natural, int *pos, int *size)
+{
+  natural = BK_MAX(0, natural);
+  switch (align) {
+    case AWRA_ALIGN_CENTER:
+    case AWRA_ALIGN_BASELINE:
+      if (*size > natural) {
+        *pos += (*size - natural) / 2;
+        *size = natural;
+      }
+      break;
+    case AWRA_ALIGN_START:
+      *size = BK_MIN(*size, natural);
+      break;
+    case AWRA_ALIGN_END:
+      if (*size > natural) {
+        *pos += *size - natural;
+        *size = natural;
+      }
+      break;
+    default:
+      break;
+  }
+}
+
 void awra_allocate(AwraWidget *w, int x, int y, int width, int height)
 {
   if (!w || !(w->flags & NF_VISIBLE)) {
@@ -1616,31 +1642,37 @@ void awra_allocate(AwraWidget *w, int x, int y, int width, int height)
   y += mt;
   width = BK_MAX(0, width - ms - me);
   height = BK_MAX(0, height - mt - mb);
-  if (a->halign != AWRA_ALIGN_FILL) {
-    int mn, nat;
-    awra_measure(w, AWRA_ORIENTATION_HORIZONTAL, height + mt + mb, &mn, &nat);
-    nat = BK_MAX(0, nat - ms - me);
-    const int nw = BK_MIN(width, nat);
-    if (a->halign == AWRA_ALIGN_END) {
-      x += width - nw;
+  /* gtk_widget_adjust_size_allocation (widgets are height-for-width) */
+  const bool hfill = a->halign == AWRA_ALIGN_FILL;
+  const bool vfill = a->valign == AWRA_ALIGN_FILL;
+  if (!hfill || !vfill) {
+    const int outer_w = width + ms + me, outer_h = height + mt + mb;
+    int mn, nat_w = -1, nat_h = -1;
+    if (hfill) {
+      awra_measure(w, AWRA_ORIENTATION_VERTICAL, outer_w, &mn, &nat_h);
+      align_span(a->valign, nat_h - mt - mb, &y, &height);
     }
-    else if (a->halign == AWRA_ALIGN_CENTER) {
-      x += (width - nw) / 2;
+    else if (vfill) {
+      awra_measure(w, AWRA_ORIENTATION_HORIZONTAL, outer_h, &mn, &nat_w);
+      align_span(a->halign, nat_w - ms - me, &x, &width);
     }
-    width = nw;
-  }
-  if (a->valign != AWRA_ALIGN_FILL) {
-    int mn, nat;
-    awra_measure(w, AWRA_ORIENTATION_VERTICAL, width + ms + me, &mn, &nat);
-    nat = BK_MAX(0, nat - mt - mb);
-    const int nh = BK_MIN(height, nat);
-    if (a->valign == AWRA_ALIGN_END) {
-      y += height - nh;
+    else {
+      awra_measure(w, AWRA_ORIENTATION_HORIZONTAL, -1, &mn, &nat_w);
+      if (nat_w < outer_w) {
+        int min_h;
+        awra_measure(w, AWRA_ORIENTATION_VERTICAL, nat_w, &min_h, &nat_h);
+        if (min_h > outer_h) {
+          /* not tall enough for its natural width: the width for the height */
+          awra_measure(w, AWRA_ORIENTATION_HORIZONTAL, outer_h, &mn, &nat_w);
+          nat_h = -1;
+        }
+        align_span(a->halign, nat_w - ms - me, &x, &width);
+      }
+      if (nat_h == -1) {
+        awra_measure(w, AWRA_ORIENTATION_VERTICAL, width + ms + me, &mn, &nat_h);
+      }
+      align_span(a->valign, nat_h - mt - mb, &y, &height);
     }
-    else if (a->valign == AWRA_ALIGN_CENTER || a->valign == AWRA_ALIGN_BASELINE) {
-      y += (height - nh) / 2;
-    }
-    height = nh;
   }
   allocate_rect(w, x, y, width, height);
 }

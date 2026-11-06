@@ -2118,13 +2118,17 @@ impl CommandPalette {
         });
         p
     }
-    pub fn set_title(&self, _t: impl IntoOptStr) {}
+    pub fn set_title(&self, t: impl IntoOptStr) {
+        let t = OptC::new(t);
+        unsafe { ffi::awra_command_palette_set_title(ptr!(self), t.ptr()) }
+    }
     pub fn set_placeholder_text(&self, t: &str) {
         let t = cstring(t);
         unsafe { ffi::awra_command_palette_set_placeholder(ptr!(self), t.as_ptr()) }
     }
     pub fn set_empty_text(&self, t: impl IntoOptStr) {
-        self.0.set_property_str("empty-text", &t.into_opt_string().unwrap_or_default());
+        let t = OptC::new(t);
+        unsafe { ffi::awra_command_palette_set_empty_text(ptr!(self), t.ptr()) }
     }
     pub fn set_menu_model(&self, menu: Option<&Menu>) {
         let mut keep: Vec<std::ffi::CString> = Vec::new();

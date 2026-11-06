@@ -1233,7 +1233,8 @@ typedef struct PaletteData {
   AwraCommand *commands;
   int n;
   char **strings;
-  AwraWidget *popover, *entry, *list, *empty, *window;
+  AwraWidget *popover, *entry, *list, *empty, *window, *header;
+  char *title;
   int current; /* index in commands of the Enter target */
 } PaletteData;
 
@@ -1331,6 +1332,7 @@ static void palette_free(void *v)
   }
   free(p->strings);
   free(p->commands);
+  free(p->title);
   if (p->popover) {
     awra_widget_unref(p->popover);
   }
@@ -1390,6 +1392,20 @@ void awra_command_palette_set_placeholder(AwraWidget *w, const char *text)
   awra_entry_set_placeholder(pd(w)->entry, text);
 }
 
+void awra_command_palette_set_title(AwraWidget *w, const char *title)
+{
+  PaletteData *p = pd(w);
+  awra_set_str(&p->title, title);
+  if (p->header) {
+    awra_header_set_title(p->header, title ? title : "Commands");
+  }
+}
+
+void awra_command_palette_set_empty_text(AwraWidget *w, const char *text)
+{
+  awra_label_set_text(pd(w)->empty, text ? text : "No matching command");
+}
+
 void awra_command_palette_present(AwraWidget *w, AwraWidget *window)
 {
   PaletteData *p = pd(w);
@@ -1399,13 +1415,16 @@ void awra_command_palette_present(AwraWidget *w, AwraWidget *window)
     /* the palette window: default header ("Commands" + close), 560 x 460 */
     AwraWidget *col = awra_box_new(AWRA_ORIENTATION_VERTICAL, 0);
     AwraWidget *h = awra_header_new();
-    awra_header_set_title(h, "Commands");
+    awra_header_set_title(h, p->title ? p->title : "Commands");
+    p->header = h;
     awra_header_set_dialog(h, true);
     awra_header_set_drag_enabled(h, false);
     awra_box_append(col, h);
+    awra_widget_unref(h); /* held by the column (and p->header, borrowed) */
     awra_box_append(col, w);
     awra_widget_set_size_request(col, 560, 460);
     awra_popover_set_child(p->popover, col);
+    awra_widget_unref(col);
   }
   p->window = window;
   awra_entry_set_text(p->entry, "");

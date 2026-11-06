@@ -5,6 +5,7 @@
  *
  * SPDX-License-Identifier: GPL-2.0-or-later */
 
+#include "GPU_raster.h"
 #include <math.h>
 #include <stdlib.h>
 #include <string.h>
@@ -25,6 +26,10 @@ static char g_font_family[64] = "";
 void BK_set_scale(float scale)
 {
   bk_scale_fac = BK_CLAMP(scale, 0.5f, 4.0f);
+  /* BUI-Awra: text on the pixel grid at scale 1 (Awra 1 set GTK's manual
+   * font rendering with hinted metrics there), free placement on dense
+   * displays */
+  BUI_text_set_hint_metrics(bk_scale_fac <= 1.0f);
 }
 float BK_scale(void)
 {

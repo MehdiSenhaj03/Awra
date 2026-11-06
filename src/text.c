@@ -844,23 +844,42 @@ static void layout(AwraTextLayout *l, int width)
         a = para_end;
       }
       else {
-        /* the last break opportunity that fits */
-        int brk = -1, i = a;
-        float used = 0.0f;
-        while (i < para_end) {
-          const int n = utf8_len((unsigned char)l->text[i]);
-          const float cw = range_width(l, i, i + n);
-          if (used + cw > W && i > a) {
+        /* the last break opportunity whose line fits, lines measured whole
+         * (kerning, whole-pixel positions) as Pango measures them */
+        int brk = -1, j = a;
+        while (j < para_end) {
+          int k = j;
+          while (k < para_end) {
+            k += utf8_len((unsigned char)l->text[k]);
+            const char c = l->text[k - 1];
+            if (c == ' ' || c == '-' || c == '/') {
+              break;
+            }
+          }
+          int ve = k;
+          while (ve > a && l->text[ve - 1] == ' ') {
+            ve--;
+          }
+          if (range_width(l, a, ve) > W + 0.01f) {
             break;
           }
-          used += cw;
-          i += n;
-          if (l->text[i - 1] == ' ' || l->text[i - 1] == '-' || l->text[i - 1] == '/') {
-            brk = i;
-          }
+          brk = k;
+          j = k;
         }
         if (brk <= a || l->wrap == AWRA_WRAP_CHAR) {
-          brk = i > a ? i : a + utf8_len((unsigned char)l->text[a]); /* break inside the word */
+          /* break inside the word: as many characters as fit, at least one */
+          int i = a + utf8_len((unsigned char)l->text[a]);
+          while (i < para_end) {
+            const int n = utf8_len((unsigned char)l->text[i]);
+            if (range_width(l, a, i + n) > W + 0.01f) {
+              break;
+            }
+            i += n;
+          }
+          if (l->wrap == AWRA_WRAP_CHAR && brk > a && brk >= i) {
+            i = brk;
+          }
+          brk = i;
         }
         int vis_end = brk;
         while (vis_end > a && l->text[vis_end - 1] == ' ') {

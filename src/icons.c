@@ -7,6 +7,9 @@
 
 #include "awra-private.h"
 
+/* kit/intern/image/format_svg.c */
+BKImBuf *imb_svg_rasterize(const char *svg, int want_w, int want_h);
+
 #include <stdio.h>
 
 typedef struct AwraIconSource {
@@ -179,7 +182,9 @@ const AwraIconMask *awra_icon_mask(const char *name, int size)
   if (!svg) {
     return NULL;
   }
-  BKImBuf *ib = BK_imbuf_decode(svg, len, size, size);
+  /* rasterized at the size asked (the generic decoder only shrinks) */
+  BKImBuf *ib = imb_svg_rasterize(svg, size, size);
+  (void)len;
   if (!ib) {
     return NULL;
   }
