@@ -57,7 +57,7 @@ fn main() {
         }
         "windows" => {
             for lib in [
-                "user32", "gdi32", "dwmapi", "uxtheme", "shell32", "ole32", "comdlg32", "imm32",
+                "user32", "gdi32", "dwmapi", "uxtheme", "shell32", "ole32", "uuid", "comdlg32", "imm32",
                 "shcore", "advapi32", "winmm",
             ] {
                 println!("cargo:rustc-link-lib=dylib={lib}");

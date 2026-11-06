@@ -52,7 +52,7 @@ else()
                                       -ffunction-sections -fdata-sections)
 endif()
 if(WIN32)
-  target_link_libraries(awra PUBLIC dwmapi uxtheme shell32 ole32 comdlg32)
+  target_link_libraries(awra PUBLIC dwmapi uxtheme shell32 ole32 uuid comdlg32)
 endif()
 
 if(AWRA_SHOWCASE)
