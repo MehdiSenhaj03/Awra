@@ -3104,6 +3104,15 @@ awraheader.awra-compact .awra-menu-button.awra-toolbar-button {
   to { transform: none; }
 }
 .awra-role-refused { animation: awra-refused 260ms ease-in-out; }
+
+/* What the person will probably want next: marked quietly, apart from the selection. */
+.awra-role-suggested {
+  border-radius: 8px;
+  background-color: alpha(@awra_accent, 0.07);
+  box-shadow: inset 3px 0 0 alpha(@awra_accent, 0.8);
+  transition: background-color 450ms ease-out, box-shadow 450ms ease-out;
+}
+.awra-reduced-motion .awra-role-suggested { transition: none; }
 .awra-reduced-motion .awra-role-refused { animation: none; }
 
 popover.awra-popover > contents { animation: awra-unfold 120ms cubic-bezier(.2, .8, .2, 1); }
