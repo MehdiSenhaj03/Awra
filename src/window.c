@@ -48,6 +48,11 @@ typedef struct WinExt {
   float scale;
   uint64_t frames, pixels;
   int blur_rect[5];
+  bool overlay_titlebar;
+  /* passive floating widgets (awra_window_add_overlay) */
+  AwraWidget *overlays[8];
+  double ov_x[8], ov_y[8];
+  int noverlays;
 } WinExt;
 
 #define WEXT(w) AWRA_EXT(w, WinExt)
@@ -147,9 +152,31 @@ static void window_measure(AwraWidget *w, int o, int for_size, int *r_min, int *
     if (x->child) {
       awra_measure(x->child, o, for_size, &cmin, &cnat);
     }
-    *r_min = tmin + cmin;
-    *r_nat = tnat + cnat;
+    if (x->overlay_titlebar) {
+      *r_min = BK_MAX(tmin, cmin);
+      *r_nat = BK_MAX(tnat, cnat);
+    }
+    else {
+      *r_min = tmin + cmin;
+      *r_nat = tnat + cnat;
+    }
   }
+}
+
+static void place_overlay(AwraWidget *w, int i)
+{
+  WinExt *x = WEXT(w);
+  AwraWidget *c = x->overlays[i];
+  int mn, pw, ph;
+  awra_measure(c, AWRA_ORIENTATION_HORIZONTAL, -1, &mn, &pw);
+  pw = BK_MIN(pw, w->w);
+  awra_measure(c, AWRA_ORIENTATION_VERTICAL, pw, &mn, &ph);
+  ph = BK_MIN(ph, w->h);
+  const int m = awra_px(4);
+  int px = w->x + awra_px(x->ov_x[i]), py = w->y + awra_px(x->ov_y[i]);
+  px = BK_CLAMP(px, w->x + m, BK_MAX(w->x + m, w->x + w->w - pw - m));
+  py = BK_CLAMP(py, w->y + m, BK_MAX(w->y + m, w->y + w->h - ph - m));
+  awra_allocate(c, px, py, pw, ph);
 }
 
 static void window_allocate(AwraWidget *w)
@@ -162,8 +189,14 @@ static void window_allocate(AwraWidget *w)
     th = mn;
     awra_allocate(x->titlebar, w->x, w->y, w->w, th);
   }
+  if (x->overlay_titlebar) {
+    th = 0; /* the title bar floats over the content */
+  }
   if (x->child) {
     awra_allocate(x->child, w->x, w->y + th, w->w, BK_MAX(0, w->h - th));
+  }
+  for (int i = 0; i < x->noverlays; i++) {
+    place_overlay(w, i);
   }
   /* the compositor blurs behind the window's rounded shape (on Windows:
    * DWM's rounding when the window is not maximized) */
@@ -1067,9 +1100,90 @@ const char *awra_window_title(AwraWidget *w)
   return WEXT(w)->title;
 }
 
+/* Paint order: the content, the title bar over it, then the overlays. */
+static void restack(AwraWidget *w)
+{
+  WinExt *x = WEXT(w);
+  AwraWidget *order[10];
+  int n = 0;
+  if (x->titlebar) {
+    order[n++] = x->titlebar;
+  }
+  for (int i = 0; i < x->noverlays; i++) {
+    order[n++] = x->overlays[i];
+  }
+  for (int i = 0; i < n; i++) {
+    if (order[i]->parent == w) {
+      awra_widget_ref(order[i]);
+      BK_node_remove(w, order[i]);
+      BK_node_add(w, order[i], -1);
+      awra_widget_unref(order[i]);
+    }
+  }
+}
+
 void awra_window_set_child(AwraWidget *w, AwraWidget *child)
 {
   awra_set_slot(w, &WEXT(w)->child, child);
+  restack(w);
+}
+
+void awra_window_set_overlay_titlebar(AwraWidget *w, bool overlay)
+{
+  WinExt *x = WEXT(w);
+  if (x->overlay_titlebar != overlay) {
+    x->overlay_titlebar = overlay;
+    awra_widget_queue_resize(w);
+    awra_invalidate(w);
+  }
+}
+
+bool awra_window_overlay_titlebar(AwraWidget *w)
+{
+  return WEXT(w)->overlay_titlebar;
+}
+
+void awra_window_add_overlay(AwraWidget *w, AwraWidget *child)
+{
+  WinExt *x = WEXT(w);
+  if (!child || x->noverlays >= 8 || child->parent == w) {
+    return;
+  }
+  awra_widget_set_can_target(child, false);
+  x->ov_x[x->noverlays] = x->ov_y[x->noverlays] = 0;
+  x->overlays[x->noverlays++] = child;
+  awra_child_insert(w, child, -1);
+  awra_queue_allocate(w);
+}
+
+void awra_window_remove_overlay(AwraWidget *w, AwraWidget *child)
+{
+  WinExt *x = WEXT(w);
+  for (int i = 0; i < x->noverlays; i++) {
+    if (x->overlays[i] == child) {
+      memmove(&x->overlays[i], &x->overlays[i + 1], sizeof(AwraWidget *) * (size_t)(x->noverlays - i - 1));
+      memmove(&x->ov_x[i], &x->ov_x[i + 1], sizeof(double) * (size_t)(x->noverlays - i - 1));
+      memmove(&x->ov_y[i], &x->ov_y[i + 1], sizeof(double) * (size_t)(x->noverlays - i - 1));
+      x->noverlays--;
+      awra_child_remove(w, child);
+      return;
+    }
+  }
+}
+
+void awra_window_place_overlay(AwraWidget *w, AwraWidget *child, double px, double py)
+{
+  WinExt *x = WEXT(w);
+  for (int i = 0; i < x->noverlays; i++) {
+    if (x->overlays[i] == child) {
+      x->ov_x[i] = px;
+      x->ov_y[i] = py;
+      if (w->w > 0) {
+        place_overlay(w, i);
+      }
+      return;
+    }
+  }
 }
 
 AwraWidget *awra_window_child(AwraWidget *w)
@@ -1082,12 +1196,7 @@ void awra_window_set_titlebar(AwraWidget *w, AwraWidget *titlebar)
   WinExt *x = WEXT(w);
   awra_set_slot(w, &x->titlebar, titlebar);
   /* the title bar paints over the content: keep it last among children */
-  if (titlebar) {
-    BK_node_remove(w, titlebar);
-    awra_widget_ref(titlebar);
-    BK_node_add(w, titlebar, -1);
-    awra_widget_unref(titlebar);
-  }
+  restack(w);
 }
 
 AwraWidget *awra_window_titlebar(AwraWidget *w)

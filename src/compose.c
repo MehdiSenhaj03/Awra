@@ -31,15 +31,22 @@ typedef struct BinExt {
   bool custom_color;
   AwraRGBA color;
   AwraWidget *a, *b, *c, *d; /* parts */
+  AwraWidget *backdrop;      /* surfaces: a local backdrop source */
+  short inset;               /* sidebars: logical px around the painted surface,
+                              * inside the size request (Awra 1's inner surface margins) */
 } BinExt;
+
+bool awra_paint_material_backdrop(AwraDraw *d, AwraBox b, AwraMaterial material, int role,
+                                  AwraElevation elevation, float radius, int corner_mask,
+                                  int edge_mask, AwraWidget *source);
 
 #define BINX(w) AWRA_EXT(w, BinExt)
 
 static void bin_measure(AwraWidget *w, int o, int for_size, int *r_min, int *r_nat)
 {
   BinExt *x = BINX(w);
-  const int ph = awra_px(x->pad[1]) + awra_px(x->pad[3]);
-  const int pv = awra_px(x->pad[0]) + awra_px(x->pad[2]);
+  const int ph = awra_px(x->pad[1]) + awra_px(x->pad[3]) + 2 * awra_px(x->inset);
+  const int pv = awra_px(x->pad[0]) + awra_px(x->pad[2]) + 2 * awra_px(x->inset);
   const int pad = o == AWRA_ORIENTATION_HORIZONTAL ? ph : pv;
   const int other = o == AWRA_ORIENTATION_HORIZONTAL ? pv : ph;
   int mn = 0, nt = 0;
@@ -56,8 +63,9 @@ static void bin_allocate(AwraWidget *w)
   if (!x->child) {
     return;
   }
-  const int t = awra_px(x->pad[0]), e = awra_px(x->pad[1]), b = awra_px(x->pad[2]),
-            s = awra_px(x->pad[3]);
+  const int in = awra_px(x->inset);
+  const int t = awra_px(x->pad[0]) + in, e = awra_px(x->pad[1]) + in, b = awra_px(x->pad[2]) + in,
+            s = awra_px(x->pad[3]) + in;
   awra_allocate(x->child, w->x + s, w->y + t, BK_MAX(0, w->w - s - e), BK_MAX(0, w->h - t - b));
 }
 
@@ -70,8 +78,35 @@ static void surface_draw(AwraWidget *w, AwraDraw *d)
   AwraResolvedMaterial m;
   awra_material_resolve((AwraMaterial)x->material, x->role, (AwraElevation)x->elevation, false, &m);
   const float r = x->radius >= 0 ? awra_pxf(x->radius) : awra_pxf(m.radius);
-  awra_paint_material(d, awra_box_of(w), &m, r, x->corner_mask, x->edge_mask,
-                      (AwraElevation)x->elevation);
+  const AwraBox box = awra_box_inset(awra_box_of(w), awra_pxf(x->inset));
+  if (x->backdrop &&
+      awra_paint_material_backdrop(d, box, (AwraMaterial)x->material, x->role,
+                                   (AwraElevation)x->elevation, r, x->corner_mask, x->edge_mask,
+                                   x->backdrop))
+  {
+    return;
+  }
+  awra_paint_material(d, box, &m, r, x->corner_mask, x->edge_mask, (AwraElevation)x->elevation);
+}
+
+static void bin_finalize(AwraWidget *w)
+{
+  if (BINX(w)->backdrop) {
+    awra_widget_unref(BINX(w)->backdrop);
+  }
+}
+
+void awra_surface_set_backdrop(AwraWidget *w, AwraWidget *source)
+{
+  BinExt *x = BINX(w);
+  if (source) {
+    awra_widget_ref(source);
+  }
+  if (x->backdrop) {
+    awra_widget_unref(x->backdrop);
+  }
+  x->backdrop = source;
+  awra_invalidate(w);
 }
 
 static void bin_init(AwraWidget *w)
@@ -89,6 +124,7 @@ static AwraClass surface_class = {
     .flags = AWRA_CLASS_CONTAINER | AWRA_CLASS_EXPAND_ISOLATED,
     .ext_size = sizeof(BinExt),
     .init = bin_init,
+    .finalize = bin_finalize,
     .measure = bin_measure,
     .allocate = bin_allocate,
     .draw = surface_draw,
@@ -1137,7 +1173,7 @@ AwraWidget *awra_sidebar_new(void)
   x->paints = true;
   x->material = AWRA_MATERIAL_CHROME;
   x->role = AWRA_ROLE_SIDEBAR;
-  awra_widget_set_margins(w, 12, 12, 12, 12);
+  x->inset = 12;
   AwraWidget *col = awra_box_new(AWRA_ORIENTATION_VERTICAL, 0);
   AwraWidget *list = awra_box_new(AWRA_ORIENTATION_VERTICAL, 0);
   awra_widget_set_vexpand(list, true);
@@ -1189,7 +1225,8 @@ void awra_sidebar_set_footer(AwraWidget *w, AwraWidget *footer)
 void awra_sidebar_set_inset(AwraWidget *w, AwraSpacing inset)
 {
   const int m = inset == AWRA_SPACING_NONE ? 0 : awra_spacing(inset);
-  awra_widget_set_margins(w, m, m, m, m);
+  BINX(w)->inset = (short)m;
+  awra_widget_queue_resize(w);
   BINX(w)->corner_mask = m > 0 ? 15 : 0;
   BINX(w)->edge_mask = m > 0 ? AWRA_EDGE_ALL : AWRA_EDGE_END;
   awra_invalidate(w);

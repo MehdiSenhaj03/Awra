@@ -21,6 +21,7 @@ mod enums;
 mod widget;
 mod widgets;
 mod window;
+mod video;
 pub mod gdk;
 pub mod gio;
 pub mod glib;
@@ -36,6 +37,7 @@ pub use object::{IntoOptStr, IntoOptWidget, IsWidget, StaticType, WeakRef, Widge
 pub use signal::{raw_args as signal_args, sig, Args, SignalHandlerId};
 pub use widget::*;
 pub use widgets::*;
+pub use video::*;
 pub use window::{accel_label, ApplicationWindow, Window};
 
 pub mod prelude {

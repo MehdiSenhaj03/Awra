@@ -15,7 +15,14 @@ typedef struct HeaderExt {
   AwraWidget *minimize, *maximize, *close;
   bool show_controls, blend, drag, compact;
   bool dragging;
+  int material;     /* when not blended (default Chrome) */
+  int max_width;    /* logical, 0: none */
+  AwraWidget *backdrop;
 } HeaderExt;
+
+bool awra_paint_material_backdrop(AwraDraw *d, AwraBox b, AwraMaterial material, int role,
+                                  AwraElevation elevation, float radius, int corner_mask,
+                                  int edge_mask, AwraWidget *source);
 
 #define HX(w) AWRA_EXT(w, HeaderExt)
 
@@ -56,6 +63,10 @@ static void header_measure(AwraWidget *w, int o, int for_size, int *r_min, int *
     if (x->center && awra_widget_hexpand(x->center)) {
       cnat = BK_MAX(cnat, awra_px(568));
       *r_nat = cnat + 2 * BK_MAX(snat, enat) + 2 * px;
+    }
+    if (x->max_width > 0) {
+      /* Awra 1: the header spans max-width (centered) when there is room */
+      *r_nat = BK_MAX(*r_min, awra_px(x->max_width));
     }
   }
   else {
@@ -105,7 +116,13 @@ static void header_draw(AwraWidget *w, AwraDraw *d)
     return; /* the window's Canvas is under it */
   }
   AwraResolvedMaterial m;
-  awra_material_resolve(AWRA_MATERIAL_CHROME, AWRA_ROLE_GENERIC, AWRA_ELEVATION_FLAT, false, &m);
+  awra_material_resolve((AwraMaterial)x->material, AWRA_ROLE_GENERIC, AWRA_ELEVATION_FLAT, false, &m);
+  if (awra_paint_material_backdrop(d, awra_box_of(w), (AwraMaterial)x->material, AWRA_ROLE_GENERIC,
+                                   AWRA_ELEVATION_FLAT, awra_pxf(m.radius), 15, AWRA_EDGE_ALL,
+                                   x->backdrop))
+  {
+    return;
+  }
   awra_paint_material(d, awra_box_of(w), &m, awra_pxf(m.radius), 15, AWRA_EDGE_ALL,
                       AWRA_ELEVATION_FLAT);
 }
@@ -149,11 +166,19 @@ static int header_release(AwraWidget *w, BKEvent *e)
   return 1;
 }
 
+static void header_finalize(AwraWidget *w)
+{
+  if (HX(w)->backdrop) {
+    awra_widget_unref(HX(w)->backdrop);
+  }
+}
+
 static AwraClass header_class = {
     .bk = AWRA_BK("AwraHeader", 0),
     .type = "AwraHeader",
     .flags = AWRA_CLASS_CONTAINER,
     .ext_size = sizeof(HeaderExt),
+    .finalize = header_finalize,
     .measure = header_measure,
     .allocate = header_allocate,
     .draw = header_draw,
@@ -214,6 +239,7 @@ AwraWidget *awra_header_new(void)
   x->drag = true;
   x->show_controls = true;
   x->blend = true;
+  x->material = AWRA_MATERIAL_CHROME;
   w->flags |= NF_EVENTS; /* the bar itself takes presses: drags */
   x->start_box = awra_box_new(AWRA_ORIENTATION_HORIZONTAL, 12);
   x->end_box = awra_box_new(AWRA_ORIENTATION_HORIZONTAL, 8);
@@ -336,4 +362,30 @@ void awra_header_set_dialog(AwraWidget *w, bool dialog)
   awra_widget_set_visible(x->minimize, !dialog);
   awra_widget_set_visible(x->maximize, !dialog);
   awra_widget_queue_resize(w);
+}
+
+void awra_header_set_material(AwraWidget *w, AwraMaterial material)
+{
+  HX(w)->material = material;
+  awra_invalidate(w);
+}
+
+void awra_header_set_max_width(AwraWidget *w, int width)
+{
+  HX(w)->max_width = BK_MAX(0, width);
+  awra_widget_set_halign(w, width > 0 ? AWRA_ALIGN_CENTER : AWRA_ALIGN_FILL);
+  awra_widget_queue_resize(w);
+}
+
+void awra_header_set_backdrop(AwraWidget *w, AwraWidget *source)
+{
+  HeaderExt *x = HX(w);
+  if (source) {
+    awra_widget_ref(source);
+  }
+  if (x->backdrop) {
+    awra_widget_unref(x->backdrop);
+  }
+  x->backdrop = source;
+  awra_invalidate(w);
 }

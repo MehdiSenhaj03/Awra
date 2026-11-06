@@ -968,6 +968,115 @@ void awra_free(void *p);
 /* Opens a URI or file with the desktop's default handler. */
 bool awra_show_uri(const char *uri);
 
+/* ----------------------------------------------------------------------- */
+/* Playback: video view, timeline, overlay bar, edge panel, chrome over
+ * content (Awra 1's AwraTextureStream + GtkPicture, AwraTimeline,
+ * AwraOverlayBar, AwraEdgePanel, AwraWindow:overlay-chrome and
+ * AwraSurface:backdrop-widget) */
+
+typedef enum {
+  AWRA_VIDEO_FORMAT_NV12 = 0, /* Y plane then interleaved CbCr (limited range) */
+  AWRA_VIDEO_FORMAT_BGRA,     /* premultiplied 0xAARRGGBB words */
+  AWRA_VIDEO_FORMAT_BGRX      /* 0x..RRGGBB words, shown opaque */
+} AwraVideoFormat;
+
+/* A view of frames that another thread produces (a decoder), written
+ * straight into a bounded pool of buffers the view owns: no copy, no
+ * allocation per frame. Only the view's rectangle is redrawn when a frame
+ * arrives. The view must outlive its producer. */
+AwraWidget *awra_video_view_new(void);
+/* Any thread: the frame format (NV12 needs an even size), the pixel aspect
+ * ratio (1: square pixels) and the number of buffers (2..8). r_strides and
+ * r_lines (2 each, may be NULL) receive the planes' row bytes and rows. */
+bool awra_video_view_configure(AwraWidget *view, AwraVideoFormat format, int width, int height,
+                               double pixel_aspect, int buffers, int *r_strides, int *r_lines);
+/* Any thread: a buffer to write the next frame into (r_planes[0..1] get the
+ * planes); when every buffer is busy, a scratch buffer whose frame will be
+ * dropped. NULL before configure. */
+void *awra_video_view_acquire(AwraWidget *view, void **r_planes);
+/* Any thread: shows an acquired frame on the view's next frame (a newer one
+ * replaces a frame not shown yet). */
+void awra_video_view_present(AwraWidget *view, void *frame);
+/* Any thread: gives back an acquired frame that was not presented. */
+void awra_video_view_release(AwraWidget *view, void *frame);
+/* UI thread */
+void awra_video_view_clear(AwraWidget *view); /* no frame: the background */
+bool awra_video_view_has_frame(AwraWidget *view);
+/* The frame shown: pixels and display aspect ratio (0 without a frame). */
+void awra_video_view_frame_size(AwraWidget *view, int *r_width, int *r_height, double *r_aspect);
+void awra_video_view_set_content_fit(AwraWidget *view, int fit); /* 0 fill 1 contain 2 cover */
+int awra_video_view_content_fit(AwraWidget *view);
+void awra_video_view_set_background(AwraWidget *view, const AwraRGBA *color); /* NULL: black */
+/* The frame shown, at its display aspect, as a PNG. */
+bool awra_video_view_save_png(AwraWidget *view, const char *path);
+void awra_video_view_stats(AwraWidget *view, uint64_t *r_presented, uint64_t *r_dropped,
+                           uint64_t *r_drawn);
+
+/* Frosted surfaces over a view: the blurred image of `source` (a video
+ * view) under them, as Awra 1's AwraSurface:backdrop-widget. NULL: none. */
+void awra_surface_set_backdrop(AwraWidget *surface, AwraWidget *source);
+void awra_header_set_backdrop(AwraWidget *header, AwraWidget *source);
+/* The header's own material when it does not blend with the window
+ * (default Chrome), and a maximum width (0: none) it is centered in. */
+void awra_header_set_material(AwraWidget *header, AwraMaterial material);
+void awra_header_set_max_width(AwraWidget *header, int width);
+
+/* The title bar over the content (the content gets the whole window). */
+void awra_window_set_overlay_titlebar(AwraWidget *window, bool overlay);
+bool awra_window_overlay_titlebar(AwraWidget *window);
+/* Passive widgets floating above everything in a window (previews,
+ * badges): placed at x, y (logical px, clamped inside) at their natural
+ * size; they take no input. */
+void awra_window_add_overlay(AwraWidget *window, AwraWidget *child);
+void awra_window_remove_overlay(AwraWidget *window, AwraWidget *child);
+void awra_window_place_overlay(AwraWidget *window, AwraWidget *child, double x, double y);
+
+/* Timeline: seek: args->value = seconds; notify "hover-time" and "offset";
+ * value-changed: args->value = the offset an editable timeline committed. */
+AwraWidget *awra_timeline_new(void);
+void awra_timeline_set_duration(AwraWidget *timeline, double seconds);
+double awra_timeline_duration(AwraWidget *timeline);
+void awra_timeline_set_position(AwraWidget *timeline, double seconds);
+double awra_timeline_position(AwraWidget *timeline);
+void awra_timeline_set_view(AwraWidget *timeline, double start, double duration); /* 0: all */
+void awra_timeline_set_editable(AwraWidget *timeline, bool editable);
+void awra_timeline_set_offset(AwraWidget *timeline, double seconds);
+double awra_timeline_offset(AwraWidget *timeline);
+void awra_timeline_set_increments(AwraWidget *timeline, double step, double page);
+void awra_timeline_add_interval(AwraWidget *timeline, double start, double end, const char *label);
+void awra_timeline_clear_intervals(AwraWidget *timeline);
+double awra_timeline_hover_time(AwraWidget *timeline); /* < 0: not hovered */
+/* A preview shown above the hovered time, in a floating surface. */
+void awra_timeline_set_preview(AwraWidget *timeline, AwraWidget *child);
+AwraWidget *awra_timeline_preview_surface(AwraWidget *timeline);
+
+/* Overlay bar: content at full size, a floating bar at its bottom
+ * (notify "revealed"). */
+AwraWidget *awra_overlay_bar_new(void);
+void awra_overlay_bar_set_content(AwraWidget *bar, AwraWidget *child);
+void awra_overlay_bar_set_bar(AwraWidget *bar, AwraWidget *child); /* NULL: no bar */
+AwraWidget *awra_overlay_bar_surface(AwraWidget *bar);
+void awra_overlay_bar_set_revealed(AwraWidget *bar, bool revealed);
+bool awra_overlay_bar_revealed(AwraWidget *bar);
+void awra_overlay_bar_reveal(AwraWidget *bar); /* and hide again after the delay */
+void awra_overlay_bar_set_auto_hide(AwraWidget *bar, bool auto_hide);
+void awra_overlay_bar_set_inhibit_auto_hide(AwraWidget *bar, bool inhibit);
+void awra_overlay_bar_set_hide_delay(AwraWidget *bar, unsigned ms);
+void awra_overlay_bar_set_max_width(AwraWidget *bar, int width);
+void awra_overlay_bar_set_inset(AwraWidget *bar, AwraSpacing inset);
+int awra_overlay_bar_inset_px(AwraWidget *bar);
+
+/* Edge panel: content at full size, a floating panel sliding in from an
+ * edge (0 start, 1 end); notify "revealed". */
+AwraWidget *awra_edge_panel_new(void);
+void awra_edge_panel_set_content(AwraWidget *panel, AwraWidget *child);
+void awra_edge_panel_set_panel(AwraWidget *panel, AwraWidget *child);
+AwraWidget *awra_edge_panel_surface(AwraWidget *panel);
+void awra_edge_panel_set_edge(AwraWidget *panel, int edge);
+void awra_edge_panel_set_panel_width(AwraWidget *panel, int width);
+void awra_edge_panel_set_revealed(AwraWidget *panel, bool revealed);
+bool awra_edge_panel_revealed(AwraWidget *panel);
+
 #ifdef __cplusplus
 }
 #endif
