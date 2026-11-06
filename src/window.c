@@ -613,6 +613,7 @@ void awra_set_focus(AwraWidget *win, AwraWidget *w, bool keyboard)
     awra_aux(w)->focus_visible = keyboard;
     awra_invalidate(w);
   }
+  awra_emit_text(win, AWRA_SIGNAL_NOTIFY, "focus");
 }
 
 static void move_focus(AwraWidget *win, int dir)

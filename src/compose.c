@@ -86,7 +86,7 @@ static void bin_init(AwraWidget *w)
 static AwraClass surface_class = {
     .bk = AWRA_BK("AwraSurface", 0),
     .type = "AwraSurface",
-    .flags = AWRA_CLASS_CONTAINER,
+    .flags = AWRA_CLASS_CONTAINER | AWRA_CLASS_EXPAND_ISOLATED,
     .ext_size = sizeof(BinExt),
     .init = bin_init,
     .measure = bin_measure,
@@ -184,7 +184,7 @@ static void card_draw(AwraWidget *w, AwraDraw *d)
 static AwraClass card_class = {
     .bk = AWRA_BK("AwraCard", 0),
     .type = "AwraCard",
-    .flags = AWRA_CLASS_CONTAINER | AWRA_CLASS_HOVER,
+    .flags = AWRA_CLASS_CONTAINER | AWRA_CLASS_HOVER | AWRA_CLASS_EXPAND_ISOLATED,
     .ext_size = sizeof(BinExt),
     .init = bin_init,
     .measure = bin_measure,
@@ -270,7 +270,7 @@ static void pagecol_allocate(AwraWidget *w)
 static AwraClass pagecol_class = {
     .bk = AWRA_BK("AwraPageViewport", 0),
     .type = "AwraPageViewport",
-    .flags = AWRA_CLASS_CONTAINER,
+    .flags = AWRA_CLASS_CONTAINER | AWRA_CLASS_EXPAND_ISOLATED,
     .ext_size = sizeof(BinExt),
     .init = bin_init,
     .measure = pagecol_measure,
@@ -280,7 +280,7 @@ static AwraClass pagecol_class = {
 static AwraClass page_class = {
     .bk = AWRA_BK("AwraPage", 0),
     .type = "AwraPage",
-    .flags = AWRA_CLASS_CONTAINER,
+    .flags = AWRA_CLASS_CONTAINER | AWRA_CLASS_EXPAND_ISOLATED,
     .ext_size = sizeof(BinExt),
     .init = bin_init,
     .measure = bin_measure,
@@ -386,6 +386,7 @@ static AwraWidget *heading_new(const char *title, const char *subtitle, AwraTypo
   awra_widget_set_visible(h->title, title && title[0]);
   awra_widget_set_visible(h->subtitle, subtitle && subtitle[0]);
   awra_widget_set_visible(h->heading, (title && title[0]) || (subtitle && subtitle[0]));
+  awra_widget_isolate_expand(root);
   return root;
 }
 
@@ -567,7 +568,7 @@ static void formrow_allocate(AwraWidget *w)
 static AwraClass formrow_class = {
     .bk = AWRA_BK("AwraFormRow", 0),
     .type = "AwraFormRow",
-    .flags = AWRA_CLASS_CONTAINER,
+    .flags = AWRA_CLASS_CONTAINER | AWRA_CLASS_EXPAND_ISOLATED,
     .ext_size = sizeof(FormRowExt),
     .measure = formrow_measure,
     .allocate = formrow_allocate,
@@ -838,7 +839,7 @@ static bool badge_child_style(AwraWidget *w, AwraRGBA *c, int *weight)
 static AwraClass badge_class = {
     .bk = AWRA_BK("AwraBadge", 0),
     .type = "AwraBadge",
-    .flags = AWRA_CLASS_CONTAINER,
+    .flags = AWRA_CLASS_CONTAINER | AWRA_CLASS_EXPAND_ISOLATED,
     .ext_size = sizeof(BinExt),
     .init = bin_init,
     .measure = bin_measure,
@@ -916,7 +917,7 @@ static void banner_style(AwraWidget *w)
 static AwraClass banner_class = {
     .bk = AWRA_BK("AwraStatusBanner", 0),
     .type = "AwraStatusBanner",
-    .flags = AWRA_CLASS_CONTAINER,
+    .flags = AWRA_CLASS_CONTAINER | AWRA_CLASS_EXPAND_ISOLATED,
     .ext_size = sizeof(BinExt),
     .init = bin_init,
     .measure = bin_measure,
@@ -1044,6 +1045,7 @@ static AwraWidget *state_new(AwraWidget *icon, const char *title, const char *de
   awra_box_append(p->col, p->title);
   awra_box_append(p->col, p->desc);
   bin_set_child(w, p->col);
+  awra_widget_isolate_expand(w);
   return w;
 }
 
@@ -1489,7 +1491,7 @@ static void split_draw(AwraWidget *w, AwraDraw *d)
 static AwraClass split_class = {
     .bk = AWRA_BK("AwraSplitView", 0),
     .type = "AwraSplitView",
-    .flags = AWRA_CLASS_CONTAINER,
+    .flags = AWRA_CLASS_CONTAINER | AWRA_CLASS_EXPAND_ISOLATED,
     .ext_size = sizeof(SplitExt),
     .measure = split_measure,
     .allocate = split_allocate,

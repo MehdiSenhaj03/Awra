@@ -203,6 +203,7 @@ extern "C" {
     pub fn awra_widget_set_margin(widget: *mut AwraWidget, spacing: c_int);
     pub fn awra_widget_set_size_request(widget: *mut AwraWidget, width: c_int, height: c_int);
     pub fn awra_widget_get_size_request(widget: *const AwraWidget, width: *mut c_int, height: *mut c_int);
+    pub fn awra_widget_measure(widget: *mut AwraWidget, orientation: c_int, for_size: c_int, minimum: *mut c_int, natural: *mut c_int);
     pub fn awra_widget_set_tooltip(widget: *mut AwraWidget, text: *const c_char);
     pub fn awra_widget_set_typography(widget: *mut AwraWidget, typography: c_int);
     pub fn awra_widget_set_opacity(widget: *mut AwraWidget, opacity: f64);
@@ -653,6 +654,7 @@ extern "C" {
     pub fn awra_file_dialog_open(parent: *mut AwraWidget, title: *const c_char, multiple: bool, folder: bool, filters: *const AwraFileFilter, n_filters: c_int, done: Option<unsafe extern "C" fn(*const c_char, *mut c_void)>, data: *mut c_void);
     pub fn awra_file_dialog_save(parent: *mut AwraWidget, title: *const c_char, initial_name: *const c_char, filters: *const AwraFileFilter, n_filters: c_int, done: Option<unsafe extern "C" fn(*const c_char, *mut c_void)>, data: *mut c_void);
     pub fn awra_key_code_label(code: *const c_char) -> *const c_char;
+    pub fn awra_keyboard_connect_layout_changed(fn_: Option<unsafe extern "C" fn(*mut c_void)>, data: *mut c_void);
     pub fn awra_clipboard_get_text(widget: *mut AwraWidget) -> *mut c_char;
     pub fn awra_clipboard_set_text(widget: *mut AwraWidget, text: *const c_char);
     pub fn awra_free(p: *mut c_void);

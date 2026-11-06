@@ -647,7 +647,7 @@ static const char *edit_get_string(AwraWidget *w, const char *name)
 static AwraClass entry_class = {
     .bk = AWRA_BK("AwraEntry", CLS_INTERACTIVE),
     .type = "AwraEntry",
-    .flags = AWRA_CLASS_TEXT_INPUT | AWRA_CLASS_FOCUSABLE,
+    .flags = AWRA_CLASS_TEXT_INPUT | AWRA_CLASS_FOCUSABLE | AWRA_CLASS_EXPAND_ISOLATED,
     .ext_size = sizeof(EditExt),
     .init = edit_init,
     .finalize = edit_finalize,
@@ -1143,7 +1143,7 @@ static void capture_focus_lost(BKNode *n, bool confirm)
 static AwraClass capture_class = {
     .bk = AWRA_BK("AwraShortcutCapture", CLS_INTERACTIVE),
     .type = "AwraShortcutCapture",
-    .flags = AWRA_CLASS_HOVER | AWRA_CLASS_FOCUSABLE | AWRA_CLASS_ACTIVATABLE,
+    .flags = AWRA_CLASS_HOVER | AWRA_CLASS_FOCUSABLE | AWRA_CLASS_ACTIVATABLE | AWRA_CLASS_EXPAND_ISOLATED,
     .ext_size = sizeof(CaptureExt),
     .finalize = capture_finalize,
     .measure = capture_measure,

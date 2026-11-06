@@ -407,12 +407,12 @@ awra_wrapper!(
     Label, ["AwraLabel"]
 );
 impl Label {
-    pub fn new(text: impl IntoOptStr) -> Label {
+    pub fn new(text: Option<&str>) -> Label {
         let t = OptC::new(text);
         unsafe { Label::from_full(ffi::awra_label_new(t.ptr())) }
     }
     pub fn with_mnemonic(text: &str) -> Label {
-        Label::new(text.replace('_', ""))
+        Label::new(Some(&text.replace('_', "")))
     }
     pub fn set_text(&self, text: &str) {
         let t = cstring(text);
@@ -699,6 +699,10 @@ impl Default for ToggleButton {
 
 awra_wrapper!(CheckButton, ["AwraCheckButton"]);
 impl CheckButton {
+    /// Awra 1: the inner GTK widget; here the widget itself.
+    pub fn delegate(&self) -> CheckButton {
+        self.clone()
+    }
     pub fn new() -> CheckButton {
         unsafe { CheckButton::from_full(ffi::awra_check_button_new()) }
     }
@@ -715,6 +719,13 @@ impl CheckButton {
     pub fn set_label(&self, label: impl IntoOptStr) {
         let l = OptC::new(label);
         unsafe { ffi::awra_check_button_set_label(ptr!(self), l.ptr()) }
+    }
+    /// A label widget as the label (its text).
+    pub fn set_child(&self, child: Option<&impl IsWidget>) {
+        match child.and_then(|c| c.upcast().downcast::<Label>().ok()) {
+            Some(l) => self.set_label(l.text()),
+            None => self.set_label(None::<&str>),
+        }
     }
     pub fn set_group(&self, group: Option<&CheckButton>) {
         unsafe { ffi::awra_check_button_set_group(ptr!(self), group.map_or(std::ptr::null_mut(), |g| g.0.as_ptr())) }
@@ -737,6 +748,10 @@ impl Default for CheckButton {
 
 awra_wrapper!(Switch, ["AwraSwitch"]);
 impl Switch {
+    /// Awra 1: the inner GTK widget; here the widget itself.
+    pub fn delegate(&self) -> Switch {
+        self.clone()
+    }
     pub fn new() -> Switch {
         unsafe { Switch::from_full(ffi::awra_switch_new()) }
     }
@@ -764,16 +779,27 @@ impl Default for Switch {
 
 awra_wrapper!(SegmentedControl, ["AwraSegmentedControl"]);
 impl SegmentedControl {
+    /// Awra 1: the inner GTK widget; here the widget itself.
+    pub fn delegate(&self) -> SegmentedControl {
+        self.clone()
+    }
     pub fn new() -> SegmentedControl {
         unsafe { SegmentedControl::from_full(ffi::awra_segmented_control_new()) }
     }
-    pub fn append(&self, label: &str, icon: Option<&str>) -> i32 {
+    pub fn append(&self, label: &str) -> i32 {
+        self.append_with_icon(label, None)
+    }
+    pub fn append_with_icon(&self, label: &str, icon: Option<&str>) -> i32 {
         let (l, i) = (cstring(label), OptC::new(icon));
         unsafe { ffi::awra_segmented_control_append(ptr!(self), l.as_ptr(), i.ptr()) }
     }
+    /// Awra 1: (control, selected index).
+    pub fn connect_changed<F: Fn(&SegmentedControl, u32) + 'static>(&self, f: F) -> SignalHandlerId {
+        self.0.connect_typed::<SegmentedControl, _>(sig::SELECTED, move |w, a| f(w, a.index().max(0) as u32))
+    }
     /// Awra 1: (id, label) segments.
     pub fn append_segment(&self, _id: &str, label: &str) -> i32 {
-        self.append(label, None)
+        self.append(label)
     }
     pub fn set_selected(&self, index: u32) {
         unsafe { ffi::awra_segmented_control_set_selected(ptr!(self), index as i32) }
@@ -897,13 +923,22 @@ impl MenuButton {
     pub fn new() -> MenuButton {
         unsafe { MenuButton::from_full(ffi::awra_menu_button_new()) }
     }
-    pub fn set_icon_name(&self, name: &str) {
-        let n = cstring(name);
-        unsafe { ffi::awra_menu_button_set_icon_name(ptr!(self), n.as_ptr()) }
+    pub fn set_icon_name(&self, name: impl IntoOptStr) {
+        let n = OptC::new(name);
+        unsafe { ffi::awra_menu_button_set_icon_name(ptr!(self), n.ptr()) }
     }
     pub fn set_label(&self, label: impl IntoOptStr) {
-        let l = OptC::new(label);
+        let l = label.into_opt_string();
+        self.0.set_rust_data("menu-label", l.clone());
+        let l = OptC::new(l);
         unsafe { ffi::awra_menu_button_set_label(ptr!(self), l.ptr()) }
+    }
+    pub fn label(&self) -> String {
+        self.0.rust_data::<Option<String>>("menu-label").flatten().unwrap_or_default()
+    }
+    /// Custom content in place of the label and icon.
+    pub fn set_child(&self, child: impl IntoOptWidget) {
+        unsafe { ffi::awra_button_set_child(ptr!(self), child.into_opt_ptr()) }
     }
     pub fn set_popover(&self, popover: Option<&Popover>) {
         unsafe { ffi::awra_menu_button_set_popover(ptr!(self), popover.map_or(std::ptr::null_mut(), |p| p.0.as_ptr())) }
@@ -1078,8 +1113,8 @@ macro_rules! entry_ops {
             pub fn set_activates_default(&self, _a: bool) {}
             pub fn set_input_purpose<T>(&self, _p: T) {}
             /// The editable part (the entry itself).
-            pub fn delegate(&self) -> Widget {
-                self.0.clone()
+            pub fn delegate(&self) -> $t {
+                self.clone()
             }
             pub fn connect_changed<F: Fn(&$t) + 'static>(&self, f: F) -> SignalHandlerId {
                 self.0.connect_typed::<$t, _>(sig::CHANGED, move |w, _| f(w))
@@ -1187,6 +1222,10 @@ impl Default for TextView {
 
 awra_wrapper!(Slider, ["AwraSlider"]);
 impl Slider {
+    /// Awra 1: the inner GTK widget; here the widget itself.
+    pub fn delegate(&self) -> Slider {
+        self.clone()
+    }
     pub fn with_range(orientation: Orientation, min: f64, max: f64, step: f64) -> Slider {
         let s = unsafe { Slider::from_full(ffi::awra_slider_new(min, max, step)) };
         unsafe { ffi::awra_slider_set_orientation(ptr!(s), orientation as _) };
@@ -1212,6 +1251,10 @@ pub type Scale = Slider;
 
 awra_wrapper!(SpinButton, ["AwraSpinButton"]);
 impl SpinButton {
+    /// Awra 1: the inner GTK widget; here the widget itself.
+    pub fn delegate(&self) -> SpinButton {
+        self.clone()
+    }
     pub fn with_range(min: f64, max: f64, step: f64) -> SpinButton {
         unsafe { SpinButton::from_full(ffi::awra_spin_button_new(min, max, step)) }
     }
@@ -1238,6 +1281,10 @@ impl SpinButton {
 
 awra_wrapper!(Dropdown, ["AwraDropdown"]);
 impl Dropdown {
+    /// Awra 1: the inner GTK widget; here the widget itself.
+    pub fn delegate(&self) -> Dropdown {
+        self.clone()
+    }
     pub fn from_strings(items: &[&str]) -> Dropdown {
         let cs: Vec<_> = items.iter().map(|s| cstring(s)).collect();
         let ps: Vec<*const c_char> = cs.iter().map(|c| c.as_ptr()).collect();
@@ -1298,6 +1345,10 @@ impl StringList {
 
 awra_wrapper!(VolumeControl, ["AwraVolumeControl"]);
 impl VolumeControl {
+    /// Awra 1: the inner GTK widget; here the widget itself.
+    pub fn delegate(&self) -> VolumeControl {
+        self.clone()
+    }
     pub fn new() -> VolumeControl {
         unsafe { VolumeControl::from_full(ffi::awra_volume_control_new()) }
     }
@@ -1335,6 +1386,10 @@ impl Default for VolumeControl {
 
 awra_wrapper!(ShortcutCapture, ["AwraShortcutCapture"]);
 impl ShortcutCapture {
+    /// Awra 1: the inner GTK widget; here the widget itself.
+    pub fn delegate(&self) -> ShortcutCapture {
+        self.clone()
+    }
     pub fn new() -> ShortcutCapture {
         unsafe { ShortcutCapture::from_full(ffi::awra_shortcut_capture_new()) }
     }
@@ -1599,8 +1654,9 @@ impl Default for FormRow {
 
 awra_wrapper!(ActionRow, ["AwraActionRow"]);
 impl ActionRow {
-    pub fn new() -> ActionRow {
-        unsafe { ActionRow::from_full(ffi::awra_action_row_new(std::ptr::null(), std::ptr::null())) }
+    pub fn new(title: &str, subtitle: &str) -> ActionRow {
+        let (t, s) = (cstring(title), OptC::new((!subtitle.is_empty()).then_some(subtitle)));
+        unsafe { ActionRow::from_full(ffi::awra_action_row_new(t.as_ptr(), s.ptr())) }
     }
     pub fn set_title(&self, t: impl IntoOptStr) {
         let t = OptC::new(t);
@@ -1636,17 +1692,13 @@ impl ActionRow {
         self.0.connect_typed::<ActionRow, _>(sig::CLICKED, move |w, _| f(w))
     }
 }
-impl Default for ActionRow {
-    fn default() -> Self {
-        Self::new()
-    }
-}
 
 awra_wrapper!(Badge, ["AwraBadge"]);
 impl Badge {
     pub fn new(label: &str) -> Badge {
         let l = cstring(label);
-        unsafe { Badge::from_full(ffi::awra_badge_new(l.as_ptr(), 0)) }
+        // Awra 1's default appearance: accent
+        unsafe { Badge::from_full(ffi::awra_badge_new(l.as_ptr(), 1)) }
     }
     pub fn set_label(&self, label: &str) {
         let l = cstring(label);
@@ -1659,8 +1711,14 @@ impl Badge {
         let n = OptC::new(n);
         unsafe { ffi::awra_badge_set_icon_name(ptr!(self), n.ptr()) }
     }
-    pub fn set_custom_color(&self, c: Option<&RGBA>) {
-        with_rgba!(c, |p| unsafe { ffi::awra_badge_set_color(ptr!(self), p) })
+    pub fn set_custom_color(&self, c: &RGBA) {
+        with_rgba!(Some(c), |p| unsafe { ffi::awra_badge_set_color(ptr!(self), p) })
+    }
+    pub fn unset_custom_color(&self) {
+        unsafe { ffi::awra_badge_set_color(ptr!(self), std::ptr::null()) }
+    }
+    pub fn set_text(&self, label: &str) {
+        self.set_label(label)
     }
     /// Awra 1 badges with an action were clickable chips.
     pub fn connect_activated<F: Fn(&Badge, ModifierType) + 'static>(&self, f: F) -> SignalHandlerId {
@@ -1741,6 +1799,8 @@ impl Default for EmptyState {
 
 awra_wrapper!(LoadingState, ["AwraBox"]);
 impl LoadingState {
+    /// The spinner runs while shown.
+    pub fn set_active(&self, _active: bool) {}
     pub fn new() -> LoadingState {
         unsafe { LoadingState::from_full(ffi::awra_loading_state_new(std::ptr::null(), std::ptr::null())) }
     }
@@ -1782,6 +1842,10 @@ impl Default for Spinner {
 
 awra_wrapper!(ProgressBar, ["AwraProgressBar"]);
 impl ProgressBar {
+    /// Awra 1: the inner GTK widget; here the widget itself.
+    pub fn delegate(&self) -> ProgressBar {
+        self.clone()
+    }
     pub fn new() -> ProgressBar {
         unsafe { ProgressBar::from_full(ffi::awra_progress_bar_new()) }
     }
@@ -1925,8 +1989,14 @@ impl NavigationItem {
         let b = OptC::new(b);
         unsafe { ffi::awra_navigation_item_set_badge(ptr!(self), b.ptr()) }
     }
-    pub fn set_group(&self, g: Option<&NavigationItem>) {
-        unsafe { ffi::awra_navigation_item_set_group(ptr!(self), g.map_or(std::ptr::null_mut(), |g| g.0.as_ptr())) }
+    pub fn set_group(&self, g: &NavigationItem) {
+        unsafe { ffi::awra_navigation_item_set_group(ptr!(self), g.0.as_ptr()) }
+    }
+    pub fn set_suffix(&self, w: impl IntoOptWidget) {
+        unsafe { ffi::awra_container_add(ptr!(self), w.into_opt_ptr()) }
+    }
+    pub fn connect_selected_notify<F: Fn(&NavigationItem) + 'static>(&self, f: F) -> SignalHandlerId {
+        self.0.connect_typed::<NavigationItem, _>(sig::TOGGLED, move |w, _| f(w))
     }
     pub fn connect_activated<F: Fn(&NavigationItem) + 'static>(&self, f: F) -> SignalHandlerId {
         self.0.connect_typed::<NavigationItem, _>(sig::CLICKED, move |w, _| f(w))
@@ -1988,8 +2058,18 @@ impl ToastOverlay {
         let m = cstring(message);
         unsafe { ffi::awra_toast_overlay_show(ptr!(self), m.as_ptr(), timeout) }
     }
-    /// A toast with an action button.
-    pub fn show_with_action<F: Fn() + 'static>(&self, message: &str, action: &str, timeout: u32, f: F) -> u32 {
+    /// A toast whose button activates `action` ("win.undo").
+    pub fn show_with_action(&self, message: &str, label: &str, action: Option<&str>, timeout: u32) -> u32 {
+        let owner = self.0.downgrade();
+        let action = action.map(str::to_owned);
+        self.show_with_callback(message, label, timeout, move || {
+            if let (Some(owner), Some(action)) = (owner.upgrade(), action.as_deref()) {
+                crate::gio::activate_action(&owner, action, None);
+            }
+        })
+    }
+    /// A toast with a button running `f`.
+    pub fn show_with_callback<F: Fn() + 'static>(&self, message: &str, action: &str, timeout: u32, f: F) -> u32 {
         let (m, a) = (cstring(message), cstring(action));
         // the closure lives with the overlay (toasts are short lived)
         let data: std::boxed::Box<ToastAction> = std::boxed::Box::new(std::boxed::Box::new(f));
@@ -2099,6 +2179,9 @@ impl Dialog {
         if let Some(p) = parent {
             d.0.set_rust_data("dialog-parent", p.downgrade());
         }
+        if let Ok(w) = d.0.clone().downcast::<crate::Window>() {
+            crate::window::window_added(&w);
+        }
         d
     }
     pub fn set_title(&self, t: impl IntoOptStr) {
@@ -2160,6 +2243,9 @@ impl KeyCap {
     }
     pub fn code(&self) -> Option<String> {
         unsafe { from_cstr_opt(ffi::awra_key_cap_code(ptr!(self))) }
+    }
+    pub fn key_code(&self) -> Option<String> {
+        self.code()
     }
     pub fn set_label(&self, l: impl IntoOptStr) {
         let l = OptC::new(l);
@@ -2232,6 +2318,10 @@ fn c_list(p: *const *const c_char) -> Vec<String> {
     out
 }
 impl KeyboardView {
+    /// Awra 1: the inner GTK widget; here the widget itself.
+    pub fn delegate(&self) -> KeyboardView {
+        self.clone()
+    }
     pub fn new() -> KeyboardView {
         unsafe { KeyboardView::from_full(ffi::awra_keyboard_view_new(0)) }
     }
@@ -2252,6 +2342,12 @@ impl KeyboardView {
     }
     pub fn set_selection_mode(&self, m: SelectionMode) {
         unsafe { ffi::awra_keyboard_view_set_selection_mode(ptr!(self), m as _) }
+    }
+    /// Awra 1 property names ("keys-movable").
+    pub fn set_property(&self, name: &str, value: bool) {
+        if name == "keys-movable" {
+            self.set_keys_movable(value)
+        }
     }
     pub fn set_keys_movable(&self, m: bool) {
         unsafe { ffi::awra_keyboard_view_set_keys_movable(ptr!(self), m) }
@@ -2311,6 +2407,10 @@ impl Default for KeyboardView {
 
 awra_wrapper!(WaveformView, ["AwraWaveformView"]);
 impl WaveformView {
+    /// Awra 1: the inner GTK widget; here the widget itself.
+    pub fn delegate(&self) -> WaveformView {
+        self.clone()
+    }
     pub fn new() -> WaveformView {
         unsafe { WaveformView::from_full(ffi::awra_waveform_view_new()) }
     }

@@ -718,6 +718,7 @@ AwraWidget *awra_menu_button_new(void)
   awra_widget_set_data(b, "awra-menu-button", m, mb_free);
   awra_signal_connect(b, AWRA_SIGNAL_CLICKED, mb_clicked, NULL, NULL);
   awra_button_set_icon_name(b, "open-menu-symbolic");
+  awra_widget_isolate_expand(b);
   return b;
 }
 
@@ -925,6 +926,7 @@ AwraWidget *awra_dropdown_new(const char *const *items, int n)
   if (n > 0) {
     awra_dropdown_set_selected(w, 0);
   }
+  awra_widget_isolate_expand(w);
   return w;
 }
 
@@ -1035,7 +1037,7 @@ static void toast_allocate(AwraWidget *w)
 static AwraClass toast_overlay_class = {
     .bk = AWRA_BK("AwraToastOverlay", 0),
     .type = "AwraToastOverlay",
-    .flags = AWRA_CLASS_CONTAINER | AWRA_CLASS_CLIP,
+    .flags = AWRA_CLASS_CONTAINER | AWRA_CLASS_CLIP | AWRA_CLASS_EXPAND_ISOLATED,
     .ext_size = sizeof(ToastExt),
     .measure = toast_measure,
     .allocate = toast_allocate,

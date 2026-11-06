@@ -221,6 +221,12 @@ impl Widget {
             self.add_css_class(c);
         }
     }
+    /// (minimum, natural, -1, -1) in an orientation (gtk's measure).
+    pub fn measure(&self, orientation: Orientation, for_size: i32) -> (i32, i32, i32, i32) {
+        let (mut mn, mut nt) = (0, 0);
+        unsafe { ffi::awra_widget_measure(self.as_ptr(), orientation as _, for_size, &mut mn, &mut nt) };
+        (mn, nt, -1, -1)
+    }
     pub fn width(&self) -> i32 {
         unsafe { ffi::awra_widget_width(self.as_ptr()) }
     }

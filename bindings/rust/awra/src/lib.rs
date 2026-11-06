@@ -43,6 +43,10 @@ pub mod prelude {
     pub use crate::gio::ToVariant;
     pub use crate::object::{IsWidget, StaticType};
     pub use crate::widget::{Cast, Controller};
+
+    /// gtk-rs's `IsA<T>` bound: anything that is a `T`.
+    pub trait IsA<T>: AsRef<T> + Clone {}
+    impl<T, U: AsRef<T> + Clone> IsA<T> for U {}
 }
 
 fn init_with_id(id: &str) {
@@ -193,6 +197,17 @@ pub fn radius(r: Radius) -> i32 {
 
 /// The label the current keyboard layout prints on a physical key ("KeyQ"
 /// → "A" on AZERTY).
+/// Calls `f` whenever the keyboard layout changes.
+pub fn connect_keyboard_layout_changed<F: Fn() + 'static>(f: F) {
+    type LayoutFn = StdBox<dyn Fn()>;
+    unsafe extern "C" fn tramp(data: *mut c_void) {
+        let f = &*(data as *const LayoutFn);
+        f()
+    }
+    let data: StdBox<LayoutFn> = StdBox::new(StdBox::new(f));
+    unsafe { ffi::awra_keyboard_connect_layout_changed(Some(tramp), StdBox::into_raw(data) as *mut c_void) }
+}
+
 pub fn key_code_label(code: &str) -> Option<String> {
     let c = object::cstring(code);
     unsafe { object::from_cstr_opt(ffi::awra_key_code_label(c.as_ptr())) }

@@ -598,6 +598,8 @@ typedef struct BKTooltipHooks {
 extern BKTooltipHooks bk_tooltip_hooks;
 /* BUI-Awra: set by the window hosts (BK_last_key_code, BK_key_label) */
 extern int bk_last_key_code;
+/* Called by hosts when the keyboard layout changes. */
+extern void (*bk_layout_hook)(void);
 extern const char *(*bk_key_label_fn)(int evdev);
 
 /* Applies BUI_THEME the first time a theme is needed (unless BK_set_theme ran). */

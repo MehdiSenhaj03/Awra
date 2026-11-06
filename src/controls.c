@@ -150,7 +150,7 @@ static void check_finalize(AwraWidget *w)
 static AwraClass check_class = {
     .bk = AWRA_BK("AwraCheckButton", CLS_INTERACTIVE),
     .type = "AwraCheckButton",
-    .flags = AWRA_CLASS_HOVER | AWRA_CLASS_FOCUSABLE | AWRA_CLASS_ACTIVATABLE,
+    .flags = AWRA_CLASS_HOVER | AWRA_CLASS_FOCUSABLE | AWRA_CLASS_ACTIVATABLE | AWRA_CLASS_EXPAND_ISOLATED,
     .ext_size = sizeof(CheckExt),
     .init = check_init,
     .finalize = check_finalize,
@@ -313,7 +313,7 @@ static int switch_release(AwraWidget *w, BKEvent *e)
 static AwraClass switch_class = {
     .bk = AWRA_BK("AwraSwitch", CLS_INTERACTIVE),
     .type = "AwraSwitch",
-    .flags = AWRA_CLASS_FOCUSABLE | AWRA_CLASS_ACTIVATABLE,
+    .flags = AWRA_CLASS_FOCUSABLE | AWRA_CLASS_ACTIVATABLE | AWRA_CLASS_EXPAND_ISOLATED,
     .ext_size = sizeof(SwitchExt),
     .measure = switch_measure,
     .draw = switch_draw,
@@ -507,7 +507,7 @@ static bool slider_set_double(AwraWidget *w, const char *name, double v)
 AwraClass awra_slider_class = {
     .bk = AWRA_BK("AwraSlider", CLS_INTERACTIVE),
     .type = "AwraSlider",
-    .flags = AWRA_CLASS_FOCUSABLE,
+    .flags = AWRA_CLASS_FOCUSABLE | AWRA_CLASS_EXPAND_ISOLATED,
     .ext_size = sizeof(SliderExt),
     .measure = slider_measure,
     .draw = slider_draw,
@@ -628,6 +628,7 @@ AwraWidget *awra_volume_control_new(void)
   awra_signal_connect(x->button, AWRA_SIGNAL_CLICKED, volume_button_clicked, w, NULL);
   awra_slider_set_value(x->slider, 1.0);
   volume_sync(w);
+  awra_widget_isolate_expand(w);
   return w;
 }
 
@@ -688,7 +689,7 @@ static void seg_allocate(AwraWidget *w)
 static AwraClass seg_class = {
     .bk = AWRA_BK("AwraSegmentedControl", 0),
     .type = "AwraSegmentedControl",
-    .flags = AWRA_CLASS_CONTAINER,
+    .flags = AWRA_CLASS_CONTAINER | AWRA_CLASS_EXPAND_ISOLATED,
     .ext_size = sizeof(SegExt),
     .measure = seg_measure,
     .allocate = seg_allocate,
@@ -808,6 +809,7 @@ static void prog_finalize(AwraWidget *w)
 static AwraClass prog_class = {
     .bk = AWRA_BK("AwraProgressBar", 0),
     .type = "AwraProgressBar",
+    .flags = AWRA_CLASS_EXPAND_ISOLATED,
     .ext_size = sizeof(ProgExt),
     .finalize = prog_finalize,
     .measure = prog_measure,
@@ -928,6 +930,7 @@ static void spinner_finalize(AwraWidget *w)
 static AwraClass spinner_class = {
     .bk = AWRA_BK("AwraSpinner", 0),
     .type = "AwraSpinner",
+    .flags = AWRA_CLASS_EXPAND_ISOLATED,
     .ext_size = sizeof(SpinnerExt),
     .finalize = spinner_finalize,
     .measure = spinner_measure,

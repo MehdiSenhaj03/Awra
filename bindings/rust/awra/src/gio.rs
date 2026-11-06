@@ -449,3 +449,48 @@ impl Application {
         crate::quit();
     }
 }
+
+/// A desktop notification (notify-send on Linux; Windows applications
+/// use their tray icon).
+#[derive(Debug, Clone, Default)]
+pub struct Notification {
+    title: String,
+    body: Option<String>,
+}
+
+impl Notification {
+    pub fn new(title: &str) -> Notification {
+        Notification { title: title.to_owned(), body: None }
+    }
+    pub fn set_body(&mut self, body: Option<&str>) {
+        self.body = body.map(str::to_owned);
+    }
+}
+
+impl Application {
+    /// Shows a notification; false when the desktop has no way to.
+    pub fn send_notification(&self, _id: Option<&str>, n: &Notification) -> bool {
+        #[cfg(unix)]
+        {
+            let Some(prog) = crate::glib::find_program_in_path("notify-send") else {
+                return false;
+            };
+            let mut cmd = std::process::Command::new(prog);
+            cmd.arg("--app-name").arg(&self.0.id).arg(&n.title);
+            if let Some(b) = &n.body {
+                cmd.arg(b);
+            }
+            cmd.stdin(std::process::Stdio::null()).stdout(std::process::Stdio::null()).stderr(std::process::Stdio::null());
+            return cmd.spawn().map(|mut c| {
+                std::thread::spawn(move || {
+                    let _ = c.wait();
+                });
+            }).is_ok();
+        }
+        #[allow(unreachable_code)]
+        {
+            let _ = n;
+            false
+        }
+    }
+}

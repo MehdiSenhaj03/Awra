@@ -301,6 +301,10 @@ void awra_widget_set_margin_end(AwraWidget *widget, int margin);
 void awra_widget_set_margin(AwraWidget *widget, AwraSpacing spacing);
 void awra_widget_set_size_request(AwraWidget *widget, int width, int height);
 void awra_widget_get_size_request(const AwraWidget *widget, int *width, int *height);
+/* Minimum and natural size in an orientation (for_size: the other one, -1
+ * none), logical pixels. */
+void awra_widget_measure(AwraWidget *widget, AwraOrientation orientation, int for_size,
+                         int *minimum, int *natural);
 void awra_widget_set_tooltip(AwraWidget *widget, const char *text);
 void awra_widget_set_typography(AwraWidget *widget, AwraTypography typography);
 void awra_widget_set_opacity(AwraWidget *widget, double opacity);
@@ -949,6 +953,8 @@ void awra_file_dialog_save(AwraWidget *parent, const char *title, const char *in
 /* Physical keys (W3C KeyboardEvent.code names, "KeyQ"): the label the
  * current layout prints on it ("A" on AZERTY), NULL when unknown. */
 const char *awra_key_code_label(const char *code);
+/* Calls fn(data) after the keyboard layout changed (labels to refresh). */
+void awra_keyboard_connect_layout_changed(void (*fn)(void *data), void *data);
 
 /* The clipboard of the widget's window (malloc'd UTF-8, free with
  * awra_free; NULL when empty). */

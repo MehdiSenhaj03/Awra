@@ -2113,6 +2113,7 @@ static float tooltip_text(BKContext *ctx, const BKRect *r, float *r_w)
 BKTooltipHooks bk_tooltip_hooks = {NULL, NULL};
 
 int bk_last_key_code = 0;
+void (*bk_layout_hook)(void) = NULL;
 const char *(*bk_key_label_fn)(int evdev) = NULL;
 
 int BK_drop(BKContext *ctx, int kind, int x, int y, const char *uris)

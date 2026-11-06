@@ -1103,6 +1103,9 @@ static void keyboard_keymap(void *data, struct wl_keyboard *k, uint32_t format, 
   }
   g_keymap = km;
   g_xkb_state = xkb_state_new(km);
+  if (bk_layout_hook) {
+    bk_layout_hook();
+  }
 }
 static void keyboard_enter(void *data, struct wl_keyboard *k, uint32_t serial, struct wl_surface *s,
                            struct wl_array *keys)
@@ -1174,10 +1177,17 @@ static void keyboard_key(void *data, struct wl_keyboard *k, uint32_t serial, uin
 static void keyboard_modifiers(void *data, struct wl_keyboard *k, uint32_t serial, uint32_t dep,
                                uint32_t lat, uint32_t lock, uint32_t group)
 {
+  static uint32_t last_group = 0;
   if (g_xkb_state) {
     xkb_state_update_mask(g_xkb_state, dep, lat, lock, 0, 0, group);
   }
   update_mods();
+  if (group != last_group) {
+    last_group = group;
+    if (bk_layout_hook) {
+      bk_layout_hook();
+    }
+  }
 }
 static void keyboard_repeat_info(void *data, struct wl_keyboard *k, int32_t rate, int32_t delay)
 {

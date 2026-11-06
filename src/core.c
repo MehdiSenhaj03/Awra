@@ -1068,6 +1068,21 @@ void awra_widget_set_margin(AwraWidget *w, AwraSpacing s)
   awra_widget_set_margins(w, m, m, m, m);
 }
 
+void awra_widget_measure(AwraWidget *w, AwraOrientation o, int for_size, int *mn, int *nt)
+{
+  int a = 0, b = 0;
+  if (w && awra_is_widget(w)) {
+    awra_measure(w, o, for_size >= 0 ? awra_px(for_size) : -1, &a, &b);
+  }
+  const double s = awra_scale();
+  if (mn) {
+    *mn = (int)(a / s + 0.5);
+  }
+  if (nt) {
+    *nt = (int)(b / s + 0.5);
+  }
+}
+
 void awra_widget_get_size_request(const AwraWidget *w, int *width, int *height)
 {
   const AwraAux *a = w && awra_is_widget(w) ? awra_aux(w) : NULL;
@@ -1382,6 +1397,14 @@ double awra_widget_get_property_double(AwraWidget *w, const char *name)
 /* ======================================================================= */
 /* Layout */
 
+void awra_widget_isolate_expand(AwraWidget *w)
+{
+  if (awra_is_widget(w)) {
+    awra_aux(w)->expand_isolated = 1;
+    awra_aux(w)->expand_valid = 0;
+  }
+}
+
 bool awra_compute_expand(AwraWidget *w, int orientation)
 {
   if (!awra_is_widget(w)) {
@@ -1399,7 +1422,9 @@ bool awra_compute_expand(AwraWidget *w, int orientation)
   }
   if (!a->expand_valid) {
     bool h = false, v = false;
-    for (int i = 0; i < w->nkids; i++) {
+    const bool isolated = a->expand_isolated ||
+                          (AWRA_CLASS_OF(w)->flags & AWRA_CLASS_EXPAND_ISOLATED);
+    for (int i = 0; !isolated && i < w->nkids; i++) {
       h |= awra_compute_expand(w->kids[i], AWRA_ORIENTATION_HORIZONTAL);
       v |= awra_compute_expand(w->kids[i], AWRA_ORIENTATION_VERTICAL);
     }

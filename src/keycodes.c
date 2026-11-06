@@ -162,3 +162,28 @@ const char *awra_key_code_label(const char *code)
   }
   return code;
 }
+
+typedef struct LayoutListener {
+  void (*fn)(void *);
+  void *data;
+} LayoutListener;
+static LayoutListener g_layout[16];
+static int g_nlayout = 0;
+
+static void layout_changed(void)
+{
+  for (int i = 0; i < g_nlayout; i++) {
+    g_layout[i].fn(g_layout[i].data);
+  }
+}
+
+void awra_keyboard_connect_layout_changed(void (*fn)(void *data), void *data)
+{
+  if (!fn || g_nlayout >= (int)(sizeof(g_layout) / sizeof(g_layout[0]))) {
+    return;
+  }
+  g_layout[g_nlayout].fn = fn;
+  g_layout[g_nlayout].data = data;
+  g_nlayout++;
+  bk_layout_hook = layout_changed;
+}

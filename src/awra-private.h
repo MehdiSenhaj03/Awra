@@ -34,6 +34,9 @@ enum {
   AWRA_CLASS_ACTIVATABLE = 1 << 4, /* Return / Space activate it (clicked) */
   AWRA_CLASS_TEXT_INPUT = 1 << 5,  /* has the text cursor and key focus when clicked */
   AWRA_CLASS_POPUP = 1 << 6,       /* shown above the window content (kit popups) */
+  /* expand is not computed from the children (a GtkWidget subclass without
+   * compute_expand, as Awra 1's components were) */
+  AWRA_CLASS_EXPAND_ISOLATED = 1 << 7,
 };
 
 typedef struct AwraClass AwraClass;
@@ -139,7 +142,7 @@ typedef struct AwraAux {
   unsigned hexpand : 1, vexpand : 1, hexpand_set : 1, vexpand_set : 1;
   unsigned can_target : 1, focusable_set : 1, focusable : 1;
   unsigned hovered : 1, pressed : 1, focus_visible : 1, mapped : 1, destroyed : 1;
-  unsigned typography_set : 1, in_dispose : 1;
+  unsigned typography_set : 1, in_dispose : 1, expand_isolated : 1;
   unsigned char typography;
   float opacity;
   /* measurement cache: [orientation] for one for_size each */
@@ -164,6 +167,9 @@ static inline AwraAux *awra_aux(const AwraWidget *w)
   return (AwraAux *)w->aux;
 }
 bool awra_is_widget(const BKNode *n); /* an Awra widget (has the aux) */
+/* Composites standing for Awra 1's GtkWidget subclasses: their expand is
+ * not computed from their children. */
+void awra_widget_isolate_expand(AwraWidget *w);
 
 /* Creating widgets of a class. */
 AwraWidget *awra_widget_new(const AwraClass *cls);

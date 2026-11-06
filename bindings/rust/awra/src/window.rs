@@ -72,16 +72,44 @@ pub fn accel_label(accel: &str) -> String {
     out.join("+")
 }
 
+thread_local! {
+    static WINDOW_ADDED: std::cell::RefCell<Vec<std::rc::Rc<dyn Fn(&Window)>>> = const { std::cell::RefCell::new(Vec::new()) };
+}
+
+/// Tells window-added listeners about a new window (dialogs included).
+pub(crate) fn window_added(w: &Window) {
+    let listeners: Vec<_> = WINDOW_ADDED.with(|l| l.borrow().clone());
+    for f in listeners {
+        f(w);
+    }
+}
+
 impl Window {
     /// A new window of `application` (registers its accelerators).
     pub fn new(application: &crate::gio::Application) -> Window {
-        let w = Window::with_title("", 800, 600);
+        let t = cstring("");
+        let w = unsafe { Window::from_full(ffi::awra_window_new(t.as_ptr(), 800, 600)) };
         application.add_window(&w.0);
+        window_added(&w);
         w
     }
     pub fn with_title(title: &str, width: i32, height: i32) -> Window {
         let t = cstring(title);
-        unsafe { Window::from_full(ffi::awra_window_new(t.as_ptr(), width, height)) }
+        let w = unsafe { Window::from_full(ffi::awra_window_new(t.as_ptr(), width, height)) };
+        window_added(&w);
+        w
+    }
+    /// Calls `f` for every window created from now on.
+    pub fn connect_window_added<F: Fn(&Window) + 'static>(f: F) {
+        WINDOW_ADDED.with(|l| l.borrow_mut().push(std::rc::Rc::new(f)));
+    }
+    /// The keyboard focus moved.
+    pub fn connect_focus_widget_notify<F: Fn(&Window) + 'static>(&self, f: F) -> SignalHandlerId {
+        self.0.connect_typed::<Window, _>(sig::NOTIFY, move |w, a| {
+            if a.text().as_deref() == Some("focus") {
+                f(w)
+            }
+        })
     }
     /// A window rendered offscreen (tests, benchmarks).
     pub fn offscreen(title: &str, width: i32, height: i32, scale: f64) -> Window {

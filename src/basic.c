@@ -203,6 +203,7 @@ static const char *label_get_string(AwraWidget *w, const char *name)
 static AwraClass label_class = {
     .bk = AWRA_BK("AwraLabel", 0),
     .type = "AwraLabel",
+    .flags = AWRA_CLASS_EXPAND_ISOLATED,
     .ext_size = sizeof(LabelExt),
     .init = label_init,
     .finalize = label_finalize,
@@ -496,6 +497,7 @@ static void image_draw(AwraWidget *w, AwraDraw *d)
 static AwraClass image_class = {
     .bk = AWRA_BK("AwraImage", 0),
     .type = "AwraImage",
+    .flags = AWRA_CLASS_EXPAND_ISOLATED,
     .ext_size = sizeof(ImageExt),
     .finalize = image_finalize,
     .measure = image_measure,

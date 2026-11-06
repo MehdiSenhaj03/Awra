@@ -14,6 +14,9 @@ use std::time::Duration;
 
 use crate::ffi;
 
+pub use crate::gio::VariantTy;
+pub use crate::signal::SignalHandlerId;
+
 /// Keep a repeating source, or stop it.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ControlFlow {

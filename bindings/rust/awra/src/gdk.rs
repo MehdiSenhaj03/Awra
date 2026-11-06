@@ -5,6 +5,8 @@ use std::sync::Mutex;
 
 use crate::ffi;
 
+pub use crate::widgets::Rectangle;
+
 /// A color with straight alpha, components 0..1.
 #[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub struct RGBA {

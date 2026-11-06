@@ -302,6 +302,7 @@ static void sep_draw(AwraWidget *w, AwraDraw *d)
 static AwraClass sep_class = {
     .bk = AWRA_BK("AwraSeparator", 0),
     .type = "AwraSeparator",
+    .flags = AWRA_CLASS_EXPAND_ISOLATED,
     .ext_size = sizeof(SepExt),
     .measure = sep_measure,
     .draw = sep_draw,
@@ -573,125 +574,217 @@ static bool flow_shown(AwraWidget *f, AwraWidget *c)
   return !x->filter || x->filter(c, x->filter_data);
 }
 
-static void flow_child_size(AwraWidget *f, int *r_min_w, int *r_nat_w, int *r_n)
+/* GtkFlowBoxChild's padding in GTK's default theme (flowboxchild { padding: 3px }) */
+#define FLOW_PAD awra_px(3)
+#define FLOW_MAX_ITEMS 64
+
+/* The shown children with their widths (padding included). */
+typedef struct FlowItems {
+  AwraWidget *c[FLOW_MAX_ITEMS * 4];
+  int min[FLOW_MAX_ITEMS * 4], nat[FLOW_MAX_ITEMS * 4];
+  int n, max_min, max_nat;
+} FlowItems;
+
+static void flow_items(AwraWidget *f, FlowItems *it)
 {
-  int mw = 0, nw = 0, n = 0;
-  for (int i = 0; i < f->nkids; i++) {
+  it->n = it->max_min = it->max_nat = 0;
+  for (int i = 0; i < f->nkids && it->n < FLOW_MAX_ITEMS * 4; i++) {
     AwraWidget *c = f->kids[i];
     if (!flow_shown(f, c)) {
       continue;
     }
     int cm, cn;
     awra_measure(c, AWRA_ORIENTATION_HORIZONTAL, -1, &cm, &cn);
-    mw = BK_MAX(mw, cm);
-    nw = BK_MAX(nw, cn);
-    n++;
+    it->c[it->n] = c;
+    it->min[it->n] = cm + 2 * FLOW_PAD;
+    it->nat[it->n] = cn + 2 * FLOW_PAD;
+    it->max_min = BK_MAX(it->max_min, it->min[it->n]);
+    it->max_nat = BK_MAX(it->max_nat, it->nat[it->n]);
+    it->n++;
   }
-  *r_min_w = mw;
-  *r_nat_w = nw;
-  *r_n = n;
 }
 
-/* GtkFlowBox (homogeneous or not): how many children per line for a width */
-static int flow_columns(AwraWidget *f, int width)
+static int flow_max_items(const FlowExt *x)
+{
+  return x->max_per_line > 0 ? x->max_per_line : 7; /* GTK's default */
+}
+
+/* gather_aligned_item_requests: column sizes for a line length; returns
+ * the natural line size */
+static int flow_gather(const FlowItems *it, int len, int cs, int *mins, int *nats)
+{
+  for (int k = 0; k < len; k++) {
+    mins[k] = nats[k] = 0;
+  }
+  for (int i = 0; i < it->n; i++) {
+    const int k = i % len;
+    mins[k] = BK_MAX(mins[k], it->min[i]);
+    nats[k] = BK_MAX(nats[k], it->nat[i]);
+  }
+  int line = (len - 1) * cs;
+  for (int k = 0; k < len; k++) {
+    line += nats[k];
+  }
+  return line;
+}
+
+/* The flow for a width (gtk_flow_box_size_allocate / measure): items per
+ * line and each column's width. */
+static int flow_plan(AwraWidget *f, const FlowItems *it, int avail, int *cols)
 {
   const FlowExt *x = AWRA_EXT(f, FlowExt);
-  int mw, nw, n;
-  flow_child_size(f, &mw, &nw, &n);
-  if (n == 0) {
+  const int cs = awra_px(x->col_spacing);
+  const int min_items = BK_MAX(1, x->min_per_line);
+  const int max_items = BK_MIN(flow_max_items(x), FLOW_MAX_ITEMS);
+  if (it->n == 0 || it->max_nat <= 0) {
     return 1;
   }
-  const int cs = awra_px(x->col_spacing);
-  const int maxl = x->max_per_line > 0 ? x->max_per_line : n;
-  const int minl = BK_MAX(1, x->min_per_line);
-  int cols = (width + cs) / BK_MAX(1, mw + cs);
-  cols = BK_CLAMP(cols, minl, BK_MAX(minl, maxl));
-  return BK_MIN(cols, BK_MAX(1, n));
+  int len = avail / (it->max_nat + cs);
+  if (len * cs + (len + 1) * it->max_nat <= avail) {
+    len++;
+  }
+  len = BK_MAX(min_items, len);
+  len = BK_MIN(len, max_items);
+  len = BK_MAX(1, len);
+  if (x->homogeneous) {
+    const int size = (avail - (len - 1) * cs) / len;
+    const int extra = avail - (len - 1) * cs - size * len;
+    for (int k = 0; k < len; k++) {
+      cols[k] = size + extra / len + (k < extra % len ? 1 : 0);
+    }
+    return len;
+  }
+  /* fit_aligned_item_requests */
+  int mins[FLOW_MAX_ITEMS], nats[FLOW_MAX_ITEMS];
+  int tmin[FLOW_MAX_ITEMS], tnat[FLOW_MAX_ITEMS];
+  int line = flow_gather(it, len, cs, mins, nats);
+  for (int t = len + 1; line < avail && t <= FLOW_MAX_ITEMS; t++) {
+    line = flow_gather(it, t, cs, tmin, tnat);
+    if (line <= avail && max_items >= t) {
+      len = t;
+      memcpy(mins, tmin, sizeof(int) * (size_t)t);
+      memcpy(nats, tnat, sizeof(int) * (size_t)t);
+    }
+    else {
+      break;
+    }
+  }
+  int rest = avail - (len - 1) * cs;
+  for (int k = 0; k < len; k++) {
+    rest -= mins[k];
+  }
+  int extra = 0;
+  if (rest > 0) {
+    extra = awra_distribute(rest, len, mins, nats);
+  }
+  /* halign fill (the default): the rest is shared by the items */
+  for (int k = 0; k < len; k++) {
+    cols[k] = mins[k] + extra / len + (k < extra % len ? 1 : 0);
+  }
+  return len;
+}
+
+/* Height of each line for the columns. */
+static int flow_line_heights(const FlowItems *it, int len, const int *cols, int *mins, int *nats)
+{
+  const int lines = (it->n + len - 1) / len;
+  for (int l = 0; l < lines; l++) {
+    mins[l] = nats[l] = 0;
+  }
+  for (int i = 0; i < it->n; i++) {
+    int cm, cn;
+    awra_measure(it->c[i], AWRA_ORIENTATION_VERTICAL, BK_MAX(0, cols[i % len] - 2 * FLOW_PAD), &cm, &cn);
+    mins[i / len] = BK_MAX(mins[i / len], cm + 2 * FLOW_PAD);
+    nats[i / len] = BK_MAX(nats[i / len], cn + 2 * FLOW_PAD);
+  }
+  return lines;
 }
 
 static void flow_measure(AwraWidget *f, int o, int for_size, int *r_min, int *r_nat)
 {
   const FlowExt *x = AWRA_EXT(f, FlowExt);
-  int mw, nw, n;
-  flow_child_size(f, &mw, &nw, &n);
   const int cs = awra_px(x->col_spacing), rs = awra_px(x->row_spacing);
-  if (n == 0) {
-    *r_min = *r_nat = 0;
+  FlowItems *it = (FlowItems *)malloc(sizeof(FlowItems));
+  flow_items(f, it);
+  *r_min = *r_nat = 0;
+  if (it->n == 0) {
+    free(it);
     return;
   }
-  const int minl = BK_MAX(1, x->min_per_line);
-  const int maxl = x->max_per_line > 0 ? BK_MIN(x->max_per_line, n) : n;
+  const int min_items = BK_MAX(1, x->min_per_line);
+  const int nat_items = BK_MAX(min_items, flow_max_items(x));
+  int mins[FLOW_MAX_ITEMS], nats[FLOW_MAX_ITEMS];
+  /* widths */
+  int min_w, nat_w;
+  if (x->homogeneous) {
+    min_w = it->max_min * min_items + (min_items - 1) * cs;
+    nat_w = it->max_nat * nat_items + (nat_items - 1) * cs;
+  }
+  else {
+    flow_gather(it, BK_MIN(min_items, FLOW_MAX_ITEMS), cs, mins, nats);
+    min_w = (BK_MIN(min_items, FLOW_MAX_ITEMS) - 1) * cs;
+    for (int k = 0; k < BK_MIN(min_items, FLOW_MAX_ITEMS); k++) {
+      min_w += mins[k];
+    }
+    nat_w = flow_gather(it, BK_MIN(nat_items, FLOW_MAX_ITEMS), cs, mins, nats);
+  }
   if (o == AWRA_ORIENTATION_HORIZONTAL) {
-    *r_min = mw * BK_MIN(minl, n) + cs * (BK_MIN(minl, n) - 1);
-    *r_nat = nw * maxl + cs * (maxl - 1);
+    /* GTK counts the empty columns of lines longer than the children */
+    *r_min = min_w;
+    *r_nat = nat_w;
+    free(it);
     return;
   }
-  const int cols = for_size >= 0 ? flow_columns(f, for_size) : maxl;
-  const int cw = for_size >= 0 ? (for_size - cs * (cols - 1)) / cols : nw;
-  int total_m = 0, total_n = 0, row_m = 0, row_n = 0, k = 0;
-  for (int i = 0; i < f->nkids; i++) {
-    AwraWidget *c = f->kids[i];
-    if (!flow_shown(f, c)) {
-      continue;
-    }
-    int cm, cn;
-    awra_measure(c, AWRA_ORIENTATION_VERTICAL, cw, &cm, &cn);
-    row_m = BK_MAX(row_m, cm);
-    row_n = BK_MAX(row_n, cn);
-    if (++k % cols == 0) {
-      total_m += row_m + rs;
-      total_n += row_n + rs;
-      row_m = row_n = 0;
-    }
+  /* height for a width (the natural width when none is given) */
+  const int avail = BK_MAX(for_size >= 0 ? for_size : nat_w, min_w);
+  int cols[FLOW_MAX_ITEMS];
+  const int len = flow_plan(f, it, avail, cols);
+  const int lines = flow_line_heights(it, len, cols, mins, nats);
+  for (int l = 0; l < lines; l++) {
+    *r_min += mins[l] + (l ? rs : 0);
+    *r_nat += nats[l] + (l ? rs : 0);
   }
-  if (k % cols) {
-    total_m += row_m + rs;
-    total_n += row_n + rs;
-  }
-  *r_min = BK_MAX(0, total_m - rs);
-  *r_nat = BK_MAX(0, total_n - rs);
+  free(it);
 }
 
 static void flow_allocate(AwraWidget *f)
 {
   const FlowExt *x = AWRA_EXT(f, FlowExt);
   const int cs = awra_px(x->col_spacing), rs = awra_px(x->row_spacing);
-  const int cols = flow_columns(f, f->w);
-  const int cw = (f->w - cs * (cols - 1)) / cols;
-  int rem_w = f->w - cs * (cols - 1) - cw * cols;
-  int y = f->y, k = 0;
-  /* rows: measure each row's height first */
-  int row_start = 0;
-  while (row_start < f->nkids) {
-    int row_h = 0, taken = 0, i = row_start;
-    for (; i < f->nkids && taken < cols; i++) {
-      AwraWidget *c = f->kids[i];
-      if (!flow_shown(f, c)) {
-        continue;
-      }
-      int cm, cn;
-      awra_measure(c, AWRA_ORIENTATION_VERTICAL, cw, &cm, &cn);
-      row_h = BK_MAX(row_h, cn);
-      taken++;
+  for (int i = 0; i < f->nkids; i++) {
+    AwraWidget *c = f->kids[i];
+    if (awra_child_visible(c) && !flow_shown(f, c)) {
+      c->w = c->h = 0; /* filtered out: nothing to draw or hit */
     }
-    int xx = f->x, col = 0;
-    for (int j = row_start; j < i; j++) {
-      AwraWidget *c = f->kids[j];
-      if (!flow_shown(f, c)) {
-        if (awra_child_visible(c)) {
-          c->w = c->h = 0; /* filtered out: nothing to draw or hit */
-        }
-        continue;
-      }
-      const int w = cw + (col < rem_w ? 1 : 0);
-      awra_allocate(c, xx, y, w, row_h);
-      xx += w + cs;
-      col++;
-      k++;
-    }
-    y += row_h + rs;
-    row_start = i;
   }
+  FlowItems *it = (FlowItems *)malloc(sizeof(FlowItems));
+  flow_items(f, it);
+  if (it->n == 0) {
+    free(it);
+    return;
+  }
+  int cols[FLOW_MAX_ITEMS], mins[FLOW_MAX_ITEMS * 4], nats[FLOW_MAX_ITEMS * 4];
+  const int len = flow_plan(f, it, f->w, cols);
+  const int lines = flow_line_heights(it, len, cols, mins, nats);
+  /* lines: their minimum, then the rest up to natural (valign fill: the
+   * leftover is shared) */
+  int rest = f->h - (lines - 1) * rs;
+  for (int l = 0; l < lines; l++) {
+    rest -= mins[l];
+  }
+  int extra = rest > 0 ? awra_distribute(rest, lines, mins, nats) : 0;
+  int y = f->y;
+  for (int l = 0; l < lines; l++) {
+    const int lh = mins[l] + extra / lines + (l < extra % lines ? 1 : 0);
+    int xx = f->x;
+    for (int k = 0; k < len && l * len + k < it->n; k++) {
+      awra_allocate(it->c[l * len + k], xx + FLOW_PAD, y + FLOW_PAD, BK_MAX(0, cols[k] - 2 * FLOW_PAD),
+                    BK_MAX(0, lh - 2 * FLOW_PAD));
+      xx += cols[k] + cs;
+    }
+    y += lh + rs;
+  }
+  free(it);
 }
 
 
@@ -828,7 +921,17 @@ static void stack_measure(AwraWidget *s, int o, int for_size, int *r_min, int *r
       continue;
     }
     int cm, cn;
+    /* pages the stack hides still count when homogeneous (GtkStack measures
+     * every visible child, shown or not) */
+    const bool page_hidden = !(c->flags & NF_VISIBLE) &&
+                             awra_widget_get_data(c, "awra-stack-hidden") != NULL;
+    if (page_hidden) {
+      c->flags |= NF_VISIBLE;
+    }
     awra_measure(c, o, for_size, &cm, &cn);
+    if (page_hidden) {
+      c->flags &= ~NF_VISIBLE;
+    }
     mn = BK_MAX(mn, cm);
     nt = BK_MAX(nt, cn);
   }
@@ -869,8 +972,14 @@ static void stack_sync_visibility(AwraWidget *s)
   for (int i = 0; i < s->nkids; i++) {
     AwraWidget *c = s->kids[i];
     const bool show = c == x->visible || c == x->previous;
-    if (((c->flags & NF_VISIBLE) != 0) != show) {
-      awra_widget_set_visible(c, show);
+    const bool stack_hidden = awra_widget_get_data(c, "awra-stack-hidden") != NULL;
+    if (show && stack_hidden) {
+      awra_widget_set_data(c, "awra-stack-hidden", NULL, NULL);
+      awra_widget_set_visible(c, true);
+    }
+    else if (!show && (c->flags & NF_VISIBLE)) {
+      awra_widget_set_data(c, "awra-stack-hidden", (void *)1, NULL);
+      awra_widget_set_visible(c, false);
     }
   }
 }
@@ -1078,27 +1187,34 @@ typedef struct ScrollExt {
 
 static void scroll_measure(AwraWidget *w, int o, int for_size, int *r_min, int *r_nat)
 {
+  /* gtk_scrolled_window_measure */
   ScrollExt *x = SX(w);
-  int cm = 0, cn = 0;
-  if (x->child) {
-    awra_measure(x->child, o, o == AWRA_ORIENTATION_VERTICAL ? for_size : -1, &cm, &cn);
-  }
-  if (o == AWRA_ORIENTATION_HORIZONTAL) {
-    *r_min = x->hpolicy == AWRA_POLICY_NEVER ? cm : 0;
-    *r_nat = x->prop_w || x->hpolicy == AWRA_POLICY_NEVER ? cn : *r_min;
-  }
-  else {
-    *r_min = x->vpolicy == AWRA_POLICY_NEVER ? cm : 0;
-    *r_nat = x->prop_h || x->vpolicy == AWRA_POLICY_NEVER ? cn : *r_min;
-    if (x->min_h > 0) {
-      *r_min = BK_MAX(*r_min, awra_px(x->min_h));
-      *r_nat = BK_MAX(*r_nat, *r_min);
+  const bool horizontal = o == AWRA_ORIENTATION_HORIZONTAL;
+  const bool prop = horizontal ? x->prop_w : x->prop_h;
+  const int policy = horizontal ? x->hpolicy : x->vpolicy;
+  int mn = 0, nat = 0;
+  if (x->child && (prop || policy == AWRA_POLICY_NEVER)) {
+    const int other = horizontal ? x->vpolicy : x->hpolicy;
+    int cm = 0, cn = 0;
+    awra_measure(x->child, o, for_size >= 0 && other == AWRA_POLICY_NEVER ? for_size : -1, &cm, &cn);
+    if (prop) {
+      nat = cn;
     }
-    if (x->max_h > 0 && x->prop_h) {
-      *r_nat = BK_MIN(*r_nat, awra_px(x->max_h));
-      *r_nat = BK_MAX(*r_nat, *r_min);
+    if (policy == AWRA_POLICY_NEVER) {
+      mn = cm;
+    }
+    else if (!horizontal) {
+      const int lo = x->min_h > 0 ? awra_px(x->min_h) : 0;
+      const int hi = x->max_h > 0 ? awra_px(x->max_h) : INT32_MAX;
+      mn = BK_CLAMP(mn, lo, hi);
+      nat = BK_CLAMP(nat, lo, hi);
     }
   }
+  else if (!horizontal && x->min_h > 0) {
+    mn = awra_px(x->min_h);
+  }
+  *r_min = mn;
+  *r_nat = BK_MAX(mn, nat);
 }
 
 static void scroll_clamp(AwraWidget *w)

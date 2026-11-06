@@ -356,7 +356,9 @@ static void content_size(AwraWidget *w, int o, int for_size, int *r_min, int *r_
   }
   const int gap = (icon && tnat) ? awra_px(6) : 0;
   if (o == AWRA_ORIENTATION_HORIZONTAL) {
-    *r_min = icon + gap + (tnat ? tmin : 0);
+    /* label only: GtkButton's plain label, never ellipsized; icon and
+     * label: AwraButtonContent's, which ellipsizes */
+    *r_min = icon + gap + (tnat ? (icon ? tmin : tnat) : 0);
     *r_nat = icon + gap + tnat;
   }
   else {

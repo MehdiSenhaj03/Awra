@@ -53,8 +53,9 @@ static void header_measure(AwraWidget *w, int o, int for_size, int *r_min, int *
   if (o == AWRA_ORIENTATION_HORIZONTAL) {
     *r_min = smin + emin + cmin + 2 * px;
     *r_nat = cnat + 2 * BK_MAX(snat, enat) + 2 * px;
-    if (x->center && awra_compute_expand(x->center, o)) {
-      *r_nat = BK_MAX(*r_nat, snat + enat + BK_MAX(cnat, awra_px(568)) + 2 * px);
+    if (x->center && awra_widget_hexpand(x->center)) {
+      cnat = BK_MAX(cnat, awra_px(568));
+      *r_nat = cnat + 2 * BK_MAX(snat, enat) + 2 * px;
     }
   }
   else {
@@ -75,6 +76,10 @@ static void header_allocate(AwraWidget *w)
   awra_measure(x->end_box, AWRA_ORIENTATION_HORIZONTAL, H, &emin, &enat);
   if (x->center) {
     awra_measure(x->center, AWRA_ORIENTATION_HORIZONTAL, H, &cmin, &cnat);
+    /* an expanding centre asks for 568 (awra-header.c AwraHeaderCenter) */
+    if (awra_widget_hexpand(x->center)) {
+      cnat = BK_MAX(cnat, awra_px(568));
+    }
   }
   const int avail = BK_MAX(0, W - cmin);
   const int start_w = BK_MAX(smin, BK_MIN(snat, avail - emin));
@@ -84,8 +89,8 @@ static void header_allocate(AwraWidget *w)
   if (x->center) {
     const int gap_start = start_w, gap_end = W - end_w;
     const int gap = BK_MAX(0, gap_end - gap_start);
-    const bool expand = awra_compute_expand(x->center, AWRA_ORIENTATION_HORIZONTAL);
-    int cw = expand ? gap : BK_MIN(cnat, gap);
+    /* expand-center is off: the centre keeps its preferred span */
+    int cw = BK_MIN(cnat, gap);
     cw = BK_MAX(cw, BK_MIN(cmin, gap));
     int cx = (W - cw) / 2;
     cx = BK_CLAMP(cx, gap_start, BK_MAX(gap_start, gap_end - cw));

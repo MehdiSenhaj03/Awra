@@ -264,7 +264,7 @@ static void cap_map(AwraWidget *w, bool mapped)
 static AwraClass cap_class = {
     .bk = AWRA_BK("AwraKeyCap", CLS_INTERACTIVE),
     .type = "AwraKeyCap",
-    .flags = AWRA_CLASS_HOVER | AWRA_CLASS_FOCUSABLE,
+    .flags = AWRA_CLASS_HOVER | AWRA_CLASS_FOCUSABLE | AWRA_CLASS_EXPAND_ISOLATED,
     .ext_size = sizeof(CapExt),
     .finalize = cap_finalize,
     .measure = cap_measure,
@@ -602,7 +602,7 @@ static void kbd_finalize(AwraWidget *v)
 static AwraClass kbd_class = {
     .bk = AWRA_BK("AwraKeyboardView", 0),
     .type = "AwraKeyboardView",
-    .flags = AWRA_CLASS_CONTAINER,
+    .flags = AWRA_CLASS_CONTAINER | AWRA_CLASS_EXPAND_ISOLATED,
     .ext_size = sizeof(KbdExt),
     .finalize = kbd_finalize,
     .measure = kbd_measure,
@@ -1007,7 +1007,7 @@ static void wave_finalize(AwraWidget *w)
 static AwraClass wave_class = {
     .bk = AWRA_BK("AwraWaveformView", CLS_INTERACTIVE),
     .type = "AwraWaveformView",
-    .flags = AWRA_CLASS_FOCUSABLE,
+    .flags = AWRA_CLASS_FOCUSABLE | AWRA_CLASS_EXPAND_ISOLATED,
     .ext_size = sizeof(WaveExt),
     .finalize = wave_finalize,
     .measure = wave_measure,
@@ -1136,7 +1136,7 @@ static void media_draw(AwraWidget *w, AwraDraw *d)
 static AwraClass media_class = {
     .bk = AWRA_BK("AwraMediaRow", 0),
     .type = "AwraMediaRow",
-    .flags = AWRA_CLASS_CONTAINER,
+    .flags = AWRA_CLASS_CONTAINER | AWRA_CLASS_EXPAND_ISOLATED,
     .ext_size = sizeof(MediaExt),
     .measure = media_measure,
     .allocate = media_allocate,
@@ -1420,7 +1420,7 @@ static void zone_draw(AwraWidget *w, AwraDraw *d)
 static AwraClass zone_class = {
     .bk = AWRA_BK("AwraDropZone", 0),
     .type = "AwraDropZone",
-    .flags = AWRA_CLASS_CONTAINER,
+    .flags = AWRA_CLASS_CONTAINER | AWRA_CLASS_EXPAND_ISOLATED,
     .ext_size = sizeof(ZoneExt),
     .measure = zone_measure,
     .allocate = zone_allocate,
@@ -1554,6 +1554,7 @@ static void area_finalize(AwraWidget *w)
 static AwraClass area_class = {
     .bk = AWRA_BK("AwraDrawingArea", 0),
     .type = "AwraDrawingArea",
+    .flags = AWRA_CLASS_EXPAND_ISOLATED,
     .ext_size = sizeof(AreaExt),
     .finalize = area_finalize,
     .measure = area_measure,
