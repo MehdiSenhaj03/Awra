@@ -119,6 +119,19 @@ awra_button_unmap (GtkWidget *widget)
   GTK_WIDGET_CLASS (awra_button_parent_class)->unmap (widget);
 }
 
+/* An icon alone tells a screen reader nothing: what its tooltip says is what it does. */
+static void
+sync_accessible_label (AwraButton *self)
+{
+  const char *tooltip = gtk_widget_get_tooltip_text (GTK_WIDGET (self));
+
+  if (gtk_button_get_icon_name (GTK_BUTTON (self)) != NULL && tooltip != NULL && *tooltip != '\0')
+    gtk_accessible_update_property (GTK_ACCESSIBLE (self),
+                                    GTK_ACCESSIBLE_PROPERTY_LABEL, tooltip, -1);
+  else
+    gtk_accessible_reset_property (GTK_ACCESSIBLE (self), GTK_ACCESSIBLE_PROPERTY_LABEL);
+}
+
 static void
 awra_button_dispose (GObject *object)
 {
@@ -174,6 +187,8 @@ awra_button_init (AwraButton *self)
   gtk_button_set_has_frame (GTK_BUTTON (self), FALSE);
   gtk_widget_set_focusable (GTK_WIDGET (self), TRUE);
   g_signal_connect (self, "clicked", G_CALLBACK (clicked_cb), NULL);
+  g_signal_connect (self, "notify::tooltip-text", G_CALLBACK (sync_accessible_label), NULL);
+  g_signal_connect (self, "notify::icon-name", G_CALLBACK (sync_accessible_label), NULL);
 }
 
 GtkWidget *

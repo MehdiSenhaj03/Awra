@@ -3877,6 +3877,15 @@ awraheader.awra-compact .awra-menu-button.awra-toolbar-button {
   to { transform: none; }
 }
 .awra-role-refused { animation: awra-refused 260ms ease-in-out; }
+
+/* What the person will probably want next: its icon glows, apart from the selection. */
+.awra-role-suggested image {
+  -gtk-icon-shadow: 0 0 10px alpha(@awra_accent, 1), 0 0 3px alpha(@awra_accent, 0.9);
+}
+.awra-role-collection-view image,
+.awra-role-canvas-table image { transition: -gtk-icon-shadow 500ms ease-out; }
+.awra-reduced-motion .awra-role-collection-view image,
+.awra-reduced-motion .awra-role-canvas-table image { transition: none; }
 .awra-reduced-motion .awra-role-refused { animation: none; }
 
 popover.awra-popover > contents { animation: awra-unfold 120ms cubic-bezier(.2, .8, .2, 1); }

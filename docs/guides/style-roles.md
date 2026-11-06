@@ -60,6 +60,7 @@ preferences as the rest of Awra.
 | `canvas-table` | AwraDataView | Transparent column headings on a shared Canvas |
 | `pane-caption` / `active-pane-caption` | GtkLabel | Quiet caption and focus indication in a divided workspace |
 | `drop-zone` | GtkWidget with GtkDropTarget | Destination highlight while GTK marks an accepted drop active |
+| `suggested` | Row or tile content with an icon | The icon of what the person will probably want next glows, apart from the selection |
 | `focused-pane` | AwraToolbar | Subtle focus feedback for independent panes |
 | `quiet-search` | AwraSearchEntry above a list outside a sidebar | The sidebar's quiet search: a light line until used |
 | `inline-search` | AwraSearchEntry | Quiet filter in a pane footer |
