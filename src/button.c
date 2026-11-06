@@ -300,6 +300,12 @@ static void geometry(const AwraWidget *w, float *pad_x, float *pad_y, float *min
     *min_h = 22;
   }
   *radius = tb ? 10 : 11;
+  if (tb && awra_in_compact_header(w)) {
+    *pad_x = 8;
+    *pad_y = 5;
+    *min_w = *min_h = 22;
+    *radius = 8;
+  }
   if (BX(w)->pad_x > 0) {
     *pad_x = BX(w)->pad_x;
     *pad_y = BX(w)->pad_y;

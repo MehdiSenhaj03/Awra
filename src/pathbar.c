@@ -42,10 +42,18 @@ static AwraFont crumb_font(bool current)
   return f;
 }
 
+/* Breadcrumbs are toolbar buttons: in a compact header they take its
+ * 5 x 8 padding (awraheader.awra-compact .awra-toolbar-button wins over
+ * the breadcrumb's 1 x 6), elsewhere 1 x 6. */
+static int crumb_pad(AwraWidget *w)
+{
+  return awra_px(awra_in_compact_header(w) ? 8 : 6);
+}
+
 static void layout_crumbs(AwraWidget *w)
 {
   PathExt *x = PX(w);
-  const int pad = awra_px(6), gap = awra_px(awra_spacing(AWRA_SPACING_XS)), sep = awra_px(12);
+  const int pad = crumb_pad(w), gap = awra_px(awra_spacing(AWRA_SPACING_XS)), sep = awra_px(12);
   int cx = 0;
   for (int i = 0; i < x->n; i++) {
     if (i > 0) {
@@ -139,7 +147,8 @@ static void path_draw(AwraWidget *w, AwraDraw *d)
   }
   /* breadcrumbs */
   bk_clip_push(x->trail_x, w->y, x->trail_w + (x->offset ? 0 : awra_px(36)), w->h);
-  const int ch = awra_px(22) + 2 * awra_px(1);
+  const bool compact = awra_in_compact_header(w);
+  const int ch = BK_MIN(w->h - 2 * awra_px(1), compact ? awra_px(32) : awra_px(24));
   const float cy = w->y + floorf((w->h - ch) * 0.5f);
   for (int i = 0; i < x->n; i++) {
     const Crumb *c = &x->crumbs[i];
@@ -156,13 +165,13 @@ static void path_draw(AwraWidget *w, AwraDraw *d)
       awra_paint_rbox(d, cb, awra_pxf(6), &t->accent_soft, awra_pxf(1), &t->accent);
     }
     else if (i == x->hover && awra_hovered(w)) {
-      awra_paint_rbox(d, cb, awra_pxf(6), &t->control_cap_hover, 0, NULL);
+      awra_paint_rbox(d, cb, awra_pxf(compact ? 8 : 6), &t->control_cap_hover, 0, NULL);
     }
     AwraFont f = crumb_font(current);
     AwraRGBA fg = i == x->drop ? t->accent_content :
                   (current || (i == x->hover && awra_hovered(w))) ? t->foreground : t->muted;
     const float base = w->y + floorf((w->h - awra_font_line_height(&f)) * 0.5f + 0.5f) + awra_font_ascent(&f);
-    awra_draw_text(d, &f, cx + awra_px(6), base, c->label, (int)strlen(c->label), &fg);
+    awra_draw_text(d, &f, cx + crumb_pad(w), base, c->label, (int)strlen(c->label), &fg);
   }
   bk_clip_pop();
 }

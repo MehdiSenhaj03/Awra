@@ -1230,7 +1230,7 @@ static void nav_pads(AwraWidget *w, int *ph, int *pv, int *min_h)
   if (nav_compact(w)) {
     *ph = awra_px(8);
     *pv = awra_px(6);
-    *min_h = awra_px(20);
+    *min_h = awra_px(24);
   }
   else {
     *ph = awra_px(11);

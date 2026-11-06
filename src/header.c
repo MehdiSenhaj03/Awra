@@ -331,6 +331,18 @@ void awra_header_set_expand_center(AwraWidget *w, bool expand)
   awra_widget_queue_resize(w);
 }
 
+/* Toolbar buttons inside a compact header are compact too (awra.css
+ * awraheader.awra-compact .awra-toolbar-button: 5 x 8 padding, 22 px min). */
+bool awra_in_compact_header(const AwraWidget *w)
+{
+  for (const BKNode *p = w->parent; p; p = p->parent) {
+    if (awra_is_widget(p) && awra_widget_is(p, "AwraHeader")) {
+      return HX(p)->compact;
+    }
+  }
+  return false;
+}
+
 void awra_header_set_compact(AwraWidget *w, bool compact);
 void awra_header_set_compact(AwraWidget *w, bool compact)
 {

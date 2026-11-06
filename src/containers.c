@@ -187,6 +187,23 @@ static bool box_set_double(AwraWidget *w, const char *name, double v)
   return false;
 }
 
+/* A box of linked view buttons (Awra 1's view-switcher role, class
+ * "view-switcher"): a quiet well, alpha(fg, .05) with a .045 line, radius 8. */
+static void box_draw(AwraWidget *w, AwraDraw *d)
+{
+  static int bit = -2;
+  if (bit == -2) {
+    bit = awra_class_bit("view-switcher");
+  }
+  if (!awra_has_class_bit(w, bit)) {
+    return;
+  }
+  const AwraTokens *t = awra_tokens();
+  const AwraRGBA fill = awra_with_alpha(t->foreground, 0.05f);
+  const AwraRGBA line = awra_with_alpha(t->foreground, 0.045f);
+  awra_paint_rbox(d, awra_box_of(w), awra_pxf(8), &fill, awra_pxf(1), &line);
+}
+
 static AwraClass box_class = {
     .bk = AWRA_BK("AwraBox", 0),
     .type = "AwraBox",
@@ -194,6 +211,7 @@ static AwraClass box_class = {
     .ext_size = sizeof(BoxExt),
     .measure = box_measure,
     .allocate = box_allocate,
+    .draw = box_draw,
     .set_double = box_set_double,
 };
 

@@ -453,6 +453,7 @@ void awra_button_set_padding_internal(AwraWidget *w, int pad_x, int pad_y, int m
 void awra_header_set_drag_enabled(AwraWidget *w, bool drag);
 void awra_header_set_dialog(AwraWidget *w, bool dialog);
 void awra_header_set_compact(AwraWidget *w, bool compact);
+bool awra_in_compact_header(const AwraWidget *w);
 void awra_popover_set_padding_internal(AwraWidget *w, int pad, bool menu);
 void awra_popover_set_centered_internal(AwraWidget *w, bool centered);
 void awra_map_tree(AwraWidget *w, bool mapped);
