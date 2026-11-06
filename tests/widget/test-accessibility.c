@@ -126,6 +126,24 @@ press_key (GtkWidget *widget,
 }
 
 static void
+test_icon_buttons_say_what_they_do (void)
+{
+  g_autoptr (GtkWidget) icon = g_object_ref_sink (awra_button_new_from_icon_name ("tab-new-symbolic"));
+  g_autoptr (GtkWidget) text = g_object_ref_sink (awra_button_new_with_label ("Ouvrir"));
+  char *error;
+
+  gtk_widget_set_tooltip_text (icon, "Nouvel onglet");
+  error = gtk_test_accessible_check_property (GTK_ACCESSIBLE (icon), GTK_ACCESSIBLE_PROPERTY_LABEL, "Nouvel onglet");
+  g_assert_null (error);
+  gtk_widget_set_tooltip_text (icon, "Fermer");
+  error = gtk_test_accessible_check_property (GTK_ACCESSIBLE (icon), GTK_ACCESSIBLE_PROPERTY_LABEL, "Fermer");
+  g_assert_null (error);
+  /* A visible label already names it. */
+  gtk_widget_set_tooltip_text (text, "Ouvrir le fichier");
+  g_assert_false (gtk_test_accessible_has_property (GTK_ACCESSIBLE (text), GTK_ACCESSIBLE_PROPERTY_LABEL));
+}
+
+static void
 test_media_input_roles_and_rtl (void)
 {
   GtkWidget *window = gtk_window_new ();
@@ -216,6 +234,7 @@ main (int argc, char **argv)
     return 77;
   g_test_add_func ("/awra/accessibility/roles-keyboard-rtl",
                    test_roles_keyboard_and_rtl);
+  g_test_add_func ("/awra/accessibility/icon-buttons-say-what-they-do", test_icon_buttons_say_what_they_do);
   g_test_add_func ("/awra/accessibility/media-input-roles-rtl",
                    test_media_input_roles_and_rtl);
   return g_test_run ();

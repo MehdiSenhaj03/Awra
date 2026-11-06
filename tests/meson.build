@@ -101,7 +101,7 @@ accessibility_audit = executable(
 test(
   'accessibility-rtl',
   accessibility_audit,
-  env: ['G_DEBUG=fatal-warnings'],
+  env: ['G_DEBUG=fatal-warnings', 'GTK_A11Y=test'],
   is_parallel: false,
 )
 
