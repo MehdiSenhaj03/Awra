@@ -923,8 +923,8 @@ static void stack_measure(AwraWidget *s, int o, int for_size, int *r_min, int *r
     int cm, cn;
     /* pages the stack hides still count when homogeneous (GtkStack measures
      * every visible child, shown or not) */
-    const bool page_hidden = !(c->flags & NF_VISIBLE) &&
-                             awra_widget_get_data(c, "awra-stack-hidden") != NULL;
+    const bool page_hidden = !(c->flags & NF_VISIBLE) && awra_is_widget(c) &&
+                             awra_aux(c)->child_hidden && !awra_aux(c)->user_hidden;
     if (page_hidden) {
       c->flags |= NF_VISIBLE;
     }
@@ -972,15 +972,7 @@ static void stack_sync_visibility(AwraWidget *s)
   for (int i = 0; i < s->nkids; i++) {
     AwraWidget *c = s->kids[i];
     const bool show = c == x->visible || c == x->previous;
-    const bool stack_hidden = awra_widget_get_data(c, "awra-stack-hidden") != NULL;
-    if (show && stack_hidden) {
-      awra_widget_set_data(c, "awra-stack-hidden", NULL, NULL);
-      awra_widget_set_visible(c, true);
-    }
-    else if (!show && (c->flags & NF_VISIBLE)) {
-      awra_widget_set_data(c, "awra-stack-hidden", (void *)1, NULL);
-      awra_widget_set_visible(c, false);
-    }
+    awra_widget_set_child_visible(c, show);
   }
 }
 
@@ -1436,4 +1428,40 @@ void awra_scrolled_scroll_to(AwraWidget *w, AwraWidget *child)
     v = top + child->h - w->h;
   }
   scroll_to(w, v, x->hvalue);
+}
+
+/* Moves the scroll position by `delta` raster px without the indicator,
+ * clamped at the next allocation (lists keeping an item in place while the
+ * heights above it become known). */
+void awra_scrolled_shift_internal(AwraWidget *w, double delta);
+void awra_scrolled_shift_internal(AwraWidget *w, double delta)
+{
+  ScrollExt *x = SX(w);
+  if (delta == 0) {
+    return;
+  }
+  x->vvalue += delta;
+  if (x->vvalue < 0) {
+    x->vvalue = 0;
+  }
+  awra_queue_allocate(w);
+  awra_invalidate(w);
+  awra_emit_simple(w, AWRA_SIGNAL_VALUE_CHANGED);
+}
+
+/* The scrolled window's vertical range: value, upper (content height) and
+ * page size, logical px. */
+void awra_scrolled_get_vadjustment(AwraWidget *w, double *value, double *upper, double *page)
+{
+  ScrollExt *x = SX(w);
+  const float s = awra_scale();
+  if (value) {
+    *value = x->vvalue / s;
+  }
+  if (upper) {
+    *upper = x->content_h / s;
+  }
+  if (page) {
+    *page = w->h / s;
+  }
 }

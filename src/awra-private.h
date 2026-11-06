@@ -80,6 +80,8 @@ struct AwraClass {
    * like CSS `color: inherit`); false: ask further up */
   bool (*child_style)(AwraWidget *w, AwraRGBA *r_color, int *r_weight);
   int overdraw; /* logical px painted outside the rect (shadows, focus ring) */
+  /* the pointer entered or left it */
+  void (*hover)(AwraWidget *w, bool on);
 };
 
 /* Declares the kit side of an Awra class: every hook goes to Awra's
@@ -143,6 +145,9 @@ typedef struct AwraAux {
   unsigned can_target : 1, focusable_set : 1, focusable : 1;
   unsigned hovered : 1, pressed : 1, focus_visible : 1, mapped : 1, destroyed : 1;
   unsigned typography_set : 1, in_dispose : 1, expand_isolated : 1;
+  /* GTK's visible (the application's) and child-visible (the parent's):
+   * the node's NF_VISIBLE is set when both are */
+  unsigned user_hidden : 1, child_hidden : 1;
   unsigned char typography;
   float opacity;
   /* measurement cache: [orientation] for one for_size each */
@@ -358,6 +363,22 @@ void awra_text_layout_index_to_pos(AwraTextLayout *l, int width, int index, floa
                                    float *r_y, float *r_h);
 int awra_text_layout_pos_to_index(AwraTextLayout *l, int width, float px, float py);
 const char *awra_text_layout_text(const AwraTextLayout *l);
+/* links (<a href>): index under a point (layout coordinates), their target */
+int awra_text_layout_n_links(const AwraTextLayout *l);
+const char *awra_text_layout_link(const AwraTextLayout *l, int index);
+int awra_text_layout_link_at(AwraTextLayout *l, int width, float px, float py);
+void awra_text_layout_set_link_style(AwraTextLayout *l, int hover, const AwraRGBA *color,
+                                     const AwraRGBA *hover_color);
+/* inline objects: U+FFFC laid out as squares of `size` raster px */
+void awra_text_layout_set_object_size(AwraTextLayout *l, float size);
+void awra_text_layout_foreach_object(AwraTextLayout *l, int width,
+                                     void (*fn)(int index, float x, float y, void *data), void *data);
+void awra_text_layout_draw_selection(AwraTextLayout *l, AwraDraw *d, float x, float y, int width,
+                                     int start, int end, const AwraRGBA *color);
+void awra_text_layout_word_at(const AwraTextLayout *l, int index, int *r_start, int *r_end);
+void awra_text_layout_index_to_pos(AwraTextLayout *l, int width, int index, float *r_x,
+                                   float *r_y, float *r_h);
+int awra_text_layout_pos_to_index(AwraTextLayout *l, int width, float px, float py);
 
 /* ----------------------------------------------------------------------- */
 /* Icons (icons.c) */
@@ -479,6 +500,9 @@ struct AwraCanvas {
   float ox, oy; /* widget origin, raster px */
   float scale;
 };
+
+/* Textures (texture.c): fit 0 fill, 1 contain, 2 cover, 3 scale-down */
+void awra_paint_texture(AwraDraw *d, const AwraTexture *t, AwraBox b, float radius, int fit);
 
 /* PNG writing (png.c), premultiplied ARGB in */
 bool awra_write_png(const char *path, const uint32_t *argb, int w, int h);

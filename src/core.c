@@ -909,9 +909,9 @@ void awra_map_tree(AwraWidget *w, bool mapped)
   set_mapped_tree(w, mapped);
 }
 
-void awra_widget_set_visible(AwraWidget *w, bool visible)
+static void set_effective_visible(AwraWidget *w, bool visible)
 {
-  if (!w || ((w->flags & NF_VISIBLE) != 0) == visible) {
+  if (((w->flags & NF_VISIBLE) != 0) == visible) {
     return;
   }
   if (!visible) {
@@ -934,9 +934,47 @@ void awra_widget_set_visible(AwraWidget *w, bool visible)
   awra_widget_queue_resize(w->parent ? w->parent : w);
 }
 
+void awra_widget_set_visible(AwraWidget *w, bool visible)
+{
+  if (!w) {
+    return;
+  }
+  if (!awra_is_widget(w)) {
+    set_effective_visible(w, visible);
+    return;
+  }
+  AwraAux *a = awra_aux(w);
+  a->user_hidden = !visible;
+  set_effective_visible(w, visible && !a->child_hidden);
+}
+
 bool awra_widget_visible(const AwraWidget *w)
 {
-  return w && (w->flags & NF_VISIBLE);
+  if (!w) {
+    return false;
+  }
+  if (awra_is_widget(w)) {
+    return !awra_aux(w)->user_hidden;
+  }
+  return (w->flags & NF_VISIBLE) != 0;
+}
+
+void awra_widget_set_child_visible(AwraWidget *w, bool visible)
+{
+  if (!w || !awra_is_widget(w)) {
+    return;
+  }
+  AwraAux *a = awra_aux(w);
+  if ((bool)a->child_hidden == !visible) {
+    return;
+  }
+  a->child_hidden = !visible;
+  set_effective_visible(w, visible && !a->user_hidden);
+}
+
+bool awra_widget_child_visible(const AwraWidget *w)
+{
+  return w && awra_is_widget(w) && !awra_aux(w)->child_hidden;
 }
 
 bool awra_widget_mapped(const AwraWidget *w)

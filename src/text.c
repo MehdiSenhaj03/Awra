@@ -153,6 +153,9 @@ typedef struct Span {
   AwraRGBA color;
   float alpha; /* < 0: none */
   bool underline, strike, mono;
+  bool has_bg;
+  AwraRGBA bg;
+  short link; /* index in the layout's links, -1 none */
 } Span;
 
 typedef struct Run {
@@ -188,7 +191,23 @@ struct AwraTextLayout {
   int w, h, baseline;
   /* cached measures */
   int min_w, nat_w;
+  /* links (<a href>) and their look */
+  char **links;
+  int n_links;
+  int hover_link;
+  bool link_style;
+  AwraRGBA link_color, link_hover_color;
+  /* inline objects: each U+FFFC is a square of this side (raster px) */
+  float object_size;
 };
+
+#define OBJECT_CHAR "\xEF\xBF\xBC"
+
+static bool is_object(const AwraTextLayout *l, int i)
+{
+  return l->object_size > 0.0f && i + 3 <= l->len && (unsigned char)l->text[i] == 0xEF &&
+         (unsigned char)l->text[i + 1] == 0xBF && (unsigned char)l->text[i + 2] == 0xBC;
+}
 
 AwraTextLayout *awra_text_layout_new(void)
 {
@@ -197,6 +216,7 @@ AwraTextLayout *awra_text_layout_new(void)
     l->laid_width = -2;
     l->min_w = l->nat_w = -1;
     l->text = awra_strdup("");
+    l->hover_link = -1;
   }
   return l;
 }
@@ -211,6 +231,10 @@ void awra_text_layout_free(AwraTextLayout *l)
   free(l->lines);
   free(l->runs);
   free(l->ell_text);
+  for (int i = 0; i < l->n_links; i++) {
+    free(l->links[i]);
+  }
+  free(l->links);
   free(l);
 }
 
@@ -234,6 +258,8 @@ typedef struct Builder {
   int n, cap_spans;
   Span stack[16];
   int depth;
+  char **links;
+  int n_links;
 } Builder;
 
 static void b_putc(Builder *b, const char *s, int n)
@@ -283,6 +309,7 @@ static Span span_inherit(const Builder *b)
     s.italic = -1;
     s.scale = 1.0f;
     s.alpha = -1.0f;
+    s.link = -1;
   }
   return s;
 }
@@ -424,6 +451,38 @@ static void parse_markup(AwraTextLayout *l, const char *m)
       else if (!strcmp(name, "big")) {
         s.scale *= 1.2f;
       }
+      else if (!strcmp(name, "a")) {
+        char v[1024];
+        if (attr_value(tag, "href", v, sizeof(v))) {
+          /* the href as written, entities resolved */
+          char *href = awra_strdup(v);
+          char *o = href;
+          for (const char *q = v; *q;) {
+            if (*q == '&') {
+              const char *ents[] = {"&amp;", "&", "&lt;", "<", "&gt;", ">", "&quot;", "\"", "&apos;", "'"};
+              bool done = false;
+              for (int k = 0; k < 10; k += 2) {
+                const size_t n = strlen(ents[k]);
+                if (!strncmp(q, ents[k], n)) {
+                  *o++ = ents[k + 1][0];
+                  q += n;
+                  done = true;
+                  break;
+                }
+              }
+              if (done) {
+                continue;
+              }
+            }
+            *o++ = *q++;
+          }
+          *o = 0;
+          b.links = (char **)realloc(b.links, sizeof(char *) * (size_t)(b.n_links + 1));
+          b.links[b.n_links] = href;
+          s.link = (short)b.n_links++;
+          s.underline = true;
+        }
+      }
       else if (!strcmp(name, "span")) {
         char v[96];
         if (attr_value(tag, "weight", v, sizeof(v)) || attr_value(tag, "font_weight", v, sizeof(v))) {
@@ -449,6 +508,16 @@ static void parse_markup(AwraTextLayout *l, const char *m)
         }
         if (attr_value(tag, "underline", v, sizeof(v))) {
           s.underline = strcmp(v, "none") != 0;
+        }
+        if (attr_value(tag, "background", v, sizeof(v)) || attr_value(tag, "bgcolor", v, sizeof(v))) {
+          s.has_bg = awra_parse_color(v, &s.bg);
+        }
+        if (s.has_bg && attr_value(tag, "bgalpha", v, sizeof(v))) {
+          const size_t n = strlen(v);
+          s.bg.a = n && v[n - 1] == '%' ? (float)atof(v) / 100.0f : (float)atof(v) / 65535.0f;
+        }
+        if (attr_value(tag, "strikethrough", v, sizeof(v))) {
+          s.strike = !strcmp(v, "true");
         }
       }
       b_span_open(&b, s);
@@ -520,10 +589,17 @@ static void parse_markup(AwraTextLayout *l, const char *m)
   }
   free(l->text);
   free(l->spans);
+  for (int i = 0; i < l->n_links; i++) {
+    free(l->links[i]);
+  }
+  free(l->links);
   l->text = b.buf ? b.buf : awra_strdup("");
   l->len = b.len;
   l->spans = b.spans;
   l->n_spans = b.n;
+  l->links = b.links;
+  l->n_links = b.n_links;
+  l->hover_link = -1;
 }
 
 void awra_text_layout_set_text(AwraTextLayout *l, const char *text, bool markup)
@@ -541,6 +617,13 @@ void awra_text_layout_set_text(AwraTextLayout *l, const char *text, bool markup)
     free(l->spans);
     l->spans = NULL;
     l->n_spans = 0;
+    for (int i = 0; i < l->n_links; i++) {
+      free(l->links[i]);
+    }
+    free(l->links);
+    l->links = NULL;
+    l->n_links = 0;
+    l->hover_link = -1;
     awra_set_str(&l->text, text);
     l->len = (int)strlen(l->text);
   }
@@ -620,10 +703,19 @@ static int span_at(const AwraTextLayout *l, int i)
 /* end of the uniform-style segment starting at i */
 static int segment_end(const AwraTextLayout *l, int i, int limit)
 {
-  if (!l->n_spans) {
-    return limit;
-  }
   int end = limit;
+  if (l->object_size > 0.0f) {
+    if (is_object(l, i)) {
+      return BK_MIN(limit, i + 3);
+    }
+    const char *o = strstr(l->text + i, OBJECT_CHAR);
+    if (o && o - l->text < end) {
+      end = (int)(o - l->text);
+    }
+  }
+  if (!l->n_spans) {
+    return end;
+  }
   for (int k = 0; k < l->n_spans; k++) {
     if (l->spans[k].start > i && l->spans[k].start < end) {
       end = l->spans[k].start;
@@ -635,6 +727,15 @@ static int segment_end(const AwraTextLayout *l, int i, int limit)
   return end;
 }
 
+/* width of a uniform segment [a, b): text, or inline objects */
+static float seg_width(const AwraTextLayout *l, const AwraFont *f, int a, int b)
+{
+  if (b > a && is_object(l, a)) {
+    return l->object_size * (float)((b - a + 2) / 3);
+  }
+  return awra_text_width(f, l->text + a, b - a);
+}
+
 static float range_width(const AwraTextLayout *l, int a, int b)
 {
   float w = 0.0f;
@@ -642,7 +743,7 @@ static float range_width(const AwraTextLayout *l, int a, int b)
     const int e = segment_end(l, a, b);
     const int sp = span_at(l, a);
     AwraFont f = span_font(l, sp);
-    w += awra_text_width(&f, l->text + a, e - a);
+    w += seg_width(l, &f, a, e);
     a = e;
   }
   return w;
@@ -662,7 +763,7 @@ static void add_run(AwraTextLayout *l, int a, int b, float x)
     r->span = span_at(l, a);
     AwraFont f = span_font(l, r->span);
     r->x = x;
-    r->w = awra_text_width(&f, l->text + a, e - a);
+    r->w = seg_width(l, &f, a, e);
     x += r->w;
     a = e;
   }
@@ -677,6 +778,19 @@ static void line_metrics(AwraTextLayout *l, Line *ln)
       AwraFont f = span_font(l, r->span);
       asc = fmaxf(asc, awra_font_ascent(&f));
       h = fmaxf(h, awra_font_line_height(&f));
+    }
+  }
+  if (l->object_size > 0.0f) {
+    for (int i = 0; i < ln->n_runs; i++) {
+      const Run *r = &l->runs[ln->first_run + i];
+      if (r->start >= 0 && is_object(l, r->start)) {
+        /* a square standing on the baseline, 4/5 above it (Pango shape) */
+        const float desc = h - asc;
+        const float oa = l->object_size * 0.8f, od = l->object_size * 0.2f;
+        asc = fmaxf(asc, oa);
+        h = asc + fmaxf(desc, od);
+        break;
+      }
     }
   }
   if (l->line_factor > 0.0f) {
@@ -997,18 +1111,32 @@ void awra_text_layout_draw(AwraTextLayout *l, AwraDraw *d, float x, float y, int
       lx += (float)l->w - ln->w;
     }
     const float base = floorf(ly + ln->ascent + 0.5f);
+    /* backgrounds first (Pango's background attribute: the run's logical box) */
+    for (int k = 0; k < ln->n_runs; k++) {
+      const Run *r = &l->runs[ln->first_run + k];
+      if (r->span >= 0 && l->spans[r->span].has_bg) {
+        AwraRGBA bg = l->spans[r->span].bg;
+        awra_paint_rect(d, (AwraBox){lx + r->x, ly, r->w, ln->height}, &bg);
+      }
+    }
     for (int k = 0; k < ln->n_runs; k++) {
       const Run *r = &l->runs[ln->first_run + k];
       AwraFont f = span_font(l, r->span);
       AwraRGBA c = *color;
       if (r->span >= 0) {
         const Span *s = &l->spans[r->span];
+        if (s->link >= 0 && l->link_style) {
+          c = s->link == l->hover_link ? l->link_hover_color : l->link_color;
+        }
         if (s->has_color) {
           c = s->color;
         }
         if (s->alpha >= 0.0f) {
           c.a *= s->alpha;
         }
+      }
+      if (r->start >= 0 && is_object(l, r->start)) {
+        continue;
       }
       if (r->start < 0) {
         awra_draw_text(d, &f, lx + r->x, base, ELLIPSIS, 3, &c);
@@ -1072,7 +1200,7 @@ void awra_text_layout_index_to_pos(AwraTextLayout *l, int width, int index, floa
         }
         if (index <= r->end) {
           AwraFont f = span_font(l, r->span);
-          x = r->x + awra_text_width(&f, l->text + r->start, BK_MAX(0, BK_MIN(index, r->end) - r->start));
+          x = r->x + seg_width(l, &f, r->start, r->start + BK_MAX(0, BK_MIN(index, r->end) - r->start));
           break;
         }
         x = r->x + r->w;
@@ -1102,7 +1230,7 @@ int awra_text_layout_pos_to_index(AwraTextLayout *l, int width, float px, float 
         }
         AwraFont f = span_font(l, r->span);
         for (int j = r->start; j <= r->end;) {
-          const float x = r->x + awra_text_width(&f, l->text + r->start, j - r->start);
+          const float x = r->x + seg_width(l, &f, r->start, j);
           const float d = fabsf(x - px);
           if (d < best_d) {
             best_d = d;
@@ -1131,4 +1259,174 @@ int awra_text_layout_pos_to_index(AwraTextLayout *l, int width, float px, float 
     y += ln->height;
   }
   return l->len;
+}
+
+/* ----------------------------------------------------------------------- */
+/* Links, inline objects, selections */
+
+int awra_text_layout_n_links(const AwraTextLayout *l)
+{
+  return l->n_links;
+}
+
+const char *awra_text_layout_link(const AwraTextLayout *l, int index)
+{
+  return index >= 0 && index < l->n_links ? l->links[index] : NULL;
+}
+
+void awra_text_layout_set_link_style(AwraTextLayout *l, int hover, const AwraRGBA *color,
+                                     const AwraRGBA *hover_color)
+{
+  l->hover_link = hover;
+  l->link_style = color != NULL;
+  if (color) {
+    l->link_color = *color;
+    l->link_hover_color = hover_color ? *hover_color : *color;
+  }
+}
+
+/* The run under a point of the layout (origin at its top-left), -1 none. */
+static int run_at(AwraTextLayout *l, int width, float px, float py)
+{
+  layout(l, width);
+  float y = 0.0f;
+  for (int i = 0; i < l->n_lines; i++) {
+    const Line *ln = &l->lines[i];
+    if (py >= y && py < y + ln->height) {
+      float lx = 0.0f;
+      if (l->justify == AWRA_JUSTIFY_CENTER) {
+        lx = floorf((l->w - ln->w) * 0.5f + 0.5f);
+      }
+      else if (l->justify == AWRA_JUSTIFY_RIGHT) {
+        lx = (float)l->w - ln->w;
+      }
+      for (int k = 0; k < ln->n_runs; k++) {
+        const Run *r = &l->runs[ln->first_run + k];
+        if (px >= lx + r->x && px < lx + r->x + r->w) {
+          return ln->first_run + k;
+        }
+      }
+      return -1;
+    }
+    y += ln->height;
+  }
+  return -1;
+}
+
+int awra_text_layout_link_at(AwraTextLayout *l, int width, float px, float py)
+{
+  if (!l->n_links) {
+    return -1;
+  }
+  const int r = run_at(l, width, px, py);
+  if (r < 0 || l->runs[r].span < 0) {
+    return -1;
+  }
+  return l->spans[l->runs[r].span].link;
+}
+
+void awra_text_layout_set_object_size(AwraTextLayout *l, float size)
+{
+  if (l->object_size != size) {
+    l->object_size = size;
+    dirty(l);
+  }
+}
+
+/* The inline objects laid out at `width`: calls fn with each one's index
+ * (in text order) and the top-left of its square, layout coordinates. */
+void awra_text_layout_foreach_object(AwraTextLayout *l, int width,
+                                     void (*fn)(int index, float x, float y, void *data), void *data)
+{
+  if (l->object_size <= 0.0f) {
+    return;
+  }
+  layout(l, width);
+  int index = 0;
+  /* objects before the laid-out runs (cut by max lines) are skipped, but
+   * counted, so indexes follow the text */
+  float y = 0.0f;
+  int next = 0;
+  for (int i = 0; i < l->n_lines; i++) {
+    const Line *ln = &l->lines[i];
+    float lx = 0.0f;
+    if (l->justify == AWRA_JUSTIFY_CENTER) {
+      lx = floorf((l->w - ln->w) * 0.5f + 0.5f);
+    }
+    else if (l->justify == AWRA_JUSTIFY_RIGHT) {
+      lx = (float)l->w - ln->w;
+    }
+    const float base = floorf(y + ln->ascent + 0.5f);
+    for (int k = 0; k < ln->n_runs; k++) {
+      const Run *r = &l->runs[ln->first_run + k];
+      if (r->start < 0 || !is_object(l, r->start)) {
+        continue;
+      }
+      /* count the objects of the text skipped before this run */
+      for (const char *o = strstr(l->text + next, OBJECT_CHAR); o && o - l->text < r->start;
+           o = strstr(o + 3, OBJECT_CHAR))
+      {
+        index++;
+      }
+      for (int j = r->start; j + 2 < r->end + 1 && j < r->end; j += 3) {
+        fn(index++, lx + r->x + (j - r->start) / 3 * l->object_size, base - l->object_size * 0.8f, data);
+      }
+      next = r->end;
+    }
+    y += ln->height;
+  }
+}
+
+/* Fills the selection [start, end) (byte offsets) behind the text. */
+void awra_text_layout_draw_selection(AwraTextLayout *l, AwraDraw *d, float x, float y, int width,
+                                     int start, int end, const AwraRGBA *color)
+{
+  if (start > end) {
+    const int t = start;
+    start = end;
+    end = t;
+  }
+  if (start == end) {
+    return;
+  }
+  layout(l, width);
+  float ly = y;
+  for (int i = 0; i < l->n_lines; i++) {
+    const Line *ln = &l->lines[i];
+    float lx = x;
+    if (l->justify == AWRA_JUSTIFY_CENTER) {
+      lx += floorf((l->w - ln->w) * 0.5f + 0.5f);
+    }
+    else if (l->justify == AWRA_JUSTIFY_RIGHT) {
+      lx += (float)l->w - ln->w;
+    }
+    for (int k = 0; k < ln->n_runs; k++) {
+      const Run *r = &l->runs[ln->first_run + k];
+      if (r->start < 0 || r->end <= start || r->start >= end) {
+        continue;
+      }
+      AwraFont f = span_font(l, r->span);
+      const int a = BK_MAX(start, r->start), b = BK_MIN(end, r->end);
+      const float x0 = r->x + seg_width(l, &f, r->start, a);
+      const float x1 = r->x + seg_width(l, &f, r->start, b);
+      awra_paint_rect(d, (AwraBox){lx + x0, ly, x1 - x0, ln->height}, color);
+    }
+    ly += ln->height;
+  }
+}
+
+/* The word around byte `index` (letters, digits and marks). */
+void awra_text_layout_word_at(const AwraTextLayout *l, int index, int *r_start, int *r_end)
+{
+  int a = BK_CLAMP(index, 0, l->len), b = a;
+#define WORDCH(c) ((unsigned char)(c) >= 0x80 || ((c) >= '0' && (c) <= '9') || ((c) >= 'a' && (c) <= 'z') || ((c) >= 'A' && (c) <= 'Z') || (c) == '_')
+  while (a > 0 && WORDCH(l->text[a - 1])) {
+    a--;
+  }
+  while (b < l->len && WORDCH(l->text[b])) {
+    b++;
+  }
+#undef WORDCH
+  *r_start = a;
+  *r_end = b;
 }

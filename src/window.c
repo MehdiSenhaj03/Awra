@@ -341,6 +341,9 @@ static void set_hover(AwraWidget *n, bool on)
   if (AWRA_CLASS_OF(n)->flags & AWRA_CLASS_HOVER) {
     awra_animate_state(n);
   }
+  if (AWRA_CLASS_OF(n)->hover) {
+    AWRA_CLASS_OF(n)->hover(n, on);
+  }
   awra_emit_simple(n, on ? AWRA_SIGNAL_ENTER : AWRA_SIGNAL_LEAVE);
 }
 

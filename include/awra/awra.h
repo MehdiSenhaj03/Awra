@@ -239,6 +239,9 @@ typedef enum {
    * (GTK's PropagationPhase::Capture): set handled to stop it. */
   AWRA_SIGNAL_KEY_CAPTURE,    /* key press: args->keysym, text, mods, code */
   AWRA_SIGNAL_PRESS_CAPTURE,  /* any button press: args->x, y (window), button */
+  /* a link of a label (<a href>) clicked: args->text = its URI; set handled
+   * to keep it from opening in the desktop's handler */
+  AWRA_SIGNAL_ACTIVATE_LINK,
   AWRA_SIGNAL_COUNT
 } AwraSignal;
 
@@ -507,6 +510,9 @@ double awra_scrolled_hvalue(AwraWidget *scrolled);
 void awra_scrolled_set_hvalue(AwraWidget *scrolled, double value);
 /* Scrolls so that `child` (a descendant) is visible. */
 void awra_scrolled_scroll_to(AwraWidget *scrolled, AwraWidget *child);
+/* The vertical range (GtkAdjustment's value, upper and page size), logical
+ * px; value-changed is emitted when the value changes. */
+void awra_scrolled_get_vadjustment(AwraWidget *scrolled, double *value, double *upper, double *page);
 
 AwraWidget *awra_separator_new(AwraOrientation orientation);
 AwraWidget *awra_spacer_new(void); /* an empty expanding widget */
@@ -533,6 +539,9 @@ void awra_label_set_color(AwraWidget *label, const AwraRGBA *color); /* NULL: ty
 void awra_label_set_weight(AwraWidget *label, int weight);           /* 0: typography's */
 void awra_label_set_scale(AwraWidget *label, double scale);          /* font size factor */
 void awra_label_set_monospace_digits(AwraWidget *label, bool tabular);
+/* Selectable labels: the selection, in byte offsets (end -1: the end). */
+bool awra_label_selection_bounds(AwraWidget *label, int *start, int *end);
+void awra_label_select_region(AwraWidget *label, int start, int end);
 
 AwraWidget *awra_image_new(void);
 AwraWidget *awra_image_new_from_icon_name(const char *icon_name);
@@ -967,6 +976,179 @@ void awra_free(void *p);
 
 /* Opens a URI or file with the desktop's default handler. */
 bool awra_show_uri(const char *uri);
+
+/* ----------------------------------------------------------------------- */
+/* Visibility the parent decides (gtk_widget_set_child_visible): a widget a
+ * container hides stays visible to the application (awra_widget_visible). */
+
+void awra_widget_set_child_visible(AwraWidget *widget, bool visible);
+bool awra_widget_child_visible(const AwraWidget *widget);
+
+/* ----------------------------------------------------------------------- */
+/* Revealer (GtkRevealer): shows or hides its child with a transition; the
+ * notify signal carries "child-revealed" when one ends. */
+
+typedef enum {
+  AWRA_REVEALER_NONE = 0,
+  AWRA_REVEALER_CROSSFADE,
+  AWRA_REVEALER_SLIDE_RIGHT,
+  AWRA_REVEALER_SLIDE_LEFT,
+  AWRA_REVEALER_SLIDE_UP,
+  AWRA_REVEALER_SLIDE_DOWN,
+  AWRA_REVEALER_SWING_RIGHT,
+  AWRA_REVEALER_SWING_LEFT,
+  AWRA_REVEALER_SWING_UP,
+  AWRA_REVEALER_SWING_DOWN
+} AwraRevealerTransition;
+
+AwraWidget *awra_revealer_new(void);
+void awra_revealer_set_child(AwraWidget *revealer, AwraWidget *child);
+AwraWidget *awra_revealer_child(AwraWidget *revealer);
+void awra_revealer_set_transition(AwraWidget *revealer, AwraRevealerTransition transition,
+                                  unsigned ms);
+void awra_revealer_set_reveal_child(AwraWidget *revealer, bool reveal);
+bool awra_revealer_reveal_child(AwraWidget *revealer);
+bool awra_revealer_child_revealed(AwraWidget *revealer);
+
+/* ----------------------------------------------------------------------- */
+/* Layouts the application defines (a GtkWidget subclass's measure and
+ * size_allocate): children are added with awra_container_add; measure
+ * reports logical pixels (for_size -1: none); allocate places each child
+ * with awra_widget_allocate (logical pixels, relative to the layout).
+ * NULL functions lay the children out on top of each other (GtkBinLayout). */
+
+typedef void (*AwraLayoutMeasureFunc)(AwraWidget *layout, AwraOrientation orientation, int for_size,
+                                      int *minimum, int *natural, void *data);
+typedef void (*AwraLayoutAllocateFunc)(AwraWidget *layout, int width, int height, void *data);
+AwraWidget *awra_layout_new(AwraLayoutMeasureFunc measure, AwraLayoutAllocateFunc allocate,
+                            void *data, AwraDestroyNotify destroy);
+/* Clips the children to the layout (overflow: hidden). */
+void awra_layout_set_clip(AwraWidget *layout, bool clip);
+void awra_widget_allocate(AwraWidget *child, int x, int y, int width, int height);
+
+/* An aspect frame (GtkAspectFrame): its child at `ratio`, aligned. */
+AwraWidget *awra_aspect_frame_new(float xalign, float yalign, float ratio);
+void awra_aspect_frame_set_child(AwraWidget *frame, AwraWidget *child);
+void awra_aspect_frame_set_ratio(AwraWidget *frame, float ratio);
+
+/* A window handle (GtkWindowHandle): dragging it moves the window, a double
+ * click maximizes or restores it. */
+AwraWidget *awra_window_handle_new(void);
+void awra_window_handle_set_child(AwraWidget *handle, AwraWidget *child);
+
+/* ----------------------------------------------------------------------- */
+/* Textures (GdkTexture): immutable pixels, shared by reference by every
+ * widget showing them. */
+
+typedef struct AwraTexture AwraTexture;
+/* Straight RGBA rows (copied, premultiplied). */
+AwraTexture *awra_texture_new_rgba(const uint8_t *rgba, int width, int height, int stride);
+/* Premultiplied 0xAARRGGBB, rows of `width` (copied). */
+AwraTexture *awra_texture_new_argb(const uint32_t *argb, int width, int height);
+/* A video frame in NV12 (width * height luma bytes, then interleaved CbCr
+ * at half resolution; limited range), copied. */
+AwraTexture *awra_texture_new_nv12(const uint8_t *data, int width, int height, bool bt709);
+/* A PNG, JPEG, GIF (first frame), WebP or SVG; NULL when it can't decode. */
+AwraTexture *awra_texture_new_from_bytes(const void *encoded, size_t length);
+AwraTexture *awra_texture_new_from_file(const char *path);
+AwraTexture *awra_texture_ref(AwraTexture *texture);
+void awra_texture_unref(AwraTexture *texture);
+int awra_texture_width(const AwraTexture *texture);
+int awra_texture_height(const AwraTexture *texture);
+/* Straight RGBA rows; false for video frames. */
+bool awra_texture_download(const AwraTexture *texture, uint8_t *rgba, int stride);
+/* Images show a texture (as GtkPicture shows a paintable: natural size the
+ * texture's, height for width by its aspect ratio, content fit). */
+void awra_image_set_texture(AwraWidget *image, AwraTexture *texture);
+AwraTexture *awra_image_texture(AwraWidget *image);
+/* GtkPicture's can-shrink (default true): false keeps the minimum size at
+ * the texture's own. */
+void awra_image_set_can_shrink(AwraWidget *image, bool can_shrink);
+
+/* ----------------------------------------------------------------------- */
+/* Rich label (Awra 1's AwraRichLabel): a label whose U+FFFC characters are
+ * squares as tall as its letters (or inline_size), a texture drawn over
+ * each, in text order. The label inside does everything a label does. */
+
+AwraWidget *awra_rich_label_new(void);
+AwraWidget *awra_rich_label_label(AwraWidget *rich);
+void awra_rich_label_clear_textures(AwraWidget *rich);
+/* index -1 appends; NULL leaves the square empty */
+void awra_rich_label_set_texture(AwraWidget *rich, int index, AwraTexture *texture);
+void awra_rich_label_set_inline_size(AwraWidget *rich, int size);
+/* The same on any label. */
+void awra_label_set_inline_size(AwraWidget *label, int size);
+void awra_label_clear_inline_textures(AwraWidget *label);
+void awra_label_set_inline_texture(AwraWidget *label, int index, AwraTexture *texture);
+
+/* ----------------------------------------------------------------------- */
+/* List view (GtkListView with a GtkSignalListItemFactory): the application
+ * keeps the items; the view makes item widgets for those near the visible
+ * part of the scrolled window it is in, and reuses them. setup gives a new
+ * item widget its contents (awra_list_item_set_child), bind fills it for
+ * awra_list_item_position, unbind empties it, teardown forgets it.
+ * activate: args->index = the position. */
+
+typedef void (*AwraListItemFunc)(AwraWidget *list, AwraWidget *item, void *data);
+AwraWidget *awra_list_view_new(void);
+void awra_list_view_set_factory(AwraWidget *list, AwraListItemFunc setup, AwraListItemFunc bind,
+                                AwraListItemFunc unbind, AwraListItemFunc teardown, void *data,
+                                AwraDestroyNotify destroy);
+/* The model changed: at `position`, `removed` items went and `added` came. */
+void awra_list_view_items_changed(AwraWidget *list, unsigned position, unsigned removed,
+                                  unsigned added);
+unsigned awra_list_view_n_items(AwraWidget *list);
+/* Binds the item at `position` again (unbind, bind) when it has a widget. */
+void awra_list_view_rebind(AwraWidget *list, unsigned position);
+/* The item widget bound to `position`, or NULL. */
+AwraWidget *awra_list_view_item(AwraWidget *list, unsigned position);
+int awra_list_view_bound_count(AwraWidget *list);
+AwraWidget *awra_list_view_bound_item(AwraWidget *list, int index);
+/* The first and last positions on screen; false when none. */
+bool awra_list_view_visible_range(AwraWidget *list, unsigned *first, unsigned *last);
+/* Scrolls to an item: align 0 just into view, 1 at the top, 2 centered,
+ * 3 at the bottom. */
+void awra_list_view_scroll_to(AwraWidget *list, unsigned position, int align);
+void awra_list_view_set_single_click_activate(AwraWidget *list, bool single);
+void awra_list_view_set_spacing(AwraWidget *list, int spacing);
+void awra_list_item_set_child(AwraWidget *item, AwraWidget *child);
+AwraWidget *awra_list_item_child(AwraWidget *item);
+/* UINT_MAX when it is not bound */
+unsigned awra_list_item_position(AwraWidget *item);
+void awra_list_item_set_activatable(AwraWidget *item, bool activatable);
+void awra_list_item_set_selectable(AwraWidget *item, bool selectable);
+void awra_list_item_set_focusable(AwraWidget *item, bool focusable);
+
+/* ----------------------------------------------------------------------- */
+/* Avatars (Awra 1's AwraAvatar, AwraAvatarGroup): a picture, or initials on
+ * a plate of the name's hue; a presence dot cut into the bottom end corner,
+ * a speaking ring. Groups overlap their avatars by a third. */
+
+typedef enum {
+  AWRA_PRESENCE_NONE = 0,
+  AWRA_PRESENCE_ONLINE,
+  AWRA_PRESENCE_IDLE,
+  AWRA_PRESENCE_BUSY,
+  AWRA_PRESENCE_OFFLINE
+} AwraPresence;
+typedef enum { AWRA_AVATAR_SHAPE_CIRCLE = 0, AWRA_AVATAR_SHAPE_ROUNDED } AwraAvatarShape;
+
+AwraWidget *awra_avatar_new(int size, const char *text);
+void awra_avatar_set_size(AwraWidget *avatar, int size);
+int awra_avatar_size(AwraWidget *avatar);
+void awra_avatar_set_text(AwraWidget *avatar, const char *text);
+const char *awra_avatar_text(AwraWidget *avatar);
+void awra_avatar_set_show_initials(AwraWidget *avatar, bool show);
+/* The picture (NULL: initials or the icon). */
+void awra_avatar_set_texture(AwraWidget *avatar, AwraTexture *texture);
+AwraTexture *awra_avatar_texture(AwraWidget *avatar);
+void awra_avatar_set_icon_name(AwraWidget *avatar, const char *icon_name);
+void awra_avatar_set_shape(AwraWidget *avatar, int shape); /* AwraAvatarShape */
+void awra_avatar_set_presence(AwraWidget *avatar, AwraPresence presence);
+void awra_avatar_set_speaking(AwraWidget *avatar, bool speaking);
+AwraWidget *awra_avatar_group_new(void);
+void awra_avatar_group_append(AwraWidget *group, AwraWidget *avatar);
+void awra_avatar_group_remove_all(AwraWidget *group);
 
 #ifdef __cplusplus
 }
