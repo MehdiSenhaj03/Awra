@@ -19,7 +19,7 @@ typedef struct EditExt {
   BKTextEdit *te;
   AwraTextLayout *layout;
   char *placeholder, *icon, *accel;
-  bool multiline, editable, visibility, search, spin;
+  bool multiline, editable, visibility, search, spin, frameless;
   int max_len;
   float scroll_x, scroll_y;
   bool caret_on;
@@ -136,6 +136,10 @@ static void edit_finalize(AwraWidget *w)
 static void edit_pads(AwraWidget *w, int *l, int *r, int *t, int *b)
 {
   EditExt *x = EX(w);
+  if (x->frameless) {
+    *t = *b = *l = *r = 0;
+    return;
+  }
   *t = *b = awra_px(5) + awra_px(1);
   *l = *r = awra_px(x->search ? 8 : 11) + awra_px(1);
   if (x->icon || x->search) {
@@ -184,7 +188,9 @@ static void edit_measure(AwraWidget *w, int o, int for_size, int *r_min, int *r_
     awra_text_layout_size(x->layout, for_size >= 0 ? for_size - l - r : -1, NULL, &h);
     th = BK_MAX(th * 3, h);
   }
-  th = BK_MAX(th, awra_px(22));
+  if (!x->frameless) {
+    th = BK_MAX(th, awra_px(22));
+  }
   if (x->spin) {
     th = BK_MAX(th, awra_px(24));
   }
@@ -236,6 +242,10 @@ static void edit_draw(AwraWidget *w, AwraDraw *d)
   const bool sens = awra_sensitive(w);
   const float radius = awra_pxf(x->search ? 9 : 11);
   AwraBox b = awra_box_of(w);
+  if (x->frameless) {
+    /* a bare text field: its container draws the frame */
+  }
+  else {
   if (focus) { /* outline 1px @awra_selection, offset 2 */
     const float ow = awra_pxf(1), off = awra_pxf(2);
     AwraBox o = {b.x - off - ow, b.y - off - ow, b.w + 2 * (off + ow), b.h + 2 * (off + ow)};
@@ -248,6 +258,7 @@ static void edit_draw(AwraWidget *w, AwraDraw *d)
     const AwraRGBA sh = {0, 0, 0, 0.15f};
     const float r4[4] = {radius, radius, radius, radius}, w4[4] = {awra_pxf(1.5), 0, 0, 0};
     awra_paint_rbox4(d, b, r4, NULL, w4, &sh);
+  }
   }
   AwraBox a = text_area(w);
   const AwraRGBA fg = sens ? t->foreground : t->disabled;
@@ -737,6 +748,24 @@ void awra_entry_select_all(AwraWidget *w)
 {
   EX(w)->te->anchor = 0;
   EX(w)->te->caret = EX(w)->te->len;
+  awra_invalidate(w);
+}
+
+void awra_entry_select_region(AwraWidget *w, int start, int end)
+{
+  EditExt *x = EX(w);
+  start = start < 0 ? x->te->len : BK_MIN(start, x->te->len);
+  end = end < 0 ? x->te->len : BK_MIN(end, x->te->len);
+  x->te->anchor = start;
+  x->te->caret = end;
+  ensure_caret_visible(w);
+  awra_invalidate(w);
+}
+
+void awra_entry_set_has_frame(AwraWidget *w, bool frame)
+{
+  EX(w)->frameless = !frame;
+  awra_widget_queue_resize(w);
   awra_invalidate(w);
 }
 

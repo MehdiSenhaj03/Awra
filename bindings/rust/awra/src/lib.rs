@@ -20,6 +20,7 @@ mod signal;
 mod enums;
 mod widget;
 mod widgets;
+mod collection;
 mod window;
 pub mod gdk;
 pub mod gio;
@@ -36,6 +37,7 @@ pub use object::{IntoOptStr, IntoOptWidget, IsWidget, StaticType, WeakRef, Widge
 pub use signal::{raw_args as signal_args, sig, Args, SignalHandlerId};
 pub use widget::*;
 pub use widgets::*;
+pub use collection::*;
 pub use window::{accel_label, ApplicationWindow, Window};
 
 pub mod prelude {

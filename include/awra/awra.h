@@ -239,6 +239,10 @@ typedef enum {
    * (GTK's PropagationPhase::Capture): set handled to stop it. */
   AWRA_SIGNAL_KEY_CAPTURE,    /* key press: args->keysym, text, mods, code */
   AWRA_SIGNAL_PRESS_CAPTURE,  /* any button press: args->x, y (window), button */
+  /* A drag starts from an item (collection views): args->index, x, y at
+   * the press, mods. The view keeps the pointer: motion and released
+   * follow on it until the button is released. */
+  AWRA_SIGNAL_DRAG_BEGIN,
   AWRA_SIGNAL_COUNT
 } AwraSignal;
 
@@ -623,6 +627,10 @@ void awra_entry_set_position(AwraWidget *entry, int position);
 void awra_entry_set_accel_hint(AwraWidget *entry, const char *hint); /* "Ctrl K" at the end */
 void awra_entry_set_editable(AwraWidget *entry, bool editable);
 void awra_entry_set_quiet(AwraWidget *entry, bool quiet); /* sidebar search look */
+/* Selects bytes [start, end) of the UTF-8 text (-1: the end), the caret at end. */
+void awra_entry_select_region(AwraWidget *entry, int start, int end);
+/* false: a bare text field without padding or frame (a container draws it). */
+void awra_entry_set_has_frame(AwraWidget *entry, bool frame);
 
 AwraWidget *awra_search_entry_new(void);
 void awra_search_entry_set_delay(AwraWidget *entry, unsigned ms);
@@ -766,6 +774,8 @@ void awra_header_set_show_controls(AwraWidget *header, bool show);
 void awra_header_set_blend_with_window(AwraWidget *header, bool blend);
 void awra_header_set_drag_enabled(AwraWidget *header, bool drag);
 void awra_header_set_compact(AwraWidget *header, bool compact);
+/* The centre widget takes all the room between the start and end ones. */
+void awra_header_set_expand_center(AwraWidget *header, bool expand);
 
 AwraWidget *awra_sidebar_new(void);
 void awra_sidebar_set_child(AwraWidget *sidebar, AwraWidget *child);
@@ -916,7 +926,8 @@ void awra_drop_zone_set_browse_label(AwraWidget *zone, const char *label); /* NU
 void awra_drop_zone_set_child(AwraWidget *zone, AwraWidget *child);
 
 /* Any widget can take dropped files (files-dropped, args->text = paths,
- * '\n'-separated); drop-hover reports a drag over it. */
+ * '\n'-separated); drop-hover reports a drag over it, on every move
+ * (args->active; both carry args->x, y relative to the widget). */
 void awra_widget_set_accepts_file_drops(AwraWidget *widget, bool accepts);
 
 /* A widget the application draws itself (Awra's GtkDrawingArea). */
@@ -967,6 +978,154 @@ void awra_free(void *p);
 
 /* Opens a URI or file with the desktop's default handler. */
 bool awra_show_uri(const char *uri);
+
+/* ----------------------------------------------------------------------- */
+/* Collection view: a virtualized grid of tiles or list of rows with column
+ * headers (Awra 1's AwraGridView / AwraDataView over GtkGridView and
+ * GtkColumnView). Only the items on screen have widgets: setup builds a
+ * cell (the view owns the returned reference; column -1 in a grid), bind
+ * fills it for an item, unbind lets it go before it is recycled. The view
+ * scrolls itself, selects (click, Ctrl, Shift, rubberband from the blank,
+ * arrows), and emits:
+ *   notify "selection"   the selection changed;
+ *   activate             double click / Return: args->index;
+ *   drag-begin           a drag starts from an item: args->index;
+ *   selected             a column header was clicked: args->index = column,
+ *                        args->active = the descending order it asks for;
+ *   value-changed        it scrolled.
+ * Right and middle presses reach pressed handlers (index_at finds the item). */
+typedef enum { AWRA_COLLECTION_GRID = 0, AWRA_COLLECTION_LIST = 1 } AwraCollectionLayout;
+typedef AwraWidget *(*AwraCollectionSetup)(AwraWidget *view, int column, void *data);
+typedef void (*AwraCollectionBind)(AwraWidget *view, AwraWidget *cell, int column, int index,
+                                   void *data);
+typedef void (*AwraCollectionUnbind)(AwraWidget *view, AwraWidget *cell, int column, int index,
+                                     void *data);
+AwraWidget *awra_collection_view_new(AwraCollectionLayout layout);
+void awra_collection_view_set_layout(AwraWidget *view, AwraCollectionLayout layout);
+AwraCollectionLayout awra_collection_view_layout(AwraWidget *view);
+void awra_collection_view_set_factory(AwraWidget *view, AwraCollectionSetup setup,
+                                      AwraCollectionBind bind, AwraCollectionUnbind unbind,
+                                      void *data, AwraDestroyNotify destroy);
+/* A new set of items: the selection, cursor and scroll start over. */
+void awra_collection_view_set_item_count(AwraWidget *view, int n);
+int awra_collection_view_item_count(AwraWidget *view);
+/* Items moved in place: the selection and cursor follow those that stay. */
+void awra_collection_view_items_changed(AwraWidget *view, int position, int removed, int added);
+/* Binds an item's cells again (-1: every item on screen). */
+void awra_collection_view_rebind(AwraWidget *view, int index);
+/* The cell of an item on screen (column ignored in a grid), NULL otherwise. */
+AwraWidget *awra_collection_view_cell(AwraWidget *view, int index, int column);
+void awra_collection_view_visible_range(AwraWidget *view, int *r_first, int *r_count);
+/* Grid: the content size of a tile (logical; tiles add 8 padding, 4 margin);
+ * list: the row height. */
+void awra_collection_view_set_item_size(AwraWidget *view, int width, int height);
+void awra_collection_view_set_row_height(AwraWidget *view, int height);
+void awra_collection_view_set_max_columns(AwraWidget *view, int n); /* grid, default 7 */
+/* List columns: width in logical px (-1: the title's), expand shares the rest. */
+int awra_collection_view_add_column(AwraWidget *view, const char *title, int width, bool expand);
+void awra_collection_view_set_column_title(AwraWidget *view, int column, const char *title);
+void awra_collection_view_set_column_visible(AwraWidget *view, int column, bool visible);
+bool awra_collection_view_column_visible(AwraWidget *view, int column);
+void awra_collection_view_set_column_width(AwraWidget *view, int column, int width);
+int awra_collection_view_column_width(AwraWidget *view, int column);
+void awra_collection_view_set_sort_column(AwraWidget *view, int column, bool descending);
+void awra_collection_view_set_show_header(AwraWidget *view, bool show);
+int awra_collection_view_header_height(AwraWidget *view);
+/* Hit tests in the view's logical coordinates: a header column, an item
+ * (-1: the blank; on_content: on the tile, or the row's first cell content). */
+int awra_collection_view_column_at(AwraWidget *view, double x, double y);
+int awra_collection_view_index_at(AwraWidget *view, double x, double y, bool *r_on_content);
+bool awra_collection_view_item_bounds(AwraWidget *view, int index, double *r_x, double *r_y,
+                                      double *r_w, double *r_h);
+/* Selection */
+bool awra_collection_view_is_selected(AwraWidget *view, int index);
+int awra_collection_view_selected_count(AwraWidget *view);
+/* Writes up to max selected indices in order (max < 0: all); returns the count. */
+int awra_collection_view_get_selected(AwraWidget *view, int *out, int max);
+void awra_collection_view_set_selected(AwraWidget *view, int index, bool selected);
+void awra_collection_view_select_only(AwraWidget *view, const int *indices, int n);
+void awra_collection_view_select_all(AwraWidget *view);
+void awra_collection_view_unselect_all(AwraWidget *view);
+int awra_collection_view_cursor(AwraWidget *view);
+void awra_collection_view_set_cursor(AwraWidget *view, int index);
+void awra_collection_view_scroll_to(AwraWidget *view, int index);
+double awra_collection_view_vvalue(AwraWidget *view);
+void awra_collection_view_set_vvalue(AwraWidget *view, double value);
+/* An item shown as a drop destination (-1: none). */
+void awra_collection_view_set_drop_index(AwraWidget *view, int index);
+int awra_collection_view_grid_columns(AwraWidget *view);
+
+/* ----------------------------------------------------------------------- */
+/* Path bar: Awra 1's AwraPathBar. Breadcrumbs and a text field share one
+ * frame; a click on the blank (or begin_edit) edits the path. Signals:
+ *   activate   a breadcrumb was clicked: args->index; or the text was
+ *              submitted (Return): args->index = -1, args->text; set
+ *              args->handled to refuse it (the field stays open, marked);
+ *   changed    the edited text changed: args->text (to suggest);
+ *   notify     "editing" started or ended. */
+AwraWidget *awra_path_bar_new(void);
+void awra_path_bar_set_items(AwraWidget *bar, const char *const *labels, int n);
+void awra_path_bar_set_icon_name(AwraWidget *bar, const char *icon_name);
+/* The text an edit starts from. */
+void awra_path_bar_set_text(AwraWidget *bar, const char *text);
+void awra_path_bar_set_placeholder(AwraWidget *bar, const char *text);
+void awra_path_bar_set_end_widget(AwraWidget *bar, AwraWidget *widget);
+void awra_path_bar_set_blank_tooltip(AwraWidget *bar, const char *text);
+/* initial NULL: the whole text, selected; otherwise that text, caret at the end. */
+void awra_path_bar_begin_edit(AwraWidget *bar, const char *initial);
+void awra_path_bar_end_edit(AwraWidget *bar);
+bool awra_path_bar_editing(AwraWidget *bar);
+const char *awra_path_bar_edit_text(AwraWidget *bar);
+AwraWidget *awra_path_bar_entry(AwraWidget *bar);
+/* Suggestions under the field while editing (values are inserted); n 0 hides them. */
+void awra_path_bar_set_suggestions(AwraWidget *bar, const char *const *titles,
+                                   const char *const *values, int n);
+void awra_path_bar_set_invalid(AwraWidget *bar, bool invalid);
+/* Breadcrumbs as drop places: the one at a point (logical, -1 none), and
+ * the one shown as the destination. */
+int awra_path_bar_item_at(AwraWidget *bar, double x, double y);
+void awra_path_bar_set_drop_item(AwraWidget *bar, int index);
+/* Menus driven from elsewhere (a field's suggestions): the highlighted row. */
+void awra_menu_popover_set_highlighted(AwraWidget *popover, int index);
+
+/* ----------------------------------------------------------------------- */
+/* Tab bar: the strip of Awra 1's AwraTabView (workspace tabs). Signals:
+ *   selected       the person chose a tab: args->index;
+ *   close-request  its close button or a middle click: args->index;
+ *   moved          dragged along the bar: args->text = "from\tto" (done);
+ *   activate       a double or middle click on the blank: args->index = -1;
+ *   drag-begin     a tab dragged out of the bar: args->index (the pointer
+ *                  stays with the bar: motion and released follow). */
+AwraWidget *awra_tab_bar_new(void);
+int awra_tab_bar_insert(AwraWidget *bar, int position, const char *title, const char *icon_name);
+void awra_tab_bar_remove(AwraWidget *bar, int index);
+void awra_tab_bar_move(AwraWidget *bar, int from, int to);
+void awra_tab_bar_set_title(AwraWidget *bar, int index, const char *title);
+void awra_tab_bar_set_icon_name(AwraWidget *bar, int index, const char *icon_name);
+void awra_tab_bar_set_tab_tooltip(AwraWidget *bar, int index, const char *text);
+int awra_tab_bar_count(AwraWidget *bar);
+int awra_tab_bar_selected(AwraWidget *bar);
+void awra_tab_bar_set_selected(AwraWidget *bar, int index);
+/* The focused view: its current tab takes the selection color. */
+void awra_tab_bar_set_active(AwraWidget *bar, bool active);
+int awra_tab_bar_index_at(AwraWidget *bar, double x, double y);
+/* Where a tab dropped at x would go, and that place shown open (-1: none). */
+int awra_tab_bar_insertion_at(AwraWidget *bar, double x);
+void awra_tab_bar_set_insertion(AwraWidget *bar, int position);
+
+/* ----------------------------------------------------------------------- */
+/* Paned: two children split by a draggable 1 px separator (a double click
+ * shares evenly); notify "position" after a change by the pointer. */
+AwraWidget *awra_paned_new(AwraOrientation orientation);
+void awra_paned_set_start_child(AwraWidget *paned, AwraWidget *child);
+void awra_paned_set_end_child(AwraWidget *paned, AwraWidget *child);
+AwraWidget *awra_paned_start_child(AwraWidget *paned);
+AwraWidget *awra_paned_end_child(AwraWidget *paned);
+void awra_paned_set_orientation(AwraWidget *paned, AwraOrientation orientation);
+AwraOrientation awra_paned_orientation(AwraWidget *paned);
+/* The start child's share of the length (0..1). */
+void awra_paned_set_fraction(AwraWidget *paned, double fraction);
+double awra_paned_fraction(AwraWidget *paned);
 
 #ifdef __cplusplus
 }

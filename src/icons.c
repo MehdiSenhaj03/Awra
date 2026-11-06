@@ -27,7 +27,7 @@ typedef struct Registered {
 static Registered *g_registered;
 
 typedef struct Cached {
-  char name[64];
+  char name[256]; /* icon names, or the paths of color icons */
   int size;
   AwraIconMask mask;
   BuiPixmap pm; /* color icons */
@@ -227,7 +227,10 @@ const BuiPixmap *awra_icon_pixmap(const char *name, int size)
   if (!name || size <= 0) {
     return NULL;
   }
-  char key[64];
+  char key[256];
+  if (strlen(name) + 2 > sizeof(key)) {
+    return NULL;
+  }
   snprintf(key, sizeof(key), "#%s", name);
   Cached *c = lookup(key, size, false);
   if (c) {

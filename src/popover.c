@@ -461,7 +461,7 @@ static void row_draw(AwraWidget *w, AwraDraw *d)
   const bool hot = awra_hovered(w) || awra_focus_visible(w);
   AwraRGBA bg = {0, 0, 0, 0};
   if (x->kind == 0) {
-    bg = hot ? t->selection : bg;
+    bg = (hot || x->selected) ? t->selection : bg;
   }
   else if (x->kind == 1) {
     bg = awra_pressed(w) ? t->control_pressed : hot ? t->control_cap_hover :
@@ -634,6 +634,44 @@ AwraWidget *awra_menu_popover_new(const AwraMenuItem *items, int n)
   awra_popover_set_child(pop, scroll);
   awra_widget_unref(scroll);
   return pop;
+}
+
+/* The row a keyboard elsewhere points at (path suggestions): highlighted as
+ * if hovered; -1 none. */
+static void highlight_rows(AwraWidget *n, int *k, int index)
+{
+  for (int i = 0; i < n->nkids; i++) {
+    AwraWidget *c = n->kids[i];
+    if (!awra_is_widget(c)) {
+      continue;
+    }
+    if (AWRA_CLASS_OF(c) == &row_class) {
+      const bool on = *k == index;
+      if (RX(c)->selected != on) {
+        RX(c)->selected = on;
+        awra_invalidate(c);
+      }
+      if (on) {
+        AwraWidget *p = awra_widget_parent(c);
+        while (p && !awra_widget_is(p, "AwraScrolledWindow")) {
+          p = awra_widget_parent(p);
+        }
+        if (p) {
+          awra_scrolled_scroll_to(p, c);
+        }
+      }
+      (*k)++;
+    }
+    else {
+      highlight_rows(c, k, index);
+    }
+  }
+}
+
+void awra_menu_popover_set_highlighted(AwraWidget *pop, int index)
+{
+  int k = 0;
+  highlight_rows(pop, &k, index);
 }
 
 /* ======================================================================= */

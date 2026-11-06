@@ -1218,19 +1218,40 @@ static void nav_margins(AwraWidget *w, int *mx)
   }
 }
 
-static void nav_measure(AwraWidget *w, int o, int f, int *mn, int *nt)
+/* Dense navigation (Awra 1's compact-navigation role, class "compact"):
+ * 6 x 8 padding, 20 px minimum, regular weight (600 when selected). */
+static bool nav_compact(const AwraWidget *w)
 {
-  int mx;
-  nav_margins(w, &mx);
-  const int ph = awra_px(22), pv = awra_px(14);
-  awra_measure(NX(w)->box, o, -1, mn, nt);
-  if (o == AWRA_ORIENTATION_HORIZONTAL) {
-    *mn += ph + 2 * mx;
-    *nt += ph + 2 * mx;
+  return awra_has_class_bit(w, AWRA_CB_COMPACT);
+}
+
+static void nav_pads(AwraWidget *w, int *ph, int *pv, int *min_h)
+{
+  if (nav_compact(w)) {
+    *ph = awra_px(8);
+    *pv = awra_px(6);
+    *min_h = awra_px(20);
   }
   else {
-    *mn = BK_MAX(*mn, awra_px(28)) + pv + awra_px(2);
-    *nt = BK_MAX(*nt, awra_px(28)) + pv + awra_px(2);
+    *ph = awra_px(11);
+    *pv = awra_px(7);
+    *min_h = awra_px(28);
+  }
+}
+
+static void nav_measure(AwraWidget *w, int o, int f, int *mn, int *nt)
+{
+  int mx, ph, pv, min_h;
+  nav_margins(w, &mx);
+  nav_pads(w, &ph, &pv, &min_h);
+  awra_measure(NX(w)->box, o, -1, mn, nt);
+  if (o == AWRA_ORIENTATION_HORIZONTAL) {
+    *mn += 2 * ph + 2 * mx;
+    *nt += 2 * ph + 2 * mx;
+  }
+  else {
+    *mn = BK_MAX(*mn, min_h) + 2 * pv + awra_px(2);
+    *nt = BK_MAX(*nt, min_h) + 2 * pv + awra_px(2);
   }
 }
 
@@ -1245,8 +1266,9 @@ static AwraBox nav_box(AwraWidget *w)
 static void nav_allocate(AwraWidget *w)
 {
   AwraBox b = nav_box(w);
-  awra_allocate(NX(w)->box, (int)b.x + awra_px(11), (int)b.y + awra_px(7), (int)b.w - awra_px(22),
-                (int)b.h - awra_px(14));
+  int ph, pv, min_h;
+  nav_pads(w, &ph, &pv, &min_h);
+  awra_allocate(NX(w)->box, (int)b.x + ph, (int)b.y + pv, (int)b.w - 2 * ph, (int)b.h - 2 * pv);
 }
 
 static void nav_colors(AwraWidget *w, AwraButtonColors *c)
@@ -1281,7 +1303,7 @@ static bool nav_child_style(AwraWidget *w, AwraRGBA *col, int *weight)
   AwraButtonColors c;
   nav_colors(w, &c);
   *col = c.fg;
-  *weight = 560;
+  *weight = nav_compact(w) ? (NX(w)->selected ? 600 : 400) : 560;
   return true;
 }
 
@@ -1331,6 +1353,12 @@ static void nav_style_changed(AwraWidget *w)
   }
 }
 
+/* a suffix (free space, a count) after the label */
+static void nav_add(AwraWidget *w, AwraWidget *child)
+{
+  awra_box_append(NX(w)->box, child);
+}
+
 static void nav_init(AwraWidget *w)
 {
   NX(w)->group_next = w;
@@ -1362,6 +1390,7 @@ static AwraClass nav_class = {
     .activate = nav_activate,
     .child_style = nav_child_style,
     .style_changed = nav_style_changed,
+    .add = nav_add,
     .overdraw = 4,
 };
 
