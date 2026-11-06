@@ -1,0 +1,24 @@
+action-unavailable-symbolic application-exit-symbolic audio-volume-high-symbolic audio-volume-low-symbolic
+audio-volume-medium-symbolic audio-volume-muted-symbolic audio-x-generic-symbolic awra-avatar-default-symbolic
+awra-close-symbolic awra-folder-symbolic awra-send-symbolic awra-status-error-symbolic awra-status-info-symbolic
+awra-status-success-symbolic awra-status-warning-symbolic content-loading-symbolic dialog-warning-symbolic
+dialog-information-symbolic dialog-error-symbolic
+document-edit-symbolic document-new-symbolic document-open-recent-symbolic document-open-symbolic
+document-save-symbolic document-send-symbolic edit-clear-all-symbolic edit-clear-symbolic edit-find-symbolic
+edit-paste-symbolic edit-copy-symbolic edit-cut-symbolic edit-delete-symbolic edit-redo-symbolic edit-undo-symbolic emblem-favorite-symbolic
+emblem-system-symbolic face-laugh-symbolic face-smile-big-symbolic folder-music-symbolic folder-open-symbolic
+folder-symbolic go-down-symbolic go-up-symbolic go-jump-symbolic go-next-symbolic go-previous-symbolic go-home-symbolic
+input-dialpad-symbolic input-keyboard-symbolic list-add-symbolic list-remove-symbolic media-playback-pause-symbolic
+media-playback-start-symbolic media-playback-stop-symbolic media-seek-forward-symbolic media-seek-backward-symbolic
+media-skip-forward-symbolic media-skip-backward-symbolic media-playlist-repeat-symbolic media-playlist-shuffle-symbolic
+object-select-symbolic starred-symbolic non-starred-symbolic system-search-symbolic user-trash-symbolic
+video-x-generic-symbolic view-fullscreen-symbolic view-grid-symbolic view-list-symbolic view-more-symbolic
+view-pin-symbolic view-refresh-symbolic view-reveal-symbolic view-conceal-symbolic weather-clear-night-symbolic
+weather-clear-symbolic weather-fog-symbolic weather-showers-symbolic weather-storm-symbolic window-close-symbolic
+window-minimize-symbolic window-maximize-symbolic window-restore-symbolic pan-down-symbolic pan-up-symbolic
+pan-start-symbolic pan-end-symbolic value-increase-symbolic value-decrease-symbolic open-menu-symbolic
+preferences-system-symbolic help-about-symbolic check-symbolic chevron-down-symbolic mixed-symbolic radio-symbolic
+emblem-ok-symbolic process-stop-symbolic system-run-symbolic user-home-symbolic emblem-music-symbolic
+network-wireless-symbolic camera-photo-symbolic image-x-generic-symbolic text-x-generic-symbolic
+applications-multimedia-symbolic list-drag-handle-symbolic mail-send-symbolic sidebar-show-symbolic
+document-properties-symbolic folder-download-symbolic insert-image-symbolic zoom-in-symbolic zoom-out-symbolic

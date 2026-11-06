@@ -1,12 +1,3 @@
-# SPDX-License-Identifier: LGPL-2.1-or-later
-
 /build*/
-!/build-aux/
-/_build/
-compile_commands.json
-.cache/
-__pycache__/
-*.pyc
-/bindings/rust/target/
-/subprojects/gir/
-/subprojects/gir-files/
+/target/
+*.png.tmp

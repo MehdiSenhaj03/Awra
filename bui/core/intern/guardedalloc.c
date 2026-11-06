@@ -1,0 +1,192 @@
+﻿/* Minimal guarded-allocator implementation (plain malloc backing).
+ * SPDX-License-Identifier: GPL-2.0-or-later */
+#include <stdlib.h>
+#include <string.h>
+#ifdef __GLIBC__
+#  include <malloc.h> /* malloc_usable_size */
+#elif defined(__APPLE__)
+#  include <malloc/malloc.h> /* malloc_size */
+#endif
+
+#include "BLI_compiler_attrs.h"
+#include "BLI_utildefines.h"
+#include "MEM_guardedalloc.h"
+#include "atomic_ops.h"
+
+static size_t bui_malloc_usable_size(void *ptr)
+{
+#ifdef _WIN32
+  return ptr ? _msize(ptr) : 0;
+#elif defined(__GLIBC__)
+  return ptr ? malloc_usable_size(ptr) : 0;
+#elif defined(__APPLE__)
+  /* macOS: without it MEM_dupallocN returned NULL (BLI_duplicatelist) and
+   * MEM_recallocN left the new tail uninitialized */
+  return ptr ? malloc_size(ptr) : 0;
+#else
+  (void)ptr;
+  return 0;
+#endif
+}
+
+/* Blocks and bytes in use (MEM_get_memory_blocks_in_use / MEM_get_memory_in_use,
+ * as Blender's allocator counts them): leak checks in tests. Bytes are the
+ * allocator's usable sizes (0 where the platform can't tell). Aligned blocks
+ * (MEM_mallocN_aligned) aren't counted. */
+static uint32_t mem_blocks = 0;
+static size_t mem_bytes = 0;
+static size_t mem_total = 0; /* allocations ever made (BUI: benchmarks) */
+
+static void *mem_count(void *ptr)
+{
+  if (ptr) {
+    atomic_add_and_fetch_uint32(&mem_blocks, 1);
+    atomic_add_and_fetch_z(&mem_total, 1);
+    atomic_add_and_fetch_z(&mem_bytes, bui_malloc_usable_size(ptr));
+  }
+  return ptr;
+}
+
+static void mem_uncount(void *ptr)
+{
+  if (ptr) {
+    atomic_sub_and_fetch_uint32(&mem_blocks, 1);
+    atomic_sub_and_fetch_z(&mem_bytes, bui_malloc_usable_size(ptr));
+  }
+}
+
+size_t MEM_get_memory_in_use(void)
+{
+  return atomic_load_z(&mem_bytes);
+}
+
+size_t MEM_get_allocations_total(void)
+{
+  return atomic_load_z(&mem_total);
+}
+
+unsigned int MEM_get_memory_blocks_in_use(void)
+{
+  return atomic_add_and_fetch_uint32(&mem_blocks, 0);
+}
+
+void *MEM_mallocN(size_t len, const char *UNUSED(str))
+{
+  return len ? mem_count(malloc(len)) : NULL;
+}
+
+void *MEM_malloc_arrayN(size_t len, size_t size, const char *str)
+{
+  return MEM_mallocN(len * size, str);
+}
+
+void *MEM_callocN(size_t len, const char *UNUSED(str))
+{
+  return len ? mem_count(calloc(1, len)) : NULL;
+}
+
+void *MEM_calloc_arrayN(size_t len, size_t size, const char *str)
+{
+  return MEM_callocN(len * size, str);
+}
+
+void *MEM_mallocN_aligned(size_t len, size_t alignment, const char *str)
+{
+#ifdef _WIN32
+  return len ? _aligned_malloc(len, alignment) : NULL;
+#else
+  void *ptr = NULL;
+  if (len && posix_memalign(&ptr, alignment, len) != 0) {
+    ptr = NULL;
+  }
+  return ptr;
+#endif
+  (void)str;
+}
+
+void MEM_freeN(void *vmemh)
+{
+#ifdef _WIN32
+  /* Cannot distinguish normal vs aligned here; BUI core does not use
+   * aligned allocations, so plain free is correct for everything we emit. */
+  if (vmemh && ((uintptr_t)vmemh & 0xF) == 0) {
+    /* fall through to free(); _aligned_free would break non-aligned blocks */
+  }
+#endif
+  mem_uncount(vmemh);
+  free(vmemh);
+}
+
+void *MEM_reallocN_id(void *vmemh, size_t len, const char *UNUSED(str))
+{
+  if (!len) {
+    MEM_freeN(vmemh);
+    return NULL;
+  }
+  mem_uncount(vmemh);
+  void *newp = realloc(vmemh, len);
+  mem_count(newp ? newp : vmemh); /* on failure the old block stays live */
+  return newp;
+}
+
+void *MEM_recallocN_id(void *vmemh, size_t len, const char *str)
+{
+  size_t old_len = vmemh ? bui_malloc_usable_size(vmemh) : 0;
+  void *newp = MEM_reallocN_id(vmemh, len, str);
+  if (newp && len > old_len) {
+    memset(((char *)newp) + old_len, 0, len - old_len);
+  }
+  return newp;
+}
+
+void *MEM_dupallocN(const void *vmemh)
+{
+  if (!vmemh) {
+    return NULL;
+  }
+  size_t len = bui_malloc_usable_size((void *)vmemh);
+  if (!len) { /* Unknown usable size: caller must have used public API. */
+    return NULL;
+  }
+  void *newp = MEM_mallocN(len, "MEM_dupallocN");
+  if (newp) {
+    memcpy(newp, vmemh, len);
+  }
+  return newp;
+}
+
+size_t MEM_allocN_len(const void *vmemh)
+{
+  return bui_malloc_usable_size((void *)vmemh);
+}
+
+void *MEM_new_uninitialized(size_t size, const char *str)
+{
+  return MEM_mallocN(size, str);
+}
+
+void *MEM_new_zeroed(size_t size, const char *str)
+{
+  return MEM_callocN(size, str);
+}
+
+void *MEM_new_uninitialized_aligned(size_t size, size_t alignment, const char *str)
+{
+  /* malloc already aligns to 16 bytes; blocks from here are released with
+   * MEM_delete_void -> free(), which must not get a Windows _aligned_malloc block. */
+  if (alignment <= MEM_MIN_CPP_ALIGNMENT) {
+    return MEM_mallocN(size ? size : 1, str);
+  }
+  return MEM_mallocN_aligned(size, alignment, str);
+}
+
+void MEM_delete_void(void *ptr)
+{
+  MEM_freeN(ptr);
+}
+
+
+void *MEM_dupalloc_void(const void *vmemh)
+{
+  return MEM_dupallocN(vmemh);
+}

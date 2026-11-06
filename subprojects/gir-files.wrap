@@ -1,7 +1,0 @@
-# SPDX-License-Identifier: LGPL-2.1-or-later
-
-[wrap-git]
-url = https://github.com/gtk-rs/gir-files.git
-revision = abae03603b6feb548f7162e9c92d191d73190619
-depth = 1
-directory = gir-files
