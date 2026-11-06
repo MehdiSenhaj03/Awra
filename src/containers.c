@@ -1130,6 +1130,15 @@ static void overlay_allocate(AwraWidget *w)
   (void)x;
 }
 
+static void overlay_remove(AwraWidget *w, AwraWidget *child)
+{
+  OverlayExt *x = AWRA_EXT(w, OverlayExt);
+  if (x->child == child) {
+    x->child = NULL;
+  }
+  awra_child_remove(w, child);
+}
+
 static AwraClass overlay_class = {
     .bk = AWRA_BK("AwraOverlay", 0),
     .type = "AwraOverlay",
@@ -1137,6 +1146,7 @@ static AwraClass overlay_class = {
     .ext_size = sizeof(OverlayExt),
     .measure = overlay_measure,
     .allocate = overlay_allocate,
+    .remove = overlay_remove,
 };
 
 AwraWidget *awra_overlay_new(void)
@@ -1155,7 +1165,13 @@ void awra_overlay_set_child(AwraWidget *w, AwraWidget *child)
   }
   x->child = child;
   if (child) {
+    /* moved from another parent (GTK unparents first): that parent forgets it */
+    awra_widget_ref(child);
+    if (child->parent) {
+      awra_container_remove(child->parent, child);
+    }
     awra_child_insert(w, child, 0); /* below the overlays */
+    awra_widget_unref(child);
   }
 }
 

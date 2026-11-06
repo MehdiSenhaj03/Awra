@@ -1209,7 +1209,9 @@ void awra_window_set_default_size(AwraWidget *w, int width, int height)
   WinExt *x = WEXT(w);
   x->default_w = width > 0 ? width : x->default_w;
   x->default_h = height > 0 ? height : x->default_h;
-  if (x->bkw && !x->presented) {
+  /* GTK 4 resizes a shown window to its new default size, unless it is
+   * maximized or fullscreen (it then applies once restored) */
+  if (x->bkw && (!x->presented || !(x->state & (AWRA_WINDOW_STATE_MAXIMIZED | AWRA_WINDOW_STATE_FULLSCREEN)))) {
     BK_window_set_size(x->bkw, x->default_w, x->default_h);
   }
   if (x->offscreen) {
