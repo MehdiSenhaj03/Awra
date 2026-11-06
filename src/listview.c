@@ -51,7 +51,17 @@ typedef struct ListExt {
   int scroll_align;
   bool in_allocate;
   int spacing; /* logical */
-  int bottom_anchor; /* keep the end in place when heights above change */
+  int pad_top, pad_bottom; /* logical */
+  /* the first item on screen and how far its top is from the visible top:
+   * kept in place when items or heights above it change */
+  unsigned anchor;
+  long long anchor_delta;
+  bool anchor_valid, anchor_apply;
+  /* rows' look: 0 plain, 1 menu rows (completion: 30 px, 3/10 padding,
+   * radius 9, the selected one on the accent's soft tint) */
+  int row_style;
+  unsigned selected;
+  bool hover_selects;
 } ListExt;
 
 #define LVX(w) AWRA_EXT(w, ListExt)
@@ -59,20 +69,65 @@ typedef struct ListExt {
 /* ----------------------------------------------------------------------- */
 /* Item widgets (GtkListItemWidget) */
 
+static int item_style(const AwraWidget *w)
+{
+  const ItemExt *x = ITX(w);
+  return x->list ? LVX(x->list)->row_style : 0;
+}
+
 static void item_measure(AwraWidget *w, int o, int for_size, int *r_min, int *r_nat)
 {
   ItemExt *x = ITX(w);
   *r_min = *r_nat = 0;
+  const bool menu = item_style(w) == 1;
+  const int ph = menu ? awra_px(20) : 0, pv = menu ? awra_px(6) + awra_px(2) : 0;
+  const int pad = o == AWRA_ORIENTATION_HORIZONTAL ? ph : pv;
+  const int other = o == AWRA_ORIENTATION_HORIZONTAL ? pv : ph;
   if (x->child) {
-    awra_measure(x->child, o, for_size, r_min, r_nat);
+    awra_measure(x->child, o, for_size >= 0 ? BK_MAX(0, for_size - other) : -1, r_min, r_nat);
   }
+  if (menu && o == AWRA_ORIENTATION_VERTICAL) {
+    *r_min = BK_MAX(*r_min, awra_px(30) - awra_px(6));
+    *r_nat = BK_MAX(*r_nat, awra_px(30) - awra_px(6));
+  }
+  *r_min += pad;
+  *r_nat += pad;
 }
 
 static void item_allocate(AwraWidget *w)
 {
   ItemExt *x = ITX(w);
-  if (x->child) {
-    awra_allocate(x->child, w->x, w->y, w->w, w->h);
+  if (!x->child) {
+    return;
+  }
+  if (item_style(w) == 1) {
+    const int m = awra_px(1);
+    awra_allocate(x->child, w->x + awra_px(10), w->y + m + awra_px(3), w->w - awra_px(20),
+                  w->h - 2 * m - awra_px(6));
+    return;
+  }
+  awra_allocate(x->child, w->x, w->y, w->w, w->h);
+}
+
+static void item_draw(AwraWidget *w, AwraDraw *d)
+{
+  ItemExt *x = ITX(w);
+  if (item_style(w) != 1 || !x->list || LVX(x->list)->selected != x->position) {
+    return;
+  }
+  const AwraTokens *t = awra_tokens();
+  const float m = awra_pxf(1);
+  const AwraBox b = {(float)w->x, w->y + m, (float)w->w, w->h - 2 * m};
+  awra_paint_rbox(d, b, awra_pxf(9), &t->accent_soft, 0, NULL);
+  const AwraRGBA ring = awra_with_alpha(t->accent, 0.22f);
+  awra_paint_rbox(d, b, awra_pxf(9), NULL, awra_pxf(1), &ring);
+}
+
+static void item_hover(AwraWidget *w, bool on)
+{
+  ItemExt *x = ITX(w);
+  if (on && x->list && LVX(x->list)->hover_selects && x->position != INVALID_POSITION) {
+    awra_list_view_set_selected(x->list, x->position);
   }
 }
 
@@ -105,8 +160,10 @@ static AwraClass item_class = {
     .ext_size = sizeof(ItemExt),
     .measure = item_measure,
     .allocate = item_allocate,
+    .draw = item_draw,
     .release = item_release,
     .activate = item_activate,
+    .hover = item_hover,
 };
 
 void awra_list_item_set_child(AwraWidget *item, AwraWidget *child)
@@ -181,17 +238,18 @@ static int gap(const ListExt *x)
 
 static long long total_height(const ListExt *x)
 {
+  const long long pad = awra_px(x->pad_top) + awra_px(x->pad_bottom);
   if (!x->n_items) {
-    return 0;
+    return pad;
   }
   const long long unknown = x->n_items - x->known_count;
-  return x->known_sum + unknown * estimate(x) + (long long)gap(x) * (x->n_items - 1);
+  return pad + x->known_sum + unknown * estimate(x) + (long long)gap(x) * (x->n_items - 1);
 }
 
 /* the offset of item i from the list's top */
 static long long offset_of(const ListExt *x, unsigned i)
 {
-  long long y = 0;
+  long long y = awra_px(x->pad_top);
   const int g = gap(x);
   for (unsigned k = 0; k < i && k < x->n_items; k++) {
     y += height_of(x, k) + g;
@@ -383,28 +441,28 @@ static void list_allocate(AwraWidget *w)
     vis_bottom = w->h;
   }
   const int page = BK_MAX(1, vis_bottom - vis_top);
+  /* items or heights changed: the anchor stays where it was on screen */
+  if (x->anchor_apply && scroller && x->anchor_valid && x->anchor < x->n_items) {
+    long long want = offset_of(x, x->anchor) - x->anchor_delta;
+    if (want < 0) {
+      want = 0;
+    }
+    if (want != vis_top) {
+      awra_scrolled_shift_internal(scroller, (double)(want - vis_top));
+      vis_top = (int)want;
+      vis_bottom = vis_top + page;
+    }
+  }
+  x->anchor_apply = false;
   const int margin = (int)(page * OVERSCAN_PAGES);
-  long long want_top = (long long)vis_top - margin, want_bottom = (long long)vis_bottom + margin;
+  const long long want_top = (long long)vis_top - margin, want_bottom = (long long)vis_bottom + margin;
 
-  /* the first visible item, the anchor kept in place */
   const int g = gap(x);
   unsigned first = 0;
-  long long y = 0;
+  long long y = awra_px(x->pad_top);
   while (first < x->n_items && y + height_of(x, first) <= want_top) {
     y += height_of(x, first) + g;
     first++;
-  }
-  unsigned anchor = first;
-  long long anchor_y = y;
-  {
-    long long ay = y;
-    unsigned a = first;
-    while (a < x->n_items && ay + height_of(x, a) <= vis_top) {
-      ay += height_of(x, a) + g;
-      a++;
-    }
-    anchor = a;
-    anchor_y = ay;
   }
   /* bind and measure what shows, from the first */
   unsigned last = first;
@@ -442,23 +500,33 @@ static void list_allocate(AwraWidget *w)
     awra_allocate(it, w->x, w->y + (int)py, width, h);
     py += h + g;
   }
+  /* the anchor: the first item whose bottom shows */
+  if (x->n_items) {
+    unsigned a = 0;
+    long long ay = awra_px(x->pad_top);
+    while (a + 1 < x->n_items && ay + height_of(x, a) <= vis_top) {
+      ay += height_of(x, a) + g;
+      a++;
+    }
+    x->anchor = a;
+    x->anchor_delta = ay - vis_top;
+    x->anchor_valid = true;
+  }
+  else {
+    x->anchor_valid = false;
+  }
   x->in_allocate = false;
   if (changed) {
-    /* keep the first visible item where it was */
-    const long long new_anchor_y = offset_of(x, anchor);
-    if (scroller && new_anchor_y != anchor_y && anchor < x->n_items && vis_top > 0) {
-      awra_scrolled_shift_internal(scroller, (double)(new_anchor_y - anchor_y));
-    }
+    x->anchor_apply = true;
     awra_widget_queue_resize(w);
   }
   /* a pending scroll to an item */
   if (x->scroll_pos != INVALID_POSITION && scroller && x->scroll_pos < x->n_items) {
     const unsigned pos = x->scroll_pos;
-    x->scroll_pos = INVALID_POSITION;
     const long long top = offset_of(x, pos);
     const int h = height_of(x, pos);
     double v = -1;
-    const double cur = top - (scroller->y - w->y); /* the item's top in the viewport */
+    const double cur = (double)(top - vis_top); /* the item's top in the viewport */
     switch (x->scroll_align) {
       case 1: v = (double)top; break;
       case 2: v = (double)top - (page - h) / 2.0; break;
@@ -471,9 +539,13 @@ static void list_allocate(AwraWidget *w)
           v = (double)top + h - page;
         }
     }
+    /* once the item's height is known, the request is done */
+    if (x->heights[pos] >= 0 && !changed) {
+      x->scroll_pos = INVALID_POSITION;
+    }
     if (v >= 0 || x->scroll_align) {
-      const double now = (double)(scroller->y - w->y);
-      awra_scrolled_shift_internal(scroller, BK_MAX(0.0, v) - now);
+      x->anchor_valid = false;
+      awra_scrolled_shift_internal(scroller, BK_MAX(0.0, v) - vis_top);
     }
   }
 }
@@ -521,6 +593,7 @@ AwraWidget *awra_list_view_new(void)
   ListExt *x = LVX(w);
   x->measured_width = -1;
   x->scroll_pos = INVALID_POSITION;
+  x->selected = INVALID_POSITION;
   return w;
 }
 
@@ -586,6 +659,25 @@ void awra_list_view_items_changed(AwraWidget *w, unsigned position, unsigned rem
     x->heights[i] = -1;
   }
   x->n_items = n;
+  if (x->selected != INVALID_POSITION) {
+    if (x->selected >= position + removed) {
+      x->selected = x->selected - removed + added;
+    }
+    else if (x->selected >= position) {
+      x->selected = n ? BK_MIN(position, n - 1) : INVALID_POSITION;
+    }
+  }
+  /* the anchor follows its item; a removed one gives way to the next */
+  if (x->anchor_valid) {
+    if (x->anchor >= position + removed) {
+      x->anchor = x->anchor - removed + added;
+    }
+    else if (x->anchor >= position) {
+      x->anchor = position + added < n ? position + added : (n ? n - 1 : 0);
+      x->anchor_delta = 0;
+    }
+    x->anchor_apply = true;
+  }
   if (x->scroll_pos != INVALID_POSITION && x->scroll_pos >= n) {
     x->scroll_pos = INVALID_POSITION;
   }
@@ -683,4 +775,50 @@ int awra_list_view_height_internal(AwraWidget *w, unsigned position);
 int awra_list_view_height_internal(AwraWidget *w, unsigned position)
 {
   return position < LVX(w)->n_items ? height_of(LVX(w), position) : 0;
+}
+
+void awra_list_view_set_padding(AwraWidget *w, int top, int bottom)
+{
+  LVX(w)->pad_top = top;
+  LVX(w)->pad_bottom = bottom;
+  awra_widget_queue_resize(w);
+}
+
+/* Forget the anchor: the next allocation keeps the scroll position as it is
+ * (a view that pins its end itself). */
+void awra_list_view_drop_anchor_internal(AwraWidget *w);
+void awra_list_view_drop_anchor_internal(AwraWidget *w)
+{
+  LVX(w)->anchor_apply = false;
+}
+
+void awra_list_view_set_row_style(AwraWidget *w, int style)
+{
+  LVX(w)->row_style = style;
+  LVX(w)->hover_selects = style == 1;
+  awra_widget_queue_resize(w);
+}
+
+void awra_list_view_set_selected(AwraWidget *w, unsigned position)
+{
+  ListExt *x = LVX(w);
+  if (position != INVALID_POSITION && position >= x->n_items) {
+    position = INVALID_POSITION;
+  }
+  if (x->selected == position) {
+    return;
+  }
+  x->selected = position;
+  for (unsigned bi = 0; bi < x->n_bound; bi++) {
+    awra_invalidate(x->bound[bi]);
+  }
+  if (position != INVALID_POSITION) {
+    awra_list_view_scroll_to(w, position, 0);
+  }
+  awra_emit_index(w, AWRA_SIGNAL_SELECTED, position == INVALID_POSITION ? -1 : (int)position);
+}
+
+unsigned awra_list_view_selected(AwraWidget *w)
+{
+  return LVX(w)->selected;
 }

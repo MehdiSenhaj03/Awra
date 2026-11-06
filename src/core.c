@@ -1774,6 +1774,16 @@ void awra_bk_draw_tree(BKNode *n)
   const float base = g_draw.opacity > 0.0f ? g_draw.opacity : 1.0f;
   g_draw.opacity = base * a->opacity;
   if (g_draw.opacity > 0.003f) {
+    /* rows that answer the pointer with a faint tint (awra.css's
+     * .awra-role-conversation-entry:hover) */
+    static int entry_bit = -2;
+    if (entry_bit == -2) {
+      entry_bit = awra_class_bit("conversation-entry");
+    }
+    if (a->hovered && awra_has_class_bit(n, entry_bit)) {
+      const AwraRGBA tint = awra_with_alpha(awra_tokens()->foreground, 0.035f);
+      awra_paint_rect(&g_draw, awra_box_of(n), &tint);
+    }
     if (c->draw) {
       c->draw(n, &g_draw);
     }

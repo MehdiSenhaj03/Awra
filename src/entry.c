@@ -33,6 +33,11 @@ typedef struct EditExt {
   int spin_hot; /* -1 none, 0 down, 1 up */
   bool dragging;
   char masked[1]; /* (unused) */
+  int notified_caret, notified_anchor;
+  /* bare: no frame (inside a composer); margins (logical), lines shown */
+  bool bare;
+  int bare_mx, bare_my, max_lines;
+  const AwraRGBA *caret_color;
 } EditExt;
 
 #define EX(w) AWRA_EXT(w, EditExt)
@@ -156,6 +161,10 @@ static void edit_pads(AwraWidget *w, int *l, int *r, int *t, int *b)
     *t = *b = awra_px(8);
     *l = *r = awra_px(11);
   }
+  if (x->bare) {
+    *t = *b = awra_px(x->bare_my);
+    *l = *r = awra_px(x->bare_mx);
+  }
 }
 
 static void edit_measure(AwraWidget *w, int o, int for_size, int *r_min, int *r_nat)
@@ -179,6 +188,18 @@ static void edit_measure(AwraWidget *w, int o, int for_size, int *r_min, int *r_
   }
   AwraFont f = edit_font(w);
   int th = (int)ceilf(awra_font_line_height(&f));
+  if (x->bare) {
+    /* as tall as its lines, one at least, max_lines at most */
+    int h;
+    awra_text_layout_size(x->layout, for_size >= 0 ? for_size - l - r : -1, NULL, &h);
+    const int line = th;
+    th = BK_MAX(line, h);
+    if (x->max_lines > 0) {
+      th = BK_MIN(th, line * x->max_lines);
+    }
+    *r_min = *r_nat = th + t + b;
+    return;
+  }
   if (x->multiline) {
     int h;
     awra_text_layout_size(x->layout, for_size >= 0 ? for_size - l - r : -1, NULL, &h);
@@ -236,6 +257,9 @@ static void edit_draw(AwraWidget *w, AwraDraw *d)
   const bool sens = awra_sensitive(w);
   const float radius = awra_pxf(x->search ? 9 : 11);
   AwraBox b = awra_box_of(w);
+  if (x->bare) {
+    goto content;
+  }
   if (focus) { /* outline 1px @awra_selection, offset 2 */
     const float ow = awra_pxf(1), off = awra_pxf(2);
     AwraBox o = {b.x - off - ow, b.y - off - ow, b.w + 2 * (off + ow), b.h + 2 * (off + ow)};
@@ -249,6 +273,7 @@ static void edit_draw(AwraWidget *w, AwraDraw *d)
     const float r4[4] = {radius, radius, radius, radius}, w4[4] = {awra_pxf(1.5), 0, 0, 0};
     awra_paint_rbox4(d, b, r4, NULL, w4, &sh);
   }
+content:;
   AwraBox a = text_area(w);
   const AwraRGBA fg = sens ? t->foreground : t->disabled;
   /* icons */
@@ -306,6 +331,9 @@ static void edit_draw(AwraWidget *w, AwraDraw *d)
       awra_text_layout_set_wrap(pl, AWRA_WRAP_NONE, AWRA_ELLIPSIZE_END, 1);
       AwraRGBA pc = fg;
       pc.a *= 0.55f;
+      if (x->bare) {
+        pc = sens ? t->muted : t->disabled;
+      }
       awra_text_layout_draw(pl, d, a.x, ty, (int)a.w, &pc);
       awra_text_layout_free(pl);
     }
@@ -332,7 +360,8 @@ static void edit_draw(AwraWidget *w, AwraDraw *d)
   if (focus && x->caret_on && x->editable) {
     float cx, cy, ch;
     awra_text_layout_index_to_pos(x->layout, lw, shown_index(w, x->te->caret), &cx, &cy, &ch);
-    awra_paint_rect(d, (AwraBox){floorf(tx + cx), ty + cy, awra_pxf(1), ch}, &fg);
+    awra_paint_rect(d, (AwraBox){floorf(tx + cx), ty + cy, awra_pxf(1), ch},
+                    x->caret_color ? x->caret_color : &fg);
   }
   bk_clip_pop();
 }
@@ -644,6 +673,40 @@ static const char *edit_get_string(AwraWidget *w, const char *name)
   return !strcmp(name, "text") ? EX(w)->te->text : NULL;
 }
 
+/* the caret or the selection moved: notify "cursor-position" */
+static void caret_notify(AwraWidget *w)
+{
+  EditExt *x = EX(w);
+  if (x->te->caret != x->notified_caret || x->te->anchor != x->notified_anchor) {
+    x->notified_caret = x->te->caret;
+    x->notified_anchor = x->te->anchor;
+    awra_emit_text(w, AWRA_SIGNAL_NOTIFY, "cursor-position");
+  }
+}
+
+static int edit_key_notify(AwraWidget *w, BKEvent *e)
+{
+  awra_widget_ref(w);
+  const int r = edit_key(w, e);
+  caret_notify(w);
+  awra_widget_unref(w);
+  return r;
+}
+
+static int edit_press_notify(AwraWidget *w, BKEvent *e)
+{
+  const int r = edit_press(w, e);
+  caret_notify(w);
+  return r;
+}
+
+static int edit_drag_notify(AwraWidget *w, BKEvent *e)
+{
+  const int r = edit_drag(w, e);
+  caret_notify(w);
+  return r;
+}
+
 static AwraClass entry_class = {
     .bk = AWRA_BK("AwraEntry", CLS_INTERACTIVE),
     .type = "AwraEntry",
@@ -653,11 +716,11 @@ static AwraClass entry_class = {
     .finalize = edit_finalize,
     .measure = edit_measure,
     .draw = edit_draw,
-    .press = edit_press,
-    .drag = edit_drag,
+    .press = edit_press_notify,
+    .drag = edit_drag_notify,
     .release = edit_release,
     .motion = edit_motion,
-    .key = edit_key,
+    .key = edit_key_notify,
     .scroll = edit_scroll,
     .cursor = edit_cursor,
     .style_changed = edit_style_changed,
@@ -1233,4 +1296,166 @@ void awra_shortcut_capture_set_display_labels(AwraWidget *w, const char *const *
   }
   awra_widget_queue_resize(w);
   awra_invalidate(w);
+}
+
+/* ----------------------------------------------------------------------- */
+/* Editing by character offsets (GtkEditable, GtkTextBuffer) */
+
+static int byte_of(const char *t, int chars)
+{
+  int i = 0;
+  for (int c = 0; t[i] && c < chars; c++) {
+    i++;
+    while ((t[i] & 0xC0) == 0x80) {
+      i++;
+    }
+  }
+  return i;
+}
+
+static int chars_of(const char *t, int bytes)
+{
+  int c = 0;
+  for (int i = 0; i < bytes && t[i]; i++) {
+    if (((unsigned char)t[i] & 0xC0) != 0x80) {
+      c++;
+    }
+  }
+  return c;
+}
+
+int awra_editable_length(AwraWidget *w)
+{
+  const char *t = EX(w)->te->text;
+  return chars_of(t, (int)strlen(t));
+}
+
+int awra_editable_cursor(AwraWidget *w)
+{
+  EditExt *x = EX(w);
+  return chars_of(x->te->text, x->te->caret);
+}
+
+void awra_editable_set_cursor(AwraWidget *w, int offset)
+{
+  EditExt *x = EX(w);
+  if (offset < 0) {
+    offset = awra_editable_length(w);
+  }
+  x->te->caret = byte_of(x->te->text, offset);
+  x->te->anchor = -1;
+  ensure_caret_visible(w);
+  restart_blink(w);
+  caret_notify(w);
+}
+
+bool awra_editable_selection(AwraWidget *w, int *r_start, int *r_end)
+{
+  EditExt *x = EX(w);
+  const int caret = chars_of(x->te->text, x->te->caret);
+  if (x->te->anchor < 0 || x->te->anchor == x->te->caret) {
+    *r_start = *r_end = caret;
+    return false;
+  }
+  const int anchor = chars_of(x->te->text, x->te->anchor);
+  *r_start = BK_MIN(caret, anchor);
+  *r_end = BK_MAX(caret, anchor);
+  return true;
+}
+
+void awra_editable_select(AwraWidget *w, int start, int end)
+{
+  EditExt *x = EX(w);
+  const int n = awra_editable_length(w);
+  if (start < 0) {
+    start = n;
+  }
+  if (end < 0) {
+    end = n;
+  }
+  x->te->anchor = byte_of(x->te->text, BK_MIN(start, n));
+  x->te->caret = byte_of(x->te->text, BK_MIN(end, n));
+  if (x->te->anchor == x->te->caret) {
+    x->te->anchor = -1;
+  }
+  ensure_caret_visible(w);
+  awra_invalidate(w);
+  caret_notify(w);
+}
+
+static void splice_text(AwraWidget *w, int from, int to, const char *insert)
+{
+  EditExt *x = EX(w);
+  char *before = awra_strdup(x->te->text);
+  const int a = byte_of(x->te->text, from), b = byte_of(x->te->text, to);
+  const int ins = insert ? (int)strlen(insert) : 0;
+  const int n = x->te->len - (b - a) + ins;
+  if (n + 1 > x->te->cap) {
+    x->te->cap = n + 64;
+    x->te->text = (char *)realloc(x->te->text, (size_t)x->te->cap);
+  }
+  memmove(x->te->text + a + ins, x->te->text + b, (size_t)(x->te->len - b + 1));
+  if (ins) {
+    memcpy(x->te->text + a, insert, (size_t)ins);
+  }
+  x->te->len = n;
+  x->te->caret = a + ins;
+  x->te->anchor = -1;
+  after_edit(w, before);
+  free(before);
+  caret_notify(w);
+}
+
+void awra_editable_insert(AwraWidget *w, int offset, const char *text)
+{
+  if (offset < 0) {
+    int s0, s1;
+    if (awra_editable_selection(w, &s0, &s1)) {
+      splice_text(w, s0, s1, text);
+      return;
+    }
+    offset = awra_editable_cursor(w);
+  }
+  splice_text(w, offset, offset, text);
+}
+
+void awra_editable_delete(AwraWidget *w, int start, int end)
+{
+  const int n = awra_editable_length(w);
+  if (end < 0 || end > n) {
+    end = n;
+  }
+  if (start < 0) {
+    start = 0;
+  }
+  if (start < end) {
+    splice_text(w, start, end, NULL);
+  }
+}
+
+/* A text view without a frame, its lines at most max_lines (composers). */
+void awra_text_view_set_bare_internal(AwraWidget *w, int margin_x, int margin_y, int max_lines);
+void awra_text_view_set_bare_internal(AwraWidget *w, int margin_x, int margin_y, int max_lines)
+{
+  EditExt *x = EX(w);
+  x->bare = true;
+  x->bare_mx = margin_x;
+  x->bare_my = margin_y;
+  x->max_lines = max_lines;
+  x->caret_color = &awra_tokens()->accent_content;
+  awra_widget_queue_resize(w);
+}
+
+/* The caret's box in the widget, logical px. */
+void awra_editable_caret_rect(AwraWidget *w, double *r_x, double *r_y, double *r_h)
+{
+  EditExt *x = EX(w);
+  AwraBox a = text_area(w);
+  const int lw = x->multiline ? (int)a.w : -1;
+  float cx, cy, ch;
+  awra_text_layout_index_to_pos(x->layout, lw, shown_index(w, x->te->caret), &cx, &cy, &ch);
+  const float s = awra_scale();
+  *r_x = (a.x - w->x + cx - x->scroll_x) / s;
+  *r_y = (a.y - w->y + cy - (x->multiline ? x->scroll_y : 0)) / s;
+  *r_h = ch / s;
 }

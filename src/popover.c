@@ -114,6 +114,12 @@ static void pop_place(BKNode *n, int win_w, int win_h)
   else if (x->relative) {
     x0 = x->relative->x + awra_px(x->at_x);
     y0 = x->relative->y + awra_px(x->at_y);
+    if (x->side == 1) {
+      /* above the point (a caret), below it without room */
+      if (y0 - nh >= 0) {
+        y0 -= nh;
+      }
+    }
     if (x0 + nw > win_w) {
       x0 = BK_MAX(0, x0 - nw);
     }

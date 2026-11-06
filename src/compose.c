@@ -1106,6 +1106,14 @@ void awra_empty_state_add_action(AwraWidget *w, AwraWidget *action)
   awra_box_append(sp(w)->col, action);
 }
 
+AwraWidget *awra_error_state_new(const char *title, const char *desc)
+{
+  AwraWidget *icon = awra_image_new_from_icon_name("awra-status-error-symbolic");
+  awra_image_set_pixel_size(icon, 32);
+  awra_image_set_color(icon, &awra_tokens()->danger);
+  return state_new(icon, title, desc);
+}
+
 AwraWidget *awra_loading_state_new(const char *title, const char *desc)
 {
   AwraWidget *s = awra_spinner_new();

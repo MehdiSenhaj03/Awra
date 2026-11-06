@@ -242,6 +242,11 @@ typedef enum {
   /* a link of a label (<a href>) clicked: args->text = its URI; set handled
    * to keep it from opening in the desktop's handler */
   AWRA_SIGNAL_ACTIVATE_LINK,
+  /* conversation views: an end reached (args->index 0 top, 1 bottom), its
+   * retry clicked, the jump pill clicked */
+  AWRA_SIGNAL_EDGE_REACHED,
+  AWRA_SIGNAL_RETRY,
+  AWRA_SIGNAL_JUMP_ACTIVATED,
   AWRA_SIGNAL_COUNT
 } AwraSignal;
 
@@ -642,6 +647,19 @@ const char *awra_text_view_text(AwraWidget *view);
 void awra_text_view_set_placeholder(AwraWidget *view, const char *text);
 void awra_text_view_set_editable(AwraWidget *view, bool editable);
 void awra_text_view_set_wrap(AwraWidget *view, AwraWrap wrap);
+/* Editing entries and text views by character offsets (GtkEditable,
+ * GtkTextBuffer); -1 means the end, or (insert) the cursor, replacing the
+ * selection. notify carries "cursor-position" when the caret or the
+ * selection moves. */
+int awra_editable_length(AwraWidget *editable);
+int awra_editable_cursor(AwraWidget *editable);
+void awra_editable_set_cursor(AwraWidget *editable, int offset);
+bool awra_editable_selection(AwraWidget *editable, int *start, int *end);
+void awra_editable_select(AwraWidget *editable, int start, int end);
+void awra_editable_insert(AwraWidget *editable, int offset, const char *text);
+void awra_editable_delete(AwraWidget *editable, int start, int end);
+/* The caret's top, left and height in the widget (logical px). */
+void awra_editable_caret_rect(AwraWidget *editable, double *x, double *y, double *height);
 
 AwraWidget *awra_slider_new(double min, double max, double step);
 void awra_slider_set_value(AwraWidget *slider, double value);
@@ -1111,6 +1129,13 @@ bool awra_list_view_visible_range(AwraWidget *list, unsigned *first, unsigned *l
 void awra_list_view_scroll_to(AwraWidget *list, unsigned position, int align);
 void awra_list_view_set_single_click_activate(AwraWidget *list, bool single);
 void awra_list_view_set_spacing(AwraWidget *list, int spacing);
+/* Space above the first item and below the last (logical px). */
+void awra_list_view_set_padding(AwraWidget *list, int top, int bottom);
+/* Rows' look: 0 plain, 1 menu rows (the selected one tinted; hovering
+ * selects). The selection: selected (args->index, -1 none). */
+void awra_list_view_set_row_style(AwraWidget *list, int style);
+void awra_list_view_set_selected(AwraWidget *list, unsigned position);
+unsigned awra_list_view_selected(AwraWidget *list);
 void awra_list_item_set_child(AwraWidget *item, AwraWidget *child);
 AwraWidget *awra_list_item_child(AwraWidget *item);
 /* UINT_MAX when it is not bound */
@@ -1149,6 +1174,178 @@ void awra_avatar_set_speaking(AwraWidget *avatar, bool speaking);
 AwraWidget *awra_avatar_group_new(void);
 void awra_avatar_group_append(AwraWidget *group, AwraWidget *avatar);
 void awra_avatar_group_remove_all(AwraWidget *group);
+
+/* ----------------------------------------------------------------------- */
+/* Content pieces (Awra 1's AwraChip, AwraDivider, AwraSkeleton,
+ * AwraTypingIndicator, AwraBadgeGroup, AwraMetadataGroup, AwraErrorState) */
+
+typedef enum { AWRA_CHIP_NEUTRAL = 0, AWRA_CHIP_ACCENT } AwraChipAppearance;
+/* A pill with a picture, an emoji or an icon, a label and a count (-1:
+ * none); clicked when activated, toggled (args->active) when toggleable. */
+AwraWidget *awra_chip_new(const char *label);
+void awra_chip_set_label(AwraWidget *chip, const char *label);
+const char *awra_chip_label(AwraWidget *chip);
+void awra_chip_set_icon_name(AwraWidget *chip, const char *icon_name);
+void awra_chip_set_texture(AwraWidget *chip, AwraTexture *texture);
+void awra_chip_set_emoji(AwraWidget *chip, const char *emoji);
+void awra_chip_set_count(AwraWidget *chip, int count);
+int awra_chip_count(AwraWidget *chip);
+void awra_chip_set_active(AwraWidget *chip, bool active);
+bool awra_chip_active(AwraWidget *chip);
+void awra_chip_set_toggleable(AwraWidget *chip, bool toggleable);
+void awra_chip_set_appearance(AwraWidget *chip, int appearance); /* AwraChipAppearance */
+
+typedef enum {
+  AWRA_DIVIDER_LABEL_CENTER = 0,
+  AWRA_DIVIDER_LABEL_END,
+  AWRA_DIVIDER_LABEL_START
+} AwraDividerLabelPosition;
+typedef enum { AWRA_DIVIDER_NEUTRAL = 0, AWRA_DIVIDER_ACCENT, AWRA_DIVIDER_DANGER } AwraDividerAppearance;
+AwraWidget *awra_divider_new(const char *label);
+void awra_divider_set_label(AwraWidget *divider, const char *label);
+void awra_divider_set_label_position(AwraWidget *divider, AwraDividerLabelPosition position);
+void awra_divider_set_appearance(AwraWidget *divider, AwraDividerAppearance appearance);
+
+AwraWidget *awra_skeleton_new(void);
+void awra_skeleton_set_lines(AwraWidget *skeleton, int lines);
+void awra_skeleton_set_animated(AwraWidget *skeleton, bool animated);
+
+AwraWidget *awra_typing_indicator_new(void);
+void awra_typing_indicator_set_label(AwraWidget *indicator, const char *label);
+void awra_typing_indicator_set_active(AwraWidget *indicator, bool active);
+
+AwraWidget *awra_badge_group_new(void);
+void awra_badge_group_append(AwraWidget *group, AwraWidget *badge);
+void awra_badge_group_remove_all(AwraWidget *group);
+AwraWidget *awra_metadata_group_new(void);
+void awra_metadata_group_set_title(AwraWidget *group, const char *title);
+/* Appends a row of a label and a value; returns it (borrowed). */
+AwraWidget *awra_metadata_group_append(AwraWidget *group, const char *label, const char *value);
+AwraWidget *awra_metric_row_new(const char *label, const char *value);
+
+/* An error state: the empty state's layout with the error icon. */
+AwraWidget *awra_error_state_new(const char *title, const char *description);
+
+/* ----------------------------------------------------------------------- */
+/* Rail (Awra 1's AwraRail, AwraRailItem, AwraRailGroup): a column of 48 px
+ * tiles with a pill at the edge (unread, hovered, selected), a mention
+ * badge, folders (groups) that open into a column, separators, and a header
+ * and footer that stay put while the entries scroll. Items emit activate
+ * when clicked (the rail selects them, notify "selected-item"); a group's
+ * tile toggles it (toggled). */
+
+AwraWidget *awra_rail_new(void);
+void awra_rail_append(AwraWidget *rail, AwraWidget *entry);
+/* Inserts, or moves an entry already in the rail, at `position` (-1 end). */
+void awra_rail_insert(AwraWidget *rail, AwraWidget *entry, int position);
+void awra_rail_remove(AwraWidget *rail, AwraWidget *entry);
+AwraWidget *awra_rail_add_separator(AwraWidget *rail);
+int awra_rail_n_entries(AwraWidget *rail);
+AwraWidget *awra_rail_entry(AwraWidget *rail, int position);
+AwraWidget *awra_rail_selected_item(AwraWidget *rail);
+void awra_rail_set_selected_item(AwraWidget *rail, AwraWidget *item);
+void awra_rail_set_header(AwraWidget *rail, AwraWidget *header);
+void awra_rail_set_footer(AwraWidget *rail, AwraWidget *footer);
+void awra_rail_set_reorderable(AwraWidget *rail, bool reorderable);
+bool awra_rail_reorderable(AwraWidget *rail);
+AwraWidget *awra_rail_item_new(const char *label);
+void awra_rail_item_set_label(AwraWidget *item, const char *label);
+const char *awra_rail_item_label(AwraWidget *item);
+/* The tile's face (an avatar takes the tile's size and shape). */
+void awra_rail_item_set_child(AwraWidget *item, AwraWidget *child);
+AwraWidget *awra_rail_item_child(AwraWidget *item);
+void awra_rail_item_set_icon_name(AwraWidget *item, const char *icon_name);
+void awra_rail_item_set_selected(AwraWidget *item, bool selected);
+bool awra_rail_item_selected(AwraWidget *item);
+void awra_rail_item_set_unread(AwraWidget *item, bool unread);
+void awra_rail_item_set_mention_count(AwraWidget *item, unsigned count);
+void awra_rail_item_set_muted(AwraWidget *item, bool muted);
+AwraWidget *awra_rail_group_new(const char *label);
+void awra_rail_group_set_label(AwraWidget *group, const char *label);
+void awra_rail_group_set_icon_name(AwraWidget *group, const char *icon_name);
+void awra_rail_group_set_color(AwraWidget *group, const AwraRGBA *color);
+void awra_rail_group_set_expanded(AwraWidget *group, bool expanded);
+bool awra_rail_group_expanded(AwraWidget *group);
+void awra_rail_group_append(AwraWidget *group, AwraWidget *item);
+void awra_rail_group_insert(AwraWidget *group, AwraWidget *item, int position);
+void awra_rail_group_remove(AwraWidget *group, AwraWidget *item);
+int awra_rail_group_n_items(AwraWidget *group);
+AwraWidget *awra_rail_group_item(AwraWidget *group, int index);
+
+/* ----------------------------------------------------------------------- */
+/* Conversation view (Awra 1's AwraConversationView): a list view of
+ * messages (awra_conversation_view_list gives its list view, whose factory
+ * the application sets; items_changed goes through the view) that starts at
+ * the newest, follows new ones while the newest shows, keeps what is read
+ * in place while older ones load above, offers a pill back to the newest
+ * (jump-activated), shows each end's status (edge-reached, retry), and
+ * notifies "at-bottom". */
+
+typedef enum { AWRA_EDGE_STATUS_NONE = 0, AWRA_EDGE_STATUS_LOADING, AWRA_EDGE_STATUS_FAILED } AwraEdgeStatus;
+typedef enum {
+  AWRA_CONVERSATION_ALIGN_TOP = 0,
+  AWRA_CONVERSATION_ALIGN_CENTER,
+  AWRA_CONVERSATION_ALIGN_END
+} AwraConversationAlign;
+AwraWidget *awra_conversation_view_new(void);
+AwraWidget *awra_conversation_view_list(AwraWidget *view);
+void awra_conversation_view_items_changed(AwraWidget *view, unsigned position, unsigned removed,
+                                          unsigned added);
+bool awra_conversation_view_at_bottom(AwraWidget *view);
+void awra_conversation_view_set_follow(AwraWidget *view, bool follow);
+bool awra_conversation_view_follow(AwraWidget *view);
+void awra_conversation_view_set_unread_count(AwraWidget *view, unsigned count);
+unsigned awra_conversation_view_unread_count(AwraWidget *view);
+void awra_conversation_view_set_jump_label(AwraWidget *view, const char *label);
+const char *awra_conversation_view_jump_label(AwraWidget *view);
+/* How near an end counts as reaching it (logical px; -1: a page). */
+void awra_conversation_view_set_edge_threshold(AwraWidget *view, int threshold);
+void awra_conversation_view_scroll_to_end(AwraWidget *view, bool animate);
+void awra_conversation_view_scroll_to_item(AwraWidget *view, unsigned position,
+                                           AwraConversationAlign align, bool highlight);
+/* edge: 0 top, 1 bottom */
+void awra_conversation_view_set_edge_status(AwraWidget *view, int edge, AwraEdgeStatus status,
+                                            const char *label);
+bool awra_conversation_view_visible_range(AwraWidget *view, unsigned *first, unsigned *last);
+
+/* ----------------------------------------------------------------------- */
+/* Composer (Awra 1's AwraComposer): one well holding a banner and
+ * attachments that slide out above a row of a start widget, the text (up
+ * to max_lines), an end widget and the send button, shown once something
+ * can be sent. activate: submit (Return, or the button); changed: the
+ * text; stop-requested: the banner's close button. */
+
+AwraWidget *awra_composer_new(void);
+/* The text view (its editing: awra_editable_*). */
+AwraWidget *awra_composer_view(AwraWidget *composer);
+void awra_composer_set_text(AwraWidget *composer, const char *text);
+const char *awra_composer_text(AwraWidget *composer);
+void awra_composer_set_placeholder(AwraWidget *composer, const char *text);
+void awra_composer_set_max_lines(AwraWidget *composer, int lines);
+void awra_composer_set_can_send(AwraWidget *composer, bool can_send);
+void awra_composer_set_send_on_enter(AwraWidget *composer, bool on);
+void awra_composer_set_busy(AwraWidget *composer, bool busy);
+void awra_composer_set_banner(AwraWidget *composer, AwraWidget *banner);
+AwraWidget *awra_composer_banner(AwraWidget *composer);
+void awra_composer_show_banner(AwraWidget *composer, const char *text, bool closable);
+void awra_composer_set_attachments(AwraWidget *composer, AwraWidget *attachments);
+AwraWidget *awra_composer_attachments(AwraWidget *composer);
+void awra_composer_set_start_widget(AwraWidget *composer, AwraWidget *child);
+void awra_composer_set_end_widget(AwraWidget *composer, AwraWidget *child);
+
+/* Completion popover (Awra 1's AwraCompletionPopover): suggestions above
+ * the caret of the text view it is attached to, in a list view
+ * (awra_completion_popover_list: its factory and items are the
+ * application's). Up/Down choose, Tab/Return take (activate: args->index),
+ * Escape dismisses (stop-search); the text keeps the keyboard. */
+AwraWidget *awra_completion_popover_new(void);
+AwraWidget *awra_completion_popover_list(AwraWidget *completion);
+void awra_completion_popover_attach(AwraWidget *completion, AwraWidget *text_view);
+void awra_completion_popover_set_selected(AwraWidget *completion, unsigned position);
+unsigned awra_completion_popover_selected(AwraWidget *completion);
+bool awra_completion_popover_visible(AwraWidget *completion);
+void awra_completion_popover_present_at_cursor(AwraWidget *completion);
+void awra_completion_popover_popdown(AwraWidget *completion);
 
 #ifdef __cplusplus
 }

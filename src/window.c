@@ -344,6 +344,13 @@ static void set_hover(AwraWidget *n, bool on)
   if (AWRA_CLASS_OF(n)->hover) {
     AWRA_CLASS_OF(n)->hover(n, on);
   }
+  static int entry_bit = -2;
+  if (entry_bit == -2) {
+    entry_bit = awra_class_bit("conversation-entry");
+  }
+  if (awra_has_class_bit(n, entry_bit)) {
+    awra_invalidate(n);
+  }
   awra_emit_simple(n, on ? AWRA_SIGNAL_ENTER : AWRA_SIGNAL_LEAVE);
 }
 
@@ -628,13 +635,14 @@ void awra_set_focus(AwraWidget *win, AwraWidget *w, bool keyboard)
     if (AWRA_CLASS_OF(old)->bk.finish_edit) {
       AWRA_CLASS_OF(old)->bk.finish_edit(old, true);
     }
-    awra_emit_simple(old, AWRA_SIGNAL_NOTIFY);
+    awra_emit_text(old, AWRA_SIGNAL_NOTIFY, "has-focus");
     awra_widget_unref(old);
   }
   if (w) {
     awra_widget_ref(w);
     awra_aux(w)->focus_visible = keyboard;
     awra_invalidate(w);
+    awra_emit_text(w, AWRA_SIGNAL_NOTIFY, "has-focus");
   }
   awra_emit_text(win, AWRA_SIGNAL_NOTIFY, "focus");
 }

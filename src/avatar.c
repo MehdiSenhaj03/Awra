@@ -32,6 +32,10 @@ typedef struct AvatarExt {
   /* a group's next avatar: a circle cut out of this one (logical, local) */
   bool has_cut;
   float cut_x, cut_y, cut_r;
+  /* a rounded box cut out of it (a rail's mention badge), logical, local */
+  bool has_cut_rect;
+  float cut_rect[5]; /* x y w h radius */
+  float radius_override; /* < 0: the shape's */
   /* the composed face */
   uint32_t *face;
   int face_px;
@@ -188,6 +192,9 @@ static char *compute_initials(const char *text)
 
 static float corner_radius(const AvatarExt *x)
 {
+  if (x->radius_override >= 0.0f) {
+    return fminf(x->radius_override, x->size / 2.0f);
+  }
   return x->shape == 0 ? x->size / 2.0f : x->size * 0.26f;
 }
 
@@ -337,6 +344,10 @@ static void compose_face(AwraWidget *w, int s)
       float cov = rbox_coverage(fx, fy, 0, 0, (float)s, (float)s, r);
       if (cutout && cov > 0.0f) {
         cov *= 1.0f - circle_coverage(fx, fy, ccx, ccy, cr);
+      }
+      if (x->has_cut_rect && cov > 0.0f) {
+        const float *c = x->cut_rect;
+        cov *= 1.0f - rbox_coverage(fx, fy, c[0] * scale, c[1] * scale, c[2] * scale, c[3] * scale, c[4] * scale);
       }
       if (x->has_cut && cov > 0.0f) {
         cov *= 1.0f - circle_coverage(fx, fy, x->cut_x * scale, x->cut_y * scale, x->cut_r * scale);
@@ -528,6 +539,7 @@ AwraWidget *awra_avatar_new(int size, const char *text)
   x->size = size >= 8 ? size : DEFAULT_SIZE;
   x->show_initials = true;
   x->face_dirty = true;
+  x->radius_override = -1.0f;
   awra_avatar_set_text(w, text);
   return w;
 }
@@ -771,4 +783,58 @@ void awra_avatar_group_remove_all(AwraWidget *group)
   while (group->nkids) {
     awra_child_remove(group, group->kids[group->nkids - 1]);
   }
+}
+
+void awra_avatar_set_radius_internal(AwraWidget *w, float radius);
+void awra_avatar_set_radius_internal(AwraWidget *w, float radius)
+{
+  AvatarExt *x = AVX(w);
+  if (x->radius_override != radius) {
+    x->radius_override = radius;
+    face_changed(w);
+  }
+}
+
+void awra_avatar_set_cut_rect_internal(AwraWidget *w, bool cut, float rx, float ry, float rw, float rh, float r);
+void awra_avatar_set_cut_rect_internal(AwraWidget *w, bool cut, float rx, float ry, float rw, float rh, float r)
+{
+  AvatarExt *x = AVX(w);
+  const float v[5] = {rx, ry, rw, rh, r};
+  if (x->has_cut_rect == cut && (!cut || !memcmp(v, x->cut_rect, sizeof(v)))) {
+    return;
+  }
+  x->has_cut_rect = cut;
+  memcpy(x->cut_rect, v, sizeof(v));
+  face_changed(w);
+}
+
+/* A rounded box's coverage mask minus a rounded cutout, drawn in `color`
+ * (raster px): shapes with a hole in them. */
+void awra_paint_rbox_cut(AwraDraw *d, AwraBox b, float radius, AwraBox cut, float cut_radius,
+                         const AwraRGBA *color);
+void awra_paint_rbox_cut(AwraDraw *d, AwraBox b, float radius, AwraBox cut, float cut_radius,
+                         const AwraRGBA *color)
+{
+  const int x0 = (int)floorf(b.x), y0 = (int)floorf(b.y);
+  const int n_w = (int)ceilf(b.x + b.w) - x0, n_h = (int)ceilf(b.y + b.h) - y0;
+  if (n_w <= 0 || n_h <= 0) {
+    return;
+  }
+  uint8_t *mask = (uint8_t *)malloc((size_t)n_w * n_h);
+  if (!mask) {
+    return;
+  }
+  for (int py = 0; py < n_h; py++) {
+    for (int px = 0; px < n_w; px++) {
+      const float fx = x0 + px + 0.5f, fy = y0 + py + 0.5f;
+      float cov = rbox_coverage(fx, fy, b.x, b.y, b.w, b.h, radius);
+      if (cov > 0.0f && cut.w > 0) {
+        cov *= 1.0f - rbox_coverage(fx, fy, cut.x, cut.y, cut.w, cut.h, cut_radius);
+      }
+      mask[py * n_w + px] = (uint8_t)(cov * 255.0f + 0.5f);
+    }
+  }
+  float c[4] = {color->r, color->g, color->b, color->a * d->opacity};
+  BUI_raster_mask(d->r, x0, y0, mask, n_w, n_h, n_w, c);
+  free(mask);
 }
