@@ -163,7 +163,8 @@ impl Widget {
         unsafe { ffi::awra_signal_block(self.as_ptr(), id.0, false) }
     }
 
-    pub fn emit_raw(&self, args: &ffi::AwraArgs) {
+    /// Emits a signal; true when a handler stopped it.
+    pub fn emit_raw(&self, args: &ffi::AwraArgs) -> bool {
         unsafe { ffi::awra_signal_emit(self.as_ptr(), args) }
     }
 }

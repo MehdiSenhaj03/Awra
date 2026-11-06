@@ -174,7 +174,7 @@ extern "C" {
     pub fn awra_signal_connect(widget: *mut AwraWidget, signal: c_int, handler: Option<unsafe extern "C" fn(*mut AwraWidget, *const AwraArgs, *mut c_void)>, data: *mut c_void, destroy: Option<unsafe extern "C" fn(*mut c_void)>) -> c_ulong;
     pub fn awra_signal_disconnect(widget: *mut AwraWidget, id: c_ulong);
     pub fn awra_signal_block(widget: *mut AwraWidget, id: c_ulong, blocked: bool);
-    pub fn awra_signal_emit(widget: *mut AwraWidget, args: *const AwraArgs);
+    pub fn awra_signal_emit(widget: *mut AwraWidget, args: *const AwraArgs) -> bool;
     pub fn awra_widget_ref(widget: *mut AwraWidget) -> *mut AwraWidget;
     pub fn awra_widget_unref(widget: *mut AwraWidget);
     pub fn awra_widget_destroy(widget: *mut AwraWidget);

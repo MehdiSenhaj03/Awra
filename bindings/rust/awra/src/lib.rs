@@ -33,7 +33,7 @@ use std::path::PathBuf;
 pub use enums::*;
 pub use gio::Application;
 pub use object::{IntoOptStr, IntoOptWidget, IsWidget, StaticType, WeakRef, Widget};
-pub use signal::{sig, Args, SignalHandlerId};
+pub use signal::{raw_args as signal_args, sig, Args, SignalHandlerId};
 pub use widget::*;
 pub use widgets::*;
 pub use window::{accel_label, ApplicationWindow, Window};

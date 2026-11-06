@@ -761,11 +761,10 @@ bool awra_emit(AwraWidget *w, AwraArgs *args)
   return r;
 }
 
-void awra_signal_emit(AwraWidget *w, const AwraArgs *args)
+bool awra_signal_emit(AwraWidget *w, const AwraArgs *args)
 {
-  AwraArgs copy = *args;
-  copy.handled = NULL;
-  awra_emit(w, &copy);
+  AwraArgs copy = *args; /* the caller's handled flag, if any, is set too */
+  return awra_emit(w, &copy);
 }
 
 bool awra_emit_simple(AwraWidget *w, AwraSignal signal)

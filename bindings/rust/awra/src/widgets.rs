@@ -637,7 +637,7 @@ impl Button {
         self.0.connect_typed::<Button, _>(sig::CLICKED, move |w, _| f(w))
     }
     pub fn emit_clicked(&self) {
-        self.0.emit_raw(&crate::signal::raw_args(sig::CLICKED))
+        self.0.emit_raw(&crate::signal::raw_args(sig::CLICKED));
     }
 }
 actionable!(Button);

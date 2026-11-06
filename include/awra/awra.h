@@ -265,8 +265,9 @@ unsigned long awra_signal_connect(AwraWidget *widget, AwraSignal signal, AwraHan
                                   void *data, AwraDestroyNotify destroy);
 void awra_signal_disconnect(AwraWidget *widget, unsigned long id);
 void awra_signal_block(AwraWidget *widget, unsigned long id, bool blocked);
-/* Emits a signal to its handlers (components emit theirs themselves). */
-void awra_signal_emit(AwraWidget *widget, const AwraArgs *args);
+/* Emits a signal to its handlers (components emit theirs themselves);
+ * true when a handler stopped it (args->handled, if set, is set too). */
+bool awra_signal_emit(AwraWidget *widget, const AwraArgs *args);
 
 /* ----------------------------------------------------------------------- */
 /* Every widget */
