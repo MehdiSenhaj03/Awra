@@ -1,6 +1,25 @@
-<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+<!-- SPDX-License-Identifier: GPL-3.0-or-later -->
 
 # Changelog
+
+## 2.0.0 — unreleased
+
+Awra 2: the same look, without GTK.
+
+- Built on BUI, Awra's fork of Blender's interface runtime (kit nodes,
+  software raster, FreeType text, native window hosts). No GTK, GLib,
+  Pango, Cairo or GObject at run time; Linux needs only wayland-client,
+  wayland-cursor and xkbcommon (X11 and fontconfig are loaded when present).
+- New C API (`include/awra/awra.h`) covering Awra 1's components, with GTK's
+  layout semantics (height-for-width, expand propagation, alignment).
+- Window hosts: Wayland (xdg-shell, fractional scale, cursor-shape,
+  ext-background-effect-v1, KDE blur, drag and drop, clipboard), X11 (ARGB
+  visual, KDE blur hint), Win32 (DWM Acrylic / accent blur, native rounding,
+  shadow, snap and resize band, OLE drops, physical key codes).
+- Rust: `awra-sys` (generated, builds the library with CMake) and `awra`, a
+  gtk-rs-like safe API so Awra 1 applications port by renaming.
+- License: GPL-3.0-or-later (BUI derives from Blender, GPL-2.0-or-later).
+  Awra 1 was LGPL-2.1-or-later.
 
 ## 1.1.0 — unreleased
 

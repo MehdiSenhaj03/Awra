@@ -1,65 +1,50 @@
-<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+<!-- SPDX-License-Identifier: GPL-3.0-or-later -->
 
 # Contributing to Awra
 
-Awra is a C17/GObject framework whose public contract is its installed C API
-and `Awra-1.0.gir`. Changes must remain usable from C, GtkBuilder, Vala,
-Python/GI and the generated Rust bindings.
+Awra 2 is a C11 library whose public contract is `include/awra/awra.h`,
+projected into Rust by `bindings/rust/awra-sys` (generated) and
+`bindings/rust/awra` (hand-written, gtk-rs-like names).
 
 ## Decide where a feature belongs
 
-Use a material or surface role for matter and depth, a typed Awra widget for
-reusable behaviour/focus/lifecycle, a public style role for presenting an
-existing GTK behavioural widget, and application composition for domain
-concepts. Do not add a widget solely to wrap an equivalent GTK type.
+Use a material or surface role for matter and depth, an Awra component for
+reusable behaviour, focus and lifecycle, a style class for a variant of an
+existing component, and application composition for domain concepts.
 
-Any generic problem found in Showcase or a consumer belongs in Awra. Reference
-applications may not add local CSS, use private Awra headers, inspect private
-GTK children, call Wayland/KWin directly or depend on libadwaita.
+Any generic problem found in the showcase or an application belongs in
+Awra. Applications do not reach into `src/awra-private.h`, BUI's kit or the
+window hosts.
+
+## Visual parity
+
+Awra 1's look is the reference (`docs/awra1/architecture/visual-language.md`
+and its CSS numbers). A component change keeps it: compare an offscreen
+render (`awra-shot`) or an application screenshot with Awra 1 at the same
+fonts, light and dark, scale 1 and 2.
 
 ## Definition of done for a component
 
-A stable component includes:
+- a public API in `awra.h`, its Rust projection (`tools/gen_rust_sys.py`,
+  then the safe wrapper in `bindings/rust/awra`);
+- GTK's sizing semantics (minimum / natural, height-for-width, expand);
+- normal, hover, pressed, selected/checked, disabled, focus-visible states;
+- keyboard semantics;
+- Light, Dark and high-contrast;
+- only the damaged area repainted on state changes.
 
-- an introspectable public API with explicit nullability and ownership;
-- GtkBuilder construction and a projection in the generated Rust bindings;
-- default tokenized layout without application magic numbers;
-- normal, hover, pressed, selected/checked, disabled, focus-visible and
-  inactive behaviour where applicable;
-- keyboard semantics, accessible role/name/state and RTL/long-text handling;
-- Light, Dark, high-contrast and hostile-provider isolation evidence;
-- reduced-motion/transparency handling where applicable;
-- replacement/removal/destruction and lifecycle tests;
-- a Showcase scenario and a minimal external-consumer exercise.
-
-An incomplete experiment must remain explicitly experimental and cannot
-silently expand the stable ABI.
-
-## Design-system changes
-
-New public tokens must express reusable semantic intent. New material presets
-must represent a recurring depth/matter role, not a screenshot-specific
-recipe. Numeric alpha, radius, spacing and timing values are calibration, not
-ABI; semantic meaning, focus invariants and accessibility are contracts.
-
-Every global visual change is checked in Dark and Light, with default and blue
-accent, then as grayscale. Premium appearance must come from hierarchy,
-matter, proportion and restraint—not decorative glow, arbitrary gradients,
-border accumulation or duplicated translucent layers.
-
-## Required validation
-
-Before proposing a stable API change, run:
+## Build and checks
 
 ```sh
-meson setup build -Ddeveloper=true
-meson compile -C build
-meson test -C build --print-errorlogs
-./build-aux/validate-install.sh build
-./build-aux/validate-subproject.sh
+cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo
+cmake --build build
+./build/awra-shot gallery /tmp/gallery.png   # offscreen render, prints the frame time
+(cd bindings/rust/awra && cargo run --release --example smoke)
 ```
 
-Release qualification additionally runs the sanitizer gate, generic backend,
-public API/ABI baseline, generated docs, clean `meson dist`, compositor manual
-matrix and the reference consumer smoke suite. Add an ADR under
-`docs/architecture/decisions/` for a structural decision.
+Cross-compile for Windows with MinGW to check the Win32 host:
+
+```sh
+cmake -S . -B build-win -G Ninja -DCMAKE_TOOLCHAIN_FILE=<mingw toolchain> -DCMAKE_BUILD_TYPE=Release
+cmake --build build-win
+```

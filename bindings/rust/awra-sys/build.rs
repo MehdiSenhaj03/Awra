@@ -63,7 +63,17 @@ fn main() {
                 println!("cargo:rustc-link-lib=dylib={lib}");
             }
             if target_env == "gnu" {
-                println!("cargo:rustc-link-lib=dylib=stdc++");
+                // MinGW: the C++ runtime linked in (no DLL beside the executable)
+                let cxx = env::var("CXX_x86_64_pc_windows_gnu")
+                    .or_else(|_| env::var("CXX"))
+                    .unwrap_or_else(|_| "x86_64-w64-mingw32-g++".into());
+                if let Ok(out) = std::process::Command::new(&cxx).arg("-print-file-name=libstdc++.a").output() {
+                    let p = PathBuf::from(String::from_utf8_lossy(&out.stdout).trim());
+                    if let Some(dir) = p.parent().filter(|d| d.is_absolute()) {
+                        println!("cargo:rustc-link-search=native={}", dir.display());
+                    }
+                }
+                println!("cargo:rustc-link-lib=static=stdc++");
             }
         }
         _ => {}

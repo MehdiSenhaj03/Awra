@@ -92,9 +92,24 @@ static void window_finalize(AwraWidget *w)
   free(x->title);
 }
 
+/* Windows: DWM rounds the window and draws its shadow (awra.css's
+ * window.awra-win32: border-radius 0); the window is drawn square. */
+static bool on_win32(void)
+{
+  static int v = -1;
+  if (v < 0) {
+    const char *b = BK_window_backend();
+    v = b && !strcmp(b, "win32");
+  }
+  return v != 0;
+}
+
 static bool squared(const AwraWidget *w)
 {
   const WinExt *x = WEXT(w);
+  if (on_win32() && !x->offscreen) {
+    return true;
+  }
   return !x->keep_rounded && (x->state & (AWRA_WINDOW_STATE_MAXIMIZED |
                                           AWRA_WINDOW_STATE_FULLSCREEN | AWRA_WINDOW_STATE_TILED));
 }
@@ -150,9 +165,13 @@ static void window_allocate(AwraWidget *w)
   if (x->child) {
     awra_allocate(x->child, w->x, w->y + th, w->w, BK_MAX(0, w->h - th));
   }
-  /* the compositor blurs behind the window's rounded shape */
+  /* the compositor blurs behind the window's rounded shape (on Windows:
+   * DWM's rounding when the window is not maximized) */
   if (x->bkw) {
-    const int r = squared(w) ? 0 : (int)awra_tokens()->radii[AWRA_RADIUS_WINDOW];
+    const bool corners = on_win32() ? !(x->state & (AWRA_WINDOW_STATE_MAXIMIZED |
+                                                    AWRA_WINDOW_STATE_FULLSCREEN)) :
+                                      !squared(w);
+    const int r = corners ? (int)awra_tokens()->radii[AWRA_RADIUS_WINDOW] : 0;
     const int lw = awra_widget_width(w), lh = awra_widget_height(w);
     const bool want = awra_native_blur_enabled() && !awra_reduced_transparency();
     const int rect[5] = {0, 0, want ? lw : 0, want ? lh : 0, r};
@@ -177,7 +196,8 @@ static void window_draw(AwraWidget *w, AwraDraw *d)
 static int edge_at(AwraWidget *w, int px, int py)
 {
   WinExt *x = WEXT(w);
-  if (!x->bkw || !x->resizable || squared(w)) {
+  /* Windows resizes through its native border band (WM_NCHITTEST) */
+  if (!x->bkw || !x->resizable || squared(w) || on_win32()) {
     return 0;
   }
   const int band = awra_px(6), corner = awra_px(16);
@@ -942,6 +962,7 @@ static void ensure_native(AwraWidget *w)
   if (x->min_w > 0 || x->min_h > 0) {
     BK_window_wm(x->bkw, "minsize", x->min_w, x->min_h);
   }
+  BK_window_wm(x->bkw, "dark", awra_style_is_dark() ? 1.0 : 0.0, 0.0);
   x->scale = BK_window_scale(x->bkw);
   x->blur_state = BK_window_blur_available(x->bkw);
   if (x->blur_state == 1) {
@@ -1261,6 +1282,10 @@ void awra_window_style_changed_all(void)
       restyle_tree(x->ctx->popups[k]);
     }
     memset(x->blur_rect, 0, sizeof(x->blur_rect));
+    if (x->bkw) {
+      /* Windows tints the backdrop and the frame for the appearance */
+      BK_window_wm(x->bkw, "dark", awra_style_is_dark() ? 1.0 : 0.0, 0.0);
+    }
     x->ctx->layout_dirty = true;
     x->ctx->full_dirty = true;
     bk_ctx_request(x->ctx);

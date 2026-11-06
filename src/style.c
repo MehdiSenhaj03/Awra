@@ -151,6 +151,7 @@ bool awra_parse_color(const char *s, AwraRGBA *r)
 /* ----------------------------------------------------------------------- */
 /* The desktop's preferences */
 
+#ifndef _WIN32
 static char *read_file(const char *path)
 {
   FILE *f = fopen(path, "rb");
@@ -209,6 +210,7 @@ static bool ini_get(const char *text, const char *key, char *out, size_t size)
   }
   return false;
 }
+#endif
 
 #ifndef _WIN32
 static void config_path(char *out, size_t size, const char *rel)

@@ -1,77 +1,80 @@
-<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+<!-- SPDX-License-Identifier: GPL-3.0-or-later -->
 
-# Awra
+# Awra 2
 
-Awra is a GTK 4.22+ desktop UI framework with semantic materials,
-GSK-rendered surfaces, accessible GTK-derived controls, and progressive native
-background effects. It does not depend on libadwaita.
+Awra is a frosted-glass desktop UI framework: semantic materials (Canvas,
+Chrome, Layer, Floating…), the compositor's blur behind translucent windows,
+a token set (spacing, radii, typography, motion) and the components built on
+them. Awra 2 keeps Awra 1's look one to one and drops GTK: it is a small C
+library on [BUI](bui/ARCHITECTURE.md), Awra's fork of Blender's interface
+runtime.
+
+- **No GTK, GLib, Pango, Cairo or GObject.** Widgets are nodes of BUI's
+  retained kit; Awra lays them out with GTK's own size negotiation rules
+  (height-for-width, expand propagation, alignment), draws them with the
+  kit's damage-driven software raster (premultiplied ARGB, SDF rounded
+  boxes, analytic shadows, FreeType text) straight into the compositor's
+  shared-memory buffers, and only repaints what changed.
+- **Native windows**: Wayland (xdg-shell, fractional scale, cursor-shape,
+  `ext-background-effect-v1` / KDE blur), X11 (ARGB visual, KDE blur hint)
+  and Win32 (DWM Acrylic on Windows 11 22H2+, accent blur on Windows 10,
+  native rounding, shadow, snap and resize band), all client-side decorated
+  with Awra's header.
+- **Rust**: `bindings/rust/awra-sys` (generated FFI, builds the C library with
+  CMake) and `bindings/rust/awra` (a gtk-rs-like safe API: typed widgets,
+  closures on signals, `win.*` actions with accelerators, menus, timers and
+  futures on the UI thread, native file dialogs).
+
+## Build
 
 ```sh
-meson setup build -Ddeveloper=true
-meson compile -C build
-meson test -C build
-meson install -C build --destdir "$PWD/staging"
+cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+cmake --build build
+./build/awra-showcase
 ```
 
-### Windows
+Linux needs `wayland-client`, `wayland-cursor` and `xkbcommon` (X11 and
+fontconfig are loaded at run time when present). Windows builds with MinGW
+(`-DCMAKE_TOOLCHAIN_FILE=<mingw toolchain>`) or MSVC; the MinGW runtime is
+linked in.
 
-Awra builds for Windows with MinGW (cross-compiled from Linux or with MSYS2)
-against GTK 4.22. Windows has no compositor protocol to negotiate: the
-`win32-dwm` backend asks DWM for the Acrylic backdrop on Windows 11 22H2 and
-later, or the accent-policy blur on Windows 10, and falls back to the opaque
-look when "Transparency effects" is off. Dark mode, accent colour, high
-contrast and animation preferences come from Windows settings.
+`awra-shot <page> <png>` renders a showcase page offscreen (no display) and
+prints the frame time; `AWRA_APPEARANCE=light|dark`,
+`AWRA_REDUCED_MOTION=1` and `AWRA_FONT="Family 10"` override the desktop's
+settings for reviews.
 
-```sh
-PKG_CONFIG_LIBDIR=<gtk-prefix>/lib/pkgconfig:<mingw-sysroot>/lib/pkgconfig \
-  meson setup build-win --cross-file build-aux/windows/mingw64.meson \
-  -Dwayland-effects=disabled -Dintrospection=disabled -Dshowcase=false \
-  -Dtests=false -Dexamples=false
+From Rust:
+
+```toml
+[dependencies]
+awra = { path = "../Awra/bindings/rust/awra" }
 ```
 
-Run `build/showcase/awra-showcase` to browse eleven real routed pages. Alongside
-the component gallery, the dedicated **Application Patterns** page demonstrates
-a media workspace, launcher board and design canvas with permanent, floating
-and edge-revealed panels. The complete demo also covers master/detail, tabs,
-contextual actions, push/pop navigation, search, native and in-window overlays,
-fallback, motion preferences, and deterministic material diagnostics.
+```rust
+let app = awra::Application::new("org.example.App");
+let window = awra::Window::new(&app);
+let button = awra::Button::with_label("Hello");
+button.connect_clicked(|_| println!("clicked"));
+window.set_child(Some(&button));
+window.present();
+app.run();
+```
 
-New views can use public `AwraLayoutPreset` recipes on ordinary `GtkBox` and
-`GtkGrid` containers. Page, section, content, toolbar and overlay composition
-therefore inherit Awra's tokenized spacing without local CSS or copied pixels;
-`AwraCard` and `AwraSidebar` also provide semantic content/outer insets by
-default.
+## Layout
 
-The **Platform & Blur** page includes a live material lab for Canvas tint,
-opacity, grain strength and native-blur activation. Every control uses public
-Awra APIs and updates the complete window immediately. Blur strength itself is
-not exposed by `ext-background-effect-v1` and remains compositor-controlled.
-Every card on **Surfaces & Materials** also exposes a profile editor for its
-global tint, opacity, radius, grain, outline, highlight and blur intent. Editing
-Floating, for example, immediately updates every Floating popover, dialog and
-panel in the application.
+| Path | What |
+| --- | --- |
+| `include/awra/awra.h` | the whole public C API |
+| `src/` | Awra: core (tree, signals, layout), style and tokens, text, paint and materials, icons, windows, containers, components |
+| `bui/` | the BUI fork: `core`, `gpu` (raster, text), `kit` (nodes, input, window hosts) |
+| `bindings/rust/` | `awra-sys`, `awra` |
+| `showcase/`, `tools/` | the showcase, `awra-shot`, generators (icons, Rust FFI) |
+| `docs/architecture.md` | how Awra 2 works |
+| `docs/awra1/` | Awra 1's documentation (the visual language reference) |
 
-For deterministic visual review, `AWRA_SHOWCASE_APPEARANCE=dark|light` selects
-an explicit profile, `AWRA_SHOWCASE_ACCENT=system|default|blue|#rrggbb` selects
-an accent through the public style manager, and
-`AWRA_SHOWCASE_PAGE=overview|patterns|surfaces|controls|inputs|navigation|overlays|motion|layout|platform|diagnostics`
-opens a routed page. These options only drive public Awra APIs.
+## License
 
-The install includes `awra-1.pc`, `Awra-1.0.gir`, `Awra-1.0.typelib`, and,
-when `vapigen` is available, `awra-1.vapi`.
-
-The `Awra-1.0` API and `libawra-1.so.1` ABI are stable. Architecture and limitations are
-documented in [`docs/architecture/foundations.md`](docs/architecture/foundations.md),
-the visual language in [`docs/architecture/visual-language.md`](docs/architecture/visual-language.md),
-the API families in [`docs/api/README.md`](docs/api/README.md), and validation
-in [`docs/architecture/validation.md`](docs/architecture/validation.md). The
-cross-cutting improvement plan derived from Showcase and reference applications is maintained
-in [`docs/architecture/improvement-roadmap.md`](docs/architecture/improvement-roadmap.md),
-with gate evidence in
-[`docs/architecture/roadmap-status.md`](docs/architecture/roadmap-status.md).
-The evolving observations from Showcase and reference applications are
-kept in the [`usage journal`](docs/usage-journal/journal.md).
-
-Blueprint validation is optional (`-Dblueprint=auto`) and is performed when
-`blueprint-compiler` is installed. It is a build tool only; Awra has no
-Blueprint or libadwaita runtime dependency.
+Awra 2 is GPL-3.0-or-later (`LICENSES/GPL-3.0-or-later.txt`): it is built on
+BUI, which is derived from Blender and licensed GPL-2.0-or-later
+(`bui/LICENSE`, `bui/THIRD_PARTY_NOTICES.md`). Applications that link Awra 2
+are covered by the GPL when distributed. Awra 1 was LGPL-2.1-or-later.

@@ -21,8 +21,14 @@
 #    define UNICODE
 #  endif
 #  define WIN32_LEAN_AND_MEAN
+#  define COBJMACROS
 #  include <windows.h>
 #  include <windowsx.h>
+#  include <ole2.h>
+#  include <shellapi.h>
+#  include <dwmapi.h>
+
+#  include "kit_loop.h"
 
 #  define WM_BK_RENDER (WM_APP + 1)
 #  define ID_TIP 1
@@ -44,6 +50,13 @@ struct BKWindow {
   int fixed_w, fixed_h;           /* axes the user may not resize (Tk's resizable) */
   int user_sizing;                /* inside a user move/resize loop */
   DWORD style;                    /* framed style restored by "override" 0 */
+  /* BUI-Awra */
+  int flags;                      /* BK_WINDOW_* */
+  int state;                      /* BK_WSTATE_* last reported */
+  int fullscreen, blur_on, dark;
+  WINDOWPLACEMENT restore;        /* before fullscreen */
+  DWORD restore_style;
+  struct DropTarget *drop;
 };
 
 static int g_open = 0;
@@ -144,6 +157,122 @@ static float window_dpi_scale(HWND hwnd)
   GetDpi get = user32 ? (GetDpi)(void *)GetProcAddress(user32, "GetDpiForWindow") : NULL;
   const UINT dpi = (get && hwnd) ? get(hwnd) : 96;
   return BK_MAX(1.0f, dpi / 96.0f);
+}
+
+/* -- BUI-Awra: DWM backdrop (as Awra 1's win32 effect backend) ------------ */
+
+#  define BK_DWMWA_USE_IMMERSIVE_DARK_MODE 20
+#  define BK_DWMWA_WINDOW_CORNER_PREFERENCE 33
+#  define BK_DWMWA_BORDER_COLOR 34
+#  define BK_DWMWA_SYSTEMBACKDROP_TYPE 38
+#  define BK_DWMWCP_DONOTROUND 1
+#  define BK_DWMWCP_ROUND 2
+#  define BK_DWMWA_COLOR_NONE 0xFFFFFFFEu
+#  define BK_DWMSBT_NONE 1
+#  define BK_DWMSBT_TRANSIENTWINDOW 3 /* Acrylic: blurs what is behind */
+#  define BK_WCA_ACCENT_POLICY 19
+#  define BK_ACCENT_DISABLED 0
+#  define BK_ACCENT_ENABLE_BLURBEHIND 3
+#  define BUILD_WIN10_1803 17134
+#  define BUILD_WIN11 22000
+#  define BUILD_WIN11_22H2 22621
+
+typedef struct {
+  int accent_state, accent_flags;
+  DWORD gradient_color;
+  int animation_id;
+} AccentPolicy;
+typedef struct {
+  int attribute;
+  void *data;
+  SIZE_T size;
+} CompositionAttribute;
+typedef BOOL(WINAPI *SetCompositionFn)(HWND, CompositionAttribute *);
+typedef HRESULT(WINAPI *DwmSetAttrFn)(HWND, DWORD, LPCVOID, DWORD);
+typedef HRESULT(WINAPI *DwmExtendFn)(HWND, const MARGINS *);
+typedef HRESULT(WINAPI *DwmEnabledFn)(BOOL *);
+
+static struct {
+  int loaded;
+  DWORD build;
+  SetCompositionFn set_composition;
+  DwmSetAttrFn set_attr;
+  DwmExtendFn extend;
+  DwmEnabledFn enabled;
+} g_dwm;
+
+static void dwm_load(void)
+{
+  if (g_dwm.loaded) {
+    return;
+  }
+  g_dwm.loaded = 1;
+  typedef LONG(WINAPI * RtlGetVersionFn)(OSVERSIONINFOW *);
+  HMODULE ntdll = GetModuleHandleW(L"ntdll.dll");
+  RtlGetVersionFn rtl = ntdll ? (RtlGetVersionFn)(void *)GetProcAddress(ntdll, "RtlGetVersion") :
+                                NULL;
+  OSVERSIONINFOW info;
+  memset(&info, 0, sizeof(info));
+  info.dwOSVersionInfoSize = sizeof(info);
+  if (rtl && rtl(&info) == 0) {
+    g_dwm.build = info.dwBuildNumber;
+  }
+  HMODULE user32 = GetModuleHandleW(L"user32.dll");
+  g_dwm.set_composition = user32 ? (SetCompositionFn)(void *)GetProcAddress(
+                                       user32, "SetWindowCompositionAttribute") :
+                                   NULL;
+  HMODULE dwm = LoadLibraryW(L"dwmapi.dll");
+  if (dwm) {
+    g_dwm.set_attr = (DwmSetAttrFn)(void *)GetProcAddress(dwm, "DwmSetWindowAttribute");
+    g_dwm.extend = (DwmExtendFn)(void *)GetProcAddress(dwm, "DwmExtendFrameIntoClientArea");
+    g_dwm.enabled = (DwmEnabledFn)(void *)GetProcAddress(dwm, "DwmIsCompositionEnabled");
+  }
+}
+
+static void dwm_attr(HWND hwnd, DWORD attr, const void *v, DWORD size)
+{
+  if (g_dwm.set_attr) {
+    g_dwm.set_attr(hwnd, attr, v, size);
+  }
+}
+
+/* Settings > Personalisation > Colours > Transparency effects. */
+static int transparency_enabled(void)
+{
+  DWORD enabled = 1, size = sizeof(enabled);
+  RegGetValueW(HKEY_CURRENT_USER, L"Software\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize",
+               L"EnableTransparency", RRF_RT_REG_DWORD, NULL, &enabled, &size);
+  return enabled != 0;
+}
+
+/* 2 the system backdrop (Windows 11 22H2+), 1 the accent blur (Windows 10
+ * 1803+), 0 none */
+static int backdrop_mode(void)
+{
+  dwm_load();
+  if (g_dwm.build >= BUILD_WIN11_22H2 && g_dwm.set_attr && g_dwm.extend) {
+    return 2;
+  }
+  if (g_dwm.build >= BUILD_WIN10_1803 && g_dwm.set_composition) {
+    return 1;
+  }
+  return 0;
+}
+
+static int blur_capable(void)
+{
+  BOOL composition = FALSE;
+  return backdrop_mode() != 0 && g_dwm.enabled && SUCCEEDED(g_dwm.enabled(&composition)) &&
+         composition && transparency_enabled();
+}
+
+static void set_accent(HWND hwnd, int state)
+{
+  AccentPolicy policy = {state, 2, 0, 0};
+  CompositionAttribute attribute = {BK_WCA_ACCENT_POLICY, &policy, sizeof(policy)};
+  if (g_dwm.set_composition) {
+    g_dwm.set_composition(hwnd, &attribute);
+  }
 }
 
 static wchar_t *utf8_to_wide(const char *s)
@@ -418,6 +547,44 @@ static const char *vk_keysym(WPARAM vk, char *buf)
     case VK_SUBTRACT: return "KP_Subtract";
     case VK_OEM_MINUS: return "minus";
     case VK_SPACE: return "space";
+    /* BUI-Awra: the rest of the keyboard (captures, shortcuts) */
+    case VK_LWIN: return "Super_L";
+    case VK_RWIN: return "Super_R";
+    case VK_APPS: return "Menu";
+    case VK_CAPITAL: return "Caps_Lock";
+    case VK_NUMLOCK: return "Num_Lock";
+    case VK_SCROLL: return "Scroll_Lock";
+    case VK_PAUSE: return "Pause";
+    case VK_SNAPSHOT: return "Print";
+    case VK_MULTIPLY: return "KP_Multiply";
+    case VK_ADD: return "KP_Add";
+    case VK_DECIMAL: return "KP_Decimal";
+    case VK_DIVIDE: return "KP_Divide";
+  }
+  if (vk >= VK_NUMPAD0 && vk <= VK_NUMPAD9) {
+    snprintf(buf, 8, "KP_%d", (int)(vk - VK_NUMPAD0));
+    return buf;
+  }
+  if (vk >= VK_OEM_1 && vk <= VK_OEM_102) {
+    /* punctuation: the X keysym name of the character the layout gives */
+    const UINT ch = MapVirtualKeyW((UINT)vk, 2 /* MAPVK_VK_TO_CHAR */) & 0x7FFF;
+    static const struct {
+      char c;
+      const char *name;
+    } names[] = {{',', "comma"},     {'.', "period"},      {'/', "slash"},
+                 {';', "semicolon"}, {'\'', "apostrophe"}, {'[', "bracketleft"},
+                 {']', "bracketright"}, {'\\', "backslash"}, {'`', "grave"},
+                 {'-', "minus"},     {'=', "equal"},       {'<', "less"}};
+    for (size_t i = 0; i < sizeof(names) / sizeof(names[0]); i++) {
+      if ((UINT)names[i].c == ch) {
+        return names[i].name;
+      }
+    }
+    if (ch > 32 && ch < 127) {
+      buf[0] = (char)ch;
+      buf[1] = 0;
+      return buf;
+    }
   }
   if (vk >= VK_F1 && vk <= VK_F24) {
     snprintf(buf, 8, "F%d", (int)(vk - VK_F1 + 1));
@@ -431,6 +598,372 @@ static const char *vk_keysym(WPARAM vk, char *buf)
   return NULL;
 }
 
+/* -- BUI-Awra: window state ---------------------------------------------- */
+
+static int compute_state(BKWindow *win)
+{
+  int st = 0;
+  if (!win->hwnd) {
+    return 0;
+  }
+  if (IsZoomed(win->hwnd)) {
+    st |= BK_WSTATE_MAXIMIZED;
+  }
+  if (win->fullscreen) {
+    st |= BK_WSTATE_FULLSCREEN;
+  }
+  if (GetForegroundWindow() == win->hwnd || GetActiveWindow() == win->hwnd) {
+    st |= BK_WSTATE_ACTIVE;
+  }
+  if (!IsWindowVisible(win->hwnd) || IsIconic(win->hwnd)) {
+    st |= BK_WSTATE_HIDDEN;
+  }
+  if ((win->flags & BK_WINDOW_TRANSPARENT) && blur_capable()) {
+    st |= BK_WSTATE_BLUR;
+  }
+  return st;
+}
+
+static void report_state(BKWindow *win)
+{
+  const int st = compute_state(win);
+  if (st != win->state) {
+    win->state = st;
+    if (win->cb.on_state) {
+      win->cb.on_state(win->cb.data, win, st);
+    }
+  }
+}
+
+/* PC set-1 scan codes (extended: 0xE0xx) to Linux evdev codes, the names
+ * Awra's key codes use. Below 0x59 they are the same numbers. */
+static int scancode_to_evdev(int sc, int extended)
+{
+  if (!extended) {
+    switch (sc) {
+      case 0x59: return 117; /* KP_Equal */
+      case 0x64: return 183; /* F13.. */
+      case 0x65: return 184;
+      case 0x66: return 185;
+      case 0x67: return 186;
+      case 0x68: return 187;
+      case 0x69: return 188;
+      case 0x6A: return 189;
+      case 0x6B: return 190;
+      case 0x6C: return 191;
+      case 0x6D: return 192;
+      case 0x6E: return 193;
+      case 0x76: return 194;
+      case 0x70: return 93;  /* Katakana/Hiragana */
+      case 0x73: return 89;  /* RO */
+      case 0x79: return 92;  /* Henkan */
+      case 0x7B: return 94;  /* Muhenkan */
+      case 0x7D: return 124; /* Yen */
+      case 0x7E: return 121; /* KP_Comma */
+    }
+    return sc < 0x59 ? sc : 0;
+  }
+  switch (sc) {
+    case 0x1C: return 96;  /* KP_Enter */
+    case 0x1D: return 97;  /* Control_R */
+    case 0x35: return 98;  /* KP_Divide */
+    case 0x37: return 99;  /* Print */
+    case 0x38: return 100; /* Alt_R */
+    case 0x45: return 69;  /* Num_Lock */
+    case 0x46: return 119; /* Pause (Ctrl) */
+    case 0x47: return 102; /* Home */
+    case 0x48: return 103; /* Up */
+    case 0x49: return 104; /* Prior */
+    case 0x4B: return 105; /* Left */
+    case 0x4D: return 106; /* Right */
+    case 0x4F: return 107; /* End */
+    case 0x50: return 108; /* Down */
+    case 0x51: return 109; /* Next */
+    case 0x52: return 110; /* Insert */
+    case 0x53: return 111; /* Delete */
+    case 0x5B: return 125; /* Super_L */
+    case 0x5C: return 126; /* Super_R */
+    case 0x5D: return 127; /* Menu */
+  }
+  return 0;
+}
+
+static int evdev_to_scancode(int ev)
+{
+  for (int sc = 1; sc < 0x80; sc++) {
+    if (scancode_to_evdev(sc, 0) == ev) {
+      return sc;
+    }
+    if (scancode_to_evdev(sc, 1) == ev) {
+      return sc | 0xE000;
+    }
+  }
+  return 0;
+}
+
+/* The character the layout prints on a physical key (without modifiers),
+ * for BK_key_label. */
+static const char *win32_key_label(int evdev)
+{
+  static char out[8];
+  const int sc = evdev_to_scancode(evdev);
+  if (!sc) {
+    return NULL;
+  }
+  HKL layout = GetKeyboardLayout(0);
+  const UINT vk = MapVirtualKeyExW((UINT)sc, 3 /* MAPVK_VSC_TO_VK_EX */, layout);
+  if (!vk) {
+    return NULL;
+  }
+  BYTE keys[256];
+  memset(keys, 0, sizeof(keys));
+  wchar_t wc[4];
+  /* flag 4: leaves the keyboard state (dead keys) untouched */
+  int n = ToUnicodeEx(vk, (UINT)sc, keys, wc, 4, 4, layout);
+  if (n < 0) {
+    n = 1; /* a dead key: its own character */
+  }
+  if (n <= 0 || wc[0] < 32) {
+    return NULL;
+  }
+  const int len = WideCharToMultiByte(CP_UTF8, 0, wc, 1, out, (int)sizeof(out) - 1, NULL, NULL);
+  out[len > 0 ? len : 0] = 0;
+  return out[0] ? out : NULL;
+}
+
+/* -- BUI-Awra: file drops (OLE: hover and drop) ----------------------------- */
+
+typedef struct DropTarget {
+  IDropTarget iface;
+  LONG refs;
+  BKWindow *win;
+  char *uris; /* of the drag in progress */
+} DropTarget;
+
+static HRESULT STDMETHODCALLTYPE dt_query(IDropTarget *self, REFIID riid, void **out)
+{
+  if (IsEqualIID(riid, &IID_IUnknown) || IsEqualIID(riid, &IID_IDropTarget)) {
+    *out = self;
+    self->lpVtbl->AddRef(self);
+    return S_OK;
+  }
+  *out = NULL;
+  return E_NOINTERFACE;
+}
+static ULONG STDMETHODCALLTYPE dt_addref(IDropTarget *self)
+{
+  return (ULONG)InterlockedIncrement(&((DropTarget *)self)->refs);
+}
+static ULONG STDMETHODCALLTYPE dt_release(IDropTarget *self)
+{
+  DropTarget *t = (DropTarget *)self;
+  const LONG n = InterlockedDecrement(&t->refs);
+  if (n == 0) {
+    free(t->uris);
+    free(t);
+  }
+  return (ULONG)n;
+}
+
+/* file:// URIs of a CF_HDROP, '\r\n'-separated (text/uri-list) */
+static char *hdrop_uris(HDROP drop)
+{
+  const UINT n = DragQueryFileW(drop, 0xFFFFFFFF, NULL, 0);
+  size_t cap = 256, len = 0;
+  char *out = (char *)malloc(cap);
+  if (!out) {
+    return NULL;
+  }
+  out[0] = 0;
+  for (UINT i = 0; i < n; i++) {
+    const UINT wl = DragQueryFileW(drop, i, NULL, 0);
+    wchar_t *w = (wchar_t *)malloc(sizeof(wchar_t) * (wl + 1));
+    if (!w) {
+      continue;
+    }
+    DragQueryFileW(drop, i, w, wl + 1);
+    char *path = wide_to_utf8(w, -1);
+    free(w);
+    const size_t pl = strlen(path);
+    while (len + pl * 3 + 16 > cap) {
+      cap *= 2;
+      out = (char *)realloc(out, cap);
+    }
+    len += (size_t)sprintf(out + len, "file:///");
+    for (const char *c = path; *c; c++) {
+      const unsigned char ch = (unsigned char)*c;
+      if (ch == '\\') {
+        out[len++] = '/';
+      }
+      else if (ch == '%' || ch == ' ' || ch == '#' || ch < 32) {
+        len += (size_t)sprintf(out + len, "%%%02X", ch);
+      }
+      else {
+        out[len++] = (char)ch;
+      }
+    }
+    out[len++] = '\r';
+    out[len++] = '\n';
+    out[len] = 0;
+    free(path);
+  }
+  return out;
+}
+
+static void dt_point(DropTarget *t, POINTL pt, int *x, int *y)
+{
+  POINT p = {pt.x, pt.y};
+  ScreenToClient(t->win->hwnd, &p);
+  *x = p.x;
+  *y = p.y;
+}
+
+static HRESULT STDMETHODCALLTYPE dt_enter(IDropTarget *self, IDataObject *data, DWORD keys,
+                                          POINTL pt, DWORD *effect)
+{
+  DropTarget *t = (DropTarget *)self;
+  (void)keys;
+  FORMATETC fmt = {CF_HDROP, NULL, DVASPECT_CONTENT, -1, TYMED_HGLOBAL};
+  STGMEDIUM med;
+  free(t->uris);
+  t->uris = NULL;
+  if (SUCCEEDED(IDataObject_GetData(data, &fmt, &med))) {
+    HDROP drop = (HDROP)GlobalLock(med.hGlobal);
+    if (drop) {
+      t->uris = hdrop_uris(drop);
+      GlobalUnlock(med.hGlobal);
+    }
+    ReleaseStgMedium(&med);
+  }
+  if (!t->uris) {
+    *effect = DROPEFFECT_NONE;
+    return S_OK;
+  }
+  int x, y;
+  dt_point(t, pt, &x, &y);
+  const int ok = BK_drop(t->win->ctx, BK_DROP_ENTER, x, y, t->uris);
+  *effect = ok ? DROPEFFECT_COPY : DROPEFFECT_NONE;
+  return S_OK;
+}
+static HRESULT STDMETHODCALLTYPE dt_over(IDropTarget *self, DWORD keys, POINTL pt, DWORD *effect)
+{
+  DropTarget *t = (DropTarget *)self;
+  (void)keys;
+  if (!t->uris) {
+    *effect = DROPEFFECT_NONE;
+    return S_OK;
+  }
+  int x, y;
+  dt_point(t, pt, &x, &y);
+  const int ok = BK_drop(t->win->ctx, BK_DROP_MOTION, x, y, t->uris);
+  *effect = ok ? DROPEFFECT_COPY : DROPEFFECT_NONE;
+  return S_OK;
+}
+static HRESULT STDMETHODCALLTYPE dt_leave(IDropTarget *self)
+{
+  DropTarget *t = (DropTarget *)self;
+  BK_drop(t->win->ctx, BK_DROP_LEAVE, 0, 0, NULL);
+  free(t->uris);
+  t->uris = NULL;
+  return S_OK;
+}
+static HRESULT STDMETHODCALLTYPE dt_drop(IDropTarget *self, IDataObject *data, DWORD keys,
+                                         POINTL pt, DWORD *effect)
+{
+  DropTarget *t = (DropTarget *)self;
+  (void)data;
+  (void)keys;
+  int x, y;
+  dt_point(t, pt, &x, &y);
+  const int ok = t->uris ? BK_drop(t->win->ctx, BK_DROP_DROP, x, y, t->uris) : 0;
+  *effect = ok ? DROPEFFECT_COPY : DROPEFFECT_NONE;
+  free(t->uris);
+  t->uris = NULL;
+  return S_OK;
+}
+
+static IDropTargetVtbl g_drop_vtbl = {dt_query, dt_addref, dt_release, dt_enter,
+                                      dt_over,  dt_leave,  dt_drop};
+
+static void drop_register(BKWindow *win)
+{
+  static int ole = 0;
+  if (!ole) {
+    ole = SUCCEEDED(OleInitialize(NULL)) ? 1 : -1;
+  }
+  if (ole < 0) {
+    DragAcceptFiles(win->hwnd, TRUE); /* drops without hover */
+    return;
+  }
+  DropTarget *t = (DropTarget *)calloc(1, sizeof(DropTarget));
+  if (!t) {
+    return;
+  }
+  t->iface.lpVtbl = &g_drop_vtbl;
+  t->refs = 1;
+  t->win = win;
+  if (FAILED(RegisterDragDrop(win->hwnd, &t->iface))) {
+    dt_release(&t->iface);
+    DragAcceptFiles(win->hwnd, TRUE);
+    return;
+  }
+  win->drop = t;
+}
+
+static void drop_unregister(BKWindow *win)
+{
+  if (win->drop) {
+    if (win->hwnd) {
+      RevokeDragDrop(win->hwnd);
+    }
+    win->drop->win = NULL;
+    dt_release(&win->drop->iface);
+    win->drop = NULL;
+  }
+}
+
+/* -- BUI-Awra: borderless window ------------------------------------------- */
+
+static int frame_band(HWND hwnd)
+{
+  typedef UINT(WINAPI * GetDpiFn)(HWND);
+  typedef int(WINAPI * MetricsFn)(int, UINT);
+  HMODULE user32 = GetModuleHandleW(L"user32.dll");
+  GetDpiFn get_dpi = user32 ? (GetDpiFn)(void *)GetProcAddress(user32, "GetDpiForWindow") : NULL;
+  MetricsFn metrics = user32 ? (MetricsFn)(void *)GetProcAddress(user32, "GetSystemMetricsForDpi") :
+                               NULL;
+  if (get_dpi && metrics) {
+    const UINT dpi = get_dpi(hwnd);
+    return metrics(SM_CXSIZEFRAME, dpi) + metrics(SM_CXPADDEDBORDER, dpi);
+  }
+  return GetSystemMetrics(SM_CXSIZEFRAME) + GetSystemMetrics(SM_CXPADDEDBORDER);
+}
+
+static int can_resize(BKWindow *win)
+{
+  return !win->fixed_w && !win->fixed_h && !IsZoomed(win->hwnd) && !win->fullscreen;
+}
+
+/* The native border band inside the edges (awra-win32-window.c) */
+static LRESULT border_hit(BKWindow *win, LPARAM lp)
+{
+  POINT pt = {GET_X_LPARAM(lp), GET_Y_LPARAM(lp)};
+  RECT r;
+  if (!can_resize(win) || !GetWindowRect(win->hwnd, &r)) {
+    return HTCLIENT;
+  }
+  const int b = frame_band(win->hwnd);
+  const int left = pt.x < r.left + b, right = pt.x >= r.right - b;
+  const int top = pt.y < r.top + b, bottom = pt.y >= r.bottom - b;
+  if (top) {
+    return left ? HTTOPLEFT : right ? HTTOPRIGHT : HTTOP;
+  }
+  if (bottom) {
+    return left ? HTBOTTOMLEFT : right ? HTBOTTOMRIGHT : HTBOTTOM;
+  }
+  return left ? HTLEFT : right ? HTRIGHT : HTCLIENT;
+}
+
 static LRESULT CALLBACK wndproc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
 {
   BKWindow *win = (BKWindow *)GetWindowLongPtrW(hwnd, GWLP_USERDATA);
@@ -438,7 +971,63 @@ static LRESULT CALLBACK wndproc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
     return DefWindowProcW(hwnd, msg, wp, lp);
   }
   BKContext *ctx = win->ctx;
+  const int borderless = (win->flags & BK_WINDOW_UNDECORATED) != 0;
   switch (msg) {
+    case WM_NCCALCSIZE:
+      if (borderless && wp) {
+        /* the client area covers the whole window; maximized, the frame
+         * Windows puts off-screen is taken out */
+        if (IsZoomed(hwnd) && !win->fullscreen) {
+          NCCALCSIZE_PARAMS *p = (NCCALCSIZE_PARAMS *)lp;
+          const int b = frame_band(hwnd);
+          p->rgrc[0].left += b;
+          p->rgrc[0].top += b;
+          p->rgrc[0].right -= b;
+          p->rgrc[0].bottom -= b;
+        }
+        return 0;
+      }
+      break;
+    case WM_NCHITTEST:
+      if (borderless) {
+        return border_hit(win, lp);
+      }
+      break;
+    case WM_NCACTIVATE:
+      if (borderless) {
+        report_state(win);
+        return DefWindowProcW(hwnd, msg, wp, -1); /* no frame repaint */
+      }
+      break;
+    case WM_ACTIVATE:
+    case WM_SHOWWINDOW:
+      PostMessageW(hwnd, WM_APP + 9, 0, 0); /* the state once the change is done */
+      break;
+    case WM_APP + 9:
+      report_state(win);
+      return 0;
+    case WM_INPUTLANGCHANGE:
+      if (bk_layout_hook) {
+        bk_layout_hook();
+      }
+      break;
+    case WM_SETTINGCHANGE:
+    case WM_DWMCOMPOSITIONCHANGED:
+      win->state = -1; /* the blur capability may have changed */
+      report_state(win);
+      break;
+    case WM_DROPFILES: {
+      HDROP drop = (HDROP)wp;
+      char *uris = hdrop_uris(drop);
+      POINT p;
+      DragQueryPoint(drop, &p);
+      if (uris) {
+        BK_drop(ctx, BK_DROP_DROP, p.x, p.y, uris);
+        free(uris);
+      }
+      DragFinish(drop);
+      return 0;
+    }
     case WM_BK_RENDER:
       if (win->want_frame && win->cb.on_frame) {
         /* render_pending is still set: edits made here join this frame */
@@ -473,6 +1062,7 @@ static LRESULT CALLBACK wndproc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
       return 1;
     case WM_SIZE:
       host_request(win);
+      report_state(win);
       return 0;
     case WM_DPICHANGED: {
       win->scale = HIWORD(wp) / 96.0f;
@@ -526,6 +1116,7 @@ static LRESULT CALLBACK wndproc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
       return 0;
     case WM_KEYUP:
     case WM_SYSKEYUP: {
+      bk_last_key_code = scancode_to_evdev((int)((lp >> 16) & 0xFF), (int)((lp >> 24) & 1));
       char buf[8];
       const char *ks = vk_keysym(wp, buf);
       if (ks) {
@@ -553,13 +1144,17 @@ static LRESULT CALLBACK wndproc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
       const DWORD style = (DWORD)GetWindowLongPtrW(hwnd, GWL_STYLE);
       if (win->min_w || win->min_h) {
         RECT r = {0, 0, (LONG)(win->min_w * win->scale), (LONG)(win->min_h * win->scale)};
-        AdjustWindowRect(&r, style, FALSE);
+        if (!borderless) {
+          AdjustWindowRect(&r, style, FALSE);
+        }
         mm->ptMinTrackSize.x = win->min_w ? r.right - r.left : mm->ptMinTrackSize.x;
         mm->ptMinTrackSize.y = win->min_h ? r.bottom - r.top : mm->ptMinTrackSize.y;
       }
       if (win->max_w || win->max_h) {
         RECT r = {0, 0, (LONG)(win->max_w * win->scale), (LONG)(win->max_h * win->scale)};
-        AdjustWindowRect(&r, style, FALSE);
+        if (!borderless) {
+          AdjustWindowRect(&r, style, FALSE);
+        }
         mm->ptMaxTrackSize.x = win->max_w ? r.right - r.left : mm->ptMaxTrackSize.x;
         mm->ptMaxTrackSize.y = win->max_h ? r.bottom - r.top : mm->ptMaxTrackSize.y;
       }
@@ -582,6 +1177,8 @@ static LRESULT CALLBACK wndproc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
     }
     case WM_KEYDOWN:
     case WM_SYSKEYDOWN: {
+      /* the physical key, also for the WM_CHAR this key brings */
+      bk_last_key_code = scancode_to_evdev((int)((lp >> 16) & 0xFF), (int)((lp >> 24) & 1));
       char buf[8];
       const int mods = mods_now(0, 0);
       const char *ks = vk_keysym(wp, buf);
@@ -644,6 +1241,7 @@ static LRESULT CALLBACK wndproc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
       DestroyWindow(hwnd);
       return 0;
     case WM_DESTROY:
+      drop_unregister(win);
       win->hwnd = NULL;
       if (--g_open <= 0) {
         wake_loop();
@@ -655,6 +1253,11 @@ static LRESULT CALLBACK wndproc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
 
 BKWindow *BK_window_new(BKContext *ctx, const char *title, int width, int height)
 {
+  return BK_window_new_ex(ctx, title, width, height, 0);
+}
+
+BKWindow *BK_window_new_ex(BKContext *ctx, const char *title, int width, int height, int flags)
+{
   dpi_awareness();
   static int registered = 0;
   HINSTANCE inst = GetModuleHandleW(NULL);
@@ -664,17 +1267,24 @@ BKWindow *BK_window_new(BKContext *ctx, const char *title, int width, int height
     wc.hInstance = inst;
     wc.hCursor = NULL; /* WM_SETCURSOR */
     wc.lpszClassName = k_class;
-    wc.hIcon = LoadIconW(NULL, (LPCWSTR)IDI_APPLICATION);
+    /* the executable's own icon (resource 1), else the default */
+    wc.hIcon = LoadIconW(inst, MAKEINTRESOURCEW(1));
+    if (!wc.hIcon) {
+      wc.hIcon = LoadIconW(NULL, (LPCWSTR)IDI_APPLICATION);
+    }
     if (!RegisterClassExW(&wc)) {
       return NULL;
     }
     registered = 1;
   }
+  bk_key_label_fn = win32_key_label;
   BKWindow *win = (BKWindow *)calloc(1, sizeof(BKWindow));
   win->ctx = ctx;
   win->prev = ctx->host;
   win->raster = BUI_raster_create(1, 1);
   win->next_timer = 1;
+  win->flags = flags;
+  win->state = -1;
   win->scale = window_dpi_scale(NULL);
   {
     /* system DPI until the window exists */
@@ -686,12 +1296,16 @@ BKWindow *BK_window_new(BKContext *ctx, const char *title, int width, int height
     }
   }
   BK_set_scale(win->scale);
+  /* borderless: the native frame's styles stay (snap, the minimize and
+   * maximize animations, Win+arrows); WM_NCCALCSIZE takes the frame away */
+  const DWORD style = WS_OVERLAPPEDWINDOW | WS_CLIPCHILDREN;
   RECT r = {0, 0, (LONG)(width * win->scale), (LONG)(height * win->scale)};
-  AdjustWindowRect(&r, WS_OVERLAPPEDWINDOW, FALSE);
+  if (!(flags & BK_WINDOW_UNDECORATED)) {
+    AdjustWindowRect(&r, WS_OVERLAPPEDWINDOW, FALSE);
+  }
   wchar_t *wt = utf8_to_wide(title);
-  win->hwnd = CreateWindowExW(0, k_class, wt, WS_OVERLAPPEDWINDOW | WS_CLIPCHILDREN,
-                              CW_USEDEFAULT, CW_USEDEFAULT, r.right - r.left, r.bottom - r.top,
-                              NULL, NULL, inst, NULL);
+  win->hwnd = CreateWindowExW(0, k_class, wt, style, CW_USEDEFAULT, CW_USEDEFAULT,
+                              r.right - r.left, r.bottom - r.top, NULL, NULL, inst, NULL);
   free(wt);
   if (!win->hwnd) {
     BUI_raster_free(win->raster);
@@ -700,13 +1314,199 @@ BKWindow *BK_window_new(BKContext *ctx, const char *title, int width, int height
   }
   SetWindowLongPtrW(win->hwnd, GWLP_USERDATA, (LONG_PTR)win);
   g_open++;
+  if (flags & BK_WINDOW_UNDECORATED) {
+    /* the new client area (the whole window) takes effect now */
+    SetWindowPos(win->hwnd, NULL, 0, 0, 0, 0,
+                 SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED);
+  }
+  dwm_load();
+  if (g_dwm.build >= BUILD_WIN11) {
+    /* DWM rounds the window and draws no accent border (awra_win32_style_frame) */
+    const int corner = BK_DWMWCP_ROUND;
+    const COLORREF border = BK_DWMWA_COLOR_NONE;
+    dwm_attr(win->hwnd, BK_DWMWA_WINDOW_CORNER_PREFERENCE, &corner, sizeof(corner));
+    dwm_attr(win->hwnd, BK_DWMWA_BORDER_COLOR, &border, sizeof(border));
+  }
+  if ((flags & BK_WINDOW_TRANSPARENT) && g_dwm.extend) {
+    /* a sheet of glass: DWM composes the client area with its alpha (the
+     * raster is premultiplied ARGB) */
+    const MARGINS margins = {-1, -1, -1, -1};
+    g_dwm.extend(win->hwnd, &margins);
+  }
   if (BUI_gpu_default()) {
     BUI_raster_gpu_attach(win->raster, win->hwnd, 0);
   }
   BKHost host = {win,           host_request,       host_set_cursor, host_warp,
                  host_clipboard_get, host_clipboard_set, host_schedule, host_emit};
   BK_context_set_host(ctx, &host);
+  drop_register(win);
   return win;
+}
+
+void BK_window_set_app_id(BKWindow *win, const char *app_id)
+{
+  (void)win;
+  /* the taskbar groups the process's windows under this id */
+  static int done = 0;
+  if (done || !app_id || !app_id[0]) {
+    return;
+  }
+  done = 1;
+  typedef HRESULT(WINAPI * SetIdFn)(PCWSTR);
+  HMODULE shell = LoadLibraryW(L"shell32.dll");
+  SetIdFn set = shell ? (SetIdFn)(void *)GetProcAddress(shell,
+                                                       "SetCurrentProcessExplicitAppUserModelID") :
+                        NULL;
+  if (set) {
+    wchar_t *w = utf8_to_wide(app_id);
+    set(w);
+    free(w);
+  }
+}
+
+int BK_window_blur_available(BKWindow *win)
+{
+  return win && (win->flags & BK_WINDOW_TRANSPARENT) && blur_capable();
+}
+
+/* The backdrop behind the window (Awra 1's win32 backend): Acrylic on
+ * Windows 11 22H2+, the accent blur before; DWM rounds the corners when
+ * radius > 0. An empty rect takes it away. */
+int BK_window_set_blur(BKWindow *win, int x, int y, int w, int h, int radius)
+{
+  (void)x;
+  (void)y;
+  if (!win || !win->hwnd || !(win->flags & BK_WINDOW_TRANSPARENT)) {
+    return 0;
+  }
+  const int mode = backdrop_mode();
+  const int on = w > 0 && h > 0 && blur_capable();
+  if (mode == 2) {
+    const int backdrop = on ? BK_DWMSBT_TRANSIENTWINDOW : BK_DWMSBT_NONE;
+    dwm_attr(win->hwnd, BK_DWMWA_SYSTEMBACKDROP_TYPE, &backdrop, sizeof(backdrop));
+  }
+  else if (mode == 1) {
+    set_accent(win->hwnd, on ? BK_ACCENT_ENABLE_BLURBEHIND : BK_ACCENT_DISABLED);
+  }
+  if (g_dwm.build >= BUILD_WIN11) {
+    const int corner = radius > 0 ? BK_DWMWCP_ROUND : BK_DWMWCP_DONOTROUND;
+    dwm_attr(win->hwnd, BK_DWMWA_WINDOW_CORNER_PREFERENCE, &corner, sizeof(corner));
+  }
+  win->blur_on = on;
+  return on;
+}
+
+void BK_window_begin_move(BKWindow *win)
+{
+  if (!win || !win->hwnd) {
+    return;
+  }
+  /* the native move loop: Aero Snap, shake, monitors */
+  ReleaseCapture();
+  POINT p;
+  GetCursorPos(&p);
+  SendMessageW(win->hwnd, WM_NCLBUTTONDOWN, HTCAPTION, MAKELPARAM(p.x, p.y));
+  /* the button went up inside the move loop: the kit still thinks it is down */
+  ScreenToClient(win->hwnd, &p);
+  BK_release(win->ctx, p.x, p.y, mods_now(0, 0));
+}
+
+void BK_window_begin_resize(BKWindow *win, int edges)
+{
+  if (!win || !win->hwnd) {
+    return;
+  }
+  WPARAM hit = 0;
+  const int t = edges & BK_EDGE_TOP, b = edges & BK_EDGE_BOTTOM;
+  const int l = edges & BK_EDGE_LEFT, r = edges & BK_EDGE_RIGHT;
+  hit = t ? (l ? HTTOPLEFT : r ? HTTOPRIGHT : HTTOP) :
+        b ? (l ? HTBOTTOMLEFT : r ? HTBOTTOMRIGHT : HTBOTTOM) :
+        l ? HTLEFT : r ? HTRIGHT : 0;
+  if (!hit) {
+    return;
+  }
+  ReleaseCapture();
+  POINT p;
+  GetCursorPos(&p);
+  SendMessageW(win->hwnd, WM_NCLBUTTONDOWN, hit, MAKELPARAM(p.x, p.y));
+  ScreenToClient(win->hwnd, &p);
+  BK_release(win->ctx, p.x, p.y, mods_now(0, 0));
+}
+
+void BK_window_show_menu(BKWindow *win, int x, int y)
+{
+  if (!win || !win->hwnd) {
+    return;
+  }
+  HMENU menu = GetSystemMenu(win->hwnd, FALSE);
+  if (!menu) {
+    return;
+  }
+  const int zoomed = IsZoomed(win->hwnd);
+  EnableMenuItem(menu, SC_RESTORE, MF_BYCOMMAND | (zoomed ? MF_ENABLED : MF_GRAYED));
+  EnableMenuItem(menu, SC_MAXIMIZE, MF_BYCOMMAND | (zoomed ? MF_GRAYED : MF_ENABLED));
+  EnableMenuItem(menu, SC_MOVE, MF_BYCOMMAND | (zoomed ? MF_GRAYED : MF_ENABLED));
+  EnableMenuItem(menu, SC_SIZE, MF_BYCOMMAND | (can_resize(win) ? MF_ENABLED : MF_GRAYED));
+  POINT p = {x, y};
+  ClientToScreen(win->hwnd, &p);
+  const int cmd = (int)TrackPopupMenu(menu, TPM_RETURNCMD | TPM_RIGHTBUTTON, p.x, p.y, 0,
+                                      win->hwnd, NULL);
+  if (cmd) {
+    PostMessageW(win->hwnd, WM_SYSCOMMAND, (WPARAM)cmd, 0);
+  }
+}
+
+int BK_window_state(BKWindow *win)
+{
+  return win ? compute_state(win) : 0;
+}
+
+float BK_window_scale(BKWindow *win)
+{
+  return win ? win->scale : 1.0f;
+}
+
+void BK_window_hide(BKWindow *win)
+{
+  if (win && win->hwnd) {
+    ShowWindow(win->hwnd, SW_HIDE);
+    report_state(win);
+  }
+}
+
+const char *BK_window_backend(void)
+{
+  return "win32";
+}
+
+static void set_fullscreen(BKWindow *win, int on)
+{
+  HWND h = win->hwnd;
+  if (!h || on == win->fullscreen) {
+    return;
+  }
+  if (on) {
+    MONITORINFO mi = {sizeof(mi)};
+    win->restore.length = sizeof(win->restore);
+    GetWindowPlacement(h, &win->restore);
+    win->restore_style = (DWORD)GetWindowLongPtrW(h, GWL_STYLE);
+    if (!GetMonitorInfoW(MonitorFromWindow(h, MONITOR_DEFAULTTONEAREST), &mi)) {
+      return;
+    }
+    win->fullscreen = 1;
+    SetWindowLongPtrW(h, GWL_STYLE, (LONG_PTR)(win->restore_style & ~WS_OVERLAPPEDWINDOW) | WS_POPUP);
+    SetWindowPos(h, HWND_TOP, mi.rcMonitor.left, mi.rcMonitor.top,
+                 mi.rcMonitor.right - mi.rcMonitor.left, mi.rcMonitor.bottom - mi.rcMonitor.top,
+                 SWP_NOOWNERZORDER | SWP_FRAMECHANGED);
+  }
+  else {
+    win->fullscreen = 0;
+    SetWindowLongPtrW(h, GWL_STYLE, (LONG_PTR)win->restore_style);
+    SetWindowPlacement(h, &win->restore);
+    SetWindowPos(h, NULL, 0, 0, 0, 0,
+                 SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOOWNERZORDER | SWP_FRAMECHANGED);
+  }
+  report_state(win);
 }
 
 void BK_window_free(BKWindow *win)
@@ -714,6 +1514,7 @@ void BK_window_free(BKWindow *win)
   if (!win) {
     return;
   }
+  drop_unregister(win);
   if (win->hwnd) {
     SetWindowLongPtrW(win->hwnd, GWLP_USERDATA, 0);
     DestroyWindow(win->hwnd);
@@ -768,7 +1569,9 @@ void BK_window_set_size(BKWindow *win, int width, int height)
     return;
   }
   RECT r = {0, 0, (LONG)(width * win->scale), (LONG)(height * win->scale)};
-  AdjustWindowRect(&r, WS_OVERLAPPEDWINDOW, FALSE);
+  if (!(win->flags & BK_WINDOW_UNDECORATED)) {
+    AdjustWindowRect(&r, WS_OVERLAPPEDWINDOW, FALSE);
+  }
   SetWindowPos(win->hwnd, NULL, 0, 0, r.right - r.left, r.bottom - r.top,
                SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE);
 }
@@ -905,6 +1708,14 @@ void BK_window_wm(BKWindow *win, const char *key, double a, double b)
     SetForegroundWindow(h);
     SetFocus(h);
   }
+  else if (!strcmp(key, "dark")) { /* BUI-Awra: tints the backdrop and the frame */
+    const BOOL dark = a != 0.0;
+    win->dark = dark;
+    dwm_attr(h, BK_DWMWA_USE_IMMERSIVE_DARK_MODE, &dark, sizeof(dark));
+  }
+  else if (!strcmp(key, "fullscreen")) {
+    set_fullscreen(win, a != 0.0);
+  }
 }
 
 int BK_window_wm_get(BKWindow *win, const char *key, double *r_a, double *r_b)
@@ -955,21 +1766,41 @@ void BK_window_quit(void)
   wake_loop();
 }
 
+/* BUI-Awra: a loop timer was added: shorten the current wait */
+void bk_loop_wake_host(void)
+{
+  wake_loop();
+}
+
 void BK_window_run(void)
 {
   g_quit = 0;
   MSG msg;
-  while ((g_open > 0 || g_keep_alive) && !g_quit && GetMessageW(&msg, NULL, 0, 0) > 0) {
-    TranslateMessage(&msg);
-    DispatchMessageW(&msg);
-    if (g_stop && g_stop()) {
-      break;
+  while ((g_open > 0 || g_keep_alive) && !g_quit) {
+    /* wait for messages, at most until the next loop timer is due */
+    const int timeout = bk_loop_timeout_ms(-1);
+    if (!PeekMessageW(&msg, NULL, 0, 0, PM_NOREMOVE)) {
+      MsgWaitForMultipleObjectsEx(0, NULL, timeout < 0 ? INFINITE : (DWORD)timeout, QS_ALLINPUT,
+                                  MWMO_INPUTAVAILABLE);
     }
+    while (PeekMessageW(&msg, NULL, 0, 0, PM_REMOVE)) {
+      if (msg.message == WM_QUIT) {
+        g_quit = 1;
+        break;
+      }
+      TranslateMessage(&msg);
+      DispatchMessageW(&msg);
+      if (g_stop && g_stop()) {
+        return;
+      }
+    }
+    bk_loop_run_due();
   }
 }
 
 int BK_window_pump(void)
 {
+  bk_loop_run_due();
   MSG msg;
   while (PeekMessageW(&msg, NULL, 0, 0, PM_REMOVE)) {
     if (msg.message == WM_QUIT) {

@@ -3720,6 +3720,84 @@ static int face_segoe(int weight, int italic)
 
 static int face_find_style(const char *family, int style, int *r_have);
 
+#  ifdef _WIN32
+/* BUI-Awra: any installed family through GDI (what GTK's Pango backend on
+ * Windows reaches): the font file's bytes of the face GDI picks for the
+ * family, weight and slant; for a collection, the face whose table
+ * directory GDI reports. */
+static int face_gdi(const char *family, int weight, int italic)
+{
+  char key[sizeof(g_faces[0].key)];
+  snprintf(key, sizeof(key), "gdi:%s:%d:%d", family, weight, italic);
+  for (int i = 0; i < g_face_count; i++) {
+    if (strcmp(g_faces[i].key, key) == 0) {
+      return i;
+    }
+  }
+  if (g_face_count == MAX_FACES) {
+    return -1;
+  }
+  LOGFONTW lf;
+  memset(&lf, 0, sizeof(lf));
+  lf.lfHeight = -64;
+  lf.lfWeight = weight;
+  lf.lfItalic = (BYTE)(italic != 0);
+  lf.lfCharSet = DEFAULT_CHARSET;
+  lf.lfOutPrecision = OUT_TT_ONLY_PRECIS;
+  MultiByteToWideChar(CP_UTF8, 0, family, -1, lf.lfFaceName, LF_FACESIZE - 1);
+  HFONT font = CreateFontIndirectW(&lf);
+  HDC dc = font ? CreateCompatibleDC(NULL) : NULL;
+  if (!dc) {
+    if (font) {
+      DeleteObject(font);
+    }
+    return -1;
+  }
+  HGDIOBJ old = SelectObject(dc, font);
+  const DWORD ttcf = 0x66637474; /* 'ttcf' */
+  int index = 0;
+  DWORD size = GetFontData(dc, ttcf, 0, NULL, 0);
+  const int collection = size != GDI_ERROR && size > 12;
+  if (!collection) {
+    size = GetFontData(dc, 0, 0, NULL, 0);
+  }
+  unsigned char *data = (size != GDI_ERROR && size > 12) ? (unsigned char *)malloc(size) : NULL;
+  if (data && GetFontData(dc, collection ? ttcf : 0, 0, data, size) != size) {
+    free(data);
+    data = NULL;
+  }
+  if (data && collection) {
+    /* the selected face's table directory, matched against the collection's */
+    unsigned char head[12];
+    if (GetFontData(dc, 0, 0, head, sizeof(head)) == sizeof(head)) {
+      const int n = stbtt_GetNumberOfFonts(data);
+      for (int i = 0; i < n; i++) {
+        const int off = stbtt_GetFontOffsetForIndex(data, i);
+        if (off >= 0 && (DWORD)off + 12 <= size && memcmp(data + off, head, 12) == 0) {
+          index = i;
+          break;
+        }
+      }
+    }
+  }
+  SelectObject(dc, old);
+  DeleteDC(dc);
+  DeleteObject(font);
+  if (!data) {
+    return -1;
+  }
+  Face *f = &g_faces[g_face_count];
+  memset(f, 0, sizeof(*f));
+  if (!face_init_index(f, data, (long)size, index)) {
+    free(data);
+    return -1;
+  }
+  f->mapped = 0;
+  strcpy(f->key, key);
+  return g_face_count++;
+}
+#  endif
+
 /* The face for family + style + weight; *r_have gets the style bits it
  * really has (BUI_FONT_BOLD: it draws `weight` without synthesis). */
 static int face_find(const char *family, int style, int weight, int *r_have)
@@ -3741,10 +3819,18 @@ static int face_find(const char *family, int style, int weight, int *r_have)
     }
   }
 #  elif defined(_WIN32)
-  if (!family[0] || ieq(family, "segoe ui") || ieq(family, "sans") || ieq(family, "sans-serif") ||
-      ieq(family, "system-ui"))
-  {
+  const int generic = !family[0] || ieq(family, "segoe ui") || ieq(family, "sans") ||
+                      ieq(family, "sans-serif") || ieq(family, "system-ui");
+  if (generic) {
     f = face_segoe(weight, italic);
+  }
+  if (f < 0) {
+    /* the family itself, else the desktop's UI font (Segoe UI, or what
+     * GDI substitutes for it) */
+    f = face_gdi(generic ? "Segoe UI" : family, weight, italic);
+    if (f < 0 && !generic) {
+      f = face_gdi("Segoe UI", weight, italic);
+    }
   }
 #  endif
   if (f >= 0) {

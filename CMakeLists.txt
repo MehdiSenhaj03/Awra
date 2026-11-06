@@ -27,6 +27,12 @@ set(BUI_IMAGE_TGA OFF CACHE BOOL "" FORCE)
 set(BUI_IMAGE_QOI OFF CACHE BOOL "" FORCE)
 set(BUI_IMAGE_HDR OFF CACHE BOOL "" FORCE)
 set(BUI_IMAGE_PNM OFF CACHE BOOL "" FORCE)
+# MinGW: the runtime (libgcc, libstdc++, winpthread) linked in, so the
+# executables need no DLL beside them
+if(MINGW)
+  add_link_options(-static -static-libgcc -static-libstdc++)
+endif()
+
 add_subdirectory(bui)
 if(NOT AWRA_EMBED_FONT)
   target_compile_definitions(bui_gpu PRIVATE BUI_NO_INTER)
