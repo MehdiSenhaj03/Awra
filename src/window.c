@@ -378,6 +378,16 @@ static void pointer_hook(BKContext *ctx, int kind, int x, int y, int mods)
     update_hover(win, x, y, kind == BK_EV_LEAVE);
     return;
   }
+  if (kind == BK_EV_PRESS && awra_has_handlers(win, AWRA_SIGNAL_PRESS_CAPTURE)) {
+    AwraArgs a = {0};
+    a.signal = AWRA_SIGNAL_PRESS_CAPTURE;
+    a.x = x / awra_scale();
+    a.y = y / awra_scale();
+    a.button = (mods & BK_BUTTON3) ? 3 : (mods & BK_BUTTON2) ? 2 : 1;
+    a.n_press = 1;
+    a.mods = mods & (BK_SHIFT | BK_CTRL | BK_ALT);
+    awra_emit(win, &a);
+  }
   if (kind == BK_EV_PRESS && !(mods & (BK_BUTTON2 | BK_BUTTON3))) {
     update_hover(win, x, y, false);
     /* a press on nothing focusable keeps the focus (GTK), but hides its ring */
@@ -560,6 +570,18 @@ static void collect_focusable(AwraWidget *n, AwraWidget **out, int *count, int m
   }
 }
 
+AwraWidget *awra_window_focus(AwraWidget *win)
+{
+  return win && awra_widget_is(win, "AwraWindow") ? WEXT(win)->focus : NULL;
+}
+
+void awra_window_set_focus(AwraWidget *win, AwraWidget *w)
+{
+  if (win && awra_widget_is(win, "AwraWindow")) {
+    awra_set_focus(win, w, false);
+  }
+}
+
 AwraWidget *awra_focus_of(AwraWidget *win)
 {
   return win ? WEXT(win)->focus : NULL;
@@ -722,6 +744,18 @@ static int key_hook(BKContext *ctx, int press, const char *text, const char *key
   awra_widget_ref(win);
   int handled = 0;
   const AwraSignal sig = press ? AWRA_SIGNAL_KEY_PRESSED : AWRA_SIGNAL_KEY_RELEASED;
+  const char *code = awra_key_code_name(BK_last_key_code());
+  if (press && awra_has_handlers(win, AWRA_SIGNAL_KEY_CAPTURE)) {
+    AwraArgs a = {0};
+    a.signal = AWRA_SIGNAL_KEY_CAPTURE;
+    a.keysym = keysym;
+    a.text = text;
+    a.code = code;
+    a.mods = mods & (BK_SHIFT | BK_CTRL | BK_ALT);
+    handled = awra_emit(win, &a);
+    /* the handler may have moved the focus */
+    start = x->focus && awra_widget_mapped(x->focus) ? x->focus : NULL;
+  }
   for (AwraWidget *n = start ? start : win; n && !handled; n = n->parent) {
     if (!awra_is_widget(n)) {
       continue;
@@ -731,6 +765,7 @@ static int key_hook(BKContext *ctx, int press, const char *text, const char *key
       a.signal = sig;
       a.keysym = keysym;
       a.text = text;
+      a.code = code;
       a.mods = mods & (BK_SHIFT | BK_CTRL | BK_ALT);
       if (awra_emit(n, &a)) {
         handled = 1;

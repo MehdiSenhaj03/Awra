@@ -682,6 +682,7 @@ AwraWidget *awra_toggle_button_new(void)
 {
   AwraWidget *w = awra_button_new();
   BX(w)->toggle = true;
+  awra_widget_set_data(w, "awra-type", (void *)"AwraToggleButton", NULL);
   return w;
 }
 

@@ -13,7 +13,8 @@
 
 typedef struct DialogJob {
   char *title;
-  bool multiple, folder;
+  bool multiple, folder, save;
+  char *initial_name;
   AwraFileFilter *filters;
   int nfilters;
   AwraFileCallback done;
@@ -29,6 +30,7 @@ static void job_free(DialogJob *j)
   }
   free(j->filters);
   free(j->title);
+  free(j->initial_name);
   free(j->result);
   free(j);
 }
@@ -113,6 +115,21 @@ static void run_dialog(DialogJob *j, HWND owner)
   ofn.lpstrFile = buf;
   ofn.nMaxFile = cap;
   ofn.lpstrTitle = title;
+  if (j->save) {
+    if (j->initial_name) {
+      wchar_t *name = to_wide(j->initial_name);
+      wcsncpy(buf, name, cap - 1);
+      free(name);
+    }
+    ofn.Flags = OFN_EXPLORER | OFN_OVERWRITEPROMPT | OFN_PATHMUSTEXIST;
+    if (GetSaveFileNameW(&ofn)) {
+      j->result = to_utf8(buf);
+    }
+    free(buf);
+    free(title);
+    free(wf);
+    return;
+  }
   ofn.Flags = OFN_EXPLORER | OFN_FILEMUSTEXIST | OFN_PATHMUSTEXIST |
               (j->multiple ? OFN_ALLOWMULTISELECT : 0);
   if (GetOpenFileNameW(&ofn)) {
@@ -352,7 +369,8 @@ static int portal_dialog(DialogJob *j)
   D.bus_add_match(c, match, &err);
   void *msg = D.message_new_method_call("org.freedesktop.portal.Desktop",
                                         "/org/freedesktop/portal/desktop",
-                                        "org.freedesktop.portal.FileChooser", "OpenFile");
+                                        "org.freedesktop.portal.FileChooser",
+                                        j->save ? "SaveFile" : "OpenFile");
   DBusMessageIter_ it, dict;
   D.message_iter_init_append(msg, &it);
   const char *parent = "", *title = j->title ? j->title : "";
@@ -360,8 +378,15 @@ static int portal_dialog(DialogJob *j)
   D.message_iter_append_basic(&it, T_STRING, &title);
   D.message_iter_open_container(&it, T_ARRAY, "{sv}", &dict);
   dict_string(&dict, "handle_token", token);
-  dict_bool(&dict, "multiple", j->multiple);
-  dict_bool(&dict, "directory", j->folder);
+  if (j->save) {
+    if (j->initial_name) {
+      dict_string(&dict, "current_name", j->initial_name);
+    }
+  }
+  else {
+    dict_bool(&dict, "multiple", j->multiple);
+    dict_bool(&dict, "directory", j->folder);
+  }
   dict_filters(&dict, j);
   D.message_iter_close_container(&it, &dict);
   void *reply = D.connection_send_with_reply_and_block(c, msg, 5000, &err);
@@ -438,7 +463,13 @@ static void spawn_dialog(DialogJob *j)
     dup2(fds[1], 1);
     close(fds[0]);
     close(fds[1]);
-    if (j->folder) {
+    if (j->save) {
+      char arg[1024];
+      snprintf(arg, sizeof(arg), "--filename=%s", j->initial_name ? j->initial_name : "");
+      execlp("zenity", "zenity", "--file-selection", "--save", "--confirm-overwrite", arg, "--title", j->title ? j->title : "", (char *)NULL);
+      execlp("kdialog", "kdialog", "--getsavefilename", j->initial_name ? j->initial_name : ".", (char *)NULL);
+    }
+    else if (j->folder) {
       execlp("zenity", "zenity", "--file-selection", "--directory", "--title", j->title ? j->title : "", (char *)NULL);
       execlp("kdialog", "kdialog", "--getexistingdirectory", (char *)NULL);
     }
@@ -506,6 +537,26 @@ bool awra_show_uri(const char *uri)
 }
 #endif
 
+static void dialog_run(AwraWidget *parent, DialogJob *j);
+
+void awra_file_dialog_save(AwraWidget *parent, const char *title, const char *initial_name,
+                           const AwraFileFilter *filters, int n, AwraFileCallback done, void *data)
+{
+  DialogJob *j = (DialogJob *)calloc(1, sizeof(DialogJob));
+  j->title = awra_strdup(title ? title : "");
+  j->save = true;
+  j->initial_name = initial_name ? awra_strdup(initial_name) : NULL;
+  j->done = done;
+  j->data = data;
+  j->filters = (AwraFileFilter *)calloc((size_t)n + 1, sizeof(AwraFileFilter));
+  j->nfilters = n;
+  for (int i = 0; i < n; i++) {
+    j->filters[i].name = awra_strdup(filters[i].name);
+    j->filters[i].patterns = awra_strdup(filters[i].patterns);
+  }
+  dialog_run(parent, j);
+}
+
 void awra_file_dialog_open(AwraWidget *parent, const char *title, bool multiple, bool folder,
                            const AwraFileFilter *filters, int n, AwraFileCallback done, void *data)
 {
@@ -521,6 +572,11 @@ void awra_file_dialog_open(AwraWidget *parent, const char *title, bool multiple,
     j->filters[i].name = awra_strdup(filters[i].name);
     j->filters[i].patterns = awra_strdup(filters[i].patterns);
   }
+  dialog_run(parent, j);
+}
+
+static void dialog_run(AwraWidget *parent, DialogJob *j)
+{
 #ifdef _WIN32
   HWND owner = parent ? (HWND)awra_window_native_handle(awra_window_of(parent) ? awra_window_of(parent) : parent) : NULL;
   run_dialog(j, owner);
@@ -535,4 +591,23 @@ void awra_file_dialog_open(AwraWidget *parent, const char *title, bool multiple,
     job_deliver(j);
   }
 #endif
+}
+
+char *awra_clipboard_get_text(AwraWidget *w)
+{
+  BKContext *ctx = w ? bk_ctx(w) : NULL;
+  return ctx ? BK_clipboard_get(ctx) : NULL;
+}
+
+void awra_clipboard_set_text(AwraWidget *w, const char *text)
+{
+  BKContext *ctx = w ? bk_ctx(w) : NULL;
+  if (ctx) {
+    BK_clipboard_set(ctx, text ? text : "");
+  }
+}
+
+void awra_free(void *p)
+{
+  free(p);
 }

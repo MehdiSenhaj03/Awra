@@ -600,7 +600,19 @@ AwraWidget *awra_menu_popover_new(const AwraMenuItem *items, int n)
   for (int i = 0; i < n; i++) {
     const AwraMenuItem *it = &items[i];
     if (!it->label) {
-      awra_box_append(box, menu_separator());
+      AwraWidget *sep = menu_separator();
+      awra_box_append(box, sep);
+      awra_widget_unref(sep);
+      continue;
+    }
+    if (it->check == -2) { /* a section heading (GtkPopoverMenu section label) */
+      AwraWidget *h = awra_label_new(it->label);
+      awra_widget_set_typography(h, AWRA_TYPOGRAPHY_EYEBROW);
+      awra_widget_add_class(h, "dim-label");
+      awra_label_set_xalign(h, 0.0f);
+      awra_widget_set_margins(h, i ? 6 : 2, 12, 2, 12);
+      awra_box_append(box, h);
+      awra_widget_unref(h);
       continue;
     }
     AwraWidget *r = row_new(0, it->label, it->icon_name, it->accel, it->check);
@@ -611,13 +623,16 @@ AwraWidget *awra_menu_popover_new(const AwraMenuItem *items, int n)
     RX(r)->popover = pop;
     awra_widget_set_sensitive(r, it->sensitive);
     awra_box_append(box, r);
+    awra_widget_unref(r);
   }
   AwraWidget *scroll = awra_scrolled_new();
   awra_scrolled_set_policy(scroll, AWRA_POLICY_NEVER, AWRA_POLICY_AUTOMATIC);
   awra_scrolled_set_propagate_natural(scroll, true, true);
   awra_scrolled_set_max_content_height(scroll, 600);
   awra_scrolled_set_child(scroll, box);
+  awra_widget_unref(box);
   awra_popover_set_child(pop, scroll);
+  awra_widget_unref(scroll);
   return pop;
 }
 

@@ -476,3 +476,4 @@ struct AwraCanvas {
 
 /* PNG writing (png.c), premultiplied ARGB in */
 bool awra_write_png(const char *path, const uint32_t *argb, int w, int h);
+const char *awra_key_code_name(int evdev);

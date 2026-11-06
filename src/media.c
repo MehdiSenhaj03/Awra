@@ -1071,6 +1071,11 @@ double awra_waveform_view_hint_position(AwraWidget *w)
   return WVX(w)->hint;
 }
 
+double awra_waveform_view_marker_position(AwraWidget *w)
+{
+  return WVX(w)->marker;
+}
+
 void awra_waveform_view_set_marker_position(AwraWidget *w, double s)
 {
   WVX(w)->marker = s;

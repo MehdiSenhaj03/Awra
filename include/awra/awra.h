@@ -235,6 +235,10 @@ typedef enum {
   AWRA_SIGNAL_MARKER_MOVED,   /* waveforms: args->value seconds */
   AWRA_SIGNAL_MARKER_COMMITTED,
   AWRA_SIGNAL_DROP_HOVER,     /* a file drag over the widget: args->active, args->text = key code */
+  /* Capture phase, on windows only, before anything else sees the event
+   * (GTK's PropagationPhase::Capture): set handled to stop it. */
+  AWRA_SIGNAL_KEY_CAPTURE,    /* key press: args->keysym, text, mods, code */
+  AWRA_SIGNAL_PRESS_CAPTURE,  /* any button press: args->x, y (window), button */
   AWRA_SIGNAL_COUNT
 } AwraSignal;
 
@@ -250,6 +254,7 @@ typedef struct AwraArgs {
   const char *keysym;
   int width, height;
   bool *handled; /* set *handled = true to stop default handling */
+  const char *code; /* key signals: the physical key ("KeyA", "Space"), or NULL */
 } AwraArgs;
 
 typedef void (*AwraHandler)(AwraWidget *widget, const AwraArgs *args, void *data);
@@ -295,6 +300,7 @@ void awra_widget_set_margin_start(AwraWidget *widget, int margin);
 void awra_widget_set_margin_end(AwraWidget *widget, int margin);
 void awra_widget_set_margin(AwraWidget *widget, AwraSpacing spacing);
 void awra_widget_set_size_request(AwraWidget *widget, int width, int height);
+void awra_widget_get_size_request(const AwraWidget *widget, int *width, int *height);
 void awra_widget_set_tooltip(AwraWidget *widget, const char *text);
 void awra_widget_set_typography(AwraWidget *widget, AwraTypography typography);
 void awra_widget_set_opacity(AwraWidget *widget, double opacity);
@@ -409,6 +415,9 @@ int awra_window_state(AwraWidget *window); /* AwraWindowState bits */
 bool awra_window_is_active(AwraWidget *window);
 void awra_window_set_hide_on_close(AwraWidget *window, bool hide);
 void awra_window_set_keep_rounded_corners(AwraWidget *window, bool keep);
+/* The widget with the keyboard focus (NULL: none); set NULL to drop it. */
+AwraWidget *awra_window_focus(AwraWidget *window);
+void awra_window_set_focus(AwraWidget *window, AwraWidget *widget);
 /* Keyboard shortcuts: "<Ctrl>k", "<Ctrl><Shift>z", "Escape", "F11". */
 unsigned long awra_window_add_shortcut(AwraWidget *window, const char *accel, AwraHandler handler,
                                        void *data, AwraDestroyNotify destroy);
@@ -586,7 +595,7 @@ typedef struct AwraMenuItem {
   const char *label;
   const char *icon_name;
   const char *accel;     /* shown on the right, e.g. "Ctrl+K" */
-  int check;             /* -1 none, 0/1 a check mark */
+  int check;             /* -1 none, 0/1 a check mark, -2 a section heading */
   bool sensitive;
   bool destructive;
   AwraHandler handler;   /* called with args->index = the item's index */
@@ -608,6 +617,7 @@ void awra_entry_select_all(AwraWidget *entry);
 void awra_entry_set_position(AwraWidget *entry, int position);
 void awra_entry_set_accel_hint(AwraWidget *entry, const char *hint); /* "Ctrl K" at the end */
 void awra_entry_set_editable(AwraWidget *entry, bool editable);
+void awra_entry_set_quiet(AwraWidget *entry, bool quiet); /* sidebar search look */
 
 AwraWidget *awra_search_entry_new(void);
 void awra_search_entry_set_delay(AwraWidget *entry, unsigned ms);
@@ -650,6 +660,11 @@ const char *awra_shortcut_capture_accelerator(AwraWidget *capture);
 void awra_shortcut_capture_set_placeholder(AwraWidget *capture, const char *text);
 void awra_shortcut_capture_start(AwraWidget *capture);
 bool awra_shortcut_capture_capturing(AwraWidget *capture);
+void awra_shortcut_capture_set_allow_chords(AwraWidget *capture, bool allow);
+void awra_shortcut_capture_clear(AwraWidget *capture);
+/* The physical keys of the last capture ("ControlLeft", "KeyA"). */
+int awra_shortcut_capture_codes(AwraWidget *capture, const char *const **r_codes);
+void awra_shortcut_capture_set_display_labels(AwraWidget *capture, const char *const *labels, int n);
 
 /* ----------------------------------------------------------------------- */
 /* Composition */
@@ -672,6 +687,7 @@ AwraWidget *awra_page_new(void);
 void awra_page_set_child(AwraWidget *page, AwraWidget *child);
 void awra_page_set_header(AwraWidget *page, AwraWidget *header);
 void awra_page_set_scrollable(AwraWidget *page, bool scrollable);
+void awra_page_set_max_content_width(AwraWidget *page, int width); /* default 960 */
 AwraWidget *awra_page_header_new(const char *title, const char *subtitle);
 void awra_page_header_set_title(AwraWidget *header, const char *title);
 void awra_page_header_set_subtitle(AwraWidget *header, const char *subtitle);
@@ -703,6 +719,7 @@ AwraWidget *awra_badge_new(const char *label, AwraBadgeAppearance appearance);
 void awra_badge_set_label(AwraWidget *badge, const char *label);
 void awra_badge_set_appearance(AwraWidget *badge, AwraBadgeAppearance appearance);
 void awra_badge_set_icon_name(AwraWidget *badge, const char *icon_name);
+void awra_badge_set_color(AwraWidget *badge, const AwraRGBA *color); /* NULL: the appearance's */
 
 AwraWidget *awra_status_banner_new(const char *title, const char *description,
                                    AwraStatusAppearance appearance);
@@ -721,6 +738,7 @@ void awra_empty_state_add_action(AwraWidget *state, AwraWidget *action);
 
 AwraWidget *awra_loading_state_new(const char *title, const char *description);
 void awra_loading_state_set_title(AwraWidget *state, const char *title);
+void awra_loading_state_set_description(AwraWidget *state, const char *description);
 AwraWidget *awra_spinner_new(void);
 void awra_spinner_set_spinning(AwraWidget *spinner, bool spinning);
 
@@ -741,6 +759,8 @@ void awra_header_pack_end(AwraWidget *header, AwraWidget *child);
 void awra_header_set_center(AwraWidget *header, AwraWidget *child);
 void awra_header_set_show_controls(AwraWidget *header, bool show);
 void awra_header_set_blend_with_window(AwraWidget *header, bool blend);
+void awra_header_set_drag_enabled(AwraWidget *header, bool drag);
+void awra_header_set_compact(AwraWidget *header, bool compact);
 
 AwraWidget *awra_sidebar_new(void);
 void awra_sidebar_set_child(AwraWidget *sidebar, AwraWidget *child);
@@ -808,6 +828,7 @@ typedef struct AwraCommand {
   const char *accel;
   const char *section;
 } AwraCommand;
+/* activate: args->index = the command's index */
 AwraWidget *awra_command_palette_new(void);
 void awra_command_palette_set_commands(AwraWidget *palette, const AwraCommand *commands, int n);
 void awra_command_palette_set_placeholder(AwraWidget *palette, const char *text);
@@ -863,6 +884,7 @@ void awra_waveform_view_set_hint_position(AwraWidget *view, double seconds);
 double awra_waveform_view_hint_position(AwraWidget *view);
 void awra_waveform_view_set_marker_position(AwraWidget *view, double seconds);
 void awra_waveform_view_set_marker_editable(AwraWidget *view, bool editable);
+double awra_waveform_view_marker_position(AwraWidget *view);
 
 AwraWidget *awra_media_row_new(const char *title);
 void awra_media_row_set_title(AwraWidget *row, const char *title);
@@ -920,6 +942,19 @@ typedef struct AwraFileFilter {
 void awra_file_dialog_open(AwraWidget *parent, const char *title, bool multiple, bool folder,
                            const AwraFileFilter *filters, int n_filters, AwraFileCallback done,
                            void *data);
+void awra_file_dialog_save(AwraWidget *parent, const char *title, const char *initial_name,
+                           const AwraFileFilter *filters, int n_filters, AwraFileCallback done,
+                           void *data);
+
+/* Physical keys (W3C KeyboardEvent.code names, "KeyQ"): the label the
+ * current layout prints on it ("A" on AZERTY), NULL when unknown. */
+const char *awra_key_code_label(const char *code);
+
+/* The clipboard of the widget's window (malloc'd UTF-8, free with
+ * awra_free; NULL when empty). */
+char *awra_clipboard_get_text(AwraWidget *widget);
+void awra_clipboard_set_text(AwraWidget *widget, const char *text);
+void awra_free(void *p);
 
 /* Opens a URI or file with the desktop's default handler. */
 bool awra_show_uri(const char *uri);

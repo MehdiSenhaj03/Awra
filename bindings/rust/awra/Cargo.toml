@@ -1,0 +1,9 @@
+[package]
+name = "awra"
+version = "2.0.0"
+edition = "2021"
+description = "Safe Rust API for Awra 2, the frosted-glass UI framework on BUI"
+license = "GPL-3.0-or-later"
+
+[dependencies]
+awra-sys = { path = "../awra-sys" }

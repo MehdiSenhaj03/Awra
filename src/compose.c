@@ -243,7 +243,8 @@ typedef struct PageCol {
 static void pagecol_measure(AwraWidget *w, int o, int f, int *mn, int *nt)
 {
   AwraWidget *c = BINX(w)->child;
-  const int maxw = awra_px(960);
+  const intptr_t mw = (intptr_t)awra_widget_get_data(w, "awra-maxw");
+  const int maxw = awra_px(mw > 0 ? (int)mw : 960);
   if (!c) {
     *mn = *nt = 0;
     return;
@@ -261,7 +262,8 @@ static void pagecol_allocate(AwraWidget *w)
   if (!c) {
     return;
   }
-  const int cw = BK_MIN(w->w, awra_px(960));
+  const intptr_t mw = (intptr_t)awra_widget_get_data(w, "awra-maxw");
+  const int cw = BK_MIN(w->w, awra_px(mw > 0 ? (int)mw : 960));
   awra_allocate(c, w->x + (w->w - cw) / 2, w->y, cw, w->h);
 }
 
@@ -300,6 +302,16 @@ AwraWidget *awra_page_new(void)
   x->a = scroll;
   x->b = box;
   return w;
+}
+
+void awra_page_set_max_content_width(AwraWidget *w, int width)
+{
+  AwraWidget *scroll = BINX(w)->a;
+  AwraWidget *col = scroll ? awra_scrolled_child(scroll) : NULL;
+  if (col) {
+    awra_widget_set_data(col, "awra-maxw", (void *)(intptr_t)width, NULL);
+    awra_widget_queue_resize(col);
+  }
 }
 
 void awra_page_set_child(AwraWidget *w, AwraWidget *child)
@@ -1077,6 +1089,11 @@ AwraWidget *awra_loading_state_new(const char *title, const char *desc)
 void awra_loading_state_set_title(AwraWidget *w, const char *t)
 {
   awra_label_set_text(sp(w)->title, t);
+}
+
+void awra_loading_state_set_description(AwraWidget *w, const char *t)
+{
+  awra_empty_state_set_description(w, t);
 }
 
 

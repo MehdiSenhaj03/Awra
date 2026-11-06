@@ -763,6 +763,7 @@ AwraWidget *awra_search_entry_new(void)
 {
   AwraWidget *w = edit_new();
   EX(w)->search = true;
+  awra_widget_set_data(w, "awra-type", (void *)"AwraSearchEntry", NULL);
   return w;
 }
 
@@ -782,6 +783,7 @@ AwraWidget *awra_text_view_new(void)
 {
   AwraWidget *w = edit_new();
   EX(w)->multiline = true;
+  awra_widget_set_data(w, "awra-type", (void *)"AwraTextView", NULL);
   layout_sync(w);
   return w;
 }
@@ -860,6 +862,7 @@ AwraWidget *awra_spin_button_new(double min, double max, double step)
   x->step = step;
   x->value = min;
   x->digits = step > 0 && step < 1 ? (step < 0.1 ? 2 : 1) : 0;
+  awra_widget_set_data(w, "awra-type", (void *)"AwraSpinButton", NULL);
   spin_show(w);
   return w;
 }

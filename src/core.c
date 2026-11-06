@@ -4,6 +4,7 @@
  * SPDX-License-Identifier: GPL-3.0-or-later */
 
 #include "awra-private.h"
+#include "kit_loop.h"
 
 #include <stdio.h>
 
@@ -151,7 +152,11 @@ void awra_set_keep_alive(bool keep_alive)
 int awra_pump(void)
 {
   run_invokes();
-  return BK_window_pump();
+  const int open = BK_window_pump();
+  /* without a display (offscreen windows, tests) the host runs no timers */
+  bk_loop_run_due();
+  run_invokes();
+  return open;
 }
 
 void awra_invoke(void (*fn)(void *data), void *data)
@@ -583,6 +588,22 @@ bool awra_widget_is(const AwraWidget *w, const char *type)
   for (const AwraClass *c = AWRA_CLASS_OF(w); c; c = c->parent_class) {
     if (strcmp(c->type, type) == 0) {
       return true;
+    }
+  }
+  /* variants of a class (search entry, toggle button, ...) and composites
+   * (dropdown: a button with data) */
+  const char *sub = (const char *)awra_widget_get_data(w, "awra-type");
+  if (sub && strcmp(sub, type) == 0) {
+    return true;
+  }
+  static const char *const composites[][2] = {
+      {"AwraDropdown", "awra-dropdown"},          {"AwraMenuButton", "awra-menu-button"},
+      {"AwraVolumeControl", "awra-volume"},       {"AwraCommandPalette", "awra-palette"},
+      {"AwraDialog", "awra-dialog"},
+  };
+  for (size_t i = 0; i < sizeof(composites) / sizeof(composites[0]); i++) {
+    if (strcmp(composites[i][0], type) == 0) {
+      return awra_widget_get_data(w, composites[i][1]) != NULL;
     }
   }
   return false;
@@ -1045,6 +1066,17 @@ void awra_widget_set_margin(AwraWidget *w, AwraSpacing s)
 {
   const int m = s == AWRA_SPACING_NONE ? 0 : awra_spacing(s);
   awra_widget_set_margins(w, m, m, m, m);
+}
+
+void awra_widget_get_size_request(const AwraWidget *w, int *width, int *height)
+{
+  const AwraAux *a = w && awra_is_widget(w) ? awra_aux(w) : NULL;
+  if (width) {
+    *width = a ? a->req_w : -1;
+  }
+  if (height) {
+    *height = a ? a->req_h : -1;
+  }
 }
 
 void awra_widget_set_size_request(AwraWidget *w, int width, int height)
