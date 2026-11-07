@@ -563,6 +563,7 @@ impl Application {
 /// use their tray icon).
 #[derive(Debug, Clone, Default)]
 pub struct Notification {
+    #[cfg_attr(not(unix), allow(dead_code))]
     title: String,
     body: Option<String>,
 }

@@ -177,8 +177,9 @@ static void edit_pads(AwraWidget *w, int *l, int *r, int *t, int *b)
   if (x->icon || x->search) {
     *l += awra_px(16) + awra_px(x->search ? 4 + 6 : 12);
   }
-  if (x->search) {
-    *r += awra_px(16) + awra_px(6 + 4); /* the clear icon is always reserved */
+  if (x->search && x->te && x->te->len > 0) {
+    /* GtkSearchEntry: the clear icon shows (and takes room) with text */
+    *r += awra_px(16) + awra_px(6 + 4);
   }
   if (x->spin) {
     *r += awra_px(96);

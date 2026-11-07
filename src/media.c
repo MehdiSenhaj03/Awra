@@ -1704,7 +1704,8 @@ AwraWidget *awra_drop_zone_new(void)
   AwraWidget *w = awra_widget_new(&zone_class);
   ZoneExt *x = ZX(w);
   x->well = awra_box_new(AWRA_ORIENTATION_VERTICAL, 8);
-  awra_widget_set_margins(x->well, 24, 24, 24, 24);
+  /* .awra-drop-zone-well: padding 24px inside a 2 px dashed border */
+  awra_widget_set_margins(x->well, 26, 26, 26, 26);
   awra_widget_set_size_request(x->well, -1, 120);
   x->icon = awra_image_new_from_icon_name("document-send-symbolic");
   awra_image_set_pixel_size(x->icon, 32);
