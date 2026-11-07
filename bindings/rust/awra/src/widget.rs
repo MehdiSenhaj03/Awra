@@ -85,7 +85,8 @@ impl Widget {
         unsafe { ffi::awra_widget_destroy(self.as_ptr()) }
     }
     /// The deepest widget at (x, y) of this widget's window.
-    pub fn pick(&self, x: f64, y: f64) -> Option<Widget> {
+    /// The deepest widget at a point of this one (gtk_widget_pick).
+    pub fn pick(&self, x: f64, y: f64, _flags: crate::PickFlags) -> Option<Widget> {
         let root = self.root_widget().unwrap_or_else(|| self.clone());
         let (ox, oy) = self.window_position().unwrap_or((0.0, 0.0));
         unsafe { Widget::from_none_opt(ffi::awra_widget_pick(root.as_ptr(), x + ox, y + oy)) }
@@ -577,13 +578,15 @@ impl EventControllerKey {
     ) {
         self.0.pressed.borrow_mut().push(Rc::new(f));
     }
-    pub fn connect_key_released<
-        F: Fn(&EventControllerKey, crate::gdk::Key, u32, crate::gdk::ModifierType) -> Propagation + 'static,
-    >(
+    /// (GTK's key-released returns nothing: releases propagate.)
+    pub fn connect_key_released<F: Fn(&EventControllerKey, crate::gdk::Key, u32, crate::gdk::ModifierType) + 'static>(
         &self,
         f: F,
     ) {
-        self.0.released.borrow_mut().push(Rc::new(f));
+        self.0.released.borrow_mut().push(Rc::new(move |c, k, code, m| {
+            f(c, k, code, m);
+            Propagation::Proceed
+        }));
     }
 }
 

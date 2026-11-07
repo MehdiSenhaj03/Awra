@@ -9,7 +9,7 @@ use std::rc::{Rc, Weak};
 use crate::object::{IntoOptStr, Widget, WeakRef};
 
 /// Action parameters: strings only (all Awra applications need).
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Default)]
 pub struct Variant(String);
 
 impl Variant {
@@ -474,7 +474,7 @@ thread_local! {
 
 impl Application {
     /// Initializes Awra for application `id`.
-    pub fn new(id: impl IntoOptStr) -> Application {
+    pub fn new(id: impl IntoOptStr, _flags: ApplicationFlags) -> Application {
         let id = id.into_opt_string().unwrap_or_default();
         crate::init_with_id(&id);
         let app = Application(Rc::new(AppInner {

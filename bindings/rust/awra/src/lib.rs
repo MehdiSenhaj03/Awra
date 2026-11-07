@@ -18,6 +18,7 @@ pub use awra_sys as ffi;
 pub mod object;
 mod compat;
 mod compat2;
+mod compat3;
 mod content;
 mod signal;
 mod enums;
@@ -32,6 +33,8 @@ pub mod pango;
 use std::boxed::Box as StdBox;
 use std::ffi::c_void;
 use std::path::PathBuf;
+use std::cell::RefCell;
+use std::rc::Rc;
 
 pub use enums::*;
 pub use gio::Application;
@@ -41,6 +44,8 @@ pub use widget::*;
 pub use widgets::*;
 pub use compat::*;
 pub use compat2::*;
+pub use compat3::*;
+pub use pango::WrapMode;
 pub use content::*;
 pub use window::{accel_label, ApplicationWindow, Window};
 
@@ -51,6 +56,7 @@ pub mod prelude {
     pub use crate::widget::{Cast, Controller};
     pub use crate::content::EmojiItemExt;
     pub use crate::compat2::{StaticTypeExt, WidgetExt};
+    pub use crate::compat3::{GtkWindowExt, IsPaintable, StringObjectDowncast, ToValue, TooltipExt, WidgetExt3};
 
     /// gtk-rs `and_downcast`: an optional widget as a `T`.
     pub trait OptionDowncast {
@@ -234,27 +240,34 @@ pub fn key_code_label(code: &str) -> Option<String> {
 // ---------------------------------------------------------------------------
 // Native dialogs, URIs
 
-/// A file type filter of file dialogs.
+/// A file type filter of file dialogs (GtkFileFilter).
 #[derive(Debug, Clone, Default)]
-pub struct FileFilter {
-    pub name: String,
-    pub patterns: Vec<String>,
-}
+pub struct FileFilter(Rc<RefCell<(String, Vec<String>)>>);
 
 impl FileFilter {
     pub fn new() -> FileFilter {
         FileFilter::default()
     }
-    pub fn set_name(&mut self, name: Option<&str>) {
-        self.name = name.unwrap_or_default().to_owned();
+    pub fn set_name(&self, name: Option<&str>) {
+        self.0.borrow_mut().0 = name.unwrap_or_default().to_owned();
     }
-    pub fn add_pattern(&mut self, pattern: &str) {
-        if !self.patterns.iter().any(|p| p == pattern) {
-            self.patterns.push(pattern.to_owned());
+    pub fn add_pattern(&self, pattern: &str) {
+        let mut d = self.0.borrow_mut();
+        if !d.1.iter().any(|p| p == pattern) {
+            d.1.push(pattern.to_owned());
         }
     }
-    pub fn add_suffix(&mut self, suffix: &str) {
+    pub fn add_suffix(&self, suffix: &str) {
         self.add_pattern(&format!("*.{suffix}"));
+    }
+}
+
+/// Why a file dialog gave no file (glib::Error).
+#[derive(Debug, Clone)]
+pub struct DialogError(pub String);
+impl std::fmt::Display for DialogError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.0)
     }
 }
 
@@ -265,12 +278,19 @@ unsafe extern "C" fn file_done(paths: *const std::ffi::c_char, data: *mut c_void
     f(r)
 }
 
-/// Native file dialogs: open files or a folder, save a file.
-#[derive(Debug, Clone, Default)]
-pub struct FileDialog {
+#[derive(Debug, Default)]
+struct DialogData {
     title: String,
     filters: Vec<FileFilter>,
     initial_name: Option<String>,
+}
+
+/// Native file dialogs: open files or a folder, save a file (GtkFileDialog).
+#[derive(Debug, Clone, Default)]
+pub struct FileDialog(Rc<RefCell<DialogData>>);
+
+fn picked(r: Option<Vec<PathBuf>>) -> Result<gio::File, DialogError> {
+    r.and_then(|v| v.into_iter().next()).map(gio::File::for_path).ok_or_else(|| DialogError("dismissed".into()))
 }
 
 impl FileDialog {
@@ -280,26 +300,41 @@ impl FileDialog {
     pub fn builder() -> FileDialogBuilder {
         FileDialogBuilder(FileDialog::default())
     }
-    pub fn set_title(&mut self, t: &str) {
-        self.title = t.to_owned()
+    pub fn set_title(&self, t: &str) {
+        self.0.borrow_mut().title = t.to_owned()
     }
-    pub fn add_filter(&mut self, f: FileFilter) {
-        self.filters.push(f)
+    pub fn add_filter(&self, f: &FileFilter) {
+        self.0.borrow_mut().filters.push(f.clone())
+    }
+    /// The filters offered (the first is the default).
+    pub fn set_filters(&self, filters: &[FileFilter]) {
+        self.0.borrow_mut().filters = filters.to_vec()
+    }
+    pub fn set_default_filter(&self, f: Option<&FileFilter>) {
+        if let Some(f) = f {
+            let mut d = self.0.borrow_mut();
+            d.filters.retain(|x| !Rc::ptr_eq(&x.0, &f.0));
+            d.filters.insert(0, f.clone());
+        }
+    }
+    pub fn set_initial_name(&self, name: Option<&str>) {
+        self.0.borrow_mut().initial_name = name.map(str::to_owned)
     }
     fn c_filters(&self) -> (Vec<std::ffi::CString>, Vec<ffi::AwraFileFilter>) {
         let mut keep = Vec::new();
         let mut out = Vec::new();
-        for f in &self.filters {
-            keep.push(object::cstring(&f.name));
+        for f in &self.0.borrow().filters {
+            let f = f.0.borrow();
+            keep.push(object::cstring(&f.0));
             let n = keep.last().unwrap().as_ptr();
-            keep.push(object::cstring(&f.patterns.join(";")));
+            keep.push(object::cstring(&f.1.join(";")));
             let p = keep.last().unwrap().as_ptr();
             out.push(ffi::AwraFileFilter { name: n, patterns: p });
         }
         (keep, out)
     }
     fn run(&self, parent: Option<&Window>, multiple: bool, folder: bool, done: FileDone) {
-        let t = object::cstring(&self.title);
+        let t = object::cstring(&self.0.borrow().title);
         let (_keep, filters) = self.c_filters();
         let data: StdBox<FileDone> = StdBox::new(done);
         unsafe {
@@ -315,21 +350,50 @@ impl FileDialog {
             )
         }
     }
-    /// One file; `done(None)` when cancelled.
-    pub fn open<F: FnOnce(Option<PathBuf>) + 'static>(&self, parent: Option<&Window>, done: F) {
-        self.run(parent, false, false, StdBox::new(move |r| done(r.and_then(|v| v.into_iter().next()))))
+    /// One file; an error when dismissed.
+    pub fn open<F: FnOnce(Result<gio::File, DialogError>) + 'static>(
+        &self,
+        parent: Option<&Window>,
+        _cancellable: Option<&gio::Cancellable>,
+        done: F,
+    ) {
+        self.run(parent, false, false, StdBox::new(move |r| done(picked(r))))
     }
-    pub fn open_multiple<F: FnOnce(Option<Vec<PathBuf>>) + 'static>(&self, parent: Option<&Window>, done: F) {
-        self.run(parent, true, false, StdBox::new(done))
+    pub fn open_multiple<F: FnOnce(Result<Vec<gio::File>, DialogError>) + 'static>(
+        &self,
+        parent: Option<&Window>,
+        _cancellable: Option<&gio::Cancellable>,
+        done: F,
+    ) {
+        self.run(
+            parent,
+            true,
+            false,
+            StdBox::new(move |r: Option<Vec<PathBuf>>| {
+                done(r.map(|v| v.into_iter().map(gio::File::for_path).collect()).ok_or_else(|| DialogError("dismissed".into())))
+            }),
+        )
     }
-    pub fn select_folder<F: FnOnce(Option<PathBuf>) + 'static>(&self, parent: Option<&Window>, done: F) {
-        self.run(parent, false, true, StdBox::new(move |r| done(r.and_then(|v| v.into_iter().next()))))
+    pub fn select_folder<F: FnOnce(Result<gio::File, DialogError>) + 'static>(
+        &self,
+        parent: Option<&Window>,
+        _cancellable: Option<&gio::Cancellable>,
+        done: F,
+    ) {
+        self.run(parent, false, true, StdBox::new(move |r| done(picked(r))))
     }
-    pub fn save<F: FnOnce(Option<PathBuf>) + 'static>(&self, parent: Option<&Window>, done: F) {
-        let t = object::cstring(&self.title);
-        let name = self.initial_name.as_deref().map(object::cstring);
+    pub fn save<F: FnOnce(Result<gio::File, DialogError>) + 'static>(
+        &self,
+        parent: Option<&Window>,
+        _cancellable: Option<&gio::Cancellable>,
+        done: F,
+    ) {
+        let d = self.0.borrow();
+        let t = object::cstring(&d.title);
+        let name = d.initial_name.as_deref().map(object::cstring);
+        drop(d);
         let (_keep, filters) = self.c_filters();
-        let data: StdBox<FileDone> = StdBox::new(StdBox::new(move |r: Option<Vec<PathBuf>>| done(r.and_then(|v| v.into_iter().next()))));
+        let data: StdBox<FileDone> = StdBox::new(StdBox::new(move |r: Option<Vec<PathBuf>>| done(picked(r))));
         unsafe {
             ffi::awra_file_dialog_save(
                 parent.map_or(std::ptr::null_mut(), |p| p.as_ptr()),
@@ -346,20 +410,16 @@ impl FileDialog {
 
 pub struct FileDialogBuilder(FileDialog);
 impl FileDialogBuilder {
-    pub fn title(mut self, t: &str) -> Self {
-        self.0.title = t.to_owned();
+    pub fn title(self, t: &str) -> Self {
+        self.0.set_title(t);
         self
     }
-    pub fn filter(mut self, f: FileFilter) -> Self {
-        self.0.filters.push(f);
+    pub fn filter(self, f: &FileFilter) -> Self {
+        self.0.add_filter(f);
         self
     }
-    pub fn filters(mut self, f: &[FileFilter]) -> Self {
-        self.0.filters.extend_from_slice(f);
-        self
-    }
-    pub fn initial_name(mut self, n: &str) -> Self {
-        self.0.initial_name = Some(n.to_owned());
+    pub fn initial_name(self, n: &str) -> Self {
+        self.0.set_initial_name(Some(n));
         self
     }
     pub fn modal(self, _m: bool) -> Self {

@@ -61,7 +61,12 @@ awra_wrapper!(
 );
 impl Box {
     pub fn new(orientation: Orientation, spacing: i32) -> Box {
-        unsafe { Box::from_full(ffi::awra_box_new(orientation as _, spacing)) }
+        let b = unsafe { Box::from_full(ffi::awra_box_new(orientation as _, spacing)) };
+        b.0.set_rust_data("p:orientation", orientation);
+        b
+    }
+    pub fn orientation(&self) -> Orientation {
+        self.0.rust_data::<Orientation>("p:orientation").unwrap_or(Orientation::Horizontal)
     }
     pub fn append(&self, child: &impl IsWidget) {
         unsafe { ffi::awra_box_append(ptr!(self), child.widget_ptr()) }
@@ -91,6 +96,7 @@ impl Box {
         unsafe { ffi::awra_box_set_homogeneous(ptr!(self), homogeneous) }
     }
     pub fn set_orientation(&self, orientation: Orientation) {
+        self.0.set_rust_data("p:orientation", orientation);
         unsafe { ffi::awra_box_set_orientation(ptr!(self), orientation as _) }
     }
 }
@@ -1361,6 +1367,9 @@ impl Dropdown {
     }
     /// gtk's StringList model.
     pub fn set_model(&self, model: Option<&StringList>) {
+        if let Some(m) = model {
+            self.0.set_rust_data("p:model", m.clone());
+        }
         let items: Vec<String> = model.map(|m| m.0.borrow().clone()).unwrap_or_default();
         let refs: Vec<&str> = items.iter().map(String::as_str).collect();
         self.set_strings(&refs)
@@ -1704,8 +1713,8 @@ impl FormRow {
     pub fn error_message(&self) -> Option<String> {
         self.0.rust_data::<Option<String>>("p:error").flatten()
     }
-    pub fn set_error_message(&self, t: impl IntoOptStr) {
-        let t = t.into_opt_string();
+    pub fn set_error_message(&self, t: Option<&str>) {
+        let t = t.map(str::to_owned);
         self.0.set_rust_data("p:error", t.clone());
         let t = OptC::new(t);
         unsafe { ffi::awra_form_row_set_error_message(ptr!(self), t.ptr()) }
@@ -2292,6 +2301,9 @@ impl CommandPalette {
         p.0.connect_raw(sig::ACTIVATE, |w, a| {
             let acts = w.rust_data::<Rc<Vec<ActivateItem>>>("palette-items").unwrap_or_default();
             if let Some((Some(action), target)) = acts.get(a.index().max(0) as usize).cloned() {
+                if crate::compat3::palette_command(w, &action, target.as_ref()) {
+                    return;
+                }
                 let window = w
                     .rust_data::<crate::WeakRef<crate::Window>>("palette-window")
                     .and_then(|w| w.upgrade())
@@ -2550,7 +2562,7 @@ impl Dialog {
 
 awra_wrapper!(KeyCap, ["AwraKeyCap"]);
 impl KeyCap {
-    pub fn new(code: impl IntoOptStr, label: impl IntoOptStr) -> KeyCap {
+    pub fn new(code: Option<&str>, label: Option<&str>) -> KeyCap {
         let (c, l) = (OptC::new(code), OptC::new(label));
         unsafe { KeyCap::from_full(ffi::awra_key_cap_new(c.ptr(), l.ptr())) }
     }

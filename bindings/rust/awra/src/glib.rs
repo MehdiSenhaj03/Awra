@@ -171,7 +171,14 @@ fn poll_task(waker: Arc<TaskWaker>) {
 }
 
 /// The handle of a spawned future (detached: it runs to completion).
-pub struct JoinHandle(#[allow(dead_code)] u64);
+pub struct JoinHandle<T = ()>(u64, std::marker::PhantomData<T>);
+
+impl<T> JoinHandle<T> {
+    /// Drops the future: it runs no further.
+    pub fn abort(&self) {
+        TASKS.with(|t| t.borrow_mut().remove(&self.0));
+    }
+}
 
 /// Runs a future on the UI thread (GLib's spawn_future_local).
 pub fn spawn_future_local<F: Future<Output = ()> + 'static>(f: F) -> JoinHandle {
@@ -184,7 +191,7 @@ pub fn spawn_future_local<F: Future<Output = ()> + 'static>(f: F) -> JoinHandle 
     // first poll from the loop, as GLib does
     let waker = Arc::new(TaskWaker { id, queued: AtomicBool::new(false) });
     waker.wake_by_ref();
-    JoinHandle(id)
+    JoinHandle(id, std::marker::PhantomData)
 }
 
 /// Waits `d` on the UI loop (for async code).
@@ -403,3 +410,4 @@ impl Priority {
     pub const HIGH: Priority = Priority(-100);
 }
 pub use crate::compat2::Type;
+pub use crate::compat3::{ToValue, Value};

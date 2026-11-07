@@ -199,7 +199,11 @@ impl Key {
         set.insert(s);
         Key(s)
     }
-    pub fn name(&self) -> &'static str {
+    /// Its X11 name (gdk_keyval_name).
+    pub fn name(&self) -> Option<String> {
+        (!self.0.is_empty()).then(|| self.0.to_owned())
+    }
+    pub fn as_str(&self) -> &'static str {
         self.0
     }
     /// The lower-case key for letter keys (gdk_keyval_to_lower).
@@ -275,6 +279,7 @@ pub const BUTTON_MIDDLE: u32 = 2;
 pub const BUTTON_SECONDARY: u32 = 3;
 
 pub use crate::compat::{MemoryFormat, Paintable, Texture};
+pub use crate::compat3::{ContentProvider, Drag};
 
 /// GdkScrollUnit.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

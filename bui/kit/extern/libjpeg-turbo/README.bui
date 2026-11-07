@@ -11,5 +11,7 @@ SIMD (the x86 SIMD needs NASM), 12/16-bit wrappers, jquant1/2.c, jmemnobs.c.
 
 BUI files (bui/):
   jconfig.h, jconfigint.h, jversion.h  configuration (CMake generates these upstream)
+  jbuiprefix.h                         bui_ prefixes on every global name (no clash with
+                                       another libjpeg linked statically)
   jmem_bui.c                           memory manager on MEM_guardedalloc (replaces jmemnobs.c)
   jdecode_8bit_only.c                  12/16-bit and quantizer entry points that fail cleanly

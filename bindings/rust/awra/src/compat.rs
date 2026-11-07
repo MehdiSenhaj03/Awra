@@ -972,8 +972,9 @@ fn image_set_texture(w: &Widget, t: Option<&Texture>) {
 
 impl crate::Image {
     /// GtkPicture's paintable.
-    pub fn set_paintable(&self, paintable: Option<&Paintable>) {
-        show_paintable(self, paintable, image_set_texture)
+    pub fn set_paintable(&self, paintable: Option<&impl crate::IsPaintable>) {
+        let p = paintable.map(|p| p.to_paintable());
+        show_paintable(self, p.as_ref(), image_set_texture)
     }
     pub fn paintable(&self) -> Option<Paintable> {
         showing(self)

@@ -116,7 +116,8 @@ typedef enum {
   AWRA_BUTTON_SECONDARY,
   AWRA_BUTTON_GHOST,
   AWRA_BUTTON_DESTRUCTIVE,
-  AWRA_BUTTON_TOOLBAR
+  AWRA_BUTTON_TOOLBAR,
+  AWRA_BUTTON_SUCCESS /* green: answer a call */
 } AwraButtonAppearance;
 typedef enum { AWRA_CARD_PLAIN = 0, AWRA_CARD_TINTED, AWRA_CARD_RAISED } AwraCardAppearance;
 typedef enum {

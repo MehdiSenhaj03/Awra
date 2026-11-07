@@ -626,7 +626,7 @@ void awra_button_set_appearance(AwraWidget *w, AwraButtonAppearance a)
   ButtonExt *x = BX(w);
   x->appearance = a;
   x->look = look_of(a);
-  if ((int)a == 5) {
+  if (a == AWRA_BUTTON_SUCCESS) {
     x->look = AWRA_LOOK_SUCCESS;
   }
   button_sync(w);

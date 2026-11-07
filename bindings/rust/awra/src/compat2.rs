@@ -23,6 +23,14 @@ use crate::signal::{sig, SignalHandlerId};
 #[derive(Clone, Copy)]
 pub struct Type(pub(crate) fn(&Widget) -> bool);
 
+fn no_widget(_: &Widget) -> bool {
+    false
+}
+impl Type {
+    /// G_TYPE_STRING: what application drags of text carry.
+    pub const STRING: Type = Type(no_widget);
+}
+
 impl std::fmt::Debug for Type {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "Type")
@@ -227,6 +235,17 @@ impl Adjustment {
         let me = self.clone();
         self.scrolled.connect_raw(sig::VALUE_CHANGED, move |_, _| f(&me))
     }
+    /// The page (the scrolled window's size) changed.
+    pub fn connect_page_size_notify<F: Fn(&Adjustment) + 'static>(&self, f: F) -> SignalHandlerId {
+        let me = self.clone();
+        let last = Cell::new(-1.0);
+        self.scrolled.connect_raw(sig::RESIZE, move |_, _| {
+            let p = me.page_size();
+            if p != last.replace(p) {
+                f(&me)
+            }
+        })
+    }
     pub fn connect_changed<F: Fn(&Adjustment) + 'static>(&self, f: F) -> SignalHandlerId {
         let me = self.clone();
         self.scrolled.connect_raw(sig::RESIZE, move |_, _| f(&me))
@@ -320,43 +339,88 @@ impl FileList {
     }
 }
 
-type DropFn = Rc<dyn Fn(&DropTarget, &FileList, f64, f64) -> bool>;
+type DropFn = Rc<dyn Fn(&DropTarget, &crate::Value, f64, f64) -> bool>;
+type DropMotionFn = Rc<dyn Fn(&DropTarget, f64, f64) -> DragAction>;
+type DropLeaveFn = Rc<dyn Fn(&DropTarget)>;
 
-/// GtkDropTarget for files: they arrive as a FileList.
+#[derive(Default)]
+struct DropInner {
+    drop: RefCell<Vec<DropFn>>,
+    hover: RefCell<Vec<Rc<dyn Fn(&DropTarget, bool)>>>,
+    motion: RefCell<Vec<DropMotionFn>>,
+    leave: RefCell<Vec<DropLeaveFn>>,
+    files: Cell<bool>,
+}
+
+/// GtkDropTarget: files dropped from the desktop arrive as a FileList;
+/// values dragged within the application (a DragSource's) as themselves.
 #[derive(Clone, Default)]
-pub struct DropTarget(Rc<(RefCell<Vec<DropFn>>, RefCell<Vec<Rc<dyn Fn(&DropTarget, bool)>>>)>);
+pub struct DropTarget(Rc<DropInner>);
 impl DropTarget {
-    /// gtk-rs: `DropTarget::new(FileList::static_type(), DragAction::COPY)`;
-    /// any type, any action: files.
-    pub fn new<T, A>(_t: T, _a: A) -> DropTarget {
-        DropTarget::default()
+    /// gtk-rs: `DropTarget::new(FileList::static_type(), DragAction::COPY)`
+    /// takes files; any other type, the application's own drags.
+    pub fn new<T: 'static, A>(_t: T, _a: A) -> DropTarget {
+        let t = DropTarget::default();
+        t.0.files.set(std::any::TypeId::of::<T>() == std::any::TypeId::of::<FileTypeMarker>());
+        t
     }
-    pub fn connect_drop<F: Fn(&DropTarget, &FileList, f64, f64) -> bool + 'static>(&self, f: F) {
-        self.0 .0.borrow_mut().push(Rc::new(f));
+    pub fn connect_drop<F: Fn(&DropTarget, &crate::Value, f64, f64) -> bool + 'static>(&self, f: F) {
+        self.0.drop.borrow_mut().push(Rc::new(f));
     }
     /// A file drag over the widget, or gone.
     pub fn connect_hover<F: Fn(&DropTarget, bool) + 'static>(&self, f: F) {
-        self.0 .1.borrow_mut().push(Rc::new(f));
+        self.0.hover.borrow_mut().push(Rc::new(f));
+    }
+    /// An application drag moving over the widget: the action it would take.
+    pub fn connect_motion<F: Fn(&DropTarget, f64, f64) -> DragAction + 'static>(&self, f: F) {
+        self.0.motion.borrow_mut().push(Rc::new(f));
+    }
+    pub fn connect_leave<F: Fn(&DropTarget) + 'static>(&self, f: F) {
+        self.0.leave.borrow_mut().push(Rc::new(f));
+    }
+    pub(crate) fn motion(&self, x: f64, y: f64) {
+        let hs: Vec<DropMotionFn> = self.0.motion.borrow().clone();
+        for h in hs {
+            h(self, x, y);
+        }
+    }
+    pub(crate) fn leave(&self) {
+        let hs: Vec<DropLeaveFn> = self.0.leave.borrow().clone();
+        for h in hs {
+            h(self);
+        }
+    }
+    pub(crate) fn drop_value(&self, v: &crate::Value, x: f64, y: f64) -> bool {
+        let hs: Vec<DropFn> = self.0.drop.borrow().clone();
+        hs.iter().any(|h| h(self, v, x, y))
     }
 }
+
+/// The type `FileList::static_type()` names.
+pub struct FileTypeMarker;
+impl FileList {
+    pub fn static_type() -> FileTypeMarker {
+        FileTypeMarker
+    }
+}
+
 impl crate::widget::Controller for DropTarget {
     fn attach(&self, widget: &Widget) {
+        if !self.0.files.get() {
+            widget.set_rust_data("drop-target", self.clone());
+            return;
+        }
         widget.set_accepts_file_drops(true);
         let me = self.clone();
         widget.connect_raw(sig::FILES_DROPPED, move |_, a| {
             let files = FileList(
                 a.text().unwrap_or_default().lines().filter(|l| !l.is_empty()).map(std::path::PathBuf::from).collect(),
             );
-            let hs: Vec<DropFn> = me.0 .0.borrow().clone();
-            for h in hs {
-                if h(&me, &files, a.x(), a.y()) {
-                    break;
-                }
-            }
+            me.drop_value(&crate::Value::new(files), a.x(), a.y());
         });
         let me = self.clone();
         widget.connect_raw(sig::DROP_HOVER, move |_, a| {
-            let hs: Vec<Rc<dyn Fn(&DropTarget, bool)>> = me.0 .1.borrow().clone();
+            let hs: Vec<Rc<dyn Fn(&DropTarget, bool)>> = me.0.hover.borrow().clone();
             for h in hs {
                 h(&me, a.active());
             }

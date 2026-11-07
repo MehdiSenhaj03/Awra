@@ -68,8 +68,9 @@ impl Avatar {
     pub fn set_show_initials(&self, show: bool) {
         unsafe { ffi::awra_avatar_set_show_initials(ptr!(self), show) }
     }
-    pub fn set_custom_image(&self, image: Option<&Paintable>) {
-        show_paintable(self, image, |w, t| unsafe { ffi::awra_avatar_set_texture(w.as_ptr(), tex_ptr(t)) })
+    pub fn set_custom_image(&self, image: Option<&impl crate::IsPaintable>) {
+        let image = image.map(|p| p.to_paintable());
+        show_paintable(self, image.as_ref(), |w, t| unsafe { ffi::awra_avatar_set_texture(w.as_ptr(), tex_ptr(t)) })
     }
     pub fn custom_image(&self) -> Option<Paintable> {
         widget_paintable(self)
@@ -143,7 +144,9 @@ impl Chip {
         let t = OptC::new(emoji);
         unsafe { ffi::awra_chip_set_emoji(ptr!(self), t.ptr()) }
     }
-    pub fn set_paintable(&self, p: Option<&Paintable>) {
+    pub fn set_paintable(&self, p: Option<&impl crate::IsPaintable>) {
+        let p = p.map(|p| p.to_paintable());
+        let p = p.as_ref();
         show_paintable(self, p, |w, t| unsafe { ffi::awra_chip_set_texture(w.as_ptr(), tex_ptr(t)) })
     }
     pub fn paintable(&self) -> Option<Paintable> {
