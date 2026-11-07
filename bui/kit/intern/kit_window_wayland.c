@@ -114,12 +114,18 @@ struct BKWindow {
   int render_pending, full, frames;
   int want_frame, frame_vsync;
   double frame_start;
+  double frame_due; /* BUI-Awra: an animation frame that drew nothing: the next one not before */
   int cursor, tip_id, next_timer;
   Timer timers[MAX_TIMERS];
 
   int blur[5]; /* x y w h radius (logical) */
   int blur_dirty;
   struct WinIcon *icon; /* BUI-Awra: xdg-toplevel-icon (applied when mapped) */
+
+  /* BUI-Awra: popups as xdg_popups (kit_popup_wayland.inc.c) */
+  BKPopupHost pophost;
+  struct WPop *pops;   /* BK_POPUP_SLOTS, allocated with the first popup */
+  BuiRaster *pop_raster; /* draws into their buffers */
 
   struct BKWindow *next;
 };
@@ -169,6 +175,7 @@ static int g_wake_pipe[2] = {-1, -1};
 /* pointer */
 static BKWindow *g_pointer_win;
 static uint32_t g_pointer_serial, g_last_press_serial;
+static uint32_t g_grab_serial; /* BUI-Awra: the last button or key press (popup grabs) */
 static double g_px, g_py; /* surface-local logical */
 static int g_buttons;     /* BK_BUTTON* held */
 static float g_axis_x, g_axis_y;   /* this frame's scroll, notches */
@@ -193,6 +200,18 @@ static struct wl_data_offer *g_sel_offer; /* the current selection, someone else
 static struct wl_data_source *g_source;
 static BKClipSet *g_clip; /* BUI-Awra: what we put there, by type */
 static uint32_t g_key_serial;
+
+/* BUI-Awra: popups (kit_popup_wayland.inc.c) */
+static void wl_popups_init(BKWindow *win);
+static int wl_popups_render(BKWindow *win); /* surfaces committed */
+static void wl_popups_free(BKWindow *win);
+static int wl_popups_in_flight(const BKWindow *win);
+static int wl_popups_ready(const BKWindow *win);
+static BKWindow *window_of_any_surface(struct wl_surface *s, struct WPop **r_pop);
+static BKWindow *g_leave_win; /* left: a leave unless one of its surfaces is entered */
+static struct WPop *g_pointer_pop, *g_key_pop; /* the popup surface entered, NULL: the window */
+static int pop_origin_x(const struct WPop *p);
+static int pop_origin_y(const struct WPop *p);
 
 static double now_ms(void)
 {
@@ -892,8 +911,14 @@ static void repair(Buffer *b, const Buffer *from)
 
 static void render_window(BKWindow *win)
 {
-  if (!win->open || !win->configured || !win->mapped || win->frame_cb) {
-    return; /* the next frame callback renders */
+  if (!win->open || !win->configured || !win->mapped) {
+    return;
+  }
+  if (win->frame_cb || wl_popups_in_flight(win)) {
+    /* the next frame callback renders; a popup waiting for none draws now
+     * (BUI-Awra: a new popup shows at once) */
+    wl_popups_render(win);
+    return;
   }
   if (win->want_frame && win->cb.on_frame) {
     win->want_frame = 0;
@@ -917,8 +942,12 @@ static void render_window(BKWindow *win)
   const int regions = BK_render(win->ctx, win->raster, b->w, b->h, full);
   if (!regions && !full) {
     /* nothing changed: keep the buffer for the next frame */
-    if (BK_animating(win->ctx)) {
-      win->render_pending = 1;
+    const int committed = wl_popups_render(win); /* BUI-Awra: its popups may have */
+    if (BK_animating(win->ctx) || win->want_frame) {
+      win->render_pending = 1; /* BUI-Awra: an animation in a popup goes on */
+      if (!committed) { /* no frame callback paces it: a display frame later */
+        win->frame_due = now_ms() + 1000.0 / 60.0;
+      }
     }
     return;
   }
@@ -976,6 +1005,7 @@ static void render_window(BKWindow *win)
   b->busy = 1;
   win->front = (int)(b - win->buffers);
   win->frames++;
+  wl_popups_render(win); /* BUI-Awra */
   if (win->want_frame) {
     bk_frame_ms = now_ms() - win->frame_start;
     bk_frame_budget_ms = win->frame_vsync ? 1000.0 / 60.0 : 0.0;
@@ -1079,6 +1109,7 @@ static void xdg_surface_configure(void *data, struct xdg_surface *s, uint32_t se
     win->configured = 1;
     win->full = 1;
     win->blur_dirty = 1;
+    win->ctx->layout_dirty = true; /* BUI-Awra: popups asked before are shown now */
     notify_state(win);
   }
   win->render_pending = 1;
@@ -1150,19 +1181,34 @@ static BKWindow *window_of_surface(struct wl_surface *s)
   return NULL;
 }
 
+/* window px: the entered surface's (a popup's surface lies at its origin) */
 static int pointer_x(BKWindow *win)
 {
-  return (int)floor(g_px * win_scale(win));
+  return pop_origin_x(g_pointer_pop) + (int)floor(g_px * win_scale(win));
 }
 static int pointer_y(BKWindow *win)
 {
-  return (int)floor(g_py * win_scale(win));
+  return pop_origin_y(g_pointer_pop) + (int)floor(g_py * win_scale(win));
+}
+
+/* BUI-Awra: the pointer left a window and none of its surfaces took it */
+static void flush_leave(void)
+{
+  BKWindow *win = g_leave_win;
+  g_leave_win = NULL;
+  if (win && win != g_pointer_win && win->open && !g_buttons) {
+    BK_motion(win->ctx, -100000, -100000, 0);
+  }
 }
 
 static void pointer_enter(void *data, struct wl_pointer *p, uint32_t serial, struct wl_surface *s,
                           wl_fixed_t x, wl_fixed_t y)
 {
-  g_pointer_win = window_of_surface(s);
+  g_pointer_win = window_of_any_surface(s, &g_pointer_pop);
+  if (g_leave_win && g_leave_win != g_pointer_win) {
+    flush_leave();
+  }
+  g_leave_win = NULL;
   g_pointer_serial = serial;
   g_px = wl_fixed_to_double(x);
   g_py = wl_fixed_to_double(y);
@@ -1175,11 +1221,13 @@ static void pointer_enter(void *data, struct wl_pointer *p, uint32_t serial, str
 }
 static void pointer_leave(void *data, struct wl_pointer *p, uint32_t serial, struct wl_surface *s)
 {
-  BKWindow *win = g_pointer_win;
-  g_pointer_win = NULL;
-  if (win && win->open && !g_buttons) {
-    BK_motion(win->ctx, -100000, -100000, 0);
+  /* BUI-Awra: from a window to its popup is no leave: decided at the
+   * frame (or the end of the batch) once an enter could follow */
+  if (g_pointer_win) {
+    g_leave_win = g_pointer_win;
   }
+  g_pointer_win = NULL;
+  g_pointer_pop = NULL;
 }
 static void pointer_motion(void *data, struct wl_pointer *p, uint32_t t, wl_fixed_t x,
                            wl_fixed_t y)
@@ -1198,6 +1246,7 @@ static void pointer_button(void *data, struct wl_pointer *p, uint32_t serial, ui
   const int press = state == WL_POINTER_BUTTON_STATE_PRESSED;
   if (press) {
     g_last_press_serial = serial;
+    g_grab_serial = serial;
   }
   const int bit = button == BTN_LEFT ? BK_BUTTON1 : button == BTN_MIDDLE ? BK_BUTTON2 :
                   button == BTN_RIGHT ? BK_BUTTON3 : 0;
@@ -1252,6 +1301,7 @@ static void pointer_axis(void *data, struct wl_pointer *p, uint32_t t, uint32_t 
 }
 static void pointer_frame(void *data, struct wl_pointer *p)
 {
+  flush_leave();
   BKWindow *win = g_pointer_win;
   if (g_axis_has && win && win->open) {
     BK_scroll(win->ctx, pointer_x(win), pointer_y(win), g_axis_x, g_axis_y, g_mods);
@@ -1356,7 +1406,7 @@ static void keyboard_keymap(void *data, struct wl_keyboard *k, uint32_t format, 
 static void keyboard_enter(void *data, struct wl_keyboard *k, uint32_t serial, struct wl_surface *s,
                            struct wl_array *keys)
 {
-  g_key_win = window_of_surface(s);
+  g_key_win = window_of_any_surface(s, &g_key_pop); /* BUI-Awra: a grabbing popup's too */
   g_key_serial = serial;
 }
 static void keyboard_leave(void *data, struct wl_keyboard *k, uint32_t serial, struct wl_surface *s)
@@ -1411,6 +1461,9 @@ static void keyboard_key(void *data, struct wl_keyboard *k, uint32_t serial, uin
   g_key_serial = serial;
   const uint32_t code = key + 8;
   const int press = state == WL_KEYBOARD_KEY_STATE_PRESSED;
+  if (press) {
+    g_grab_serial = serial;
+  }
   key_send(g_key_win, code, press);
   if (press && g_keymap && xkb_keymap_key_repeats(g_keymap, code) && g_repeat_rate > 0) {
     g_repeat_key = code;
@@ -1787,6 +1840,9 @@ static void unmap_window(BKWindow *win)
   if (!win->mapped) {
     return;
   }
+  /* BUI-Awra: popups close with their window, before its role goes */
+  BK_close_popups(win->ctx);
+  wl_popups_free(win);
   if (win->frame_cb) {
     wl_callback_destroy(win->frame_cb);
     win->frame_cb = NULL;
@@ -1867,6 +1923,7 @@ BKWindow *BK_window_new_ex(BKContext *ctx, const char *title, int width, int hei
   BKHost host = {win,                host_request,       host_set_cursor, host_warp,
                  host_clipboard_get, host_clipboard_set, host_schedule,   host_emit};
   BK_context_set_host(ctx, &host);
+  wl_popups_init(win); /* BUI-Awra */
   return win;
 }
 
@@ -1900,6 +1957,9 @@ void BK_window_close(BKWindow *win)
   if (g_pointer_win == win) {
     g_pointer_win = NULL;
   }
+  if (g_leave_win == win) {
+    g_leave_win = NULL;
+  }
   if (g_key_win == win) {
     g_key_win = NULL;
   }
@@ -1927,7 +1987,13 @@ void BK_window_free(BKWindow *win)
   }
   if (win->ctx) {
     BK_context_set_host(win->ctx, &win->prev);
+    if (win->ctx->popup_host == &win->pophost) {
+      bk_popup_host_set(win->ctx, NULL);
+    }
   }
+  wl_popups_free(win);
+  free(win->pops);
+  BUI_raster_free(win->pop_raster);
   BUI_raster_free(win->raster);
   free(win->title);
   free(win->app_id);
@@ -2313,6 +2379,13 @@ static int next_timeout(void)
   if (g_repeat_key && g_key_win && (due == 0.0 || g_repeat_due < due)) {
     due = g_repeat_due;
   }
+  for (BKWindow *win = g_windows; win; win = win->next) { /* BUI-Awra: paced frames */
+    if (win->open && win->render_pending && win->frame_due > 0.0 &&
+        (due == 0.0 || win->frame_due < due))
+    {
+      due = win->frame_due;
+    }
+  }
   int ms = -1;
   if (due != 0.0) {
     const double left = due - now_ms();
@@ -2324,7 +2397,10 @@ static int next_timeout(void)
 static int render_ready(void)
 {
   for (BKWindow *win = g_windows; win; win = win->next) {
-    if (win->open && win->mapped && win->configured && win->render_pending && !win->frame_cb) {
+    if (win->open && win->mapped && win->configured && win->render_pending &&
+        ((!win->frame_cb && !wl_popups_in_flight(win) && win->frame_due <= now_ms()) ||
+         wl_popups_ready(win)))
+    {
       return 1;
     }
   }
@@ -2374,6 +2450,7 @@ static void loop_turn(int timeout_ms)
     return;
   }
   wl_display_dispatch_pending(g_dpy);
+  flush_leave(); /* BUI-Awra: seats without pointer frames */
   if (n > 0 && g_wake_pipe[0] >= 0 && (fds[1].revents & POLLIN)) {
     char buf[64];
     while (read(g_wake_pipe[0], buf, sizeof(buf)) > 0) {
@@ -2592,4 +2669,5 @@ void BK_window_activate(BKWindow *win, const char *startup_id)
   wl_display_flush(g_dpy);
 }
 
+#  include "kit_popup_wayland.inc.c"
 #endif /* BUI_WINDOW_WAYLAND */

@@ -196,7 +196,10 @@ static int place_slot(BKContext *ctx, int slot, const BKPopupLayout *l, int w, i
   BKPopupState *ps = &slots(ctx)[slot];
   const bool same = ps->asked && ps->w == w && ps->h == h &&
                     memcmp(&ps->layout, l, sizeof(*l)) == 0;
-  if (!same) {
+  /* asked again while its place is not known: a host that could not show
+   * it yet (a window not configured) does now, one waiting for the
+   * compositor's answer sees the same request and waits */
+  if (!same || !ps->known) {
     ps->layout = *l;
     ps->w = w;
     ps->h = h;
