@@ -661,6 +661,7 @@ AwraWidget *awra_conversation_view_new(void)
   x->threshold = -1;
   x->highlight_pos = UINT32_MAX;
   x->scroller = awra_scrolled_new();
+  awra_scrolled_set_whole_steps(x->scroller, true); /* a GtkListView's (GtkListBase) */
   awra_scrolled_set_policy(x->scroller, AWRA_POLICY_NEVER, AWRA_POLICY_AUTOMATIC);
   /* awraconversationview > scrolledwindow > scrollbar */
   awra_scrolled_set_scrollbar_style_internal(x->scroller, 1);

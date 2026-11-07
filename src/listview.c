@@ -517,6 +517,19 @@ static void list_allocate(AwraWidget *w)
     }
   }
   x->anchor_apply = false;
+  /* what shows at the top before rows are measured: rows measured now
+   * (bound coming into view) keep it where it is, as GtkListBase's anchor */
+  unsigned pre_anchor = 0;
+  long long pre_delta = 0;
+  if (x->n_items) {
+    long long ay = awra_px(x->pad_top);
+    const int g0 = gap(x);
+    while (pre_anchor + 1 < x->n_items && ay + height_of(x, pre_anchor) <= vis_top) {
+      ay += height_of(x, pre_anchor) + g0;
+      pre_anchor++;
+    }
+    pre_delta = ay - vis_top;
+  }
   const int margin = (int)(page * OVERSCAN_PAGES);
   const long long want_top = (long long)vis_top - margin, want_bottom = (long long)vis_bottom + margin;
 
@@ -563,8 +576,14 @@ static void list_allocate(AwraWidget *w)
     awra_allocate(it, w->x, w->y + (int)py + ITX(it)->dy, width, h);
     py += h + g;
   }
-  /* the anchor: the first item whose bottom shows */
-  if (x->n_items) {
+  /* the anchor: the first item whose bottom shows (before the rows
+   * measured now changed what is above it) */
+  if (x->n_items && changed) {
+    x->anchor = pre_anchor;
+    x->anchor_delta = pre_delta;
+    x->anchor_valid = true;
+  }
+  else if (x->n_items) {
     unsigned a = 0;
     long long ay = awra_px(x->pad_top);
     while (a + 1 < x->n_items && ay + height_of(x, a) <= vis_top) {
@@ -1014,6 +1033,7 @@ AwraWidget *awra_data_view_new(void)
   x->stack = awra_stack_new();
   awra_widget_set_vexpand(x->stack, true);
   x->scroller = awra_scrolled_new();
+  awra_scrolled_set_whole_steps(x->scroller, true); /* GtkListBase's whole-px steps */
   awra_scrolled_set_policy(x->scroller, AWRA_POLICY_NEVER, AWRA_POLICY_AUTOMATIC);
   awra_scrolled_set_scrollbar_style_internal(x->scroller, 1); /* awralistview scrollbar */
   x->list = awra_list_view_new();

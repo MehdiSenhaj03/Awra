@@ -1713,14 +1713,15 @@ static int scroll_scroll(AwraWidget *w, BKEvent *e)
     dx = dy;
     dy = 0;
   }
-  double nv = x->vvalue + (can_v ? dy * step_v : 0);
-  double nh = x->hvalue + (can_h ? dx * step_h : 0);
+  double sv = can_v ? dy * step_v : 0, sh = can_h ? dx * step_h : 0;
   /* GtkListBase (a tile grid is GtkGridView's layout) keeps its
-   * adjustments on whole px: each step lands truncated */
+   * adjustments on whole px: each step moves a whole number of px, the
+   * fraction dropped (73 px up or down for a 631 px page) */
   if (x->whole_steps || (x->child && awra_widget_is(x->child, "AwraTileGrid"))) {
-    nv = trunc(nv / k) * k;
-    nh = trunc(nh / k) * k;
+    sv = trunc(sv / k) * k;
+    sh = trunc(sh / k) * k;
   }
+  const double nv = x->vvalue + sv, nh = x->hvalue + sh;
   const double ov = x->vvalue, oh = x->hvalue;
   scroll_to(w, nv, nh);
   return x->vvalue != ov || x->hvalue != oh || can_v;
