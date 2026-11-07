@@ -523,6 +523,7 @@ enum {
 bool awra_inherited_style(const AwraWidget *w, AwraRGBA *r_color, int *r_weight);
 float awra_typography_line_factor(AwraTypography t);
 void awra_text_layout_set_line_factor(AwraTextLayout *l, float factor);
+void awra_text_layout_set_line_extra(AwraTextLayout *l, float paragraph, float wrapped);
 
 /* Button looks (button.c), shared by buttons, toggles, menu buttons,
  * segments and window controls. */
@@ -580,6 +581,15 @@ struct AwraCanvas {
 
 /* Textures (texture.c): fit 0 fill, 1 contain, 2 cover, 3 scale-down */
 void awra_paint_texture(AwraDraw *d, const AwraTexture *t, AwraBox b, float radius, int fit);
+/* A texture of the (x, y, w, h) part of premultiplied ARGB pixels
+ * (width x height); what lies outside them is transparent. */
+/* Escape in a search entry stops the search (STOP_SEARCH) even with text
+ * in it, as GtkSearchEntry does, instead of clearing it first. */
+void awra_search_entry_set_escape_stops(AwraWidget *entry, bool stops);
+AwraTexture *awra_texture_new_argb_region(const uint32_t *px, int width, int height, int x, int y,
+                                          int w, int h);
+/* The raster a window draws into (NULL: none yet); it keeps the last frame. */
+struct BuiRaster *awra_window_raster(AwraWidget *window);
 
 /* PNG writing (png.c), premultiplied ARGB in */
 bool awra_write_png(const char *path, const uint32_t *argb, int w, int h);

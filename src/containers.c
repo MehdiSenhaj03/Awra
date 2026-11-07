@@ -1042,6 +1042,7 @@ static void stack_allocate(AwraWidget *s)
 }
 
 static void stack_draw_tree(BKNode *n);
+static void stack_remove(AwraWidget *s, AwraWidget *child);
 
 static AwraClass stack_class = {
     .bk = AWRA_BK("AwraStack", 0),
@@ -1050,6 +1051,7 @@ static AwraClass stack_class = {
     .ext_size = sizeof(StackExt),
     .measure = stack_measure,
     .allocate = stack_allocate,
+    .remove = stack_remove,
 };
 
 static void stack_sync_visibility(AwraWidget *s)
@@ -1075,6 +1077,31 @@ AwraWidget *awra_stack_new(void)
 static void stack_draw_tree(BKNode *n)
 {
   awra_bk_draw_tree(n);
+}
+
+/* A page going away ends a transition it is part of, and the visible one
+ * hands over to a remaining page (GtkStack shows the next one). */
+static void stack_remove(AwraWidget *s, AwraWidget *child)
+{
+  StackExt *x = AWRA_EXT(s, StackExt);
+  if (x->previous && (child == x->previous || child == x->visible)) {
+    awra_anim_stop_for(s);
+    awra_widget_set_opacity(x->previous, 1.0);
+    awra_widget_set_opacity(x->visible, 1.0);
+    x->previous = NULL;
+    x->t = 1.0f;
+  }
+  if (child == x->visible) {
+    x->visible = NULL;
+    for (int i = 0; i < s->nkids && !x->visible; i++) {
+      if (s->kids[i] != child) {
+        x->visible = s->kids[i];
+      }
+    }
+  }
+  awra_child_remove(s, child);
+  stack_sync_visibility(s);
+  awra_widget_queue_resize(s);
 }
 
 void awra_stack_add_named(AwraWidget *s, AwraWidget *child, const char *name)

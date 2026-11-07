@@ -587,6 +587,12 @@ static int drop_hook(BKContext *ctx, int kind, int x, int y, const char *uris)
   if (!win) {
     return 0;
   }
+  /* the window hears that files came over it, and that they left or landed */
+  const bool inside = kind != BK_DROP_LEAVE && kind != BK_DROP_DROP;
+  if (inside != (awra_widget_get_data(win, "awra-drag-inside") != NULL) && !awra_widget_get_data(win, "awra-drops")) {
+    awra_widget_set_data(win, "awra-drag-inside", inside ? (void *)1 : NULL, NULL);
+    emit_drop(win, AWRA_SIGNAL_DROP_HOVER, inside, x, y, NULL);
+  }
   AwraWidget *t = kind == BK_DROP_LEAVE ? NULL : drop_target_at(ctx, x, y);
   AwraWidget *old = (AwraWidget *)awra_widget_get_data(win, "awra-drop-target");
   if (old != t) {
@@ -957,25 +963,58 @@ void awra_window_remove_shortcut(AwraWidget *win, unsigned long id)
   }
 }
 
-bool awra_window_dispatch_shortcut(AwraWidget *win, const char *keysym, int mods)
+/* Whether a keysym is a printable character (a letter, or punctuation by
+ * its X name: "question", "plus"...): Shift may have been what made it. */
+static bool printable_keysym(const char *k)
 {
-  const int m = mods & (BK_SHIFT | BK_CTRL | BK_ALT);
-  for (Shortcut *s = WEXT(win)->shortcuts; s; s = s->next) {
-    const bool shift_free = !(s->mods & BK_SHIFT) && (keysym[0] && !keysym[1]);
-    if ((s->mods == m || (shift_free && (s->mods | BK_SHIFT) == m)) &&
-        bk_keysym_is(keysym, s->keysym))
-    {
-      AwraArgs a = {0};
-      a.signal = AWRA_SIGNAL_ACTIVATE;
-      a.keysym = keysym;
-      a.mods = m;
-      bool handled = true;
-      a.handled = &handled;
-      s->fn(win, &a, s->data);
+  static const char *const names[] = {
+      "space",     "exclam",     "quotedbl",    "numbersign", "dollar",     "percent",
+      "ampersand", "apostrophe", "parenleft",   "parenright", "asterisk",   "plus",
+      "comma",     "minus",      "period",      "slash",      "colon",      "semicolon",
+      "less",      "equal",      "greater",     "question",   "at",         "bracketleft",
+      "backslash", "bracketright", "asciicircum", "underscore", "grave",    "braceleft",
+      "bar",       "braceright", "asciitilde",  "section",    "degree",     "sterling",
+      "mu",        "diaeresis",  NULL};
+  if (k[0] && !k[1]) {
+    return true;
+  }
+  for (int i = 0; names[i]; i++) {
+    if (!strcmp(k, names[i])) {
       return true;
     }
   }
   return false;
+}
+
+bool awra_window_dispatch_shortcut(AwraWidget *win, const char *keysym, int mods)
+{
+  const int m = mods & (BK_SHIFT | BK_CTRL | BK_ALT);
+  /* an exact match first (Ctrl+Shift+B is <Primary><Shift>b, not
+   * <Primary>b), then one where Shift only made the character (GTK's
+   * GDK_KEY_MATCH_EXACT before _PARTIAL) */
+  Shortcut *found = NULL;
+  for (Shortcut *s = WEXT(win)->shortcuts; s && !found; s = s->next) {
+    if (s->mods == m && bk_keysym_is(keysym, s->keysym)) {
+      found = s;
+    }
+  }
+  for (Shortcut *s = WEXT(win)->shortcuts; s && !found; s = s->next) {
+    const bool shift_free = !(s->mods & BK_SHIFT) && printable_keysym(keysym);
+    if (shift_free && (s->mods | BK_SHIFT) == m && bk_keysym_is(keysym, s->keysym)) {
+      found = s;
+    }
+  }
+  if (!found) {
+    return false;
+  }
+  AwraArgs a = {0};
+  a.signal = AWRA_SIGNAL_ACTIVATE;
+  a.keysym = keysym;
+  a.mods = m;
+  bool handled = true;
+  a.handled = &handled;
+  found->fn(win, &a, found->data);
+  return true;
 }
 
 static int key_hook(BKContext *ctx, int press, const char *text, const char *keysym, int mods)
@@ -1696,6 +1735,24 @@ int awra_window_render_offscreen(AwraWidget *w, bool full)
     }
   }
   return regions;
+}
+
+bool awra_window_has_popup(AwraWidget *w)
+{
+  if (!w || !awra_widget_is(w, "AwraWindow")) {
+    return false;
+  }
+  BKContext *ctx = awra_ctx(w);
+  return ctx && ctx->npopups > 0;
+}
+
+BuiRaster *awra_window_raster(AwraWidget *w)
+{
+  if (!w || !awra_widget_is(w, "AwraWindow")) {
+    return NULL;
+  }
+  WinExt *x = WEXT(w);
+  return x->offscreen ? x->raster : (x->bkw ? BK_window_raster(x->bkw) : NULL);
 }
 
 bool awra_window_snapshot_png(AwraWidget *w, const char *path)

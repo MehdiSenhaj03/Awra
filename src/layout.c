@@ -35,11 +35,22 @@ static void revealer_measure(AwraWidget *w, int o, int for_size, int *r_min, int
 {
   RevealerExt *x = RVX(w);
   int mn = 0, nt = 0;
-  if (x->child && awra_widget_visible(x->child) && x->progress > 0.0) {
+  /* gtk_revealer_measure measures a visible child whatever the progress:
+   * across the sliding direction a closed revealer keeps its size */
+  if (x->child && awra_widget_visible(x->child)) {
+    /* hidden while closed (child-visible false), measured all the same */
+    const bool closed = !(x->child->flags & NF_VISIBLE);
+    x->child->flags |= NF_VISIBLE;
     awra_measure(x->child, o, for_size, &mn, &nt);
+    if (closed) {
+      x->child->flags &= ~NF_VISIBLE;
+    }
   }
-  if (revealer_slides(x, o) && x->progress < 1.0) {
-    /* gtk_revealer_measure: sizes scaled by the progress, rounded up */
+  const bool scaled = revealer_slides(x, o) || x->transition == AWRA_REVEALER_CROSSFADE ||
+                      x->transition == AWRA_REVEALER_NONE;
+  if (scaled && x->progress < 1.0) {
+    /* gtk_revealer_measure: sizes scaled by the progress, rounded up
+     * (get_child_size_scale: crossfade and none in both directions) */
     mn = (int)ceil(mn * x->progress);
     nt = (int)ceil(nt * x->progress);
   }
