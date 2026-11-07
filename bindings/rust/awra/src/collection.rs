@@ -221,6 +221,16 @@ impl CollectionView {
     pub fn scroll_to(&self, index: usize) {
         unsafe { ffi::awra_collection_view_scroll_to(ptr!(self), index as c_int) }
     }
+    /// GtkListView's anchor (index, align, end edge): the item that keeps its
+    /// place when the items are reordered; read before, set after.
+    pub fn anchor(&self) -> Option<(usize, f64, bool)> {
+        let (mut align, mut end) = (0.0, false);
+        let i = unsafe { ffi::awra_collection_view_get_anchor(ptr!(self), &mut align, &mut end) };
+        (i >= 0).then_some((i as usize, align, end))
+    }
+    pub fn set_anchor(&self, index: usize, align: f64, end: bool) {
+        unsafe { ffi::awra_collection_view_set_anchor(ptr!(self), index as c_int, align, end) }
+    }
     pub fn vvalue(&self) -> f64 {
         unsafe { ffi::awra_collection_view_vvalue(ptr!(self)) }
     }

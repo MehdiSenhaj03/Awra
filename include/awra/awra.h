@@ -1365,6 +1365,12 @@ int awra_collection_view_cursor(AwraWidget *view);
 void awra_collection_view_set_cursor(AwraWidget *view, int index);
 void awra_collection_view_scroll_to(AwraWidget *view, int index);
 double awra_collection_view_vvalue(AwraWidget *view);
+/* GtkListView's anchor: the item that keeps its place when the items are
+ * reordered (the item at the point of the view the scroll position says,
+ * its top or its bottom edge `end` at `align` of the view's height); -1
+ * when empty. Read it before a reorder, set it after. */
+int awra_collection_view_get_anchor(AwraWidget *view, double *align, bool *end);
+void awra_collection_view_set_anchor(AwraWidget *view, int index, double align, bool end);
 void awra_collection_view_set_vvalue(AwraWidget *view, double value);
 /* An item shown as a drop destination (-1: none). */
 void awra_collection_view_set_drop_index(AwraWidget *view, int index);

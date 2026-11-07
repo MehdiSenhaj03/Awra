@@ -1047,6 +1047,8 @@ extern "C" {
     pub fn awra_collection_view_set_cursor(view: *mut AwraWidget, index: c_int);
     pub fn awra_collection_view_scroll_to(view: *mut AwraWidget, index: c_int);
     pub fn awra_collection_view_vvalue(view: *mut AwraWidget) -> f64;
+    pub fn awra_collection_view_get_anchor(view: *mut AwraWidget, align: *mut f64, end: *mut bool) -> c_int;
+    pub fn awra_collection_view_set_anchor(view: *mut AwraWidget, index: c_int, align: f64, end: bool);
     pub fn awra_collection_view_set_vvalue(view: *mut AwraWidget, value: f64);
     pub fn awra_collection_view_set_drop_index(view: *mut AwraWidget, index: c_int);
     pub fn awra_collection_view_grid_columns(view: *mut AwraWidget) -> c_int;
