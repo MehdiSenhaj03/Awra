@@ -15,6 +15,9 @@ use std::os::raw::{c_char, c_int, c_uint, c_ulong, c_void};
 
 pub const AWRA_ORIENTATION_HORIZONTAL: c_int = 0;
 pub const AWRA_ORIENTATION_VERTICAL: c_int = 1;
+pub const AWRA_TEXT_DIR_NONE: c_int = 0;
+pub const AWRA_TEXT_DIR_LTR: c_int = 1;
+pub const AWRA_TEXT_DIR_RTL: c_int = 2;
 pub const AWRA_ALIGN_FILL: c_int = 0;
 pub const AWRA_ALIGN_START: c_int = 1;
 pub const AWRA_ALIGN_END: c_int = 2;
@@ -403,6 +406,11 @@ extern "C" {
     pub fn awra_widget_set_halign(widget: *mut AwraWidget, align: c_int);
     pub fn awra_widget_set_valign(widget: *mut AwraWidget, align: c_int);
     pub fn awra_widget_set_margins(widget: *mut AwraWidget, top: c_int, end: c_int, bottom: c_int, start: c_int);
+    pub fn awra_widget_set_direction(widget: *mut AwraWidget, dir: c_int);
+    pub fn awra_widget_get_direction(widget: *const AwraWidget) -> c_int;
+    pub fn awra_widget_set_default_direction(dir: c_int);
+    pub fn awra_widget_get_default_direction() -> c_int;
+    pub fn awra_get_locale_direction() -> c_int;
     pub fn awra_widget_set_margin_top(widget: *mut AwraWidget, margin: c_int);
     pub fn awra_widget_set_margin_bottom(widget: *mut AwraWidget, margin: c_int);
     pub fn awra_widget_set_margin_start(widget: *mut AwraWidget, margin: c_int);
