@@ -34,6 +34,8 @@ pub use files::{DragPreview, TransitionBin};
 mod dnd;
 mod transfer;
 mod metric;
+mod accel;
+pub use accel::accelerator_get_label;
 pub use metric::MetricRow;
 mod icontheme;
 pub use icontheme::{IconLookupFlags, IconPaintable, IconTheme, IconThemeDisplay, IconThemeHandlerId};

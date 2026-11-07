@@ -1046,6 +1046,29 @@ impl MenuButton {
     }
     pub fn set_direction(&self, _d: PositionType) {}
     pub fn set_always_show_arrow(&self, _a: bool) {}
+    /// `gtk::MenuButton::set_create_popup_func`: called each time before the
+    /// popup shows (it sets the popover as things are now).
+    pub fn set_create_popup_func<F: Fn(&MenuButton) + 'static>(&self, f: Option<F>) {
+        unsafe extern "C" fn tramp<F: Fn(&MenuButton) + 'static>(b: *mut ffi::AwraWidget, data: *mut c_void) {
+            let f = &*(data as *const F);
+            let button = MenuButton(Widget::from_none(b));
+            f(&button);
+        }
+        unsafe extern "C" fn free<F>(data: *mut c_void) {
+            drop(std::boxed::Box::from_raw(data as *mut F));
+        }
+        match f {
+            Some(f) => unsafe {
+                ffi::awra_menu_button_set_create_popup_func(
+                    ptr!(self),
+                    Some(tramp::<F>),
+                    std::boxed::Box::into_raw(std::boxed::Box::new(f)) as *mut c_void,
+                    Some(free::<F>),
+                )
+            },
+            None => unsafe { ffi::awra_menu_button_set_create_popup_func(ptr!(self), None, std::ptr::null_mut(), None) },
+        }
+    }
 }
 impl Default for MenuButton {
     fn default() -> Self {

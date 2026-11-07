@@ -649,6 +649,7 @@ extern "C" {
     pub fn awra_menu_button_set_label(button: *mut AwraWidget, label: *const c_char);
     pub fn awra_menu_button_set_popover(button: *mut AwraWidget, popover: *mut AwraWidget);
     pub fn awra_menu_button_popover(button: *mut AwraWidget) -> *mut AwraWidget;
+    pub fn awra_menu_button_set_create_popup_func(button: *mut AwraWidget, func: Option<unsafe extern "C" fn(*mut AwraWidget, *mut c_void)>, user_data: *mut c_void, destroy: Option<unsafe extern "C" fn(*mut c_void)>);
     pub fn awra_menu_button_set_appearance(button: *mut AwraWidget, appearance: c_int);
     pub fn awra_menu_button_set_menu(button: *mut AwraWidget, items: *const AwraMenuItem, n: c_int);
     pub fn awra_entry_new() -> *mut AwraWidget;

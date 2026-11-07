@@ -310,9 +310,13 @@ static void x11_popups_init(BKWindow *win)
   win->pophost.place = x11_pop_place;
   win->pophost.close = x11_pop_close;
   win->pophost.cursor_size = x11_cursor_size(win);
-  if (win->depth == 32) { /* override-redirect windows with alpha: as its own */
-    bk_popup_host_set(win->ctx, &win->pophost);
+  /* override-redirect windows with the window's visual, as GDK makes them:
+   * with alpha under a compositor; without one opaque, no shadow (GDK
+   * shadows a popup only when the display is composited) */
+  if (win->depth != 32) {
+    win->pophost.flags |= BK_POPHOST_OPAQUE;
   }
+  bk_popup_host_set(win->ctx, &win->pophost);
 }
 
 static void root_origin(BKWindow *win, int *r_x, int *r_y)

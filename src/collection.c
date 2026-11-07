@@ -195,7 +195,9 @@ static void compute_geometry(AwraWidget *w)
     int cols = min_w > 0 ? w->w / min_w : 1;
     cols = BK_CLAMP(cols, 1, x->max_cols > 0 ? x->max_cols : 7);
     x->grid_cols = cols;
-    x->col_w = (double)w->w / cols;
+    /* GtkGridView: (width + spacing) / n_columns - spacing in whole
+     * application pixels (an int division), the rest left at the end */
+    x->col_w = floor((double)w->w / awra_scale() / cols) * awra_scale();
     x->tile_h = awra_px(x->item_h + 2 * (TILE_PAD + TILE_MARGIN));
     const int rows = (x->n + cols - 1) / cols;
     x->content_h = rows * x->tile_h;

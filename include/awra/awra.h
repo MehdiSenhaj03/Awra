@@ -680,6 +680,11 @@ void awra_menu_button_set_icon_name(AwraWidget *button, const char *icon_name);
 void awra_menu_button_set_label(AwraWidget *button, const char *label);
 void awra_menu_button_set_popover(AwraWidget *button, AwraWidget *popover);
 AwraWidget *awra_menu_button_popover(AwraWidget *button);
+/* GtkMenuButton's create-popup function: called each time before the popup
+ * shows, to set it (awra_menu_button_set_popover) as things are now. */
+typedef void (*AwraMenuButtonCreatePopupFunc)(AwraWidget *button, void *user_data);
+void awra_menu_button_set_create_popup_func(AwraWidget *button, AwraMenuButtonCreatePopupFunc func,
+                                            void *user_data, AwraDestroyNotify destroy);
 void awra_menu_button_set_appearance(AwraWidget *button, AwraButtonAppearance appearance);
 /* A menu built from items: label NULL = separator. */
 typedef struct AwraMenuItem {

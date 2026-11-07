@@ -111,6 +111,10 @@ static void pop_draw(AwraWidget *w, AwraDraw *d)
   float radius;
   AwraElevation elevation;
   pop_material(w, &m, &radius, &elevation);
+  /* the outline and rim are drawn once, over the content (pop_draw_over):
+   * drawn here too they doubled (GSK draws them once) */
+  m.border_edges = 0;
+  m.highlight_edges = 0;
   awra_paint_material(d, awra_box_of(w), &m, radius, 15, AWRA_EDGE_ALL, elevation);
 }
 
@@ -293,8 +297,8 @@ static void pop_place(BKNode *n, int win_w, int win_h)
   BKPopupLayout l;
   pop_layout(w, nw, nh, win_w, win_h, &l);
   BKContext *pctx = bk_ctx(w);
-  if (pctx && pctx->popup_host && (pctx->popup_host->flags & BK_POPHOST_NATIVE_FRAME)) {
-    memset(l.shadow, 0, sizeof(l.shadow)); /* the system shadows it */
+  if (pctx && pctx->popup_host && (pctx->popup_host->flags & (BK_POPHOST_NATIVE_FRAME | BK_POPHOST_OPAQUE))) {
+    memset(l.shadow, 0, sizeof(l.shadow)); /* the system shadows it, or nothing can */
   }
   {
     AwraResolvedMaterial m;
@@ -778,7 +782,8 @@ static void row_draw(AwraWidget *w, AwraDraw *d)
   int px, py, mh, gap;
   float rad;
   row_metrics(w, &px, &py, &mh, &gap, &rad);
-  const bool hot = awra_hovered(w) || awra_focus_visible(w);
+  /* an insensitive widget takes no pointer in GTK: no hover */
+  const bool hot = (awra_hovered(w) || awra_focus_visible(w)) && awra_sensitive(w);
   AwraRGBA bg = {0, 0, 0, 0};
   if (x->kind == 0) {
     bg = (hot || x->selected) ? t->selection : bg;
@@ -797,7 +802,11 @@ static void row_draw(AwraWidget *w, AwraDraw *d)
   awra_paint_rbox(d, b, rad, &bg, 0, NULL);
   const bool sens = awra_sensitive(w);
   AwraRGBA fg = x->destructive ? t->danger : t->foreground;
-  if (!sens) {
+  /* Awra 1's menu items keep their colours when their action is off
+   * (.awra-menu-item and its label, icon and accelerator set them at the
+   * application's priority, over the theme's :disabled): only other rows dim */
+  const bool menu_item = x->kind == 0 || x->kind == 3;
+  if (!sens && !menu_item) {
     fg = t->disabled;
   }
   float cx = (float)(w->x + px);
@@ -805,10 +814,10 @@ static void row_draw(AwraWidget *w, AwraDraw *d)
   if (x->icon) {
     const int s = awra_px(16);
     AwraRGBA ic = t->muted;
-    if (!sens) {
+    if (!sens && !menu_item) {
       ic.a *= 0.5f;
     }
-    awra_paint_icon(d, x->icon, awra_mirror_x(w, cx, (float)s), floorf(cy - s * 0.5f + 0.5f), s, &ic);
+    awra_paint_icon(d, x->icon, awra_mirror_x(w, cx, (float)s), floorf(cy - s * 0.5f), s, &ic);
     cx += s + gap;
   }
   /* laid out left to right, mirrored right to left (GtkModelButton: the
@@ -839,7 +848,7 @@ static void row_draw(AwraWidget *w, AwraDraw *d)
     if (x->check == 1) {
       const int s = awra_px(14);
       awra_paint_icon(d, "object-select-symbolic", awra_mirror_x(w, right - s, (float)s),
-                      floorf(cy - s * 0.5f + 0.5f), s, &t->accent_content);
+                      floorf(cy - s * 0.5f), s, &t->accent_content);
     }
     right -= awra_px(14) + gap;
   }
@@ -848,7 +857,7 @@ static void row_draw(AwraWidget *w, AwraDraw *d)
     af.size *= x->kind == 2 ? 0.92f : 0.86f;
     const float aw = awra_text_width(&af, x->accel, -1);
     awra_draw_text(d, &af, awra_mirror_x(w, right - aw, aw),
-                   floorf(cy - awra_font_line_height(&af) * 0.5f + awra_font_ascent(&af) + 0.5f), x->accel,
+                   floorf(cy - ceilf(awra_font_line_height(&af)) * 0.5f) + awra_font_ascent(&af), x->accel,
                    -1, &t->muted);
     right -= aw + gap;
   }
@@ -870,7 +879,8 @@ static void row_draw(AwraWidget *w, AwraDraw *d)
     awra_text_layout_logical(l, avail, &lx0, &lw);
     lx = awra_mirror_x(w, cx, (float)avail) + avail - fminf(ceilf(lw), (float)avail) - lx0;
   }
-  awra_text_layout_draw(l, d, lx, floorf(cy - th * 0.5f + 0.5f), avail, &fg);
+  /* GTK centres the label: floor ((height - logical height) / 2) */
+  awra_text_layout_draw(l, d, lx, floorf(cy - th * 0.5f), avail, &fg);
   awra_text_layout_free(l);
 }
 
@@ -1386,6 +1396,10 @@ typedef struct MenuBtnData {
   AwraWidget *popover;
   AwraWidget *label;
   AwraWidget *chevron;
+  /* gtk_menu_button_set_create_popup_func: makes the popup each time */
+  AwraMenuButtonCreatePopupFunc create;
+  void *create_data;
+  AwraDestroyNotify create_destroy;
 } MenuBtnData;
 
 extern AwraClass awra_button_class;
@@ -1473,11 +1487,18 @@ bool awra_menu_button_open(const AwraWidget *b)
 static void mb_clicked(AwraWidget *b, const AwraArgs *a, void *data)
 {
   MenuBtnData *m = mb(b);
-  if (!m || !m->popover) {
+  if (!m) {
     return;
   }
-  if (awra_popover_visible(m->popover)) {
+  if (m->popover && awra_popover_visible(m->popover)) {
     awra_popover_popdown(m->popover);
+    return;
+  }
+  /* GtkMenuButton: the function sets the popup before each showing */
+  if (m->create) {
+    m->create(b, m->create_data);
+  }
+  if (!m->popover) {
     return;
   }
   popover_set_owner(m->popover, b);
@@ -1487,6 +1508,9 @@ static void mb_clicked(AwraWidget *b, const AwraArgs *a, void *data)
 static void mb_free(void *p)
 {
   MenuBtnData *m = (MenuBtnData *)p;
+  if (m->create_destroy) {
+    m->create_destroy(m->create_data);
+  }
   if (m->popover) {
     if (POPX(m->popover)->anchor_weak) {
       POPX(m->popover)->anchor = NULL; /* the button goes */
@@ -1505,6 +1529,24 @@ AwraWidget *awra_menu_button_new(void)
   awra_button_set_icon_name(b, "open-menu-symbolic");
   awra_widget_isolate_expand(b);
   return b;
+}
+
+void awra_menu_button_set_create_popup_func(AwraWidget *b, AwraMenuButtonCreatePopupFunc func, void *data,
+                                            AwraDestroyNotify destroy)
+{
+  MenuBtnData *m = mb(b);
+  if (!m) {
+    if (destroy) {
+      destroy(data);
+    }
+    return;
+  }
+  if (m->create_destroy) {
+    m->create_destroy(m->create_data);
+  }
+  m->create = func;
+  m->create_data = data;
+  m->create_destroy = destroy;
 }
 
 void awra_menu_button_set_icon_name(AwraWidget *b, const char *icon)

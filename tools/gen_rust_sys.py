@@ -28,6 +28,7 @@ CALLBACKS = {
     "AwraLayoutAllocateFunc": "Option<unsafe extern \"C\" fn(*mut AwraWidget, c_int, c_int, *mut c_void)>",
     "AwraOverlayPositionFunc": "Option<unsafe extern \"C\" fn(*mut AwraWidget, *mut AwraWidget, *mut c_int, *mut c_int, *mut c_int, *mut c_int, *mut c_void) -> bool>",
     "AwraListItemFunc": "Option<unsafe extern \"C\" fn(*mut AwraWidget, *mut AwraWidget, *mut c_void)>",
+    "AwraMenuButtonCreatePopupFunc": "Option<unsafe extern \"C\" fn(*mut AwraWidget, *mut c_void)>",
 }
 
 def rtype(t):

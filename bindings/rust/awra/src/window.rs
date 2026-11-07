@@ -39,37 +39,14 @@ pub(crate) fn add_shortcut<F: Fn(&Widget) + 'static>(window: &Widget, accel: &st
     }
 }
 
-/// "<Ctrl><Shift>z" → "Ctrl+Shift+Z" (menus and palettes show it).
+/// "<Ctrl><Shift>z" → "Shift+Ctrl+Z" as GTK labels it (menus and palettes
+/// show it; `accelerator_get_label`).
 pub fn accel_label(accel: &str) -> String {
-    let mut out = Vec::new();
-    let mut rest = accel;
-    while let Some(start) = rest.strip_prefix('<') {
-        let Some((m, r)) = start.split_once('>') else { break };
-        out.push(match m {
-            "Primary" | "Control" | "Ctrl" => "Ctrl".to_owned(),
-            "Shift" => "Shift".to_owned(),
-            "Alt" => "Alt".to_owned(),
-            "Super" | "Meta" => "Super".to_owned(),
-            o => o.to_owned(),
-        });
-        rest = r;
-    }
-    if rest.starts_with('<') || accel.contains('+') && !accel.contains('<') {
+    // already a label ("Ctrl+K"): as it is
+    if accel.contains('+') && !accel.contains('<') {
         return accel.to_owned();
     }
-    let key = match rest {
-        "comma" => ",".to_owned(),
-        "period" => ".".to_owned(),
-        "plus" => "+".to_owned(),
-        "minus" => "-".to_owned(),
-        "space" => "Space".to_owned(),
-        "Return" => "Enter".to_owned(),
-        "Escape" => "Esc".to_owned(),
-        k if k.chars().count() == 1 => k.to_uppercase(),
-        k => k.to_owned(),
-    };
-    out.push(key);
-    out.join("+")
+    crate::accelerator_get_label(accel)
 }
 
 thread_local! {

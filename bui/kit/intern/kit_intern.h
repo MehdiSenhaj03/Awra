@@ -732,6 +732,9 @@ typedef struct BKPopupState {
 enum {
   BK_POPHOST_NATIVE_FRAME = 1 << 0, /* the system rounds and shadows popups (DWM):
                                      * draw `corner_radius` corners, no shadow */
+  BK_POPHOST_OPAQUE = 1 << 1,       /* surfaces without alpha (X11 without a
+                                     * compositor, as GDK: no shadow margin,
+                                     * what is clear outside the corners black) */
 };
 typedef struct BKPopupHost {
   void *data;
