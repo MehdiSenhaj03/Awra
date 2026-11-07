@@ -113,8 +113,46 @@ void awra_button_colors(AwraLook look, bool hover, bool pressed, bool checked, b
       break;
     case AWRA_LOOK_ACTION_ROW:
     case AWRA_LOOK_MENU_ROW:
+    case AWRA_LOOK_ROW_ACTION:
+    case AWRA_LOOK_COLLECTION_TILE:
       if (hover) {
         r->bg = t->control_cap_hover;
+      }
+      if (pressed || (checked && look == AWRA_LOOK_ROW_ACTION)) {
+        r->bg = t->control_pressed;
+      }
+      break;
+    case AWRA_LOOK_INLINE_ACTION:
+      /* quiet inside content: muted at rest */
+      r->fg = t->muted;
+      if (hover) {
+        r->fg = t->foreground;
+        r->bg = t->control_cap_hover;
+        r->rim = t->rim;
+      }
+      if (pressed || checked) {
+        r->fg = t->foreground;
+        r->bg = t->control_pressed;
+        r->rim = none;
+      }
+      break;
+    case AWRA_LOOK_SIDEBAR_HEADING:
+      /* only its colour answers the pointer */
+      r->fg = hover ? t->foreground : t->muted;
+      return;
+    case AWRA_LOOK_SEARCH_LAUNCHER:
+      r->fg = t->muted;
+      r->bg = t->control_cap_hover;
+      r->ring = awra_with_alpha(t->foreground, 0.06f);
+      if (hover) {
+        r->fg = t->foreground;
+      }
+      break;
+    case AWRA_LOOK_CARD_ACTION:
+      r->bg = awra_with_alpha(t->foreground, 0.045f);
+      r->rim = t->rim;
+      if (hover) {
+        r->bg = awra_with_alpha(t->foreground, 0.075f);
       }
       if (pressed) {
         r->bg = t->control_pressed;
@@ -265,11 +303,80 @@ static bool is_toolbar(const AwraWidget *w)
   return BX(w)->look == AWRA_LOOK_TOOLBAR;
 }
 
+/* the look of a style role (Awra 1's add_style_role on a button), else the
+ * appearance's */
+static int role_look(const AwraWidget *w)
+{
+  enum { N = 6 };
+  static int bits[N] = {-2};
+  static const char *const names[N] = {"inline-action", "row-action", "search-launcher",
+                                       "collection-tile", "card-action", "sidebar-heading"};
+  static const int looks[N] = {AWRA_LOOK_INLINE_ACTION, AWRA_LOOK_ROW_ACTION,
+                               AWRA_LOOK_SEARCH_LAUNCHER, AWRA_LOOK_COLLECTION_TILE,
+                               AWRA_LOOK_CARD_ACTION, AWRA_LOOK_SIDEBAR_HEADING};
+  if (bits[0] == -2) {
+    for (int i = 0; i < N; i++) {
+      bits[i] = awra_class_bit(names[i]);
+    }
+  }
+  for (int i = 0; i < N; i++) {
+    if (bits[i] >= 0 && awra_has_class_bit(w, bits[i])) {
+      return looks[i];
+    }
+  }
+  return -1;
+}
+
+static int eff_look(const AwraWidget *w)
+{
+  const int r = role_look(w);
+  return r >= 0 ? r : BX(w)->look;
+}
+
 /* padding (logical) and radius per variant (spec B §1.1) */
 static void geometry(const AwraWidget *w, float *pad_x, float *pad_y, float *min_w, float *min_h,
                      float *radius)
 {
   const bool tb = is_toolbar(w), io = icon_only(w);
+  switch (role_look(w)) {
+    case AWRA_LOOK_INLINE_ACTION:
+      /* an Awra toolbar button: 2 px; any other: 3 px 6 px */
+      *pad_x = tb ? 2 : 6;
+      *pad_y = tb ? 2 : 3;
+      *min_w = *min_h = 18;
+      *radius = tb ? 6 : 7;
+      return;
+    case AWRA_LOOK_ROW_ACTION:
+      *pad_x = 8;
+      *pad_y = 6;
+      *min_w = *min_h = 0;
+      *radius = 8;
+      return;
+    case AWRA_LOOK_SEARCH_LAUNCHER:
+      *pad_x = 12;
+      *pad_y = 5;
+      *min_w = *min_h = 0;
+      *radius = 999;
+      return;
+    case AWRA_LOOK_COLLECTION_TILE:
+      *pad_x = *pad_y = 4;
+      *min_w = *min_h = 0;
+      *radius = 12;
+      return;
+    case AWRA_LOOK_CARD_ACTION:
+      *pad_x = *pad_y = 16;
+      *min_w = *min_h = 0;
+      *radius = 12;
+      return;
+    case AWRA_LOOK_SIDEBAR_HEADING:
+      *pad_x = 8;
+      *pad_y = 4;
+      *min_w = *min_h = 0;
+      *radius = 6;
+      return;
+    default:
+      break;
+  }
   if (BX(w)->look == AWRA_LOOK_WINDOW_CONTROL) {
     *pad_x = *pad_y = 8;
     *min_w = *min_h = 16;
@@ -408,13 +515,14 @@ static void current_colors(AwraWidget *w, AwraButtonColors *c)
   const bool sens = awra_sensitive(w);
   const bool checked = x->toggle && x->active;
   AwraButtonColors rest, hov, prs;
-  awra_button_colors((AwraLook)x->look, false, false, checked, sens, &rest);
+  const AwraLook look = (AwraLook)eff_look(w);
+  awra_button_colors(look, false, false, checked, sens, &rest);
   if (ht <= 0.0f && pt <= 0.0f) {
     *c = rest;
   }
   else {
-    awra_button_colors((AwraLook)x->look, true, false, checked, sens, &hov);
-    awra_button_colors((AwraLook)x->look, true, true, checked, sens, &prs);
+    awra_button_colors(look, true, false, checked, sens, &hov);
+    awra_button_colors(look, true, true, checked, sens, &prs);
     c->fg = lerp_rgba(lerp_rgba(rest.fg, hov.fg, ht), prs.fg, pt);
     c->bg = lerp_rgba(lerp_rgba(rest.bg, hov.bg, ht), prs.bg, pt);
     c->rim = lerp_rgba(lerp_rgba(rest.rim, hov.rim, ht), prs.rim, pt);
@@ -512,6 +620,18 @@ static int button_press(AwraWidget *w, BKEvent *e)
 static void button_style_changed(AwraWidget *w)
 {
   button_sync(w);
+  /* the margins a role brings (awra.css), once */
+  const int role = role_look(w);
+  if (role >= 0 && !awra_widget_get_data(w, "awra-role-margins")) {
+    awra_widget_set_data(w, "awra-role-margins", (void *)1, NULL);
+    if (role == AWRA_LOOK_SIDEBAR_HEADING) {
+      awra_widget_set_margins(w, 14, 8, 2, 8);
+    }
+    else if (role == AWRA_LOOK_ROW_ACTION) {
+      awra_widget_set_margin_top(w, 1);
+      awra_widget_set_margin_bottom(w, 1);
+    }
+  }
 }
 
 static bool button_set_string(AwraWidget *w, const char *name, const char *v)
@@ -632,7 +752,7 @@ void awra_button_set_appearance(AwraWidget *w, AwraButtonAppearance a)
   ButtonExt *x = BX(w);
   x->appearance = a;
   x->look = look_of(a);
-  if ((int)a == 5) {
+  if (a == AWRA_BUTTON_SUCCESS) {
     x->look = AWRA_LOOK_SUCCESS;
   }
   button_sync(w);

@@ -33,6 +33,16 @@ typedef struct LabelExt {
   int weight;
   float scale;
   unsigned style_gen;
+  /* links, selection */
+  bool selectable;
+  int hover_link, pressed_link;
+  int sel_anchor, sel_cursor; /* byte offsets */
+  bool selecting;
+  /* inline pictures (U+FFFC), drawn over their squares */
+  AwraTexture **objects;
+  int n_objects;
+  int inline_size; /* logical px, 0: the letters' height */
+  bool rich;       /* every U+FFFC is a picture's square */
 } LabelExt;
 
 #define LX(w) AWRA_EXT(w, LabelExt)
@@ -62,6 +72,12 @@ static void label_sync(AwraWidget *w)
   LabelExt *x = LX(w);
   AwraFont f = label_font(w);
   awra_text_layout_set_font(x->layout, &f);
+  if (x->objects || x->inline_size > 0 || x->rich) {
+    /* RichLabel: as tall as the text's own letters, at least 12 px */
+    const float size = x->inline_size > 0 ? awra_pxf(x->inline_size) :
+                                            fmaxf(awra_font_line_height(&f), awra_pxf(12));
+    awra_text_layout_set_object_size(x->layout, floorf(size));
+  }
   awra_text_layout_set_wrap(x->layout, x->wrap, x->ellipsize, x->lines);
   awra_text_layout_set_line_factor(x->layout, awra_typography_line_factor(awra_widget_typography(w)));
   awra_text_layout_set_justify(x->layout, x->justify);
@@ -78,12 +94,25 @@ static void label_init(AwraWidget *w)
   x->lines = -1;
   x->width_chars = -1;
   x->max_width_chars = -1;
+  x->hover_link = -1;
+  x->pressed_link = -1;
+}
+
+static void label_clear_objects(LabelExt *x)
+{
+  for (int i = 0; i < x->n_objects; i++) {
+    awra_texture_unref(x->objects[i]);
+  }
+  free(x->objects);
+  x->objects = NULL;
+  x->n_objects = 0;
 }
 
 static void label_finalize(AwraWidget *w)
 {
   awra_text_layout_free(LX(w)->layout);
   free(LX(w)->source);
+  label_clear_objects(LX(w));
 }
 
 /* GtkLabel's get_char_pixels: the larger of Pango's approximate char width
@@ -208,20 +237,222 @@ static AwraRGBA label_color(AwraWidget *w)
   return c;
 }
 
+/* where the layout sits in the label (raster px) and the width it's laid out at */
+static void label_origin(AwraWidget *w, float *r_x, float *r_y, int *r_width)
+{
+  LabelExt *x = LX(w);
+  int tw, th;
+  const bool fit = x->wrap != AWRA_WRAP_NONE || x->ellipsize != AWRA_ELLIPSIZE_NONE;
+  awra_text_layout_size(x->layout, fit ? w->w : -1, &tw, &th);
+  const int bw = fit ? BK_MIN(tw, w->w) : tw;
+  *r_x = (float)w->x + floorf((w->w - bw) * x->xalign + 0.5f);
+  *r_y = (float)w->y + floorf((w->h - th) * x->yalign + 0.5f);
+  *r_width = fit ? w->w : -1;
+}
+
+typedef struct ObjectDraw {
+  AwraWidget *w;
+  AwraDraw *d;
+  float ox, oy, size;
+} ObjectDraw;
+
+static void draw_object(int index, float x, float y, void *data)
+{
+  ObjectDraw *od = (ObjectDraw *)data;
+  LabelExt *lx = LX(od->w);
+  if (index < lx->n_objects && lx->objects[index]) {
+    awra_paint_texture(od->d, lx->objects[index], (AwraBox){od->ox + x, od->oy + y, od->size, od->size},
+                       0.0f, 1);
+  }
+}
+
 static void label_draw(AwraWidget *w, AwraDraw *d)
 {
   LabelExt *x = LX(w);
   if (x->style_gen != awra_style_generation()) {
     label_sync(w);
   }
-  int tw, th;
-  const bool fit = x->wrap != AWRA_WRAP_NONE || x->ellipsize != AWRA_ELLIPSIZE_NONE;
-  awra_text_layout_size(x->layout, fit ? w->w : -1, &tw, &th);
-  const int bw = fit ? BK_MIN(tw, w->w) : tw;
-  const float lx = (float)w->x + floorf((w->w - bw) * x->xalign + 0.5f);
-  const float ly = (float)w->y + floorf((w->h - th) * x->yalign + 0.5f);
+  float lx, ly;
+  int width;
+  label_origin(w, &lx, &ly, &width);
   const AwraRGBA c = label_color(w);
-  awra_text_layout_draw(x->layout, d, lx, ly, fit ? w->w : -1, &c);
+  if (x->selectable && x->sel_anchor != x->sel_cursor) {
+    AwraRGBA sel = awra_tokens()->selection;
+    awra_text_layout_draw_selection(x->layout, d, lx, ly, width, x->sel_anchor, x->sel_cursor, &sel);
+  }
+  if (awra_text_layout_n_links(x->layout)) {
+    /* awra.css: links take the readable accent, the foreground on hover */
+    const AwraTokens *t = awra_tokens();
+    awra_text_layout_set_link_style(x->layout, awra_aux(w)->hovered ? x->hover_link : -1,
+                                    &t->accent_content, &t->foreground);
+  }
+  awra_text_layout_draw(x->layout, d, lx, ly, width, &c);
+  if (x->n_objects) {
+    AwraFont f = label_font(w);
+    ObjectDraw od = {w, d, lx, ly,
+                     floorf(x->inline_size > 0 ? awra_pxf(x->inline_size) :
+                                                 fmaxf(awra_font_line_height(&f), awra_pxf(12)))};
+    awra_text_layout_foreach_object(x->layout, width, draw_object, &od);
+  }
+}
+
+static int label_index_at(AwraWidget *w, int px, int py)
+{
+  LabelExt *x = LX(w);
+  float lx, ly;
+  int width;
+  label_origin(w, &lx, &ly, &width);
+  return awra_text_layout_pos_to_index(x->layout, width, px - lx, py - ly);
+}
+
+static int label_link_at(AwraWidget *w, int px, int py)
+{
+  LabelExt *x = LX(w);
+  if (!awra_text_layout_n_links(x->layout)) {
+    return -1;
+  }
+  float lx, ly;
+  int width;
+  label_origin(w, &lx, &ly, &width);
+  return awra_text_layout_link_at(x->layout, width, px - lx, py - ly);
+}
+
+static int label_motion(AwraWidget *w, BKEvent *e)
+{
+  LabelExt *x = LX(w);
+  const int link = label_link_at(w, e->x, e->y);
+  if (link != x->hover_link) {
+    x->hover_link = link;
+    awra_invalidate(w);
+  }
+  return 0;
+}
+
+static void label_hover(AwraWidget *w, bool on)
+{
+  if (!on && LX(w)->hover_link >= 0) {
+    LX(w)->hover_link = -1;
+    awra_invalidate(w);
+  }
+}
+
+static int label_cursor(AwraWidget *w, int px, int py)
+{
+  if (label_link_at(w, px, py) >= 0) {
+    return BK_CURSOR_HAND;
+  }
+  return LX(w)->selectable ? BK_CURSOR_TEXT : -1;
+}
+
+static int label_press(AwraWidget *w, BKEvent *e)
+{
+  LabelExt *x = LX(w);
+  x->pressed_link = label_link_at(w, e->x, e->y);
+  if (x->selectable && x->pressed_link < 0) {
+    const int i = label_index_at(w, e->x, e->y);
+    BKContext *ctx = bk_ctx(w);
+    const bool dbl = ctx && ctx->last_click_node == NULL;
+    if (dbl) {
+      awra_text_layout_word_at(x->layout, i, &x->sel_anchor, &x->sel_cursor);
+    }
+    else if (e->mods & BK_SHIFT) {
+      x->sel_cursor = i;
+    }
+    else {
+      x->sel_anchor = x->sel_cursor = i;
+    }
+    x->selecting = true;
+    AwraWidget *win = awra_window_of(w);
+    if (win) {
+      awra_set_focus(win, w, false);
+    }
+    awra_invalidate(w);
+  }
+  return 1;
+}
+
+static int label_drag(AwraWidget *w, BKEvent *e)
+{
+  LabelExt *x = LX(w);
+  if (x->selecting) {
+    const int i = label_index_at(w, e->x, e->y);
+    if (i != x->sel_cursor) {
+      x->sel_cursor = i;
+      awra_invalidate(w);
+    }
+  }
+  return 1;
+}
+
+static int label_release(AwraWidget *w, BKEvent *e)
+{
+  LabelExt *x = LX(w);
+  x->selecting = false;
+  const int link = x->pressed_link;
+  x->pressed_link = -1;
+  if (link >= 0 && e->inside && !e->dragged && label_link_at(w, e->x, e->y) == link) {
+    const char *href = awra_text_layout_link(x->layout, link);
+    awra_widget_ref(w);
+    char *uri = awra_strdup(href);
+    if (!awra_emit_text(w, AWRA_SIGNAL_ACTIVATE_LINK, uri) && uri) {
+      awra_show_uri(uri);
+    }
+    free(uri);
+    awra_widget_unref(w);
+    return 1;
+  }
+  /* a click without a drag on plain text: no handler wanted it */
+  if (!x->selectable && awra_has_handlers(w, AWRA_SIGNAL_CLICKED) && e->inside) {
+    awra_emit_simple(w, AWRA_SIGNAL_CLICKED);
+  }
+  return 1;
+}
+
+static int label_key(AwraWidget *w, BKEvent *e)
+{
+  LabelExt *x = LX(w);
+  if (!x->selectable || !(e->mods & BK_CTRL)) {
+    return 0;
+  }
+  if (bk_keysym_is(e->keysym, "c") || bk_keysym_is(e->keysym, "C")) {
+    const int a = BK_MIN(x->sel_anchor, x->sel_cursor), b = BK_MAX(x->sel_anchor, x->sel_cursor);
+    if (a == b) {
+      return 0;
+    }
+    if (awra_emit_simple(w, AWRA_SIGNAL_COPY_CLIPBOARD)) {
+      return 1;
+    }
+    const char *t = awra_text_layout_text(x->layout);
+    char *part = (char *)malloc((size_t)(b - a + 1));
+    if (part) {
+      memcpy(part, t + a, (size_t)(b - a));
+      part[b - a] = 0;
+      awra_clipboard_set_text(w, part);
+      free(part);
+    }
+    return 1;
+  }
+  if (bk_keysym_is(e->keysym, "a")) {
+    x->sel_anchor = 0;
+    x->sel_cursor = (int)strlen(awra_text_layout_text(x->layout));
+    awra_invalidate(w);
+    return 1;
+  }
+  return 0;
+}
+
+const char *awra_label_current_uri(AwraWidget *w)
+{
+  LabelExt *x = LX(w);
+  return x->hover_link >= 0 ? awra_text_layout_link(x->layout, x->hover_link) : NULL;
+}
+
+static void label_events(AwraWidget *w)
+{
+  LabelExt *x = LX(w);
+  if (x->selectable || awra_text_layout_n_links(x->layout) > 0) {
+    w->flags |= NF_EVENTS;
+  }
 }
 
 static void label_style_changed(AwraWidget *w)
@@ -250,7 +481,13 @@ static const char *label_get_string(AwraWidget *w, const char *name)
   return NULL;
 }
 
+static int label_request_mode(AwraWidget *w)
+{
+  return LX(w)->wrap != AWRA_WRAP_NONE;
+}
+
 static AwraClass label_class = {
+    .request_mode = label_request_mode,
     .bk = AWRA_BK("AwraLabel", 0),
     .type = "AwraLabel",
     .flags = AWRA_CLASS_EXPAND_ISOLATED,
@@ -262,6 +499,13 @@ static AwraClass label_class = {
     .style_changed = label_style_changed,
     .set_string = label_set_string,
     .get_string = label_get_string,
+    .press = label_press,
+    .drag = label_drag,
+    .release = label_release,
+    .motion = label_motion,
+    .key = label_key,
+    .cursor = label_cursor,
+    .hover = label_hover,
 };
 
 AwraWidget *awra_label_new(const char *text)
@@ -293,6 +537,7 @@ void awra_label_set_text(AwraWidget *w, const char *text)
   int ow = awra_text_layout_natural_width(x->layout);
   awra_set_str(&x->source, text ? text : "");
   x->markup = false;
+  x->sel_anchor = x->sel_cursor = 0;
   awra_text_layout_set_text(x->layout, x->source, false);
   /* the same width and one line: no relayout, just repaint (clocks, counters) */
   const bool same = x->wrap == AWRA_WRAP_NONE && !strchr(x->source, '\n') &&
@@ -313,7 +558,10 @@ void awra_label_set_markup(AwraWidget *w, const char *markup)
   LabelExt *x = LX(w);
   awra_set_str(&x->source, markup ? markup : "");
   x->markup = true;
+  x->sel_anchor = x->sel_cursor = 0;
+  x->hover_link = -1;
   awra_text_layout_set_text(x->layout, x->source, true);
+  label_events(w);
   label_changed(w, true);
 }
 
@@ -371,8 +619,78 @@ void awra_label_set_width_chars(AwraWidget *w, int chars)
 
 void awra_label_set_selectable(AwraWidget *w, bool selectable)
 {
-  (void)w;
-  (void)selectable;
+  LabelExt *x = LX(w);
+  x->selectable = selectable;
+  if (!selectable) {
+    x->sel_anchor = x->sel_cursor = 0;
+  }
+  label_events(w);
+  awra_invalidate(w);
+}
+
+bool awra_label_selection_bounds(AwraWidget *w, int *r_start, int *r_end)
+{
+  LabelExt *x = LX(w);
+  const int a = BK_MIN(x->sel_anchor, x->sel_cursor), b = BK_MAX(x->sel_anchor, x->sel_cursor);
+  if (r_start) {
+    *r_start = a;
+  }
+  if (r_end) {
+    *r_end = b;
+  }
+  return a != b;
+}
+
+void awra_label_select_region(AwraWidget *w, int start, int end)
+{
+  LabelExt *x = LX(w);
+  const int len = (int)strlen(awra_text_layout_text(x->layout));
+  x->sel_anchor = BK_CLAMP(start, 0, len);
+  x->sel_cursor = end < 0 ? len : BK_CLAMP(end, 0, len);
+  awra_invalidate(w);
+}
+
+void awra_label_set_inline_size(AwraWidget *w, int size)
+{
+  LX(w)->inline_size = size;
+  label_sync(w);
+  label_changed(w, true);
+}
+
+void awra_label_clear_inline_textures(AwraWidget *w)
+{
+  LabelExt *x = LX(w);
+  if (!x->n_objects) {
+    return;
+  }
+  label_clear_objects(x);
+  awra_invalidate(w);
+}
+
+void awra_label_set_inline_texture(AwraWidget *w, int index, AwraTexture *texture)
+{
+  LabelExt *x = LX(w);
+  if (index < 0) {
+    index = x->n_objects;
+  }
+  if (index >= x->n_objects) {
+    const bool first = x->objects == NULL;
+    x->objects = (AwraTexture **)realloc(x->objects, sizeof(AwraTexture *) * (size_t)(index + 1));
+    for (int i = x->n_objects; i <= index; i++) {
+      x->objects[i] = NULL;
+    }
+    x->n_objects = index + 1;
+    if (first) {
+      label_sync(w);
+      label_changed(w, true);
+    }
+  }
+  if (x->objects[index] != texture) {
+    awra_texture_ref(texture);
+    awra_texture_unref(x->objects[index]);
+    x->objects[index] = texture;
+  }
+  awra_invalidate(w);
 }
 
 void awra_label_set_color(AwraWidget *w, const AwraRGBA *c)
@@ -422,6 +740,8 @@ typedef struct ImageExt {
   int fit;
   bool has_color;
   AwraRGBA color;
+  AwraTexture *tex; /* shared pixels (textures) */
+  bool no_shrink;
 } ImageExt;
 
 #define IX(w) AWRA_EXT(w, ImageExt)
@@ -433,6 +753,7 @@ static void image_finalize(AwraWidget *w)
   free(x->path);
   free(x->argb);
   free(x->bytes);
+  awra_texture_unref(x->tex);
 }
 
 static int icon_size(const AwraWidget *w)
@@ -452,9 +773,30 @@ static void image_measure(AwraWidget *w, int o, int for_size, int *r_min, int *r
     *r_min = *r_nat = awra_px(x->pixel_size);
     return;
   }
-  const int v = o == AWRA_ORIENTATION_HORIZONTAL ? x->iw : x->ih;
-  *r_min = 0;
-  *r_nat = awra_px(v);
+  /* gtk_picture_measure: the intrinsic size, or the other dimension's
+   * share of the aspect ratio for a given size */
+  if (!x->iw || !x->ih || for_size == 0) {
+    *r_min = *r_nat = 0;
+    return;
+  }
+  const double iw = awra_px(x->iw), ih = awra_px(x->ih);
+  const bool horizontal = o == AWRA_ORIENTATION_HORIZONTAL;
+  double fs = for_size;
+  if (fs > 0 && x->fit == 3) {
+    const double opposite = horizontal ? ih : iw;
+    if (opposite < fs) {
+      fs = opposite;
+    }
+  }
+  double nat;
+  if (fs > 0) {
+    nat = horizontal ? fs * iw / ih : fs * ih / iw;
+  }
+  else {
+    nat = horizontal ? iw : ih;
+  }
+  *r_min = x->no_shrink ? (int)ceil(horizontal ? iw : ih) : 0;
+  *r_nat = BK_MAX(*r_min, (int)ceil(nat));
 }
 
 static void decode_at(AwraWidget *w, int dw, int dh)
@@ -505,6 +847,10 @@ static void image_draw(AwraWidget *w, AwraDraw *d)
         BUI_raster_image(d->r, ix, iy, (float)pm->w, (float)pm->h, pm, NULL, d->opacity, 0);
       }
     }
+    return;
+  }
+  if (x->tex) {
+    awra_paint_texture(d, x->tex, awra_box_of(w), awra_pxf(x->radius), x->fit);
     return;
   }
   if (!x->iw || !x->ih || w->w <= 0 || w->h <= 0) {
@@ -594,6 +940,8 @@ static void picture_reset(AwraWidget *w)
   free(x->argb);
   x->argb = NULL;
   x->dw = x->dh = 0;
+  awra_texture_unref(x->tex);
+  x->tex = NULL;
 }
 
 void awra_image_set_file(AwraWidget *w, const char *path)
@@ -679,4 +1027,90 @@ void awra_image_set_color(AwraWidget *w, const AwraRGBA *c)
     x->color = *c;
   }
   awra_invalidate(w);
+}
+
+void awra_image_set_texture(AwraWidget *w, AwraTexture *texture)
+{
+  ImageExt *x = IX(w);
+  if (x->tex == texture && !x->icon) {
+    return;
+  }
+  const int ow = x->iw, oh = x->ih;
+  awra_texture_ref(texture);
+  picture_reset(w);
+  free(x->path);
+  x->path = NULL;
+  free(x->bytes);
+  x->bytes = NULL;
+  x->tex = texture;
+  x->iw = awra_texture_width(texture);
+  x->ih = awra_texture_height(texture);
+  if (x->iw != ow || x->ih != oh) {
+    awra_widget_queue_resize(w);
+  }
+  awra_invalidate(w);
+}
+
+AwraTexture *awra_image_texture(AwraWidget *w)
+{
+  return IX(w)->tex;
+}
+
+void awra_image_set_can_shrink(AwraWidget *w, bool can_shrink)
+{
+  IX(w)->no_shrink = !can_shrink;
+  awra_widget_queue_resize(w);
+}
+
+/* ======================================================================= */
+/* Rich label (Awra 1's AwraRichLabel): a label whose U+FFFC characters are
+ * squares as tall as its letters, with a picture drawn over each */
+
+static void rich_measure(AwraWidget *w, int o, int for_size, int *r_min, int *r_nat)
+{
+  awra_measure(w->kids[0], o, for_size, r_min, r_nat);
+}
+
+static void rich_allocate(AwraWidget *w)
+{
+  awra_allocate(w->kids[0], w->x, w->y, w->w, w->h);
+}
+
+static AwraClass rich_class = {
+    .bk = AWRA_BK("AwraRichLabel", 0),
+    .type = "AwraRichLabel",
+    .flags = AWRA_CLASS_CONTAINER,
+    .measure = rich_measure,
+    .allocate = rich_allocate,
+};
+
+AwraWidget *awra_rich_label_new(void)
+{
+  AwraWidget *w = awra_widget_new(&rich_class);
+  AwraWidget *l = awra_label_new("");
+  LX(l)->rich = true;
+  label_sync(l);
+  awra_child_insert(w, l, -1);
+  awra_widget_unref(l);
+  return w;
+}
+
+AwraWidget *awra_rich_label_label(AwraWidget *w)
+{
+  return w->nkids ? w->kids[0] : NULL;
+}
+
+void awra_rich_label_clear_textures(AwraWidget *w)
+{
+  awra_label_clear_inline_textures(w->kids[0]);
+}
+
+void awra_rich_label_set_texture(AwraWidget *w, int index, AwraTexture *texture)
+{
+  awra_label_set_inline_texture(w->kids[0], index, texture);
+}
+
+void awra_rich_label_set_inline_size(AwraWidget *w, int size)
+{
+  awra_label_set_inline_size(w->kids[0], size);
 }

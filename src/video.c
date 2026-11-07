@@ -1524,6 +1524,11 @@ int awra_overlay_bar_inset_px(AwraWidget *w)
   return awra_spacing(OBX(w)->inset);
 }
 
+AwraSpacing awra_overlay_bar_inset(AwraWidget *w)
+{
+  return OBX(w)->inset;
+}
+
 /* ======================================================================= */
 /* Edge panel (Awra 1's AwraEdgePanel): content at full size, a floating
  * panel sliding in from the start or end edge (margin MD). */

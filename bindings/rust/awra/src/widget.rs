@@ -9,7 +9,7 @@ use std::rc::Rc;
 use crate::enums::*;
 use crate::ffi;
 use crate::glib::Propagation;
-use crate::object::{cstring, from_cstr, IntoOptStr, IsWidget, OptC, StaticType, Widget};
+use crate::object::{cstring, from_cstr, from_cstr_opt, IntoOptStr, IsWidget, OptC, StaticType, Widget};
 use crate::signal::{sig, SignalHandlerId};
 
 unsafe extern "C" fn any_free(data: *mut c_void) {
@@ -85,7 +85,8 @@ impl Widget {
         unsafe { ffi::awra_widget_destroy(self.as_ptr()) }
     }
     /// The deepest widget at (x, y) of this widget's window.
-    pub fn pick(&self, x: f64, y: f64) -> Option<Widget> {
+    /// The deepest widget at a point of this one (gtk_widget_pick).
+    pub fn pick(&self, x: f64, y: f64, _flags: crate::PickFlags) -> Option<Widget> {
         let root = self.root_widget().unwrap_or_else(|| self.clone());
         let (ox, oy) = self.window_position().unwrap_or((0.0, 0.0));
         unsafe { Widget::from_none_opt(ffi::awra_widget_pick(root.as_ptr(), x + ox, y + oy)) }
@@ -174,6 +175,8 @@ impl Widget {
         self.size_request().1
     }
     pub fn set_tooltip_text(&self, text: impl IntoOptStr) {
+        let text = text.into_opt_string();
+        self.set_rust_data("p:tooltip", text.clone());
         let t = OptC::new(text);
         unsafe { ffi::awra_widget_set_tooltip(self.as_ptr(), t.ptr()) }
     }
@@ -353,6 +356,13 @@ impl Display {
 pub struct Clipboard(Widget);
 
 impl Clipboard {
+    /// The clipboard of any of the application's windows.
+    pub fn of_any_window() -> Clipboard {
+        let w = crate::Window::toplevels().into_iter().next().map(|w| w.upcast()).unwrap_or_else(|| {
+            crate::Box::new(crate::Orientation::Horizontal, 0).upcast()
+        });
+        Clipboard(w)
+    }
     pub fn text(&self) -> Option<String> {
         self.0.clipboard_text()
     }
@@ -397,6 +407,7 @@ struct ClickInner {
     pressed: RefCell<Vec<ClickFn>>,
     released: RefCell<Vec<ClickFn>>,
     current: std::cell::Cell<u32>,
+    mods: std::cell::Cell<crate::gdk::ModifierType>,
     widget: RefCell<Option<crate::WeakRef<Widget>>>,
 }
 
@@ -418,8 +429,13 @@ impl GestureClick {
             pressed: RefCell::new(Vec::new()),
             released: RefCell::new(Vec::new()),
             current: std::cell::Cell::new(0),
+            mods: std::cell::Cell::new(crate::gdk::ModifierType::empty()),
             widget: RefCell::new(None),
         }))
+    }
+    /// The modifiers held at the press or release being handled.
+    pub fn current_event_state(&self) -> crate::gdk::ModifierType {
+        self.0.mods.get()
     }
     pub fn set_button(&self, button: u32) {
         self.0.button.set(button)
@@ -456,6 +472,7 @@ impl Controller for GestureClick {
             widget.connect_raw(sig::PRESS_CAPTURE, move |_, a| {
                 if me.wants(a.button()) {
                     me.0.current.set(a.button());
+                    me.0.mods.set(a.mods());
                     let hs: Vec<ClickFn> = me.0.pressed.borrow().clone();
                     for h in hs {
                         h(&me, a.n_press(), a.x(), a.y());
@@ -471,6 +488,7 @@ impl Controller for GestureClick {
             widget.connect_raw(sig::PRESSED, move |_, a| {
                 if me.wants(a.button()) {
                     me.0.current.set(a.button());
+                    me.0.mods.set(a.mods());
                     let hs: Vec<ClickFn> = me.0.pressed.borrow().clone();
                     for h in hs {
                         h(&me, a.n_press(), a.x(), a.y());
@@ -485,6 +503,7 @@ impl Controller for GestureClick {
         widget.connect_raw(sig::RELEASED, move |_, a| {
             if me.wants(a.button()) {
                 me.0.current.set(a.button());
+                    me.0.mods.set(a.mods());
                 let hs: Vec<ClickFn> = me.0.released.borrow().clone();
                 for h in hs {
                     h(&me, a.n_press(), a.x(), a.y());
@@ -497,16 +516,26 @@ impl Controller for GestureClick {
     }
 }
 
-type KeyFn = Rc<dyn Fn(&EventControllerKey, crate::gdk::Key, KeyCode, crate::gdk::ModifierType) -> Propagation>;
+type KeyFn = Rc<dyn Fn(&EventControllerKey, crate::gdk::Key, u32, crate::gdk::ModifierType) -> Propagation>;
 
-/// The physical key of a key event ("KeyA"; W3C code names).
-#[derive(Debug, Clone, PartialEq, Eq, Default)]
-pub struct KeyCode(pub Option<String>);
-
-impl KeyCode {
-    pub fn code(&self) -> Option<&str> {
-        self.0.as_deref()
+/// GDK's hardware keycode for a physical key ("KeyA"; W3C code names):
+/// the evdev number + 8 (the X11 numbering GDK uses on Linux); 0 unknown.
+pub fn hardware_keycode(code: &str) -> u32 {
+    let c = cstring(code);
+    let evdev = unsafe { ffi::awra_key_code_evdev(c.as_ptr()) };
+    if evdev < 0 {
+        0
+    } else {
+        evdev as u32 + 8
     }
+}
+
+/// The physical key (W3C code name) of a GDK hardware keycode.
+pub fn keycode_name(keycode: u32) -> Option<String> {
+    if keycode < 8 {
+        return None;
+    }
+    unsafe { from_cstr_opt(ffi::awra_key_code_name(keycode as i32 - 8)) }
 }
 
 struct KeyInner {
@@ -542,20 +571,22 @@ impl EventControllerKey {
         self.0.widget.borrow().as_ref().and_then(|w| w.upgrade())
     }
     pub fn connect_key_pressed<
-        F: Fn(&EventControllerKey, crate::gdk::Key, KeyCode, crate::gdk::ModifierType) -> Propagation + 'static,
+        F: Fn(&EventControllerKey, crate::gdk::Key, u32, crate::gdk::ModifierType) -> Propagation + 'static,
     >(
         &self,
         f: F,
     ) {
         self.0.pressed.borrow_mut().push(Rc::new(f));
     }
-    pub fn connect_key_released<
-        F: Fn(&EventControllerKey, crate::gdk::Key, KeyCode, crate::gdk::ModifierType) -> Propagation + 'static,
-    >(
+    /// (GTK's key-released returns nothing: releases propagate.)
+    pub fn connect_key_released<F: Fn(&EventControllerKey, crate::gdk::Key, u32, crate::gdk::ModifierType) + 'static>(
         &self,
         f: F,
     ) {
-        self.0.released.borrow_mut().push(Rc::new(f));
+        self.0.released.borrow_mut().push(Rc::new(move |c, k, code, m| {
+            f(c, k, code, m);
+            Propagation::Proceed
+        }));
     }
 }
 
@@ -573,11 +604,11 @@ impl Controller for EventControllerKey {
             }
             widget.connect_raw(signal, move |_, a| {
                 let key = crate::gdk::Key::from_name(&a.keysym().unwrap_or_default());
-                let code = KeyCode(a.code());
+                let code = a.code().map_or(0, |c| hardware_keycode(&c));
                 let hs: Vec<KeyFn> =
                     if list == 0 { me.0.pressed.borrow().clone() } else { me.0.released.borrow().clone() };
                 for h in hs {
-                    if h(&me, key, code.clone(), a.mods()) == Propagation::Stop {
+                    if h(&me, key, code, a.mods()) == Propagation::Stop {
                         a.stop();
                         break;
                     }

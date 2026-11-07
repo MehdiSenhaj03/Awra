@@ -852,6 +852,7 @@ static void cache_clear_up(AwraWidget *w)
     AwraAux *a = awra_aux(n);
     a->cache_valid = 0;
     a->expand_valid = 0;
+    a->mode_valid = 0;
     a->needs_allocate = 1;
   }
 }
@@ -909,9 +910,9 @@ void awra_map_tree(AwraWidget *w, bool mapped)
   set_mapped_tree(w, mapped);
 }
 
-void awra_widget_set_visible(AwraWidget *w, bool visible)
+static void set_effective_visible(AwraWidget *w, bool visible)
 {
-  if (!w || ((w->flags & NF_VISIBLE) != 0) == visible) {
+  if (((w->flags & NF_VISIBLE) != 0) == visible) {
     return;
   }
   if (!visible) {
@@ -934,9 +935,47 @@ void awra_widget_set_visible(AwraWidget *w, bool visible)
   awra_widget_queue_resize(w->parent ? w->parent : w);
 }
 
+void awra_widget_set_visible(AwraWidget *w, bool visible)
+{
+  if (!w) {
+    return;
+  }
+  if (!awra_is_widget(w)) {
+    set_effective_visible(w, visible);
+    return;
+  }
+  AwraAux *a = awra_aux(w);
+  a->user_hidden = !visible;
+  set_effective_visible(w, visible && !a->child_hidden);
+}
+
 bool awra_widget_visible(const AwraWidget *w)
 {
-  return w && (w->flags & NF_VISIBLE);
+  if (!w) {
+    return false;
+  }
+  if (awra_is_widget(w)) {
+    return !awra_aux(w)->user_hidden;
+  }
+  return (w->flags & NF_VISIBLE) != 0;
+}
+
+void awra_widget_set_child_visible(AwraWidget *w, bool visible)
+{
+  if (!w || !awra_is_widget(w)) {
+    return;
+  }
+  AwraAux *a = awra_aux(w);
+  if ((bool)a->child_hidden == !visible) {
+    return;
+  }
+  a->child_hidden = !visible;
+  set_effective_visible(w, visible && !a->user_hidden);
+}
+
+bool awra_widget_child_visible(const AwraWidget *w)
+{
+  return w && awra_is_widget(w) && !awra_aux(w)->child_hidden;
 }
 
 bool awra_widget_mapped(const AwraWidget *w)
@@ -1031,6 +1070,25 @@ void awra_widget_set_margins(AwraWidget *w, int top, int end, int bottom, int st
   a->margin[2] = (short)bottom;
   a->margin[3] = (short)start;
   awra_widget_queue_resize(w);
+}
+
+int awra_widget_margin(AwraWidget *w, int side)
+{
+  return awra_is_widget(w) && side >= 0 && side < 4 ? awra_aux(w)->margin[side] : 0;
+}
+
+bool awra_widget_focus_within(AwraWidget *w)
+{
+  AwraWidget *win = awra_window_of(w);
+  for (AwraWidget *f = win ? awra_window_focus(win) : NULL; f; f = (AwraWidget *)f->parent) {
+    if (f == w) {
+      return true;
+    }
+    if (!awra_is_widget(f->parent)) {
+      break;
+    }
+  }
+  return false;
 }
 
 void awra_widget_set_margin_top(AwraWidget *w, int m)
@@ -1404,6 +1462,27 @@ void awra_widget_isolate_expand(AwraWidget *w)
   }
 }
 
+bool awra_height_for_width(AwraWidget *w)
+{
+  if (!awra_is_widget(w) || !(w->flags & NF_VISIBLE)) {
+    return false;
+  }
+  AwraAux *a = awra_aux(w);
+  if (!a->mode_valid) {
+    const AwraClass *c = AWRA_CLASS_OF(w);
+    int mode = c->request_mode ? c->request_mode(w) : -1;
+    if (mode < 0) {
+      mode = 0;
+      for (int i = 0; i < w->nkids && !mode; i++) {
+        mode = awra_child_visible(w->kids[i]) && awra_height_for_width(w->kids[i]);
+      }
+    }
+    a->mode_hfw = mode > 0;
+    a->mode_valid = 1;
+  }
+  return a->mode_hfw;
+}
+
 bool awra_compute_expand(AwraWidget *w, int orientation)
 {
   if (!awra_is_widget(w)) {
@@ -1736,11 +1815,21 @@ void awra_bk_draw_tree(BKNode *n)
   const float base = g_draw.opacity > 0.0f ? g_draw.opacity : 1.0f;
   g_draw.opacity = base * a->opacity;
   if (g_draw.opacity > 0.003f) {
+    /* rows that answer the pointer with a faint tint (awra.css's
+     * .awra-role-conversation-entry:hover) */
+    static int entry_bit = -2;
+    if (entry_bit == -2) {
+      entry_bit = awra_class_bit("conversation-entry");
+    }
+    if (a->hovered && awra_has_class_bit(n, entry_bit)) {
+      const AwraRGBA tint = awra_with_alpha(awra_tokens()->foreground, 0.035f);
+      awra_paint_rect(&g_draw, awra_box_of(n), &tint);
+    }
     if (c->draw) {
       c->draw(n, &g_draw);
     }
     if (n->nkids) {
-      const bool clip = (c->flags & AWRA_CLASS_CLIP) != 0;
+      const bool clip = (c->flags & AWRA_CLASS_CLIP) != 0 || a->overflow_hidden;
       if (clip) {
         bk_clip_push(n->x, n->y, n->w, n->h);
       }
@@ -2115,4 +2204,12 @@ void awra_animate_state(AwraWidget *w)
   g_anims = a;
   awra_invalidate(w);
   awra_windows_request_frame();
+}
+
+void awra_widget_set_overflow_hidden(AwraWidget *w, bool hidden)
+{
+  if (awra_is_widget(w)) {
+    awra_aux(w)->overflow_hidden = hidden;
+    awra_invalidate(w);
+  }
 }

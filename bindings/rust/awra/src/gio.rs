@@ -9,7 +9,7 @@ use std::rc::{Rc, Weak};
 use crate::object::{IntoOptStr, Widget, WeakRef};
 
 /// Action parameters: strings only (all Awra applications need).
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Default)]
 pub struct Variant(String);
 
 impl Variant {
@@ -48,11 +48,29 @@ impl FromVariant for String {
         Some(v.0.clone())
     }
 }
+macro_rules! variant_num {
+    ($($t:ty),*) => {$(
+        impl ToVariant for $t {
+            fn to_variant(&self) -> Variant {
+                Variant(self.to_string())
+            }
+        }
+        impl FromVariant for $t {
+            fn from_variant(v: &Variant) -> Option<$t> {
+                v.0.parse().ok()
+            }
+        }
+    )*};
+}
+variant_num!(bool, u32, i32, u64, i64, f64);
 
-/// Parameter types: only strings.
+/// Parameter types (all carried as text).
 pub struct VariantTy(());
 impl VariantTy {
     pub const STRING: &'static VariantTy = &VariantTy(());
+    pub const UINT32: &'static VariantTy = &VariantTy(());
+    pub const INT32: &'static VariantTy = &VariantTy(());
+    pub const BOOLEAN: &'static VariantTy = &VariantTy(());
 }
 
 /// A named action with an optional string parameter.
@@ -66,6 +84,7 @@ struct ActionInner {
     has_param: bool,
     enabled: Cell<bool>,
     handlers: RefCell<Vec<ActivateFn>>,
+    state: RefCell<Option<Variant>>,
 }
 
 impl SimpleAction {
@@ -75,7 +94,23 @@ impl SimpleAction {
             has_param: parameter_type.is_some(),
             enabled: Cell::new(true),
             handlers: RefCell::new(Vec::new()),
+            state: RefCell::new(None),
         }))
+    }
+    /// An action with a state (a menu's check mark: "true" / "false").
+    pub fn new_stateful(name: &str, parameter_type: Option<&VariantTy>, state: &Variant) -> SimpleAction {
+        let a = SimpleAction::new(name, parameter_type);
+        *a.0.state.borrow_mut() = Some(state.clone());
+        a
+    }
+    pub fn state(&self) -> Option<Variant> {
+        self.0.state.borrow().clone()
+    }
+    pub fn set_state(&self, state: &Variant) {
+        *self.0.state.borrow_mut() = Some(state.clone());
+    }
+    pub fn change_state(&self, state: &Variant) {
+        self.set_state(state)
     }
     pub fn name(&self) -> String {
         self.0.name.clone()
@@ -145,6 +180,10 @@ pub(crate) fn lookup_action(window: &Widget, name: &str) -> Option<SimpleAction>
 
 /// Activates "win.name" (or "name") for the window of `widget`.
 pub fn activate_action(widget: &Widget, detailed: &str, target: Option<&Variant>) -> bool {
+    if let Some(a) = crate::compat::lookup_group_action(widget, detailed) {
+        a.activate(target);
+        return true;
+    }
     let name = detailed.strip_prefix("win.").or_else(|| detailed.strip_prefix("app.")).unwrap_or(detailed);
     let window = widget.root_widget().unwrap_or_else(|| widget.clone());
     let action = lookup_action(&window, name).or_else(|| {
@@ -213,6 +252,10 @@ pub(crate) struct ItemData {
     pub icon: Option<String>,
     pub accel: Option<String>,
     pub subtitle: Option<String>,
+    pub custom: Option<String>,
+    pub submenu: Option<Menu>,
+    /// Awra 1's "awra-detail": text at the row's end (a palette's).
+    pub detail: Option<String>,
 }
 
 impl MenuItem {
@@ -225,6 +268,16 @@ impl MenuItem {
     }
     pub fn set_label(&self, label: Option<&str>) {
         self.0.borrow_mut().label = label.map(str::to_owned);
+    }
+    /// An item opening `submenu` (shown as a titled section).
+    pub fn new_submenu(label: Option<&str>, submenu: &Menu) -> MenuItem {
+        let item = MenuItem::new(label, None);
+        item.0.borrow_mut().submenu = Some(submenu.clone());
+        item
+    }
+    /// A slot for the application's own widget (Popover::add_menu_widget).
+    pub fn set_custom(&self, id: &str) {
+        self.0.borrow_mut().custom = Some(id.to_owned());
     }
     pub fn set_icon(&self, icon: &ThemedIcon) {
         self.0.borrow_mut().icon = Some(icon.0.clone());
@@ -244,6 +297,8 @@ impl MenuItem {
         match attribute {
             "accel" => d.accel = v,
             "subtitle" | "description" => d.subtitle = v,
+            "custom" => d.custom = v,
+            "awra-detail" => d.detail = v,
             _ => {}
         }
     }
@@ -262,6 +317,12 @@ pub(crate) enum MenuEntry {
 /// changes.
 #[derive(Clone, Default)]
 pub struct Menu(Rc<MenuInner>);
+
+impl std::fmt::Debug for Menu {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("Menu")
+    }
+}
 
 #[derive(Default)]
 struct MenuInner {
@@ -282,6 +343,24 @@ impl Menu {
     }
     pub fn append_item(&self, item: &MenuItem) {
         self.0.entries.borrow_mut().push(MenuEntry::Item(item.clone()));
+        self.changed();
+    }
+    pub fn append_submenu(&self, label: Option<&str>, submenu: &Menu) {
+        self.append_item(&MenuItem::new_submenu(label, submenu));
+    }
+    pub fn insert_section(&self, position: i32, label: Option<&str>, section: &Menu) {
+        section.0.parents.borrow_mut().push(Rc::downgrade(&self.0));
+        let mut e = self.0.entries.borrow_mut();
+        let at = if position < 0 { e.len() } else { (position as usize).min(e.len()) };
+        e.insert(at, MenuEntry::Section(label.map(str::to_owned), section.clone()));
+        drop(e);
+        self.changed();
+    }
+    pub fn insert_item(&self, position: i32, item: &MenuItem) {
+        let mut e = self.0.entries.borrow_mut();
+        let at = if position < 0 { e.len() } else { (position as usize).min(e.len()) };
+        e.insert(at, MenuEntry::Item(item.clone()));
+        drop(e);
         self.changed();
     }
     pub fn append_section(&self, label: Option<&str>, section: &Menu) {
@@ -331,6 +410,7 @@ pub(crate) enum FlatEntry {
     Separator,
     Heading(String),
     Item(ItemData, Option<String>),
+    Custom(String),
 }
 
 fn flatten_into(menu: &Menu, out: &mut Vec<FlatEntry>, depth: usize) {
@@ -341,7 +421,24 @@ fn flatten_into(menu: &Menu, out: &mut Vec<FlatEntry>, depth: usize) {
 fn flatten_level(menu: &Menu, out: &mut Vec<FlatEntry>, depth: usize, section: &mut Option<String>) {
     for e in menu.entries() {
         match e {
-            MenuEntry::Item(i) => out.push(FlatEntry::Item(i.data(), section.clone())),
+            MenuEntry::Item(i) => {
+                let d = i.data();
+                if let Some(id) = d.custom.clone() {
+                    out.push(FlatEntry::Custom(id));
+                } else if let Some(sub) = d.submenu.clone() {
+                    if !out.is_empty() && !matches!(out.last(), Some(FlatEntry::Separator)) {
+                        out.push(FlatEntry::Separator);
+                    }
+                    if let Some(l) = &d.label {
+                        out.push(FlatEntry::Heading(l.clone()));
+                    }
+                    let mut inner = d.label.clone().or_else(|| section.clone());
+                    flatten_level(&sub, out, depth + 1, &mut inner);
+                    out.push(FlatEntry::Separator);
+                } else {
+                    out.push(FlatEntry::Item(d, section.clone()));
+                }
+            }
             MenuEntry::Section(label, sub) => {
                 if sub.n_items() == 0 {
                     continue;
@@ -381,6 +478,11 @@ thread_local! {
 impl Application {
     /// Initializes Awra for application `id`.
     pub fn new(id: impl IntoOptStr) -> Application {
+        Application::with_flags(id, ApplicationFlags::default())
+    }
+    /// gtk::Application::new's shape (the flags are not used: Awra keeps
+    /// no single-instance service of its own).
+    pub fn with_flags(id: impl IntoOptStr, _flags: ApplicationFlags) -> Application {
         let id = id.into_opt_string().unwrap_or_default();
         crate::init_with_id(&id);
         let app = Application(Rc::new(AppInner {
@@ -493,4 +595,18 @@ impl Application {
             false
         }
     }
+}
+
+pub use crate::compat::{ListStore, SimpleActionGroup};
+pub use crate::compat2::{AppInfo, AppLaunchContext, ApplicationFlags, ApplicationHoldGuard, Cancellable, File};
+
+/// The action a menu item names, from `widget`: its groups and ancestors',
+/// then the window's.
+pub(crate) fn find_action(widget: &Widget, detailed: &str) -> Option<SimpleAction> {
+    if let Some(a) = crate::compat::lookup_group_action(widget, detailed) {
+        return Some(a);
+    }
+    let name = detailed.strip_prefix("win.").or_else(|| detailed.strip_prefix("app.")).unwrap_or(detailed);
+    let window = widget.root_widget().unwrap_or_else(|| widget.clone());
+    lookup_action(&window, name).or_else(|| MAPS.with(|m| m.borrow().values().find_map(|map| map.get(name).cloned())))
 }

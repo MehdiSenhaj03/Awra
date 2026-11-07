@@ -80,6 +80,11 @@ struct AwraClass {
    * like CSS `color: inherit`); false: ask further up */
   bool (*child_style)(AwraWidget *w, AwraRGBA *r_color, int *r_weight);
   int overdraw; /* logical px painted outside the rect (shadows, focus ring) */
+  /* the pointer entered or left it */
+  void (*hover)(AwraWidget *w, bool on);
+  /* GtkSizeRequestMode: 1 height-for-width, 0 constant size; NULL: from
+   * the children (height-for-width when one is) */
+  int (*request_mode)(AwraWidget *w);
 };
 
 /* Declares the kit side of an Awra class: every hook goes to Awra's
@@ -143,12 +148,16 @@ typedef struct AwraAux {
   unsigned can_target : 1, focusable_set : 1, focusable : 1;
   unsigned hovered : 1, pressed : 1, focus_visible : 1, mapped : 1, destroyed : 1;
   unsigned typography_set : 1, in_dispose : 1, expand_isolated : 1;
+  /* GTK's visible (the application's) and child-visible (the parent's):
+   * the node's NF_VISIBLE is set when both are */
+  unsigned user_hidden : 1, child_hidden : 1, overflow_hidden : 1;
   unsigned char typography;
   float opacity;
   /* measurement cache: [orientation] for one for_size each */
   int cache_for[2], cache_min[2], cache_nat[2];
   unsigned cache_valid : 2;
   unsigned expand_valid : 1, computed_hexpand : 1, computed_vexpand : 1;
+  unsigned mode_valid : 1, mode_hfw : 1; /* request mode cache */
   unsigned needs_allocate : 1;
   int alloc_w, alloc_h; /* last allocated size (resize signal) */
   /* state animations, 0..1 */
@@ -190,6 +199,11 @@ void awra_allocate(AwraWidget *w, int x, int y, int width, int height);
 /* Ensures `w`'s children are placed again (contents changed, not size). */
 void awra_queue_allocate(AwraWidget *w);
 bool awra_compute_expand(AwraWidget *w, int orientation);
+/* GtkSizeRequestMode: its height depends on its width (wrapping text,
+ * pictures keeping their aspect, what holds them); else constant size. */
+bool awra_height_for_width(AwraWidget *w);
+/* a colour that reads against this appearance's background */
+AwraRGBA awra_rgba_readable(AwraRGBA c);
 /* Distributes `extra` among n children by GTK's natural-allocation rule:
  * sizes[] start at their minimums and grow towards their naturals. */
 int awra_distribute(int extra, int n, int *sizes, const int *naturals);
@@ -358,6 +372,22 @@ void awra_text_layout_index_to_pos(AwraTextLayout *l, int width, int index, floa
                                    float *r_y, float *r_h);
 int awra_text_layout_pos_to_index(AwraTextLayout *l, int width, float px, float py);
 const char *awra_text_layout_text(const AwraTextLayout *l);
+/* links (<a href>): index under a point (layout coordinates), their target */
+int awra_text_layout_n_links(const AwraTextLayout *l);
+const char *awra_text_layout_link(const AwraTextLayout *l, int index);
+int awra_text_layout_link_at(AwraTextLayout *l, int width, float px, float py);
+void awra_text_layout_set_link_style(AwraTextLayout *l, int hover, const AwraRGBA *color,
+                                     const AwraRGBA *hover_color);
+/* inline objects: U+FFFC laid out as squares of `size` raster px */
+void awra_text_layout_set_object_size(AwraTextLayout *l, float size);
+void awra_text_layout_foreach_object(AwraTextLayout *l, int width,
+                                     void (*fn)(int index, float x, float y, void *data), void *data);
+void awra_text_layout_draw_selection(AwraTextLayout *l, AwraDraw *d, float x, float y, int width,
+                                     int start, int end, const AwraRGBA *color);
+void awra_text_layout_word_at(const AwraTextLayout *l, int index, int *r_start, int *r_end);
+void awra_text_layout_index_to_pos(AwraTextLayout *l, int width, int index, float *r_x,
+                                   float *r_y, float *r_h);
+int awra_text_layout_pos_to_index(AwraTextLayout *l, int width, float px, float py);
 
 /* ----------------------------------------------------------------------- */
 /* Icons (icons.c) */
@@ -435,7 +465,10 @@ void awra_text_layout_set_line_factor(AwraTextLayout *l, float factor);
 typedef enum {
   AWRA_LOOK_SECONDARY = 0, AWRA_LOOK_PRIMARY, AWRA_LOOK_GHOST, AWRA_LOOK_DESTRUCTIVE,
   AWRA_LOOK_TOOLBAR, AWRA_LOOK_SUCCESS, AWRA_LOOK_SEGMENT, AWRA_LOOK_WINDOW_CONTROL,
-  AWRA_LOOK_NAV_ITEM, AWRA_LOOK_ACTION_ROW, AWRA_LOOK_MENU_ROW
+  AWRA_LOOK_NAV_ITEM, AWRA_LOOK_ACTION_ROW, AWRA_LOOK_MENU_ROW,
+  /* style roles of Awra 1 on plain buttons (awra.css L4144-4430) */
+  AWRA_LOOK_INLINE_ACTION, AWRA_LOOK_ROW_ACTION, AWRA_LOOK_SEARCH_LAUNCHER,
+  AWRA_LOOK_COLLECTION_TILE, AWRA_LOOK_CARD_ACTION, AWRA_LOOK_SIDEBAR_HEADING
 } AwraLook;
 typedef struct AwraButtonColors {
   AwraRGBA fg, bg;
@@ -480,6 +513,9 @@ struct AwraCanvas {
   float ox, oy; /* widget origin, raster px */
   float scale;
 };
+
+/* Textures (texture.c): fit 0 fill, 1 contain, 2 cover, 3 scale-down */
+void awra_paint_texture(AwraDraw *d, const AwraTexture *t, AwraBox b, float radius, int fit);
 
 /* PNG writing (png.c), premultiplied ARGB in */
 bool awra_write_png(const char *path, const uint32_t *argb, int w, int h);

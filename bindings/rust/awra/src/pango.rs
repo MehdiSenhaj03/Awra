@@ -16,3 +16,5 @@ pub enum WrapMode {
     Char,
     WordChar,
 }
+
+pub use crate::compat::{AttrColor, AttrFloat, AttrInt, AttrList, Attribute, Weight};

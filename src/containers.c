@@ -37,15 +37,66 @@ static void box_distribute(AwraWidget *w, int avail, int for_cross, int *sizes, 
   int *mn = n <= 256 ? mins : (int *)malloc(sizeof(int) * (size_t)n);
   int *nt = n <= 256 ? nats : (int *)malloc(sizeof(int) * (size_t)n);
   int k = 0, sum_min = 0, n_expand = 0;
+  /* GtkBoxLayout, in a row: constant-size children first, measured for any
+   * height; a sole expanding child whose size depends on the other axis then takes
+   * what remains without being measured against its request mode (a
+   * wrapping label beside an avatar fills the row, rather than asking for
+   * the width its current height would need) */
+  int n_inconstant = 0, sole = -1;
+  bool constant_same = true;
   for (int i = 0; i < w->nkids; i++) {
     AwraWidget *c = w->kids[i];
     if (!awra_child_visible(c)) {
       continue;
     }
-    awra_measure(c, o, for_cross, &mn[k], &nt[k]);
-    sum_min += mn[k];
     n_expand += awra_compute_expand(c, o);
+    if (o == AWRA_ORIENTATION_HORIZONTAL && for_cross >= 0 && awra_height_for_width(c)) {
+      n_inconstant++;
+      sole = k;
+      mn[k] = nt[k] = -1;
+    }
+    else {
+      /* a column measures each child's height for its width: a flow box or
+       * a keyboard that wraps is height-for-width without saying so */
+      awra_measure(c, o, o == AWRA_ORIENTATION_HORIZONTAL ? -1 : for_cross, &mn[k], &nt[k]);
+      sum_min += mn[k];
+      constant_same &= mn[k] == nt[k];
+    }
     k++;
+  }
+  if (n_inconstant > 0) {
+    bool shortcut = !b->homogeneous && n_inconstant == 1 && n_expand == 1 && constant_same;
+    if (shortcut) {
+      k = 0;
+      for (int i = 0; i < w->nkids; i++) {
+        AwraWidget *c = w->kids[i];
+        if (!awra_child_visible(c)) {
+          continue;
+        }
+        if (k == sole) {
+          shortcut = awra_compute_expand(c, o);
+        }
+        k++;
+      }
+    }
+    if (shortcut) {
+      mn[sole] = nt[sole] = BK_MAX(0, avail - sp - sum_min);
+      sum_min += mn[sole];
+    }
+    else {
+      k = 0;
+      for (int i = 0; i < w->nkids; i++) {
+        AwraWidget *c = w->kids[i];
+        if (!awra_child_visible(c)) {
+          continue;
+        }
+        if (mn[k] < 0) {
+          awra_measure(c, o, for_cross, &mn[k], &nt[k]);
+          sum_min += mn[k];
+        }
+        k++;
+      }
+    }
   }
   int extra = avail - sp;
   if (b->homogeneous) {
@@ -581,6 +632,7 @@ typedef struct FlowExt {
   bool (*filter)(AwraWidget *child, void *data);
   void *filter_data;
   AwraDestroyNotify filter_destroy;
+  int child_pad; /* logical px; -1: the theme's */
 } FlowExt;
 
 static bool flow_shown(AwraWidget *f, AwraWidget *c)
@@ -592,8 +644,21 @@ static bool flow_shown(AwraWidget *f, AwraWidget *c)
   return !x->filter || x->filter(c, x->filter_data);
 }
 
-/* GtkFlowBoxChild's padding in GTK's default theme (flowboxchild { padding: 3px }) */
-#define FLOW_PAD awra_px(3)
+/* GtkFlowBoxChild's padding in GTK's default theme (flowboxchild { padding:
+ * 3px }); none in a flat list (awra.css .awra-role-flat-list) or where set */
+static int flow_pad(AwraWidget *f)
+{
+  static int flat = -2;
+  if (flat == -2) {
+    flat = awra_class_bit("flat-list");
+  }
+  const int set = AWRA_EXT(f, FlowExt)->child_pad;
+  if (set >= 0) {
+    return awra_px(set);
+  }
+  return flat >= 0 && awra_has_class_bit(f, flat) ? 0 : awra_px(3);
+}
+#define FLOW_PAD flow_pad(f)
 #define FLOW_MAX_ITEMS 64
 
 /* The shown children with their widths (padding included). */
@@ -601,11 +666,13 @@ typedef struct FlowItems {
   AwraWidget *c[FLOW_MAX_ITEMS * 4];
   int min[FLOW_MAX_ITEMS * 4], nat[FLOW_MAX_ITEMS * 4];
   int n, max_min, max_nat;
+  int pad; /* each child's padding */
 } FlowItems;
 
 static void flow_items(AwraWidget *f, FlowItems *it)
 {
   it->n = it->max_min = it->max_nat = 0;
+  it->pad = FLOW_PAD;
   for (int i = 0; i < f->nkids && it->n < FLOW_MAX_ITEMS * 4; i++) {
     AwraWidget *c = f->kids[i];
     if (!flow_shown(f, c)) {
@@ -711,9 +778,9 @@ static int flow_line_heights(const FlowItems *it, int len, const int *cols, int 
   }
   for (int i = 0; i < it->n; i++) {
     int cm, cn;
-    awra_measure(it->c[i], AWRA_ORIENTATION_VERTICAL, BK_MAX(0, cols[i % len] - 2 * FLOW_PAD), &cm, &cn);
-    mins[i / len] = BK_MAX(mins[i / len], cm + 2 * FLOW_PAD);
-    nats[i / len] = BK_MAX(nats[i / len], cn + 2 * FLOW_PAD);
+    awra_measure(it->c[i], AWRA_ORIENTATION_VERTICAL, BK_MAX(0, cols[i % len] - 2 * it->pad), &cm, &cn);
+    mins[i / len] = BK_MAX(mins[i / len], cm + 2 * it->pad);
+    nats[i / len] = BK_MAX(nats[i / len], cn + 2 * it->pad);
   }
   return lines;
 }
@@ -832,6 +899,7 @@ AwraWidget *awra_flow_box_new(void)
   x->min_per_line = 1;
   x->max_per_line = 7; /* GtkFlowBox's default */
   x->mode = AWRA_SELECTION_SINGLE;
+  x->child_pad = -1;
   return w;
 }
 
@@ -941,8 +1009,8 @@ static void stack_measure(AwraWidget *s, int o, int for_size, int *r_min, int *r
     int cm, cn;
     /* pages the stack hides still count when homogeneous (GtkStack measures
      * every visible child, shown or not) */
-    const bool page_hidden = !(c->flags & NF_VISIBLE) &&
-                             awra_widget_get_data(c, "awra-stack-hidden") != NULL;
+    const bool page_hidden = !(c->flags & NF_VISIBLE) && awra_is_widget(c) &&
+                             awra_aux(c)->child_hidden && !awra_aux(c)->user_hidden;
     if (page_hidden) {
       c->flags |= NF_VISIBLE;
     }
@@ -990,15 +1058,7 @@ static void stack_sync_visibility(AwraWidget *s)
   for (int i = 0; i < s->nkids; i++) {
     AwraWidget *c = s->kids[i];
     const bool show = c == x->visible || c == x->previous;
-    const bool stack_hidden = awra_widget_get_data(c, "awra-stack-hidden") != NULL;
-    if (show && stack_hidden) {
-      awra_widget_set_data(c, "awra-stack-hidden", NULL, NULL);
-      awra_widget_set_visible(c, true);
-    }
-    else if (!show && (c->flags & NF_VISIBLE)) {
-      awra_widget_set_data(c, "awra-stack-hidden", (void *)1, NULL);
-      awra_widget_set_visible(c, false);
-    }
+    awra_widget_set_child_visible(c, show);
   }
 }
 
@@ -1126,6 +1186,9 @@ void awra_stack_set_vhomogeneous(AwraWidget *s, bool h)
 
 typedef struct OverlayExt {
   AwraWidget *child;
+  AwraOverlayPositionFunc position;
+  void *position_data;
+  AwraDestroyNotify position_destroy;
 } OverlayExt;
 
 static void overlay_measure(AwraWidget *w, int o, int for_size, int *r_min, int *r_nat)
@@ -1143,9 +1206,36 @@ static void overlay_allocate(AwraWidget *w)
 {
   OverlayExt *x = AWRA_EXT(w, OverlayExt);
   for (int i = 0; i < w->nkids; i++) {
-    awra_allocate(w->kids[i], w->x, w->y, w->w, w->h);
+    AwraWidget *c = w->kids[i];
+    int rx, ry, rw, rh;
+    /* get-child-position: the application places an overlay child itself */
+    if (c != x->child && x->position && x->position(w, c, &rx, &ry, &rw, &rh, x->position_data)) {
+      awra_allocate(c, w->x + awra_px(rx), w->y + awra_px(ry), awra_px(rw), awra_px(rh));
+      continue;
+    }
+    awra_allocate(c, w->x, w->y, w->w, w->h);
   }
-  (void)x;
+}
+
+static void overlay_finalize(AwraWidget *w)
+{
+  OverlayExt *x = AWRA_EXT(w, OverlayExt);
+  if (x->position_destroy) {
+    x->position_destroy(x->position_data);
+  }
+}
+
+void awra_overlay_set_position_func(AwraWidget *w, AwraOverlayPositionFunc fn, void *data,
+                                    AwraDestroyNotify destroy)
+{
+  OverlayExt *x = AWRA_EXT(w, OverlayExt);
+  if (x->position_destroy) {
+    x->position_destroy(x->position_data);
+  }
+  x->position = fn;
+  x->position_data = data;
+  x->position_destroy = destroy;
+  awra_queue_allocate(w);
 }
 
 static void overlay_remove(AwraWidget *w, AwraWidget *child)
@@ -1165,6 +1255,7 @@ static AwraClass overlay_class = {
     .measure = overlay_measure,
     .allocate = overlay_allocate,
     .remove = overlay_remove,
+    .finalize = overlay_finalize,
 };
 
 AwraWidget *awra_overlay_new(void)
@@ -1470,4 +1561,46 @@ void awra_scrolled_scroll_to(AwraWidget *w, AwraWidget *child)
     v = top + child->h - w->h;
   }
   scroll_to(w, v, x->hvalue);
+}
+
+/* Moves the scroll position by `delta` raster px without the indicator,
+ * clamped at the next allocation (lists keeping an item in place while the
+ * heights above it become known). */
+void awra_scrolled_shift_internal(AwraWidget *w, double delta);
+void awra_scrolled_shift_internal(AwraWidget *w, double delta)
+{
+  ScrollExt *x = SX(w);
+  if (delta == 0) {
+    return;
+  }
+  x->vvalue += delta;
+  if (x->vvalue < 0) {
+    x->vvalue = 0;
+  }
+  awra_queue_allocate(w);
+  awra_invalidate(w);
+  awra_emit_simple(w, AWRA_SIGNAL_VALUE_CHANGED);
+}
+
+/* The scrolled window's vertical range: value, upper (content height) and
+ * page size, logical px. */
+void awra_scrolled_get_vadjustment(AwraWidget *w, double *value, double *upper, double *page)
+{
+  ScrollExt *x = SX(w);
+  const float s = awra_scale();
+  if (value) {
+    *value = x->vvalue / s;
+  }
+  if (upper) {
+    *upper = x->content_h / s;
+  }
+  if (page) {
+    *page = w->h / s;
+  }
+}
+
+void awra_flow_box_set_child_padding(AwraWidget *flow, int padding)
+{
+  AWRA_EXT(flow, FlowExt)->child_pad = padding;
+  awra_widget_queue_resize(flow);
 }

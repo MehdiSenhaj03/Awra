@@ -119,11 +119,19 @@ impl StaticType for Widget {
 
 /// Everything that is a widget.
 pub trait IsWidget: AsRef<Widget> {
-    fn upcast_ref(&self) -> &Widget {
-        self.as_ref()
+    /// gtk-rs `upcast_ref`: `&Widget`, or the type itself.
+    fn upcast_ref<T>(&self) -> &T
+    where
+        Self: AsRef<T>,
+    {
+        AsRef::<T>::as_ref(self)
     }
-    fn upcast(&self) -> Widget {
-        self.as_ref().clone()
+    /// gtk-rs `upcast`: a `Widget`, or the type itself.
+    /// (Checked: `T` must be a type the widget is.)
+    fn upcast<T: StaticType>(&self) -> T {
+        let w = self.as_ref();
+        assert!(T::matches(w), "upcast to a type the widget is not");
+        unsafe { T::unchecked_from(w.clone()) }
     }
     fn widget_ptr(&self) -> *mut ffi::AwraWidget {
         self.as_ref().as_ptr()
@@ -158,6 +166,11 @@ macro_rules! awra_wrapper {
         impl AsRef<$crate::Widget> for $name {
             fn as_ref(&self) -> &$crate::Widget {
                 &self.0
+            }
+        }
+        impl AsRef<$name> for $name {
+            fn as_ref(&self) -> &$name {
+                self
             }
         }
         impl std::ops::Deref for $name {

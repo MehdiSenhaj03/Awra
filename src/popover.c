@@ -114,6 +114,12 @@ static void pop_place(BKNode *n, int win_w, int win_h)
   else if (x->relative) {
     x0 = x->relative->x + awra_px(x->at_x);
     y0 = x->relative->y + awra_px(x->at_y);
+    if (x->side == 1) {
+      /* above the point (a caret), below it without room */
+      if (y0 - nh >= 0) {
+        y0 -= nh;
+      }
+    }
     if (x0 + nw > win_w) {
       x0 = BK_MAX(0, x0 - nw);
     }
@@ -603,6 +609,14 @@ AwraWidget *awra_menu_popover_new(const AwraMenuItem *items, int n)
       AwraWidget *sep = menu_separator();
       awra_box_append(box, sep);
       awra_widget_unref(sep);
+      continue;
+    }
+    if (it->check == -3) { /* a slot for the application's own widget (custom item) */
+      AwraWidget *slot = awra_box_new(AWRA_ORIENTATION_VERTICAL, 0);
+      awra_widget_set_name(slot, it->label);
+      awra_widget_set_margins(slot, 2, 8, 2, 8);
+      awra_box_append(box, slot);
+      awra_widget_unref(slot);
       continue;
     }
     if (it->check == -2) { /* a section heading (GtkPopoverMenu section label) */
@@ -1455,6 +1469,11 @@ void awra_command_palette_set_empty_text(AwraWidget *w, const char *text)
   awra_label_set_text(pd(w)->empty, text ? text : "No matching command");
 }
 
+void awra_command_palette_set_query(AwraWidget *w, const char *query)
+{
+  awra_entry_set_text(pd(w)->entry, query ? query : "");
+}
+
 void awra_command_palette_present(AwraWidget *w, AwraWidget *window)
 {
   PaletteData *p = pd(w);
@@ -1574,6 +1593,81 @@ void awra_dialog_add_response(AwraWidget *w, int response, const char *label,
   awra_signal_connect(b, AWRA_SIGNAL_CLICKED, dialog_response, w, NULL);
   awra_box_append(d->responses, b);
   awra_widget_set_visible(d->responses, true);
+}
+
+static AwraWidget *response_button(AwraWidget *w, int response)
+{
+  DialogData *d = dlg(w);
+  for (int i = 0; d && i < d->responses->nkids; i++) {
+    AwraWidget *b = d->responses->kids[i];
+    if ((int)(intptr_t)awra_widget_get_data(b, "awra-response") == response) {
+      return b;
+    }
+  }
+  return NULL;
+}
+
+void awra_dialog_set_response_appearance(AwraWidget *w, int response, AwraButtonAppearance appearance)
+{
+  AwraWidget *b = response_button(w, response);
+  if (b) {
+    awra_button_set_appearance(b, appearance);
+  }
+}
+
+void awra_dialog_set_response_enabled(AwraWidget *w, int response, bool enabled)
+{
+  AwraWidget *b = response_button(w, response);
+  if (b) {
+    awra_widget_set_sensitive(b, enabled);
+  }
+}
+
+void awra_dialog_set_response_label(AwraWidget *w, int response, const char *label)
+{
+  AwraWidget *b = response_button(w, response);
+  if (b) {
+    awra_button_set_label(b, label);
+  }
+}
+
+/* A response at work: its button holds a spinner and takes no clicks. */
+void awra_dialog_set_response_busy(AwraWidget *w, int response, bool busy)
+{
+  AwraWidget *b = response_button(w, response);
+  if (!b) {
+    return;
+  }
+  char *label = (char *)awra_widget_get_data(b, "awra-response-label");
+  if (busy && !label) {
+    awra_widget_set_data(b, "awra-response-label", awra_strdup(awra_button_label(b)), free);
+    AwraWidget *s = awra_spinner_new();
+    awra_spinner_set_spinning(s, true);
+    awra_button_set_child(b, s);
+    awra_widget_unref(s);
+  }
+  else if (!busy && label) {
+    awra_button_set_label(b, label);
+    awra_widget_set_data(b, "awra-response-label", NULL, NULL);
+  }
+  awra_widget_set_can_target(b, !busy);
+}
+
+static void dialog_default(AwraWidget *win, const AwraArgs *a, void *data)
+{
+  (void)a;
+  const int response = (int)(intptr_t)data;
+  AwraWidget *b = response_button(win, response);
+  if (b && awra_widget_sensitive(b)) {
+    awra_emit_index(win, AWRA_SIGNAL_SELECTED, response);
+  }
+}
+
+/* Return gives the default response. */
+void awra_dialog_set_default_response(AwraWidget *w, int response)
+{
+  awra_window_add_shortcut(w, "Return", dialog_default, (void *)(intptr_t)response, NULL);
+  awra_window_add_shortcut(w, "KP_Enter", dialog_default, (void *)(intptr_t)response, NULL);
 }
 
 void awra_dialog_present(AwraWidget *w, AwraWidget *parent)

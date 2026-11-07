@@ -257,10 +257,6 @@ impl crate::Header {
     pub fn set_backdrop_widget(&self, source: Option<&impl IsWidget>) {
         unsafe { ffi::awra_header_set_backdrop(AsRef::<Widget>::as_ref(self).as_ptr(), source.map_or(std::ptr::null_mut(), |s| s.widget_ptr())) }
     }
-    /// The material painted when the header does not blend with the window.
-    pub fn set_material(&self, m: Material) {
-        unsafe { ffi::awra_header_set_material(AsRef::<Widget>::as_ref(self).as_ptr(), m as _) }
-    }
     /// 0: none; otherwise the header spans this width, centered.
     pub fn set_max_width(&self, w: i32) {
         unsafe { ffi::awra_header_set_max_width(AsRef::<Widget>::as_ref(self).as_ptr(), w) }
@@ -330,8 +326,19 @@ impl OverlayBar {
     pub fn set_inset(&self, s: Spacing) {
         unsafe { ffi::awra_overlay_bar_set_inset(ptr!(self), s as _) }
     }
+    pub fn inset(&self) -> Spacing {
+        match unsafe { ffi::awra_overlay_bar_inset(ptr!(self)) } {
+            -1 => Spacing::None,
+            0 => Spacing::Xs,
+            1 => Spacing::Sm,
+            2 => Spacing::Md,
+            4 => Spacing::Xl,
+            5 => Spacing::Xxl,
+            _ => Spacing::Lg,
+        }
+    }
     /// The inset in logical pixels.
-    pub fn inset(&self) -> i32 {
+    pub fn inset_px(&self) -> i32 {
         unsafe { ffi::awra_overlay_bar_inset_px(ptr!(self)) }
     }
     pub fn connect_revealed_notify<F: Fn(&OverlayBar) + 'static>(&self, f: F) -> SignalHandlerId {

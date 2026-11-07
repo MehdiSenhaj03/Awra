@@ -5,6 +5,7 @@
 use std::ffi::{c_char, c_int, c_void};
 
 use crate::awra_wrapper;
+use crate::DrawingArea;
 use crate::enums::Orientation;
 use crate::ffi;
 use crate::object::{cstring, from_cstr, IsWidget, Widget};
@@ -522,11 +523,6 @@ pub fn icon_exists(name: &str) -> bool {
 // ===========================================================================
 // Drawing area
 
-awra_wrapper!(
-    /// A widget the application draws itself (GtkDrawingArea).
-    DrawingArea, ["AwraDrawingArea"]
-);
-
 /// Drawing in a drawing area, in its logical pixels.
 pub struct Canvas(*mut ffi::AwraCanvas);
 
@@ -566,7 +562,7 @@ type DrawFn = Box<dyn Fn(&DrawingArea, &Canvas, i32, i32)>;
 
 unsafe extern "C" fn draw_tramp(w: *mut ffi::AwraWidget, c: *mut ffi::AwraCanvas, width: c_int, height: c_int, data: *mut c_void) {
     let f = &*(data as *const DrawFn);
-    let area = std::mem::ManuallyDrop::new(DrawingArea(Widget::from_full(w)));
+    let area: DrawingArea = Widget::from_none(w).downcast().unwrap();
     f(&area, &Canvas(c), width, height);
 }
 
@@ -575,11 +571,14 @@ unsafe extern "C" fn draw_free(data: *mut c_void) {
 }
 
 impl DrawingArea {
-    pub fn new(draw: impl Fn(&DrawingArea, &Canvas, i32, i32) + 'static) -> DrawingArea {
+    /// A drawing area painted on Awra's canvas (the gtk-rs shape is
+    /// `new` + `set_draw_func`, on a cairo subset).
+    pub fn with_canvas(draw: impl Fn(&DrawingArea, &Canvas, i32, i32) + 'static) -> DrawingArea {
         let f: Box<DrawFn> = Box::new(Box::new(draw));
         unsafe { DrawingArea::from_full(ffi::awra_drawing_area_new(Some(draw_tramp), Box::into_raw(f) as *mut c_void, Some(draw_free))) }
     }
     pub fn set_content_size(&self, w: i32, h: i32) {
-        unsafe { ffi::awra_drawing_area_set_content_size(ptr!(self), w, h) }
+        self.set_rust_data("p:content-size", (w, h));
+        unsafe { ffi::awra_drawing_area_set_content_size(self.as_ptr(), w, h) }
     }
 }

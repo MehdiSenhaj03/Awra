@@ -459,6 +459,7 @@ typedef struct NSVGparser
 	float dpi;
 	char pathFlag;
 	char defsFlag;
+	int hiddenDepth; /* BUI: inside a mask, clipPath or symbol (not drawn) */
   /** Blender breadcrumb for layers. */
   char breadcrumb[NSVG_MAX_BREADCRUMB][64];
   /** Blender number of elements in breadcrumb. */
@@ -2777,6 +2778,16 @@ static void nsvg__startElement(void* ud, const char* el, const char** attr)
 {
 	NSVGparser* p = (NSVGparser*)ud;
 
+	/* BUI: masks, clip paths and symbols are not supported; their contents
+	 * are not shapes to draw. */
+	if (strcmp(el, "mask") == 0 || strcmp(el, "clipPath") == 0 || strcmp(el, "symbol") == 0) {
+		p->hiddenDepth++;
+		return;
+	}
+	if (p->hiddenDepth > 0) {
+		return;
+	}
+
 	if (p->defsFlag) {
 		// Skip everything but gradients in defs
 		if (strcmp(el, "linearGradient") == 0) {
@@ -2846,6 +2857,16 @@ static void nsvg__startElement(void* ud, const char* el, const char** attr)
 static void nsvg__endElement(void* ud, const char* el)
 {
 	NSVGparser* p = (NSVGparser*)ud;
+
+	if (strcmp(el, "mask") == 0 || strcmp(el, "clipPath") == 0 || strcmp(el, "symbol") == 0) {
+		if (p->hiddenDepth > 0) {
+			p->hiddenDepth--;
+		}
+		return;
+	}
+	if (p->hiddenDepth > 0) {
+		return;
+	}
 
 	if (strcmp(el, "g") == 0) {
     /* Remove the breadcrumb level. */

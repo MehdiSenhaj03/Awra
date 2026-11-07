@@ -27,7 +27,7 @@ impl Typography {
 }
 c_enum!(Appearance { System = 0, Light = 1, Dark = 2 } default System);
 c_enum!(AccentSource { Default = 0, System = 1, Custom = 2 } default Default);
-c_enum!(ButtonAppearance { Primary = 0, Secondary = 1, Ghost = 2, Destructive = 3, Toolbar = 4 } default Secondary);
+c_enum!(ButtonAppearance { Primary = 0, Secondary = 1, Ghost = 2, Destructive = 3, Toolbar = 4, Success = 5 } default Secondary);
 c_enum!(CardAppearance { Plain = 0, Tinted = 1, Raised = 2 } default Plain);
 c_enum!(BadgeAppearance { Neutral = 0, Accent = 1, Success = 2, Warning = 3, Danger = 4, Info = 5 } default Neutral);
 c_enum!(StatusAppearance { Info = 0, Success = 1, Warning = 2, Error = 3 } default Info);
