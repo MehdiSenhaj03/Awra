@@ -92,9 +92,11 @@ static void cap_place(AwraDraw *d, AwraTextLayout *l, float ax, float ay, float 
   awra_text_layout_size(l, width, &tw, &th);
   float lx0 = 0.0f, lw = (float)tw;
   awra_text_layout_logical(l, width, &lx0, &lw);
-  lw = fminf(ceilf(lw), aw);
+  /* gtk_label_get_layout_location, in application pixels */
+  const float x0 = awra_floorpx(lx0);
+  lw = fminf((float)awra_ceilpx(lx0 + lw) - x0, aw);
   const float xa = rtl ? 1.0f - xalign : xalign;
-  awra_text_layout_draw(l, d, ax + floorf((aw - lw) * xa - lx0), ay + floorf((ah - th) * 0.5f),
+  awra_text_layout_draw(l, d, ax + awra_floorpx((aw - lw) * xa - x0), ay + awra_halfpx(ah - th),
                         width, c);
 }
 
@@ -109,10 +111,27 @@ static void cap_legend(AwraDraw *d, CapExt *x, const AwraFont *lf, AwraTextLayou
   }
   const float sc = fmaxf(aw / nat, 0.65f);
   const float off = fmaxf((aw - nat * sc) * xalign, 0.0f);
+  /* Awra 1 lays the label out at its natural size and scales the node
+   * (allocate_legend): each glyph at its full-size position times the
+   * scale, drawn at the scaled size, on the scaled baseline */
   AwraFont f = *lf;
   f.size *= sc;
-  AwraTextLayout *t = cap_layout(&x->lay_scaled, awra_text_layout_text(l), &f, rtl);
-  awra_text_layout_draw(t, d, ax + off, ay + ah * (1.0f - sc) / 2.0f, -1, c);
+  const char *text = awra_text_layout_text(l);
+  const float x0 = ax + off, base = ay + ah * (1.0f - sc) / 2.0f + sc * (float)awra_text_layout_baseline(l);
+  for (int i = 0; text[i];) {
+    int n = 1;
+    while (text[i + n] && ((unsigned char)text[i + n] & 0xC0) == 0x80) {
+      n++;
+    }
+    float gx, gy, gh;
+    awra_text_layout_index_to_pos(l, -1, i, &gx, &gy, &gh);
+    if (text[i] != ' ') {
+      awra_draw_text(d, &f, x0 + sc * gx, base, text + i, n, c);
+    }
+    i += n;
+  }
+  (void)x;
+  (void)rtl;
 }
 
 static void cap_draw(AwraWidget *w, AwraDraw *d)
@@ -251,14 +270,14 @@ static void cap_draw(AwraWidget *w, AwraDraw *d)
       cap_place(d, x->lay_secondary, b.x + inset, b.y + b.h - inset - sh, inner, (float)sh, 0.0f, rtl, &sc);
     }
     else {
-      cap_legend(d, x, &lf, ll, b.x + inset, b.y + floorf(fmaxf((b.h - lh) / 2, 0)), inner, (float)lh,
+      cap_legend(d, x, &lf, ll, b.x + inset, b.y + awra_halfpx(fmaxf(b.h - lh, 0)), inner, (float)lh,
                  0.5f, nat, rtl, &fg);
     }
   }
   if (badge_w > 0) { /* over the legends, as Awra 1 snapshots it after them */
     const float tw = awra_text_width(&bf, x->badge, -1);
     awra_paint_rbox(d, bb, bb.h * 0.5f, &t->accent, 0, NULL);
-    awra_draw_text(d, &bf, bb.x + floorf((badge_w - tw) * 0.5f), bb.y + awra_font_ascent(&bf), x->badge, -1,
+    awra_draw_text(d, &bf, bb.x + awra_halfpx(badge_w - tw), bb.y + awra_font_ascent(&bf), x->badge, -1,
                    &t->on_accent);
   }
   bk_clip_pop();
@@ -694,17 +713,22 @@ static void kbd_measure(AwraWidget *v, int o, int f, int *mn, int *nt)
   }
   float unit = f >= 0 ? f / x->total_w : awra_pxf(46);
   unit = fminf(fmaxf(unit, awra_pxf(22)), awra_pxf(64));
-  *mn = *nt = (int)ceilf(x->total_h * unit);
+  *mn = *nt = awra_ceilpx(x->total_h * unit);
 }
 
 static void kbd_allocate(AwraWidget *v)
 {
   KbdExt *x = KBX(v);
-  float unit = fminf((float)v->w / x->total_w, (float)v->h / x->total_h);
-  unit = fminf(fmaxf(unit, 1.0f), awra_pxf(64));
-  const float gap = fminf(fmaxf(floorf(unit * 0.09f + 0.5f), awra_pxf(2)), awra_pxf(6));
-  const float ox = v->x + floorf((v->w - unit * x->total_w) * 0.5f);
-  const float oy = v->y + floorf((v->h - unit * x->total_h) * 0.5f);
+  /* Awra 1's size_allocate, in application pixels (at a whole scale
+   * factor, its device pixels are that many times them) */
+  const float sf = awra_scale();
+  const float s = sf > 1.0f && sf == floorf(sf) ? sf : 1.0f;
+  const float W = v->w / s, H = v->h / s;
+  float unit = fminf(W / x->total_w, H / x->total_h);
+  unit = fminf(fmaxf(unit, 1.0f), awra_pxf(64) / s);
+  const float gap = fminf(fmaxf(floorf(unit * 0.09f + 0.5f), awra_pxf(2) / s), awra_pxf(6) / s);
+  const float ox = floorf((W - unit * x->total_w) * 0.5f);
+  const float oy = floorf((H - unit * x->total_h) * 0.5f);
   for (int k = 0; k < x->nkeys; k++) {
     const KeyPos *p = &x->keys[k];
     AwraWidget *c = kbd_cap_by_code(v, p->code);
@@ -715,7 +739,8 @@ static void kbd_allocate(AwraWidget *v)
     const int y0 = (int)floorf(oy + p->y * unit + gap * 0.5f + 0.5f);
     const int x1 = (int)floorf(ox + (p->x + p->w) * unit - gap * 0.5f + 0.5f);
     const int y1 = (int)floorf(oy + (p->y + p->h) * unit - gap * 0.5f + 0.5f);
-    awra_allocate(c, x0, y0, BK_MAX(1, x1 - x0), BK_MAX(1, y1 - y0));
+    awra_allocate(c, v->x + (int)(x0 * s), v->y + (int)(y0 * s), (int)(BK_MAX(1, x1 - x0) * s),
+                  (int)(BK_MAX(1, y1 - y0) * s));
   }
 }
 
@@ -1658,9 +1683,9 @@ static void zone_draw_over(AwraWidget *w, AwraDraw *d)
     th = (float)lh + awra_pxf(8);
   }
   const float top = b.y + (b.h - s - th) * 0.5f;
-  awra_paint_icon(d, "document-send-symbolic", b.x + floorf((b.w - s) * 0.5f), floorf(top), s, &t->accent_content);
+  awra_paint_icon(d, "document-send-symbolic", b.x + awra_halfpx(b.w - s), floorf(top), s, &t->accent_content);
   if (l) {
-    awra_text_layout_draw(l, d, b.x + floorf((b.w - lw) * 0.5f), top + s + awra_pxf(8), lw, &t->foreground);
+    awra_text_layout_draw(l, d, b.x + awra_halfpx(b.w - lw), top + s + awra_pxf(8), lw, &t->foreground);
     awra_text_layout_free(l);
   }
 }

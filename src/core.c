@@ -2105,7 +2105,7 @@ static void align_span(int align, int natural, int *pos, int *size)
     case AWRA_ALIGN_CENTER:
     case AWRA_ALIGN_BASELINE:
       if (*size > natural) {
-        *pos += (*size - natural) / 2;
+        *pos += (int)awra_halfpx((float)(*size - natural)); /* GTK halves application pixels */
         *size = natural;
       }
       break;

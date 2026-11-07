@@ -928,7 +928,7 @@ static void row_draw(AwraWidget *w, AwraDraw *d)
     awra_text_layout_logical(l, avail, &lx0, &lw);
     lx = awra_mirror_x(w, cx, (float)avail) + avail - fminf(ceilf(lw), (float)avail) - lx0;
   }
-  awra_text_layout_draw(l, d, lx, b.y + floorf((b.h - th) * 0.5f), avail, &fg);
+  awra_text_layout_draw(l, d, lx, b.y + awra_halfpx(b.h - th), avail, &fg);
   awra_text_layout_free(l);
 }
 
@@ -1902,7 +1902,10 @@ static void toast_allocate(AwraWidget *w)
     const float slide = *(float *)awra_widget_get_data(t->surface, "awra-slide");
     const int inset = awra_px(x->bottom_inset >= 0 ? x->bottom_inset : 24);
     const int y = w->y + w->h - inset - nh + (int)((1.0f - slide) * (nh + inset));
-    awra_allocate(t->surface, w->x + (w->w - nw) / 2, y, nw, nh);
+    /* GtkOverlay's centring: width / 2 - child width / 2, in application
+     * pixels */
+    const int sc = BK_MAX(1, (int)awra_scale());
+    awra_allocate(t->surface, w->x + sc * ((w->w / sc) / 2 - (nw / sc) / 2), y, nw, nh);
   }
 }
 
