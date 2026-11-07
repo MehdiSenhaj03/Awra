@@ -6,6 +6,20 @@
 
 Awra 2: the same look, without GTK.
 
+- Media applications (VLC Awra, second pass): in-app drags show the
+  destination's `:drop(active)` ring (`awra_widget_set_drop_active`), the
+  no-drop pointer, and cancel with Escape; `awra_slider_set_draw_value`
+  (GtkScale's value above a slider); dropdowns at 34 px with their border;
+  text lines from hinted ascent and descent as Pango (DejaVu Sans 13.33 px:
+  17 px); windows focus their first focusable widget when shown, never open
+  under their contents' minimum, move the focus off unmapped widgets and
+  show it when a key moved it (GtkWindow); edge panels keep Awra 1's MD
+  inset around their surface; action rows keep their 1 px CSS margin.
+  Leaks fixed: composite parts (action rows, sections, page headers, empty
+  states, status banners, drop zones, sidebars, check button labels,
+  volume controls, dropdowns and their popups, toasts, dialog bodies), the
+  menu button / dropdown and popover reference cycle, a dialog freed while
+  its own button's press was handled, the tree-dump timer.
 - Built on BUI, Awra's fork of Blender's interface runtime (kit nodes,
   software raster, FreeType text, native window hosts). No GTK, GLib,
   Pango, Cairo or GObject at run time; Linux needs only wayland-client,
