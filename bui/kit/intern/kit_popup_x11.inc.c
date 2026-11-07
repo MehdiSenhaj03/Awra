@@ -38,14 +38,16 @@ static int x11_pop_place(void *data, int slot, const BKPopupLayout *l, int w, in
                          BKRect *r_rect);
 static void x11_pop_close(void *data, int slot);
 
-/* An integer XSETTINGS value (the settings daemon's), -1 when none. */
-static int xsettings_int(const char *want)
+/* An XSETTINGS value (the settings daemon's): an integer's in *r_int, a
+ * string's in `str` (`cap` bytes). Returns 0 when there is none, 1 for an
+ * integer, 2 for a string. */
+static int xsettings_get(const char *want, int *r_int, char *str, size_t cap)
 {
   char sel[32];
   snprintf(sel, sizeof(sel), "_XSETTINGS_S%d", DefaultScreen(g_dpy));
   const Window owner = XGetSelectionOwner(g_dpy, XInternAtom(g_dpy, sel, False));
   if (!owner) {
-    return -1;
+    return 0;
   }
   const Atom prop = XInternAtom(g_dpy, "_XSETTINGS_SETTINGS", False);
   Atom type;
@@ -59,7 +61,7 @@ static int xsettings_int(const char *want)
     if (d) {
       XFree(d);
     }
-    return -1;
+    return 0;
   }
   /* byte order, serial, count; then type, name, serial, value per setting */
   const int msb = d[0] == 1;
@@ -67,7 +69,7 @@ static int xsettings_int(const char *want)
 #  define XS_U32(p)                                                                         (msb ? ((uint32_t)(p)[0] << 24 | (uint32_t)(p)[1] << 16 | (uint32_t)(p)[2] << 8 | (p)[3]) :            ((uint32_t)(p)[3] << 24 | (uint32_t)(p)[2] << 16 | (uint32_t)(p)[1] << 8 | (p)[0]))
   const uint32_t count = XS_U32(d + 8);
   size_t at = 12;
-  int result = -1;
+  int result = 0;
   for (uint32_t i = 0; i < count && at + 8 <= n; i++) {
     const int kind = d[at];
     const unsigned len = XS_U16(d + at + 2);
@@ -82,7 +84,8 @@ static int xsettings_int(const char *want)
         break;
       }
       if (match) {
-        result = (int)XS_U32(d + at);
+        *r_int = (int)XS_U32(d + at);
+        result = 1;
       }
       at += 4;
     }
@@ -90,7 +93,14 @@ static int xsettings_int(const char *want)
       if (at + 4 > n) {
         break;
       }
-      at += 4 + ((XS_U32(d + at) + 3) & ~3u);
+      const uint32_t slen = XS_U32(d + at);
+      if (match && str && cap > 0 && at + 4 + slen <= n) {
+        const size_t k = slen < cap - 1 ? slen : cap - 1;
+        memcpy(str, d + at + 4, k);
+        str[k] = 0;
+        result = 2;
+      }
+      at += 4 + ((slen + 3) & ~3u);
     }
     else if (kind == 2) { /* colour */
       at += 8;
@@ -103,6 +113,84 @@ static int xsettings_int(const char *want)
 #  undef XS_U32
   XFree(d);
   return result;
+}
+
+/* An integer XSETTINGS value, -1 when none. */
+static int xsettings_int(const char *want)
+{
+  int v = -1;
+  return xsettings_get(want, &v, NULL, 0) == 1 ? v : -1;
+}
+
+/* An Xft resource (Xft.<name>), as GDK's X11 backend reads its defaults
+ * (gdkxftdefaults.c): a boolean or a fontconfig constant (hintslight...)
+ * or a number. Returns 0 when unset. */
+static int xft_resource(const char *name, int *r_value)
+{
+  char *rms = XResourceManagerString(g_dpy);
+  if (!rms) {
+    return 0;
+  }
+  XrmInitialize();
+  XrmDatabase db = XrmGetStringDatabase(rms);
+  if (!db) {
+    return 0;
+  }
+  char rname[64], rclass[64];
+  snprintf(rname, sizeof(rname), "Xft.%s", name);
+  snprintf(rclass, sizeof(rclass), "Xft.%c%s", name[0] - 'a' + 'A', name + 1);
+  char *type = NULL;
+  XrmValue value;
+  int ok = 0;
+  if (XrmGetResource(db, rname, rclass, &type, &value) && value.addr) {
+    static const struct {
+      const char *s;
+      int v;
+    } consts[] = {{"true", 1},      {"yes", 1},         {"on", 1},          {"false", 0},
+                  {"no", 0},        {"off", 0},         {"hintnone", 0},    {"hintslight", 1},
+                  {"hintmedium", 2}, {"hintfull", 3}};
+    const char *v = (const char *)value.addr;
+    for (size_t i = 0; i < sizeof(consts) / sizeof(consts[0]) && !ok; i++) {
+      if (strcasecmp(v, consts[i].s) == 0) {
+        *r_value = consts[i].v;
+        ok = 1;
+      }
+    }
+    if (!ok && ((v[0] >= '0' && v[0] <= '9') || v[0] == '-')) {
+      *r_value = atoi(v);
+      ok = 1;
+    }
+  }
+  XrmDestroyDatabase(db);
+  return ok;
+}
+
+/* BUI-Awra: GTK's font options on X11 (GtkSettings gtk-xft-hinting,
+ * gtk-xft-hintstyle, gtk-xft-antialias): the settings daemon's Xft/Hinting,
+ * Xft/HintStyle and Xft/Antialias, else the Xft resources, else GDK's
+ * defaults (hinting on, hintmedium, antialiased), for the text engine. */
+static void x11_font_options(void)
+{
+  int hinting = 1, antialias = 1, style = 2;
+  char str[32];
+  int v;
+  if (xsettings_get("Xft/Hinting", &v, NULL, 0) == 1 || xft_resource("hinting", &v)) {
+    hinting = v != 0;
+  }
+  if (xsettings_get("Xft/Antialias", &v, NULL, 0) == 1 || xft_resource("antialias", &v)) {
+    antialias = v != 0;
+  }
+  if (xsettings_get("Xft/HintStyle", &v, str, sizeof(str)) == 2) {
+    style = !strcmp(str, "hintnone")   ? 0 :
+            !strcmp(str, "hintslight") ? 1 :
+            !strcmp(str, "hintmedium") ? 2 :
+            !strcmp(str, "hintfull")   ? 3 :
+                                         -1; /* GTK: the default style (fontconfig's) */
+  }
+  else if (xft_resource("hintstyle", &v)) {
+    style = v >= 0 && v <= 3 ? v : -1;
+  }
+  BUI_text_set_font_options(hinting ? style : 0, antialias);
 }
 
 /* GDK's gtk-cursor-theme-size on X11: the settings daemon's

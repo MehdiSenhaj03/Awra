@@ -1340,12 +1340,21 @@ static void forget_measures(AwraWidget *n)
 }
 
 static void native_parent(AwraWidget *w);
+void awra_portal_wayland_fonts(void); /* portal.c */
 
 static void ensure_native(AwraWidget *w)
 {
   WinExt *x = WEXT(w);
   if (x->bkw || x->offscreen || x->closed) {
     return;
+  }
+  {
+    /* GDK's Wayland backend: font options from the settings portal (the
+     * X11 host reads XSETTINGS itself), before the contents are measured */
+    const char *b = BK_window_backend();
+    if (b && !strcmp(b, "wayland")) {
+      awra_portal_wayland_fonts();
+    }
   }
   /* GtkWindow: the default size, but never under what the contents need
    * (measured at the current scale: the window's own may differ, so the

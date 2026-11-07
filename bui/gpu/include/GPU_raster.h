@@ -44,6 +44,19 @@ enum {
  * lays text out at scale 1 with gtk-hint-font-metrics. */
 void BUI_text_set_hint_metrics(int on);
 int BUI_text_hint_metrics(void);
+/* BUI-Awra: device pixels per logical pixel. Sizes and positions stay in
+ * device pixels; text is shaped at the logical size and scaled, as Pango
+ * lays it out for GSK to scale (the same subpixel positions). */
+void BUI_text_set_layout_scale(float scale);
+/* BUI-Awra: the desktop's font options, as GTK reads them into GtkSettings
+ * (gtk-xft-hinting / gtk-xft-hintstyle / gtk-xft-antialias: XSETTINGS or
+ * Xft resources on X11, the settings portal on Wayland). With hinted
+ * metrics, glyphs are hinted and antialiased as they say, merged with each
+ * face's fontconfig pattern as cairo-ft merges them; without (GTK's
+ * automatic font rendering), slight hinting and grayscale. hint_style: -1
+ * unset (the pattern's), 0 none, 1 slight, 2 medium, 3 full; antialias: -1
+ * unset, 0 none, 1 grayscale. Changing them re-renders all text. */
+void BUI_text_set_font_options(int hint_style, int antialias);
 
 #define BUI_FONT_WEIGHT_SHIFT 8
 #define BUI_FONT_WEIGHT(w) ((((int)(w)) & 0x3FF) << BUI_FONT_WEIGHT_SHIFT)
