@@ -353,10 +353,16 @@ AwraWidget *awra_emoji_picker_new(void)
   awra_search_entry_set_delay(x->search, 60);
   awra_signal_connect(x->search, AWRA_SIGNAL_SEARCH_CHANGED, search_changed, w, NULL);
   x->tabs = awra_box_new(AWRA_ORIENTATION_HORIZONTAL, 2);
+  /* the tabs scroll sideways rather than widen the picker (Awra 1's
+   * tabs_scroller, EXTERNAL / NEVER) */
+  AwraWidget *tabs_scroller = awra_scrolled_new();
+  awra_scrolled_set_policy(tabs_scroller, AWRA_POLICY_EXTERNAL, AWRA_POLICY_NEVER);
+  awra_scrolled_set_child(tabs_scroller, x->tabs);
   awra_box_append(header, x->search);
-  awra_box_append(header, x->tabs);
+  awra_box_append(header, tabs_scroller);
   awra_widget_unref(x->search);
   awra_widget_unref(x->tabs);
+  awra_widget_unref(tabs_scroller);
   awra_box_append(w, header);
   awra_widget_unref(header);
   x->scroller = awra_scrolled_new();

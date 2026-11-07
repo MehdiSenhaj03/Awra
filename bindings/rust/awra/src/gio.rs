@@ -254,6 +254,8 @@ pub(crate) struct ItemData {
     pub subtitle: Option<String>,
     pub custom: Option<String>,
     pub submenu: Option<Menu>,
+    /// Awra 1's "awra-detail": text at the row's end (a palette's).
+    pub detail: Option<String>,
 }
 
 impl MenuItem {
@@ -296,6 +298,7 @@ impl MenuItem {
             "accel" => d.accel = v,
             "subtitle" | "description" => d.subtitle = v,
             "custom" => d.custom = v,
+            "awra-detail" => d.detail = v,
             _ => {}
         }
     }

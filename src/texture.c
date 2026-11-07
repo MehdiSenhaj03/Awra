@@ -167,8 +167,36 @@ int awra_texture_height(const AwraTexture *t)
   return t ? t->h : 0;
 }
 
+static uint8_t clamp8(float v)
+{
+  return (uint8_t)(v < 0 ? 0 : v > 255 ? 255 : v + 0.5f);
+}
+
+/* video's narrow range YCbCr to RGB, as the raster draws it */
+static void download_nv12(const AwraTexture *t, uint8_t *rgba, int stride)
+{
+  const bool bt709 = t->format == BUI_PIXMAP_NV12_BT709;
+  const uint8_t *yp = (const uint8_t *)t->px, *uv = yp + (size_t)t->w * t->h;
+  for (int y = 0; y < t->h; y++) {
+    uint8_t *d = rgba + (size_t)y * stride;
+    for (int x = 0; x < t->w; x++, d += 4) {
+      const float c = 1.164f * (yp[(size_t)y * t->w + x] - 16);
+      const uint8_t *q = uv + (size_t)(y / 2) * t->w + (x / 2) * 2;
+      const float u = q[0] - 128.0f, v = q[1] - 128.0f;
+      d[0] = clamp8(c + (bt709 ? 1.793f : 1.596f) * v);
+      d[1] = clamp8(c - (bt709 ? 0.213f : 0.392f) * u - (bt709 ? 0.533f : 0.813f) * v);
+      d[2] = clamp8(c + (bt709 ? 2.112f : 2.017f) * u);
+      d[3] = 255;
+    }
+  }
+}
+
 bool awra_texture_download(const AwraTexture *t, uint8_t *rgba, int stride)
 {
+  if (t && (t->format == BUI_PIXMAP_NV12_BT601 || t->format == BUI_PIXMAP_NV12_BT709)) {
+    download_nv12(t, rgba, stride);
+    return true;
+  }
   if (!t || t->format != BUI_PIXMAP_ARGB) {
     return false;
   }

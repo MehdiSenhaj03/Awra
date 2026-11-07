@@ -2346,7 +2346,7 @@ impl CommandPalette {
                         title: s(d.label.as_deref()),
                         subtitle: s(d.subtitle.as_deref()),
                         icon_name: s(d.icon.as_deref()),
-                        accel: s(d.accel.as_deref().map(crate::window::accel_label).as_deref()),
+                        accel: s(d.detail.clone().or_else(|| d.accel.as_deref().map(crate::window::accel_label)).as_deref()),
                         section: s(section.as_deref()),
                     });
                     acts.push((d.action.clone(), d.target.clone()));
