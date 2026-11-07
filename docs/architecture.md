@@ -71,8 +71,13 @@ Text follows what GTK did for Awra 1:
   and Right move visually (pango_layout_move_cursor_visually), clicks find
   graphemes as pango_layout_xy_to_index, Backspace deletes a grapheme or,
   where Pango says so (Arabic marks, Indic vowel signs), its last character
-  after NFD, Delete a grapheme; selections are per run, so bidi text
-  selects in several stretches;
+  after NFD, Delete a grapheme; selections are painted as each GTK widget
+  paints them (labels and text views: each run's range and the line ends
+  where the selection continues; entries: one box around a bidi range);
+- ellipsizing is Pango's: the gap grows span by span from the mode's
+  centre over the shaped clusters in logical order, the ellipsis takes the
+  font at the gap and the lowest level it hides and fills the width, and
+  the kept text is drawn from the original shaping (joined forms kept);
 - emoji follow Pango: its emoji presentation scanner splits text into emoji
   and text runs, emoji runs take the "emoji" family (a colour font when a
   VS16 asks for one), and sequences (ZWJ, skin tones, flags, keycaps, tags)

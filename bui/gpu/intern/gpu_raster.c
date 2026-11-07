@@ -5656,6 +5656,17 @@ int BUI_raster_text_part(BuiRaster *r, float x, float y, const char *utf8, int l
   if (from <= 0 && to >= len) {
     return BUI_raster_text(r, x, y, utf8, len, size, rgba);
   }
+#if TEXT_GDI
+  /* GDI orders and shapes runs itself: the part on its own, where it is */
+  {
+    const int f = font_get(r->font_family, r->font_flags & ~TEXT_DIRS, size);
+    TextRun *e = f >= 0 ? run_get(f, 0, utf8, len) : NULL;
+    if (!e) {
+      return 0;
+    }
+    return BUI_raster_text(r, x + run_index_to_x(e, from, 0), y, utf8 + from, to - from, size, rgba);
+  }
+#endif
   const int f = font_get(r->font_family, r->font_flags & ~TEXT_DIRS, size);
   TextRun *e = f >= 0 ? run_get_part(f, text_dir(r->font_flags), utf8, len, from, to) : NULL;
   if (!e) {
