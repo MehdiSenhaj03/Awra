@@ -174,10 +174,14 @@ static void badge_box(AwraWidget *w, float tile, float ox, float oy, AwraBox *r_
   f.weight = 700;
   f.letter_spacing = 0;
   *r_font = f;
-  const float ink = awra_text_width(&f, text, -1) / s;
-  const float width = fmaxf(height, ink + height * 0.7f);
+  /* Awra 1 sizes it by the count's ink width (pango_layout_get_pixel_extents) */
+  int ix, iy, iw = 0, ih;
+  awra_text_ink(&f, text, -1, &ix, &iy, &iw, &ih);
+  const float width = fmaxf(height, iw / s + height * 0.7f);
+  /* it hangs off the corner a little, like a sticker: the end corner */
   const float end = tile + 2;
-  *r_box = (AwraBox){ox + (end - width) * s, oy + (tile + 2 - height) * s, width * s, height * s};
+  const float bx = awra_widget_rtl(w) ? -2.0f : end - width;
+  *r_box = (AwraBox){ox + bx * s, oy + (tile + 2 - height) * s, width * s, height * s};
 }
 
 static void item_draw(AwraWidget *w, AwraDraw *d)
@@ -262,11 +266,13 @@ static void item_draw_over(AwraWidget *w, AwraDraw *d)
     AwraBox bb = {bcx - b.w / 2 * x->badge, bcy - b.h / 2 * x->badge, b.w * x->badge, b.h * x->badge};
     awra_paint_rbox(d, bb, bb.h / 2, &t->danger, 0, NULL);
     f.size *= x->badge;
-    const float tw = awra_text_width(&f, text, -1);
     const AwraRGBA white = {1, 1, 1, 1};
-    /* Pango's ink box of digits: about 0.73 em above the baseline */
-    const float ink_h = f.size * 0.729f;
-    awra_draw_text(d, &f, roundf(bcx - tw / 2), roundf(bcy + ink_h / 2), text, -1, &white);
+    /* Awra 1 centres the count's ink box, the offset rounded to pixels */
+    int ix, iy, iw, ih;
+    if (awra_text_ink(&f, text, -1, &ix, &iy, &iw, &ih)) {
+      awra_draw_text(d, &f, roundf(bb.x + (bb.w - iw) / 2 - ix), roundf(bb.y + (bb.h - ih) / 2 - iy), text, -1,
+                     &white);
+    }
   }
   if (x->drop_target || awra_focus_visible(w)) {
     const float o = 4 * s;
