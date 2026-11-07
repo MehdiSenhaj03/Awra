@@ -44,6 +44,8 @@ typedef struct PickerExt {
   int n_sections;
   char *query;
   int hover_s, hover_i;
+  int cur_s, cur_i;   /* the keyboard cursor (Awra 1's self->cursor): an item index */
+  int current_tab;    /* the section whose tab shows current */
   int columns;
 } PickerExt;
 
@@ -74,6 +76,9 @@ static bool matches(const Emoji *e, const char *q)
   return e->keywords && strstr(e->keywords, q);
 }
 
+static void update_preview(AwraWidget *picker);
+static void set_current_tab(AwraWidget *picker, int s);
+
 static void filter(AwraWidget *picker)
 {
   PickerExt *x = pk(picker);
@@ -89,8 +94,33 @@ static void filter(AwraWidget *picker)
       }
     }
     any |= sec->n_shown > 0;
+    /* a section without matches hides its tab (Awra 1's relayout) */
+    if (x->tabs && s < x->tabs->nkids) {
+      awra_widget_set_visible(x->tabs->kids[s], sec->n_shown > 0);
+    }
   }
-  awra_widget_set_visible(x->empty, !any);
+  awra_widget_set_visible(x->empty, !any && x->query && x->query[0]);
+  /* the cursor stays on its item while it still shows, else goes to the
+   * first one shown (refilter) */
+  bool kept = false;
+  if (x->cur_s >= 0 && x->cur_s < x->n_sections) {
+    const Section *sec = &x->sections[x->cur_s];
+    for (int k = 0; k < sec->n_shown && !kept; k++) {
+      if (sec->shown[k] == x->cur_i) {
+        kept = true;
+      }
+    }
+  }
+  if (!kept) {
+    x->cur_s = x->cur_i = -1;
+    for (int s = 0; s < x->n_sections && x->cur_s < 0; s++) {
+      if (x->sections[s].n_shown > 0) {
+        x->cur_s = s;
+        x->cur_i = x->sections[s].shown[0];
+      }
+    }
+  }
+  update_preview(picker);
   awra_widget_queue_resize(x->grid);
 }
 
@@ -129,9 +159,12 @@ static void grid_measure(AwraWidget *w, int o, int for_size, int *r_min, int *r_
   *r_min = *r_nat = h + awra_px(6);
 }
 
+static void update_current_tab(AwraWidget *picker);
+
 static void grid_allocate(AwraWidget *w)
 {
   grid_layout(AWRA_EXT(w, GridExt)->picker, w->w);
+  update_current_tab(AWRA_EXT(w, GridExt)->picker); /* sections have their places now */
 }
 
 static void grid_draw(AwraWidget *w, AwraDraw *d)
@@ -168,7 +201,13 @@ static void grid_draw(AwraWidget *w, AwraDraw *d)
       }
       const AwraBox cb = {(float)cx + awra_pxf(2), (float)cy + awra_pxf(2), (float)cell - awra_pxf(4),
                           (float)cell - awra_pxf(4)};
-      if (x->hover_s == s && x->hover_i == k) {
+      if (x->cur_s == s && x->cur_i == sec->shown[k]) {
+        /* .awra-emoji-cursor: chosen, like a selected row */
+        const AwraRGBA ring = awra_with_alpha(t->accent, 0.35f);
+        awra_paint_rbox(d, cb, awra_pxf(9), &t->accent_soft, 0, NULL);
+        awra_paint_inset_shadow(d, cb, awra_pxf(9), 0, 0, awra_pxf(1), 0, &ring);
+      }
+      else if (x->hover_s == s && x->hover_i == k) {
         awra_paint_rbox(d, cb, awra_pxf(9), &t->control_cap_hover, 0, NULL);
       }
       if (e->texture) {
@@ -176,10 +215,11 @@ static void grid_draw(AwraWidget *w, AwraDraw *d)
         awra_paint_texture(d, e->texture, (AwraBox){cb.x + m, cb.y + m, cb.w - 2 * m, cb.h - 2 * m}, 0, 1);
       }
       else if (e->text) {
-        const float tw = awra_text_width(&glyph, e->text, -1);
-        const float lh = awra_font_line_height(&glyph), asc = awra_font_ascent(&glyph);
-        awra_draw_text(d, &glyph, roundf(cb.x + (cb.w - tw) / 2), roundf(cb.y + (cb.h - lh) / 2 + asc), e->text, -1,
-                       &t->foreground);
+        /* a GtkLabel filling the cell: floor ((size - logical) / 2) */
+        const float tw = ceilf(awra_text_width(&glyph, e->text, -1));
+        const float lh = ceilf(awra_font_line_height(&glyph)), asc = awra_font_ascent(&glyph);
+        awra_draw_text(d, &glyph, cb.x + floorf((cb.w - tw) * 0.5f), cb.y + floorf((cb.h - lh) * 0.5f) + asc,
+                       e->text, -1, &t->foreground);
       }
     }
   }
@@ -210,6 +250,25 @@ static bool hit(AwraWidget *w, int px, int py, int *r_s, int *r_i)
   return false;
 }
 
+static void show_preview(AwraWidget *picker, const Emoji *e);
+
+/* the item under the pointer, else the cursor's (Awra 1's update_preview) */
+static void update_preview(AwraWidget *picker)
+{
+  PickerExt *x = pk(picker);
+  if (!x->preview_name) {
+    return;
+  }
+  const Emoji *e = NULL;
+  if (x->hover_s >= 0 && x->hover_s < x->n_sections) {
+    e = &x->sections[x->hover_s].items[x->sections[x->hover_s].shown[x->hover_i]];
+  }
+  else if (x->cur_s >= 0 && x->cur_s < x->n_sections) {
+    e = &x->sections[x->cur_s].items[x->cur_i];
+  }
+  show_preview(picker, e);
+}
+
 static void show_preview(AwraWidget *picker, const Emoji *e)
 {
   PickerExt *x = pk(picker);
@@ -224,7 +283,10 @@ static void show_preview(AwraWidget *picker, const Emoji *e)
   awra_widget_set_visible(x->preview_glyph, e->texture == NULL);
   awra_image_set_texture(x->preview_image, e->texture);
   awra_label_set_text(x->preview_glyph, e->texture ? "" : (e->text ? e->text : ""));
-  awra_label_set_text(x->preview_name, e->name ? e->name : "");
+  /* Awra 1 names it as typed: ":name:" */
+  char name[160];
+  snprintf(name, sizeof(name), ":%s:", e->name ? e->name : "");
+  awra_label_set_text(x->preview_name, name);
 }
 
 static int grid_motion(AwraWidget *w, BKEvent *e)
@@ -237,7 +299,7 @@ static int grid_motion(AwraWidget *w, BKEvent *e)
     x->hover_s = s;
     x->hover_i = i;
     awra_invalidate(w);
-    show_preview(picker, s >= 0 ? &x->sections[s].items[x->sections[s].shown[i]] : NULL);
+    update_preview(picker);
   }
   return 1;
 }
@@ -248,6 +310,7 @@ static void grid_hover(AwraWidget *w, bool on)
     AwraWidget *picker = AWRA_EXT(w, GridExt)->picker;
     pk(picker)->hover_s = pk(picker)->hover_i = -1;
     awra_invalidate(w);
+    update_preview(picker);
   }
 }
 
@@ -257,6 +320,9 @@ static int grid_release(AwraWidget *w, BKEvent *e)
   PickerExt *x = pk(picker);
   int s, i;
   if (e->inside && hit(w, e->x, e->y, &s, &i)) {
+    x->cur_s = s; /* cell_released_cb: the cursor moves to it */
+    x->cur_i = x->sections[s].shown[i];
+    awra_invalidate(w);
     const Emoji *em = &x->sections[s].items[x->sections[s].shown[i]];
     char *id = awra_strdup(em->id);
     awra_widget_ref(picker);
@@ -398,8 +464,197 @@ static void tab_clicked(AwraWidget *button, const AwraArgs *a, void *data)
   AwraWidget *picker = (AwraWidget *)data;
   PickerExt *x = pk(picker);
   const int s = (int)(intptr_t)awra_widget_get_data(button, "awra-section");
-  if (s >= 0 && s < x->n_sections) {
+  if (s >= 0 && s < x->n_sections && x->sections[s].n_shown > 0) {
     awra_scrolled_set_vvalue(x->scroller, x->sections[s].y / awra_scale());
+    set_current_tab(picker, s);
+  }
+}
+
+/* The tab of the section in view: the last section starting above the
+ * scroll position (Awra 1's scrolled_cb), marked current. */
+static void set_current_tab(AwraWidget *picker, int s)
+{
+  PickerExt *x = pk(picker);
+  if (x->current_tab == s) {
+    return;
+  }
+  if (x->current_tab >= 0 && x->current_tab < x->tabs->nkids) {
+    awra_button_set_emoji_tab_internal(x->tabs->kids[x->current_tab], false);
+  }
+  x->current_tab = s;
+  if (s >= 0 && s < x->tabs->nkids) {
+    awra_button_set_emoji_tab_internal(x->tabs->kids[s], true);
+  }
+}
+
+static void update_current_tab(AwraWidget *picker)
+{
+  PickerExt *x = pk(picker);
+  const double value = awra_scrolled_vvalue(x->scroller) * awra_scale() + awra_scale();
+  int current = -1;
+  for (int s = 0; s < x->n_sections; s++) {
+    if (!x->sections[s].n_shown) {
+      continue;
+    }
+    if (current < 0 || x->sections[s].y <= value) {
+      current = s;
+    }
+    else {
+      break;
+    }
+  }
+  set_current_tab(picker, current);
+}
+
+static void scrolled(AwraWidget *scroller, const AwraArgs *a, void *data)
+{
+  (void)scroller;
+  (void)a;
+  update_current_tab((AwraWidget *)data);
+}
+
+/* Scrolls the least that shows the cursor's row (GTK_LIST_SCROLL_NONE). */
+static void reveal_cursor(AwraWidget *picker)
+{
+  PickerExt *x = pk(picker);
+  if (x->cur_s < 0 || x->columns <= 0) {
+    return;
+  }
+  const Section *sec = &x->sections[x->cur_s];
+  int k = 0;
+  while (k < sec->n_shown && sec->shown[k] != x->cur_i) {
+    k++;
+  }
+  const float sc = awra_scale();
+  const double top = (sec->y + awra_px(HEADER_H) + (k / x->columns) * awra_px(CELL)) / sc;
+  const double bottom = top + CELL;
+  const double v = awra_scrolled_vvalue(x->scroller), h = x->scroller->h / sc;
+  if (top < v) {
+    awra_scrolled_set_vvalue(x->scroller, top);
+  }
+  else if (bottom > v + h) {
+    awra_scrolled_set_vvalue(x->scroller, bottom - h);
+  }
+}
+
+static int neighbour(const PickerExt *x, int from, int dir)
+{
+  for (int s = from + dir; s >= 0 && s < x->n_sections; s += dir) {
+    if (x->sections[s].n_shown > 0) {
+      return s;
+    }
+  }
+  return -1;
+}
+
+/* Awra 1's move_cursor: along the section, then into the next or the
+ * previous one, keeping the column going up and down */
+static void move_cursor(AwraWidget *picker, const char *key)
+{
+  PickerExt *x = pk(picker);
+  const int cols = BK_MAX(1, x->columns);
+  if (x->cur_s < 0) {
+    const int s = neighbour(x, -1, 1);
+    if (s >= 0) {
+      x->cur_s = s;
+      x->cur_i = x->sections[s].shown[0];
+    }
+  }
+  else {
+    int s = x->cur_s, k = 0;
+    const Section *sec = &x->sections[s];
+    while (k < sec->n_shown && sec->shown[k] != x->cur_i) {
+      k++;
+    }
+    const int col = k % cols, rows = (sec->n_shown + cols - 1) / cols;
+    int o;
+    if (!strcmp(key, "Right") || !strcmp(key, "KP_Right")) {
+      if (k + 1 < sec->n_shown) {
+        k++;
+      }
+      else if ((o = neighbour(x, s, 1)) >= 0) {
+        s = o, k = 0;
+      }
+    }
+    else if (!strcmp(key, "Left") || !strcmp(key, "KP_Left")) {
+      if (k > 0) {
+        k--;
+      }
+      else if ((o = neighbour(x, s, -1)) >= 0) {
+        s = o, k = x->sections[o].n_shown - 1;
+      }
+    }
+    else if (!strcmp(key, "Down") || !strcmp(key, "KP_Down")) {
+      if (k + cols < sec->n_shown) {
+        k += cols;
+      }
+      else if (k / cols + 1 < rows) {
+        k = sec->n_shown - 1;
+      }
+      else if ((o = neighbour(x, s, 1)) >= 0) {
+        s = o, k = BK_MIN(col, x->sections[o].n_shown - 1);
+      }
+    }
+    else if (!strcmp(key, "Up") || !strcmp(key, "KP_Up")) {
+      if (k >= cols) {
+        k -= cols;
+      }
+      else if ((o = neighbour(x, s, -1)) >= 0) {
+        const int orows = (x->sections[o].n_shown + cols - 1) / cols;
+        s = o, k = BK_MIN((orows - 1) * cols + col, x->sections[o].n_shown - 1);
+      }
+    }
+    x->cur_s = s;
+    x->cur_i = x->sections[s].shown[k];
+  }
+  awra_invalidate(x->grid);
+  update_preview(picker);
+  reveal_cursor(picker);
+}
+
+static void pick_cursor(AwraWidget *picker)
+{
+  PickerExt *x = pk(picker);
+  if (x->cur_s < 0) {
+    return;
+  }
+  char *id = awra_strdup(x->sections[x->cur_s].items[x->cur_i].id);
+  awra_widget_ref(picker);
+  awra_emit_text(picker, AWRA_SIGNAL_ACTIVATE, id);
+  awra_widget_unref(picker);
+  free(id);
+}
+
+/* Awra 1's key_pressed_cb, in the capture phase of the search field */
+static void search_key(AwraWidget *entry, const AwraArgs *a, void *data)
+{
+  (void)entry;
+  AwraWidget *picker = (AwraWidget *)data;
+  PickerExt *x = pk(picker);
+  const char *k = a->keysym;
+  if (!k || (a->mods & (AWRA_MOD_SHIFT | AWRA_MOD_CTRL | AWRA_MOD_ALT | AWRA_MOD_SUPER))) {
+    return;
+  }
+  const bool sideways = !strcmp(k, "Left") || !strcmp(k, "KP_Left") || !strcmp(k, "Right") ||
+                        !strcmp(k, "KP_Right");
+  const bool upright = !strcmp(k, "Up") || !strcmp(k, "KP_Up") || !strcmp(k, "Down") || !strcmp(k, "KP_Down");
+  if (sideways && x->query && x->query[0]) {
+    return; /* while a search is typed, the sideways arrows edit it */
+  }
+  if (sideways || upright) {
+    move_cursor(picker, k);
+  }
+  else if (!strcmp(k, "Return") || !strcmp(k, "KP_Enter") || !strcmp(k, "ISO_Enter")) {
+    if (x->cur_s < 0) {
+      return;
+    }
+    pick_cursor(picker);
+  }
+  else {
+    return;
+  }
+  if (a->handled) {
+    *a->handled = true;
   }
 }
 
@@ -410,6 +665,8 @@ AwraWidget *awra_emoji_picker_new(void)
   awra_widget_set_name(w, "AwraEmojiPicker");
   PickerExt *x = (PickerExt *)calloc(1, sizeof(PickerExt));
   x->hover_s = x->hover_i = -1;
+  x->cur_s = x->cur_i = -1;
+  x->current_tab = -1;
   awra_widget_set_data(w, "awra-emoji-picker", x, picker_free);
   AwraWidget *header = awra_box_new(AWRA_ORIENTATION_VERTICAL, 6);
   awra_widget_set_margins(header, 10, 10, 4, 10);
@@ -417,6 +674,7 @@ AwraWidget *awra_emoji_picker_new(void)
   awra_entry_set_placeholder(x->search, "Search emoji");
   awra_search_entry_set_delay(x->search, 60);
   awra_signal_connect(x->search, AWRA_SIGNAL_SEARCH_CHANGED, search_changed, w, NULL);
+  awra_signal_connect(x->search, AWRA_SIGNAL_KEY_PRESSED, search_key, w, NULL);
   x->tabs = awra_box_new(AWRA_ORIENTATION_HORIZONTAL, 2);
   /* the tabs scroll sideways rather than widen the picker (Awra 1's
    * tabs_scroller, EXTERNAL / NEVER) */
@@ -433,6 +691,12 @@ AwraWidget *awra_emoji_picker_new(void)
   x->scroller = awra_scrolled_new();
   awra_scrolled_set_policy(x->scroller, AWRA_POLICY_NEVER, AWRA_POLICY_AUTOMATIC);
   awra_widget_set_vexpand(x->scroller, true);
+  /* Awra 1's measure: 9 columns of 40 (and the grid's 12 px) wide, 7 rows
+   * tall, 5 columns and 3 rows at least, the header and preview around */
+  awra_scrolled_set_propagate_natural(x->scroller, true, true);
+  awra_scrolled_set_min_content_height(x->scroller, 3 * CELL);
+  awra_scrolled_set_max_content_height(x->scroller, 7 * CELL);
+  awra_signal_connect(x->scroller, AWRA_SIGNAL_VALUE_CHANGED, scrolled, w, NULL);
   AwraWidget *overlay = awra_overlay_new();
   x->grid = awra_widget_new(&grid_class);
   AWRA_EXT(x->grid, GridExt)->picker = w;
@@ -454,7 +718,8 @@ AwraWidget *awra_emoji_picker_new(void)
   awra_widget_set_size_request(x->preview, -1, 44);
   awra_widget_set_margins(x->preview, 6, 12, 6, 12);
   x->preview_glyph = awra_label_new("");
-  awra_label_set_scale(x->preview_glyph, 30.0 / 15.0);
+  /* awra.css .awra-emoji-preview-glyph: font-size 30px */
+  awra_label_set_scale(x->preview_glyph, 30.0 / awra_font_px());
   x->preview_image = awra_image_new();
   awra_widget_set_size_request(x->preview_image, 32, 32);
   awra_widget_set_visible(x->preview_image, false);
@@ -486,6 +751,8 @@ void awra_emoji_picker_clear(AwraWidget *w)
   x->sections = NULL;
   x->n_sections = 0;
   x->hover_s = x->hover_i = -1;
+  x->cur_s = x->cur_i = -1;
+  x->current_tab = -1;
   awra_container_remove_all(x->tabs);
   filter(w);
 }
@@ -523,8 +790,7 @@ void awra_emoji_picker_add_section(AwraWidget *w, const char *id, const char *ti
   else {
     tab = awra_button_new_with_label(n > 0 && items[0].text ? items[0].text : "•");
   }
-  awra_button_set_appearance(tab, AWRA_BUTTON_GHOST);
-  awra_widget_set_size_request(tab, 26, 26);
+  awra_button_set_emoji_tab_internal(tab, false);
   awra_widget_set_tooltip(tab, title);
   awra_widget_set_data(tab, "awra-section", (void *)(intptr_t)x->n_sections, NULL);
   awra_signal_connect(tab, AWRA_SIGNAL_CLICKED, tab_clicked, w, NULL);

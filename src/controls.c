@@ -482,13 +482,15 @@ static void slider_draw(AwraWidget *w, AwraDraw *d)
     const float hh = fmaxf(th, frac * len);
     awra_paint_rbox(d, (AwraBox){trough.x, trough.y + len - hh, th, hh}, th * 0.5f, &hl, 0, NULL);
   }
-  const float ts = awra_pxf(16);
+  /* a 14 px thumb (as GTK 4.22 draws awra.css's .awra-slider slider: no
+   * ring of its 12% border shows) */
+  const float ts = awra_pxf(14);
   const float cxy = (horiz ? trough.x : trough.y) + (horiz ? mpos : (len - th - mpos)) + th * 0.5f;
   AwraBox thumb = horiz ? awra_mirror_box(w, (AwraBox){cxy - ts * 0.5f, trough.y + th * 0.5f - ts * 0.5f, ts, ts}) :
                           (AwraBox){trough.x + th * 0.5f - ts * 0.5f, cxy - ts * 0.5f, ts, ts};
-  const AwraRGBA shadow = {0, 0, 0, 0.30f}, edge = {0, 0, 0, 0.12f};
+  const AwraRGBA shadow = {0, 0, 0, 0.30f};
   awra_paint_shadow(d, thumb, ts * 0.5f, 0, awra_pxf(2), 0, awra_pxf(6), &shadow, true);
-  awra_paint_rbox(d, thumb, ts * 0.5f, &t->control_thumb, awra_pxf(1), &edge);
+  awra_paint_rbox(d, thumb, ts * 0.5f, &t->control_thumb, 0, NULL);
   if (vh) {
     /* scale > value { color: alpha(currentColor, .55) }, centered on the
      * thumb and kept inside the slider */

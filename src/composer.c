@@ -188,7 +188,8 @@ static void composer_draw(AwraWidget *w, AwraDraw *d)
   const AwraTokens *t = awra_tokens();
   const AwraBox b = awra_box_of(w);
   const float r = awra_pxf(18), s = awra_scale();
-  const bool focus = awra_widget_has_focus(x->view);
+  /* awracomposer:focus-within: the field or one of its buttons */
+  const bool focus = awra_widget_focus_within(w);
   /* awra.css: background-color @awra_control (the control cap), not a well */
   if (!awra_sensitive(w)) {
     const AwraRGBA bg = awra_with_alpha(t->control_cap, t->control_cap.a * 0.5f);
@@ -248,7 +249,7 @@ static void composer_finalize(AwraWidget *w)
 static AwraClass composer_class = {
     .bk = AWRA_BK("AwraComposer", 0),
     .type = "AwraComposer",
-    .flags = AWRA_CLASS_CONTAINER | AWRA_CLASS_EXPAND_ISOLATED,
+    .flags = AWRA_CLASS_CONTAINER | AWRA_CLASS_EXPAND_ISOLATED | AWRA_CLASS_FOCUS_WITHIN,
     .ext_size = sizeof(ComposerExt),
     .finalize = composer_finalize,
     .measure = composer_measure,

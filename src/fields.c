@@ -86,7 +86,7 @@ static void tags_draw(AwraWidget *w, AwraDraw *d)
   const AwraBox pb = {b.x + bd, b.y + bd, b.w - 2 * bd, b.h - 2 * bd};
   const AwraRGBA sh = {0, 0, 0, 0.20f};
   awra_paint_inset_shadow(d, pb, r - bd, 0, awra_pxf(1), 0, awra_pxf(2), &sh);
-  if (awra_widget_has_focus(TGX(w)->entry)) { /* awratagentry:focus-within */
+  if (awra_widget_focus_within(w)) { /* awratagentry:focus-within */
     awra_paint_rbox(d, b, r, NULL, bd, &t->focus_ring);
   }
 }
@@ -94,7 +94,7 @@ static void tags_draw(AwraWidget *w, AwraDraw *d)
 static AwraClass tags_class = {
     .bk = AWRA_BK("AwraTagEntry", 0),
     .type = "AwraTagEntry",
-    .flags = AWRA_CLASS_CONTAINER,
+    .flags = AWRA_CLASS_CONTAINER | AWRA_CLASS_FOCUS_WITHIN,
     .ext_size = sizeof(TagExt),
     .measure = tags_measure,
     .allocate = tags_allocate,
@@ -193,14 +193,6 @@ static void tag_typed(AwraWidget *entry, const AwraArgs *a, void *data)
   free(text);
 }
 
-static void tags_focus(AwraWidget *entry, const AwraArgs *a, void *data)
-{
-  (void)entry;
-  if (a->text && !strcmp(a->text, "has-focus")) {
-    awra_invalidate((AwraWidget *)data); /* the focus ring */
-  }
-}
-
 AwraWidget *awra_tag_entry_new(void)
 {
   AwraWidget *w = awra_widget_new(&tags_class);
@@ -214,7 +206,6 @@ AwraWidget *awra_tag_entry_new(void)
   awra_entry_set_inner_internal(x->entry, 8, 22); /* 0 4px on the entry and its text */
   awra_entry_set_placeholder(x->entry, "Add a tag\xE2\x80\xA6");
   awra_signal_connect(x->entry, AWRA_SIGNAL_ACTIVATE, tag_typed, w, NULL);
-  awra_signal_connect(x->entry, AWRA_SIGNAL_NOTIFY, tags_focus, w, NULL);
   awra_box_append(x->column, x->flow);
   awra_box_append(x->column, x->entry);
   awra_child_insert(w, x->column, -1);

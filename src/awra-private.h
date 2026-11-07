@@ -43,6 +43,9 @@ enum {
   /* given less than its children need, it places them itself, as GtkStack
    * does: a window gives it its own size, as GtkWindow does, not more */
   AWRA_CLASS_TAKES_UNDERSIZE = 1 << 9,
+  /* draws a :focus-within state: repainted when the focus enters or
+   * leaves any of its descendants */
+  AWRA_CLASS_FOCUS_WITHIN = 1 << 10,
 };
 
 /* Whether `w` (through bins: bin_child) places its children itself when
@@ -601,6 +604,7 @@ void awra_button_set_padding_internal(AwraWidget *w, int pad_x, int pad_y, int m
 void awra_button_set_metrics_internal(AwraWidget *w, int pad_x, int pad_y, int min_w, int min_h);
 void awra_button_set_icon_size_internal(AwraWidget *w, int px);
 void awra_button_set_clear_border_internal(AwraWidget *w, bool on);
+void awra_button_set_emoji_tab_internal(AwraWidget *w, bool current);
 void awra_button_set_icon_color_internal(AwraWidget *w, const AwraRGBA *color);
 void awra_header_set_drag_enabled(AwraWidget *w, bool drag);
 void awra_header_set_dialog(AwraWidget *w, bool dialog);

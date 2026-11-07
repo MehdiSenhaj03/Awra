@@ -63,6 +63,25 @@ static AwraFont label_font(AwraWidget *w)
   if (x->weight > 0) {
     f.weight = x->weight;
   }
+  /* awra.css `.awra-role-collection-tile label { font-size: .92em }`: it
+   * outranks the typography classes' sizes */
+  static int tile = -2;
+  if (tile == -2) {
+    tile = awra_class_bit("collection-tile");
+  }
+  for (const AwraWidget *a = (const AwraWidget *)w->parent; tile >= 0 && a && awra_is_widget(a);
+       a = (const AwraWidget *)a->parent)
+  {
+    if (awra_has_class_bit(a, tile)) {
+      const float k = (float)awra_font_px() * 0.92f / f.size;
+      f.size *= k;
+      f.letter_spacing *= k;
+      break;
+    }
+    if (!awra_is_widget(a->parent)) {
+      break;
+    }
+  }
   if (x->scale > 0.0f && x->scale != 1.0f) {
     f.size *= x->scale;
     f.letter_spacing *= x->scale;

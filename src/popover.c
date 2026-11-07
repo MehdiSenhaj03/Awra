@@ -111,7 +111,9 @@ static void pop_draw(AwraWidget *w, AwraDraw *d)
   float radius;
   AwraElevation elevation;
   pop_material(w, &m, &radius, &elevation);
-  awra_paint_material(d, awra_box_of(w), &m, radius, 15, AWRA_EDGE_ALL, elevation);
+  /* the fill only: the outline and rim go over the content (draw_over),
+   * once, as AwraSurface appends its border nodes after its child */
+  awra_paint_material(d, awra_box_of(w), &m, radius, 15, 0, elevation);
 }
 
 static void pop_draw_over(AwraWidget *w, AwraDraw *d)
@@ -124,7 +126,8 @@ static void pop_draw_over(AwraWidget *w, AwraDraw *d)
   pop_material(w, &m, &r, &elevation);
   const float r4[4] = {r, r, r, r};
   const float bw = awra_pxf(m.border_width), hw = awra_pxf(m.highlight_width);
-  const float b4[4] = {bw, bw, bw, bw}, h4[4] = {hw, 0, 0, hw};
+  /* the rim on the top and start edges (the right one, right to left) */
+  const float b4[4] = {bw, bw, bw, bw}, h4[4] = {hw, d->rtl ? hw : 0, 0, d->rtl ? 0 : hw};
   awra_paint_rbox4(d, awra_box_of(w), r4, NULL, b4, &m.border);
   awra_paint_rbox4(d, awra_box_of(w), r4, NULL, h4, &m.highlight);
 }
@@ -847,9 +850,11 @@ static void row_draw(AwraWidget *w, AwraDraw *d)
     AwraFont af = awra_font_for(AWRA_TYPOGRAPHY_BODY);
     af.size *= x->kind == 2 ? 0.92f : 0.86f;
     const float aw = awra_text_width(&af, x->accel, -1);
+    /* a GtkLabel filling the content box: floor ((height - logical) / 2) */
+    const float ah = ceilf(awra_font_line_height(&af));
     awra_draw_text(d, &af, awra_mirror_x(w, right - aw, aw),
-                   floorf(cy - awra_font_line_height(&af) * 0.5f + awra_font_ascent(&af) + 0.5f), x->accel,
-                   -1, &t->muted);
+                   b.y + py + floorf((b.h - 2 * py - ah) * 0.5f) + awra_font_ascent(&af), x->accel, -1,
+                   &t->muted);
     right -= aw + gap;
   }
   AwraFont f = row_font();
@@ -870,7 +875,9 @@ static void row_draw(AwraWidget *w, AwraDraw *d)
     awra_text_layout_logical(l, avail, &lx0, &lw);
     lx = awra_mirror_x(w, cx, (float)avail) + avail - fminf(ceilf(lw), (float)avail) - lx0;
   }
-  awra_text_layout_draw(l, d, lx, floorf(cy - th * 0.5f + 0.5f), avail, &fg);
+  /* gtk_label_get_layout_location: floor ((height - logical.height) * 0.5)
+   * in the content box */
+  awra_text_layout_draw(l, d, lx, b.y + py + floorf((b.h - 2 * py - th) * 0.5f), avail, &fg);
   awra_text_layout_free(l);
 }
 

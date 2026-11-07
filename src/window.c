@@ -872,6 +872,17 @@ void awra_set_focus(AwraWidget *win, AwraWidget *w, bool keyboard)
   }
   AwraWidget *old = x->focus;
   x->focus = w;
+  /* :focus-within changes for the ancestors of one and not the other */
+  for (int k = 0; k < 2; k++) {
+    for (AwraWidget *a = k ? w : old; a && awra_is_widget(a); a = (AwraWidget *)a->parent) {
+      if (AWRA_CLASS_OF(a)->flags & AWRA_CLASS_FOCUS_WITHIN) {
+        awra_invalidate(a);
+      }
+      if (!awra_is_widget(a->parent)) {
+        break;
+      }
+    }
+  }
   if (old) {
     awra_aux(old)->focus_visible = 0;
     awra_invalidate(old);

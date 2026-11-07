@@ -247,6 +247,9 @@ typedef struct ButtonExt {
   bool accent_fg; /* the content in @awra_accent_content (a playing media row's first button) */
   bool tag;       /* a tag entry's tag (awra.css button.awra-tag) */
   bool clear_border; /* a transparent 1 px border the background stays inside */
+  int emoji_tab;      /* an emoji picker's tab: 1, 2 the current one */
+  float font_px;      /* a CSS rule's font-size (px); 0: the typography's */
+  float radius_px;    /* a CSS rule's border-radius (px); 0: the look's */
 } ButtonExt;
 
 #define BX(w) AWRA_EXT(w, ButtonExt)
@@ -423,6 +426,9 @@ static void geometry(const AwraWidget *w, float *pad_x, float *pad_y, float *min
       *min_h = BX(w)->min_h;
     }
   }
+  if (BX(w)->radius_px > 0.0f) {
+    *radius = BX(w)->radius_px;
+  }
   if (awra_has_class_bit(w, AWRA_CB_CIRCULAR) || awra_has_class_bit(w, AWRA_CB_PILL)) {
     *radius = 999;
   }
@@ -437,6 +443,9 @@ static AwraFont button_font(AwraWidget *w)
   AwraFont f = awra_font_for(awra_widget_typography(w));
   if (BX(w)->look == AWRA_LOOK_PRIMARY) {
     f.weight = 640;
+  }
+  if (BX(w)->font_px > 0.0f) {
+    f.size = awra_pxf(BX(w)->font_px);
   }
   return f;
 }
@@ -528,6 +537,15 @@ static void role_colors(const AwraWidget *w, AwraLook look, bool hover, bool che
   }
   const AwraTokens *t = awra_tokens();
   const AwraRGBA none = {0, 0, 0, 0};
+  if (BX(w)->emoji_tab) {
+    /* awra.css .awra-emoji-tab: muted; the current one in the accent's
+     * content colour on its soft tint, under the pointer too */
+    c->fg = BX(w)->emoji_tab == 2 ? t->accent_content : t->muted;
+    if (BX(w)->emoji_tab == 2) {
+      c->bg = t->accent_soft;
+    }
+    return;
+  }
   if (BX(w)->tag) {
     /* awra.css `awratagentry button.awra-tag`: @awra_accent_soft,
      * @awra_selection under the pointer, no shadow, in every state */
@@ -1015,6 +1033,23 @@ void awra_button_set_clear_border_internal(AwraWidget *w, bool on)
 void awra_button_set_padding_internal(AwraWidget *w, int pad_x, int pad_y, int min_w)
 {
   awra_button_set_metrics_internal(w, pad_x, pad_y, min_w, -1);
+}
+
+/* An emoji picker's section tab (awra.css `awraemojipicker .awra-button.
+ * awra-emoji-tab`: ghost, at least 26 px, padding 2px 4px, radius 8, its
+ * emoji at 16 px); `current` marks the section in view. */
+void awra_button_set_emoji_tab_internal(AwraWidget *w, bool current)
+{
+  ButtonExt *x = BX(w);
+  if (!x->emoji_tab) {
+    awra_button_set_appearance(w, AWRA_BUTTON_GHOST);
+    x->font_px = 16.0f;
+    x->radius_px = 8.0f;
+    awra_button_set_metrics_internal(w, 4, 2, 26, 26);
+  }
+  x->emoji_tab = current ? 2 : 1;
+  x->style_gen = 0; /* the label's font */
+  awra_invalidate(w);
 }
 
 /* A tag entry's tag: a pill, 3px 9px, at least 24 px tall, in the
