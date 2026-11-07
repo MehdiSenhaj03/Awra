@@ -6631,10 +6631,10 @@ int BUI_text_decoration_metrics(const char *family, int flags, float size, float
   }
   const stbtt_uint32 post = stbtt__find_table((stbtt_uint8 *)data, (stbtt_uint32)face->fontstart, "post");
   const stbtt_uint32 os2 = stbtt__find_table((stbtt_uint8 *)data, (stbtt_uint32)face->fontstart, "OS/2");
-  const int ul_pos = post ? ttSHORT(data + post + 8) : 0;
-  const int ul_thick = post ? ttSHORT(data + post + 10) : 0;
-  const int st_thick = os2 ? ttSHORT(data + os2 + 26) : 0;
-  const int st_pos = os2 ? ttSHORT(data + os2 + 28) : 0;
+  const int ul_pos = post ? ttSHORT((stbtt_uint8 *)data + post + 8) : 0;
+  const int ul_thick = post ? ttSHORT((stbtt_uint8 *)data + post + 10) : 0;
+  const int st_thick = os2 ? ttSHORT((stbtt_uint8 *)data + os2 + 26) : 0;
+  const int st_pos = os2 ? ttSHORT((stbtt_uint8 *)data + os2 + 28) : 0;
   *r_ul_thick = ul_thick != 0 ? (float)ul_thick * s->scale : 1.0f;
   *r_ul_pos = ul_pos != 0 ? (float)ul_pos * s->scale : -1.0f;
   *r_st_thick = st_thick != 0 ? (float)st_thick * s->scale : 1.0f;

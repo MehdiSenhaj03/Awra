@@ -184,7 +184,6 @@ static void composer_allocate(AwraWidget *w)
 
 static void composer_draw(AwraWidget *w, AwraDraw *d)
 {
-  ComposerExt *x = CPX(w);
   const AwraTokens *t = awra_tokens();
   const AwraBox b = awra_box_of(w);
   const float r = awra_pxf(18), s = awra_scale();

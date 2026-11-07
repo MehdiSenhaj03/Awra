@@ -5,6 +5,8 @@
 
 #include "awra-private.h"
 
+#include <stdio.h>
+
 /* ======================================================================= */
 /* Text area: the framed multi-line text view */
 
