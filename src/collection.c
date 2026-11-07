@@ -77,6 +77,7 @@ typedef struct CollExt {
   uint8_t *sel;
   int sel_cap, sel_count;
   int cursor, anchor;
+  bool row_focus; /* before a cursor: the focus chain put the focus on the first row */
   int hover, drop;
   bool layout_dirty;
   /* pointer */
@@ -497,13 +498,21 @@ static void coll_allocate(AwraWidget *w)
 /* ----------------------------------------------------------------------- */
 /* Painting */
 
-/* GtkListBase's focus: its focused row, or before there is one, the first
- * row widget (gtk_widget_grab_focus gives the list's first child the
- * focus: GTK rings that row and moving the cursor onto it keeps the focus
- * where it is) */
+/* GtkListBase's focus: its focused row; before there is one, the first
+ * row when the window's focus chain brought the focus (its first child
+ * takes it: GTK rings that row and moving the cursor onto it keeps the
+ * focus where it is), else none (gtk_widget_grab_focus leaves it on the
+ * list: no ring, and a key that moves the cursor moves the focus) */
 static int focus_row(const CollExt *x)
 {
-  return x->cursor >= 0 ? x->cursor : x->n > 0 ? (x->nvis > 0 ? x->first : 0) : -1;
+  return x->cursor >= 0 ? x->cursor : x->row_focus && x->n > 0 ? (x->nvis > 0 ? x->first : 0) : -1;
+}
+
+/* the window's focus chain reached the list: its first row takes it */
+static void coll_focus_child(AwraWidget *w)
+{
+  CX(w)->row_focus = true;
+  awra_invalidate(w);
 }
 
 static void paint_item_bg(AwraWidget *w, AwraDraw *d, int i)
@@ -1371,6 +1380,7 @@ static AwraClass coll_class = {
     .release = coll_release,
     .motion = coll_motion,
     .key = coll_key,
+    .focus_child = coll_focus_child,
     .scroll = coll_scroll,
     .cursor = coll_cursor,
 };

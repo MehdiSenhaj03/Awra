@@ -991,6 +991,15 @@ static void key_focus_visible(AwraWidget *win, bool press, const char *keysym, i
   x->key_press_focus = NULL;
 }
 
+/* awra_set_focus from the focus chain (focus_child) */
+static void chain_focus(AwraWidget *win, AwraWidget *w, bool keyboard)
+{
+  if (w && awra_is_widget(w) && AWRA_CLASS_OF(w)->focus_child) {
+    AWRA_CLASS_OF(w)->focus_child(w);
+  }
+  awra_set_focus(win, w, keyboard);
+}
+
 static void move_focus(AwraWidget *win, int dir)
 {
   WinExt *x = WEXT(win);
@@ -1009,7 +1018,7 @@ static void move_focus(AwraWidget *win, int dir)
     }
   }
   const int next = cur < 0 ? (dir > 0 ? 0 : n - 1) : (cur + dir + n) % n;
-  awra_set_focus(win, list[next], true);
+  chain_focus(win, list[next], true);
 }
 
 /* Lays the window out now at its size (GTK moves the focus with widgets
@@ -1078,7 +1087,7 @@ static bool focus_move(void *data)
   if (!next) {
     next = first_focusable(x->titlebar);
   }
-  awra_set_focus(win, next, false); /* shown as the window shows its focus */
+  chain_focus(win, next, false); /* shown as the window shows its focus */
   return false;
 }
 
@@ -1763,8 +1772,13 @@ void awra_window_present(AwraWidget *w)
         collect_focusable(x->titlebar, list, &n, 512);
       }
       if (n) {
-        awra_set_focus(w, list[0], false);
+        chain_focus(w, list[0], false);
       }
+    }
+    else if (awra_is_widget(x->focus) && AWRA_CLASS_OF(x->focus)->focus_child) {
+      /* a focus given before the window showed lands as GtkWindow's first
+       * focus does (a file list's first row, as GTK 4.22 shows it) */
+      AWRA_CLASS_OF(x->focus)->focus_child(x->focus);
     }
     awra_a11y_window_changed(w, AWRA_A11Y_WINDOW_CREATE);
   }
