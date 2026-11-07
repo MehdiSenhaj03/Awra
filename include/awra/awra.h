@@ -701,6 +701,9 @@ void awra_slider_set_orientation(AwraWidget *slider, AwraOrientation orientation
 /* A tick under the trough at a value (GtkScale's marks; up to 8). */
 void awra_slider_add_mark(AwraWidget *slider, double value);
 void awra_slider_clear_marks(AwraWidget *slider);
+/* GtkScale:draw-value: the value written above a horizontal slider with
+ * `digits` decimals (GTK's default: 1). */
+void awra_slider_set_draw_value(AwraWidget *slider, bool draw, int digits);
 
 AwraWidget *awra_spin_button_new(double min, double max, double step);
 void awra_spin_button_set_value(AwraWidget *spin, double value);

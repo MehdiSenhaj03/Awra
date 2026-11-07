@@ -1319,7 +1319,19 @@ impl Slider {
     pub fn set_range(&self, min: f64, max: f64) {
         unsafe { ffi::awra_slider_set_range(ptr!(self), min, max) }
     }
-    pub fn set_draw_value(&self, _d: bool) {}
+    /// GtkScale:draw-value: the value written above (horizontal sliders).
+    pub fn set_draw_value(&self, d: bool) {
+        let digits = self.0.rust_data::<i32>("digits").unwrap_or(1);
+        unsafe { ffi::awra_slider_set_draw_value(ptr!(self), d, digits) }
+        self.0.set_rust_data("draw-value", d);
+    }
+    /// Decimals of the drawn value (GtkScale:digits, 1 by default).
+    pub fn set_digits(&self, digits: i32) {
+        self.0.set_rust_data("digits", digits);
+        if self.0.rust_data::<bool>("draw-value").unwrap_or(false) {
+            unsafe { ffi::awra_slider_set_draw_value(ptr!(self), true, digits) }
+        }
+    }
     pub fn connect_value_changed<F: Fn(&Slider) + 'static>(&self, f: F) -> SignalHandlerId {
         self.0.connect_typed::<Slider, _>(sig::VALUE_CHANGED, move |w, _| f(w))
     }

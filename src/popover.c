@@ -972,7 +972,8 @@ AwraWidget *awra_dropdown_new(const char *const *items, int n)
   awra_box_append(box, d->label);
   awra_box_append(box, awra_widget_new(&chev_class));
   awra_button_set_child(w, box);
-  awra_button_set_padding_internal(w, 11, 5, 96);
+  /* awra.css: padding 5px 11px inside a 1 px transparent border: 34 px */
+  awra_button_set_padding_internal(w, 12, 6, 96);
   awra_signal_connect(w, AWRA_SIGNAL_CLICKED, drop_open, NULL, NULL);
   awra_dropdown_set_items(w, items, n);
   if (n > 0) {

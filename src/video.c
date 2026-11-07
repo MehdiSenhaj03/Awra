@@ -687,7 +687,9 @@ bool awra_backdrop_paint(AwraWidget *source, AwraDraw *d, AwraBox b, const float
   {
     return false;
   }
-  if (!vv_update_thumb(source)) {
+  /* a view showing nothing lends no backdrop (an empty GtkPicture): the
+   * surface paints its own material */
+  if (!VVX(source)->s->shown || !vv_update_thumb(source)) {
     return false;
   }
   VideoExt *x = VVX(source);

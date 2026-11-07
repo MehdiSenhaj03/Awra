@@ -932,6 +932,8 @@ static void set_effective_visible(AwraWidget *w, bool visible)
     if (awra_is_widget(w)) {
       awra_aux(w)->needs_allocate = 1;
     }
+    /* shown again where it was: nothing else damages its area */
+    awra_invalidate(w);
   }
   if (w->parent && awra_is_widget(w->parent)) {
     set_mapped_tree(w, visible && awra_aux(w->parent)->mapped);

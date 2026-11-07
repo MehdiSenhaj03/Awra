@@ -508,6 +508,7 @@ extern "C" {
     pub fn awra_slider_set_orientation(slider: *mut AwraWidget, orientation: c_int);
     pub fn awra_slider_add_mark(slider: *mut AwraWidget, value: f64);
     pub fn awra_slider_clear_marks(slider: *mut AwraWidget);
+    pub fn awra_slider_set_draw_value(slider: *mut AwraWidget, draw: bool, digits: c_int);
     pub fn awra_spin_button_new(min: f64, max: f64, step: f64) -> *mut AwraWidget;
     pub fn awra_spin_button_set_value(spin: *mut AwraWidget, value: f64);
     pub fn awra_spin_button_value(spin: *mut AwraWidget) -> f64;

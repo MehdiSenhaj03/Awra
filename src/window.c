@@ -748,6 +748,11 @@ static bool focus_move(void *data)
   if (x->closed || !old || awra_widget_mapped(old)) {
     return false;
   }
+  if (awra_window_of(old) != win) {
+    /* taken out of the window (gtk_widget_unparent): no focus */
+    awra_set_focus(win, NULL, false);
+    return false;
+  }
   const bool keyboard = awra_is_widget(old) && awra_aux(old)->focus_visible;
   AwraWidget *next = NULL;
   for (AwraWidget *p = old->parent; p && !next; p = p->parent) {
