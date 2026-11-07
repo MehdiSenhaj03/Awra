@@ -14,6 +14,7 @@ typedef struct HeaderExt {
   AwraWidget *controls;           /* box of window control buttons */
   AwraWidget *minimize, *maximize, *close;
   bool show_controls, blend, drag, compact, expand_center;
+  bool close_only; /* awra_header_set_close_only */
   bool dragging;
   int material;     /* when not blended (default Chrome) */
   int max_width;    /* logical, 0: none */
@@ -304,6 +305,10 @@ void awra_header_window_state_changed(AwraWidget *header)
   HeaderExt *x = HX(header);
   AwraWidget *win = awra_window_of(header);
   const bool max = win && (awra_window_state(win) & AWRA_WINDOW_STATE_MAXIMIZED);
+  /* GtkWindowControls: no maximize for a window that cannot be resized */
+  if (win && !awra_widget_get_data(header, "awra-dialog-header")) {
+    awra_widget_set_visible(x->maximize, awra_window_get_resizable(win) && !x->close_only);
+  }
   awra_button_set_icon_name(x->maximize, max ? "window-restore-symbolic" : "window-maximize-symbolic");
   awra_accessible_update_property_string(x->maximize, AWRA_ACCESSIBLE_PROPERTY_LABEL,
                                          max ? "Restore" : "Maximize");
@@ -396,6 +401,17 @@ void awra_header_set_dialog(AwraWidget *w, bool dialog)
   awra_widget_set_visible(x->minimize, !dialog);
   awra_widget_set_visible(x->maximize, !dialog);
   awra_widget_queue_resize(w);
+}
+
+/* A window's header with only its close button (a non-resizable transient
+ * window: Awra 1's command palette) */
+void awra_header_set_close_only(AwraWidget *w);
+void awra_header_set_close_only(AwraWidget *w)
+{
+  HeaderExt *x = HX(w);
+  x->close_only = true;
+  awra_widget_set_visible(x->minimize, false);
+  awra_widget_set_visible(x->maximize, false);
 }
 
 void awra_header_set_material(AwraWidget *w, AwraMaterial material)

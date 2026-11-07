@@ -25,6 +25,8 @@ typedef struct CapExt {
   float depth;  /* 0 rest .. 1 pressed */
   double pulse_start;
   unsigned pulse_timer;
+  AwraTextLayout *lay_label, *lay_secondary; /* Awra 1's GtkLabels */
+  AwraTextLayout *lay_scaled;                /* the label scaled down to fit */
 } CapExt;
 
 #define KX(w) AWRA_EXT(w, CapExt)
@@ -66,6 +68,53 @@ static AwraFont legend_font(const CapExt *x, float scale)
   return f;
 }
 
+/* A legend's layout: single line, ellipsized at the end (Awra 1's make_label) */
+static AwraTextLayout *cap_layout(AwraTextLayout **slot, const char *text, const AwraFont *f, bool rtl)
+{
+  if (!*slot) {
+    *slot = awra_text_layout_new();
+    awra_text_layout_set_wrap(*slot, AWRA_WRAP_NONE, AWRA_ELLIPSIZE_END, 1);
+  }
+  awra_text_layout_set_text(*slot, text, false);
+  awra_text_layout_set_font(*slot, f);
+  awra_text_layout_set_base_dir(*slot, rtl);
+  return *slot;
+}
+
+/* Draws a layout in a label's allocation as GtkLabel does: its logical
+ * extents placed by xalign (from the right, right to left), centred
+ * vertically. */
+static void cap_place(AwraDraw *d, AwraTextLayout *l, float ax, float ay, float aw, float ah, float xalign,
+                      bool rtl, const AwraRGBA *c)
+{
+  int tw, th;
+  const int width = (int)aw;
+  awra_text_layout_size(l, width, &tw, &th);
+  float lx0 = 0.0f, lw = (float)tw;
+  awra_text_layout_logical(l, width, &lx0, &lw);
+  lw = fminf(ceilf(lw), aw);
+  const float xa = rtl ? 1.0f - xalign : xalign;
+  awra_text_layout_draw(l, d, ax + floorf((aw - lw) * xa - lx0), ay + floorf((ah - th) * 0.5f),
+                        width, c);
+}
+
+/* allocate_legend: a legend wider than its slot is drawn at its natural
+ * width, scaled down to fit (at most to 65 %), not ellipsized */
+static void cap_legend(AwraDraw *d, CapExt *x, const AwraFont *lf, AwraTextLayout *l, float ax,
+                       float ay, float aw, float ah, float xalign, int nat, bool rtl, const AwraRGBA *c)
+{
+  if (nat <= aw || aw <= 0) {
+    cap_place(d, l, ax, ay, fmaxf(aw, 0), ah, xalign, rtl, c);
+    return;
+  }
+  const float sc = fmaxf(aw / nat, 0.65f);
+  const float off = fmaxf((aw - nat * sc) * xalign, 0.0f);
+  AwraFont f = *lf;
+  f.size *= sc;
+  AwraTextLayout *t = cap_layout(&x->lay_scaled, awra_text_layout_text(l), &f, rtl);
+  awra_text_layout_draw(t, d, ax + off, ay + ah * (1.0f - sc) / 2.0f, -1, c);
+}
+
 static void cap_draw(AwraWidget *w, AwraDraw *d)
 {
   CapExt *x = KX(w);
@@ -76,7 +125,7 @@ static void cap_draw(AwraWidget *w, AwraDraw *d)
   }
   AwraBox b = awra_box_of(w);
   const float r = fminf(awra_pxf(7), fminf(b.w, b.h) * 0.22f);
-  const bool hover = awra_hovered(w);
+  const bool hover = awra_hovered(w) && !x->dimmed; /* dimmed keys don't hover */
   const float pulse = cap_pulse(x);
   if (x->active) {
     AwraRGBA glow = awra_with_alpha(t->accent, 0.22f + 0.30f * pulse);
@@ -121,16 +170,14 @@ static void cap_draw(AwraWidget *w, AwraDraw *d)
     const float w4[4] = {0, 0, awra_pxf(3), 0};
     awra_paint_rbox4(d, b, r4, NULL, w4, &x->edge);
   }
-  if (x->bound && x->depth < 1) {
+  if (x->bound && x->depth < 1) { /* inset 0 1px rim */
     AwraRGBA rim = t->rim;
     rim.a *= 1.0f - x->depth;
-    const float w4[4] = {awra_pxf(1), 0, 0, 0};
-    awra_paint_rbox4(d, b, r4, NULL, w4, &rim);
+    awra_paint_inset_shadow(d, b, r, 0, awra_pxf(1), 0, 0, &rim);
   }
-  else if (!x->bound) {
+  else if (!x->bound) { /* a well's lip: inset 0 1px, spread 1 */
     const AwraRGBA lip = {0, 0, 0, t->dark ? 0.22f : 0.06f};
-    const float w4[4] = {awra_pxf(2), awra_pxf(1), 0, awra_pxf(1)};
-    awra_paint_rbox4(d, b, r4, NULL, w4, &lip);
+    awra_paint_inset_shadow(d, b, r, 0, awra_pxf(1), awra_pxf(1), 0, &lip);
   }
   if (x->selected || x->drop) {
     awra_paint_rbox(d, b, r, NULL, awra_pxf(2), &t->accent);
@@ -142,8 +189,11 @@ static void cap_draw(AwraWidget *w, AwraDraw *d)
   else if (t->high_contrast || !x->bound) {
     awra_paint_rbox(d, b, r, NULL, awra_pxf(t->high_contrast ? 1.5f : 1.0f), &t->outline);
   }
-  /* legends */
-  const float inset = fmaxf(awra_pxf(3), fminf(awra_pxf(8), b.h / 8.0f));
+  /* legends, placed as Awra 1's size_allocate places its labels */
+  const int hl = (int)floorf(b.h / awra_scale() + 0.5f);
+  const float inset = (float)awra_px(BK_CLAMP(hl / 8, 3, 8));
+  const float inner = fmaxf(b.w - 2 * inset, 0);
+  const bool rtl = awra_widget_rtl(w);
   AwraRGBA fg = x->selected ? t->accent_content : x->bound ? t->foreground : t->muted;
   if (x->has_tint) {
     AwraRGBA bgc = awra_mix(t->background, x->tint, x->tint.a);
@@ -153,40 +203,46 @@ static void cap_draw(AwraWidget *w, AwraDraw *d)
   bk_clip_push((int)b.x, (int)b.y, (int)ceilf(b.w), (int)ceilf(b.h));
   float badge_w = 0;
   if (x->badge && x->badge[0]) {
+    /* .awra-key-cap-badge: .62em 800, padding 0 4px, a pill 3 px from the corner */
     AwraFont bf = awra_font_for(AWRA_TYPOGRAPHY_BODY);
     bf.size *= 0.62f;
     bf.weight = 800;
     const float tw = awra_text_width(&bf, x->badge, -1);
     const float bh = awra_font_line_height(&bf);
-    badge_w = fminf(fmaxf(tw + awra_pxf(8), bh), b.w - awra_pxf(4));
-    AwraBox bb = {b.x + b.w - badge_w - awra_pxf(3), b.y + awra_pxf(3), badge_w, bh};
+    badge_w = fminf(fmaxf(ceilf(tw) + awra_pxf(8), bh), fmaxf(b.w - awra_pxf(4), 0));
+    AwraBox bb = {rtl ? b.x + awra_pxf(3) : b.x + b.w - badge_w - awra_pxf(3), b.y + awra_pxf(3), badge_w,
+                  bh};
     awra_paint_rbox(d, bb, bh * 0.5f, &t->accent, 0, NULL);
-    awra_draw_text(d, &bf, bb.x + (badge_w - tw) * 0.5f, bb.y + awra_font_ascent(&bf), x->badge, -1,
-                   &t->on_accent);
+    awra_draw_text(d, &bf, bb.x + floorf((badge_w - tw) * 0.5f), bb.y + awra_font_ascent(&bf),
+                   x->badge, -1, &t->on_accent);
   }
   if (x->label && x->label[0]) {
     AwraFont lf = legend_font(x, 1.0f);
-    const float avail = b.w - 2 * inset - badge_w;
-    float tw = awra_text_width(&lf, x->label, -1);
-    if (tw > avail && tw > 0) { /* scaled down to fit, at most to 65 % */
-      const float s = fmaxf(0.65f, avail / tw);
-      lf = legend_font(x, s);
-      tw = awra_text_width(&lf, x->label, -1);
-    }
+    AwraTextLayout *ll = cap_layout(&x->lay_label, x->label, &lf, rtl);
+    int nat, lh;
+    awra_text_layout_size(ll, -1, &nat, &lh);
+    bool show_secondary = false;
+    int sh = 0;
     AwraFont sf = awra_font_for(AWRA_TYPOGRAPHY_BODY);
-    sf.size *= 0.70f;
-    sf.weight = 500;
-    const float lh = awra_font_line_height(&lf), sh = awra_font_line_height(&sf);
-    if (x->secondary && x->secondary[0] && lh + sh + 2 * inset <= b.h) {
-      awra_draw_text(d, &lf, b.x + inset, b.y + inset + awra_font_ascent(&lf), x->label, -1, &fg);
+    if (x->secondary && x->secondary[0]) {
+      sf.size *= 0.70f;
+      sf.weight = 500;
+      AwraTextLayout *sl = cap_layout(&x->lay_secondary, x->secondary, &sf, rtl);
+      int sw;
+      awra_text_layout_size(sl, (int)inner, &sw, &sh);
+      show_secondary = lh + sh + 2 * inset <= b.h;
+    }
+    if (show_secondary) {
+      const float lw = fmaxf(inner - badge_w, 0);
+      cap_legend(d, x, &lf, ll, rtl ? b.x + b.w - inset - lw : b.x + inset, b.y + inset, lw, (float)lh,
+                 rtl ? 1.0f : 0.0f, nat, rtl, &fg);
+      /* on a tint: opacity .84 (.awra-key-cap-on-dark / -on-light) */
       AwraRGBA sc = x->has_tint ? awra_with_alpha(fg, 0.84f) : t->muted;
-      awra_draw_text(d, &sf, b.x + inset, b.y + b.h - inset - sh + awra_font_ascent(&sf), x->secondary,
-                     -1, &sc);
+      cap_place(d, x->lay_secondary, b.x + inset, b.y + b.h - inset - sh, inner, (float)sh, 0.0f, rtl, &sc);
     }
     else {
-      const float lx = b.x + floorf((b.w - fminf(tw, b.w - 2 * inset)) * 0.5f + 0.5f);
-      const float ly = b.y + floorf((b.h - lh) * 0.5f + awra_font_ascent(&lf) + 0.5f);
-      awra_draw_text(d, &lf, fmaxf(lx, b.x + inset), ly, x->label, -1, &fg);
+      cap_legend(d, x, &lf, ll, b.x + inset, b.y + floorf(fmaxf((b.h - lh) / 2, 0)), inner, (float)lh,
+                 0.5f, nat, rtl, &fg);
     }
   }
   bk_clip_pop();
@@ -248,6 +304,15 @@ static void cap_finalize(AwraWidget *w)
   free(x->label);
   free(x->secondary);
   free(x->badge);
+  if (x->lay_label) {
+    awra_text_layout_free(x->lay_label);
+  }
+  if (x->lay_secondary) {
+    awra_text_layout_free(x->lay_secondary);
+  }
+  if (x->lay_scaled) {
+    awra_text_layout_free(x->lay_scaled);
+  }
 }
 
 static void cap_map(AwraWidget *w, bool mapped)
@@ -1024,24 +1089,6 @@ static int wave_release(AwraWidget *w, BKEvent *e)
   return 1;
 }
 
-static int wave_motion(AwraWidget *w, BKEvent *e)
-{
-  WaveExt *x = WVX(w);
-  if (x->duration > 0) {
-    x->hint = wave_seconds(w, e->x);
-    awra_invalidate(w);
-    awra_emit_text(w, AWRA_SIGNAL_NOTIFY, "hint-position");
-  }
-  return 0;
-}
-
-static void wave_leave_handler(AwraWidget *w, const AwraArgs *a, void *data)
-{
-  WVX(w)->hint = -1;
-  awra_invalidate(w);
-  awra_emit_text(w, AWRA_SIGNAL_NOTIFY, "hint-position");
-}
-
 static void wave_finalize(AwraWidget *w)
 {
   free(WVX(w)->peaks);
@@ -1084,7 +1131,6 @@ static AwraClass wave_class = {
     .press = wave_press,
     .drag = wave_drag,
     .release = wave_release,
-    .motion = wave_motion,
     .overdraw = 6,
 };
 
@@ -1093,7 +1139,6 @@ AwraWidget *awra_waveform_view_new(void)
   AwraWidget *w = awra_widget_new(&wave_class);
   WaveExt *x = WVX(w);
   x->position = x->hint = x->marker = -1;
-  awra_signal_connect(w, AWRA_SIGNAL_LEAVE, wave_leave_handler, NULL, NULL);
   return w;
 }
 
@@ -1129,10 +1174,19 @@ void awra_waveform_view_set_position(AwraWidget *w, double s)
   }
 }
 
+/* Awra 1's hint: a dashed secondary marker the application sets (a
+ * suggestion), negative hides it; it notifies "hint-position" */
 void awra_waveform_view_set_hint_position(AwraWidget *w, double s)
 {
+  if (!isfinite(s) || s < 0.0) {
+    s = -1.0;
+  }
+  if (WVX(w)->hint == s) {
+    return;
+  }
   WVX(w)->hint = s;
   awra_invalidate(w);
+  awra_emit_text(w, AWRA_SIGNAL_NOTIFY, "hint-position");
 }
 
 double awra_waveform_view_hint_position(AwraWidget *w)
@@ -1163,6 +1217,7 @@ typedef struct MediaExt {
   AwraWidget *grid, *tile, *title, *subtitle, *play, *stop, *volume, *seek, *elapsed, *total,
       *suffix, *ends;
   bool has_accent, playing, seekable;
+  bool syncing; /* the seek bar follows the position: no seek signal */
   AwraRGBA accent;
   double duration, position;
 } MediaExt;
@@ -1236,17 +1291,7 @@ static void media_value_text(MediaExt *x)
   awra_accessible_update_property_string(x->seek, AWRA_ACCESSIBLE_PROPERTY_VALUE_TEXT, vt);
 }
 
-static void media_sync_times(AwraWidget *w)
-{
-  MediaExt *x = MX(w);
-  char a[16], b[16];
-  fmt_time(a, sizeof(a), x->position);
-  fmt_time(b, sizeof(b), x->duration);
-  awra_label_set_text(x->elapsed, a);
-  awra_label_set_text(x->total, b);
-  awra_slider_set_range(x->seek, 0, x->duration > 0 ? x->duration : 1);
-  media_value_text(x);
-}
+static void media_sync(AwraWidget *w);
 
 static void media_play(AwraWidget *b, const AwraArgs *a, void *data)
 {
@@ -1266,10 +1311,14 @@ static void media_volume(AwraWidget *v, const AwraArgs *a, void *data)
 static void media_seek(AwraWidget *s, const AwraArgs *a, void *data)
 {
   AwraWidget *w = (AwraWidget *)data;
-  if (awra_widget_get_data(w, "awra-syncing")) {
+  if (MX(w)->syncing) {
     return;
   }
   awra_emit_value(w, AWRA_SIGNAL_SEEK, a->value);
+  /* while scrubbing, the elapsed time follows the thumb (update_times) */
+  char t[16];
+  fmt_time(t, sizeof(t), a->value);
+  awra_label_set_text(MX(w)->elapsed, t);
 }
 
 static AwraWidget *small_label(void)
@@ -1300,6 +1349,7 @@ AwraWidget *awra_media_row_new(const char *title)
   awra_label_set_xalign(x->title, 0.0f);
   awra_label_set_ellipsize(x->title, AWRA_ELLIPSIZE_END);
   awra_label_set_weight(x->title, 650);
+  awra_widget_set_tooltip(x->title, title && title[0] ? title : NULL);
   x->subtitle = awra_label_new("");
   awra_widget_set_typography(x->subtitle, AWRA_TYPOGRAPHY_MUTED);
   awra_label_set_xalign(x->subtitle, 0.0f);
@@ -1338,10 +1388,13 @@ AwraWidget *awra_media_row_new(const char *title)
   awra_accessible_update_state(x->elapsed, AWRA_ACCESSIBLE_STATE_HIDDEN, 1);
   awra_accessible_update_state(x->total, AWRA_ACCESSIBLE_STATE_HIDDEN, 1);
   awra_box_append(seekbox, x->elapsed);
+  awra_widget_unref(x->elapsed); /* its parent holds it */
   awra_box_append(seekbox, x->seek);
   awra_widget_unref(x->seek); /* its parent holds it */
   awra_box_append(seekbox, x->total);
+  awra_widget_unref(x->total); /* its parent holds it */
   awra_grid_attach(x->grid, x->tile, 0, 0, 1, 2);
+  awra_widget_unref(x->tile); /* its parent holds it */
   awra_grid_attach(x->grid, texts, 1, 0, 1, 1);
   awra_widget_unref(texts); /* its parent holds it */
   awra_grid_attach(x->grid, x->ends, 2, 0, 1, 1);
@@ -1355,13 +1408,15 @@ AwraWidget *awra_media_row_new(const char *title)
   awra_signal_connect(x->volume, AWRA_SIGNAL_VALUE_CHANGED, media_volume, w, NULL);
   awra_signal_connect(x->seek, AWRA_SIGNAL_VALUE_CHANGED, media_seek, w, NULL);
   x->seekable = true;
-  media_sync_times(w);
+  media_sync(w);
   return w;
 }
 
 void awra_media_row_set_title(AwraWidget *w, const char *t)
 {
   awra_label_set_text(MX(w)->title, t);
+  /* Awra 1: the title tells itself whole when ellipsized */
+  awra_widget_set_tooltip(MX(w)->title, t && t[0] ? t : NULL);
 }
 
 void awra_media_row_set_subtitle(AwraWidget *w, const char *s)
@@ -1398,11 +1453,13 @@ void awra_media_row_set_accent_color(AwraWidget *w, const AwraRGBA *c)
 void awra_media_row_set_show_play_button(AwraWidget *w, bool s)
 {
   awra_widget_set_visible(MX(w)->play, s);
+  media_sync(w);
 }
 
 void awra_media_row_set_show_stop_button(AwraWidget *w, bool s)
 {
   awra_widget_set_visible(MX(w)->stop, s);
+  media_sync(w);
 }
 
 void awra_media_row_set_show_volume(AwraWidget *w, bool s)
@@ -1415,39 +1472,79 @@ void awra_media_row_set_volume(AwraWidget *w, double v)
   awra_volume_control_set_value(MX(w)->volume, v);
 }
 
+/* Awra 1's sync_seek: a row without a duration is idle: its seek bar sits
+ * at 0 and takes no input, its stop button too unless it plays, its title
+ * and times are disabled-coloured (.awra-media-idle) */
+static void media_sync(AwraWidget *w)
+{
+  MediaExt *x = MX(w);
+  const bool idle = x->duration <= 0.0;
+  awra_slider_set_range(x->seek, 0, x->duration > 1.0 ? x->duration : 1.0);
+  const bool scrubbing = awra_slider_dragging(x->seek);
+  if (!scrubbing) {
+    x->syncing = true;
+    awra_slider_set_value(x->seek, idle ? 0.0 : BK_CLAMP(x->position, 0.0, x->duration));
+    x->syncing = false;
+  }
+  awra_widget_set_sensitive(x->seek, !idle && x->seekable);
+  awra_widget_set_sensitive(x->stop, !idle || x->playing);
+  /* awramediarow.awra-media-playing .awra-media-button:first-child: the
+   * first shown of play and stop in the accent */
+  AwraWidget *first = awra_widget_visible(x->play) ? x->play : x->stop;
+  awra_button_set_accent_fg_internal(x->play, x->playing && first == x->play);
+  awra_button_set_accent_fg_internal(x->stop, x->playing && first == x->stop);
+  const AwraRGBA *dim = idle ? &awra_tokens()->disabled : NULL;
+  awra_label_set_color(x->title, dim);
+  awra_label_set_color(x->elapsed, dim);
+  awra_label_set_color(x->total, dim);
+  char a[16], b[16];
+  fmt_time(a, sizeof(a), idle ? 0.0 : scrubbing ? awra_slider_value(x->seek) : x->position);
+  fmt_time(b, sizeof(b), x->duration);
+  awra_label_set_text(x->elapsed, a);
+  awra_label_set_text(x->total, b);
+  media_value_text(x);
+}
+
 void awra_media_row_set_playing(AwraWidget *w, bool p)
 {
   MediaExt *x = MX(w);
+  if (x->playing == p) {
+    return;
+  }
   x->playing = p;
   awra_button_set_icon_name(x->play, p ? "media-playback-pause-symbolic" : "media-playback-start-symbolic");
   awra_accessible_update_property_string(x->play, AWRA_ACCESSIBLE_PROPERTY_LABEL, p ? "Pause" : "Play");
-  awra_label_set_color(x->title, p ? NULL : &awra_tokens()->disabled);
-  awra_widget_set_sensitive(x->seek, p && x->seekable);
+  media_sync(w);
 }
 
 void awra_media_row_set_duration(AwraWidget *w, double s)
 {
-  MX(w)->duration = s;
-  media_sync_times(w);
+  if (!isfinite(s) || s < 0.0) {
+    s = 0.0;
+  }
+  if (MX(w)->duration != s) {
+    MX(w)->duration = s;
+    media_sync(w);
+  }
 }
 
 void awra_media_row_set_position(AwraWidget *w, double s)
 {
-  MediaExt *x = MX(w);
-  x->position = s;
-  awra_widget_set_data(w, "awra-syncing", (void *)1, NULL);
-  awra_slider_set_value(x->seek, s);
-  awra_widget_set_data(w, "awra-syncing", NULL, NULL);
-  char a[16];
-  fmt_time(a, sizeof(a), s);
-  awra_label_set_text(x->elapsed, a);
-  media_value_text(x);
+  if (!isfinite(s) || s < 0.0) {
+    s = 0.0;
+  }
+  if (MX(w)->position != s) {
+    MX(w)->position = s;
+    media_sync(w);
+  }
 }
 
 void awra_media_row_set_seekable(AwraWidget *w, bool s)
 {
-  MX(w)->seekable = s;
-  awra_widget_set_sensitive(MX(w)->seek, s && MX(w)->playing);
+  if (MX(w)->seekable != s) {
+    MX(w)->seekable = s;
+    media_sync(w);
+  }
 }
 
 void awra_media_row_set_suffix(AwraWidget *w, AwraWidget *suffix)
@@ -1610,7 +1707,8 @@ AwraWidget *awra_drop_zone_new(void)
   AwraWidget *w = awra_widget_new(&zone_class);
   ZoneExt *x = ZX(w);
   x->well = awra_box_new(AWRA_ORIENTATION_VERTICAL, 8);
-  awra_widget_set_margins(x->well, 24, 24, 24, 24);
+  /* .awra-drop-zone-well: padding 24px inside a 2 px dashed border */
+  awra_widget_set_margins(x->well, 26, 26, 26, 26);
   awra_widget_set_size_request(x->well, -1, 120);
   x->icon = awra_image_new_from_icon_name("document-send-symbolic");
   awra_image_set_pixel_size(x->icon, 32);

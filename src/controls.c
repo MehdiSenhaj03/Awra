@@ -73,10 +73,10 @@ static void check_draw(AwraWidget *w, AwraDraw *d)
   const AwraRGBA fill = on ? t->accent : t->control_well;
   const AwraRGBA border = on ? t->accent : (hot ? t->focus_ring : t->outline);
   awra_paint_rbox(d, b, r, &fill, awra_pxf(1), &border);
-  if (!on) { /* inset 0 1px 2px rgba(0,0,0,.12) */
-    const AwraRGBA sh = {0, 0, 0, 0.09f};
-    const float r4[4] = {r, r, r, r}, w4[4] = {awra_pxf(1.5), 0, 0, 0};
-    awra_paint_rbox4(d, awra_box_inset(b, awra_pxf(1)), r4, NULL, w4, &sh);
+  if (!on) { /* inset 0 1px 2px rgba(0,0,0,.12), inside the border */
+    const AwraRGBA sh = {0, 0, 0, 0.12f};
+    awra_paint_inset_shadow(d, awra_box_inset(b, awra_pxf(1)), fmaxf(0, r - awra_pxf(1)), 0, awra_pxf(1), 0,
+                            awra_pxf(2), &sh);
   }
   if (on || x->inconsistent) {
     const AwraRGBA white = {1, 1, 1, on ? 1.0f : 0.0f};
@@ -265,9 +265,8 @@ static void switch_draw(AwraWidget *w, AwraDraw *d)
     awra_paint_rbox(d, b, bh * 0.5f, NULL, awra_pxf(1), &edge);
   }
   else { /* inset 0 1px 2px rgba(0,0,0,.22) */
-    const AwraRGBA sh = {0, 0, 0, 0.16f};
-    const float r = bh * 0.5f, r4[4] = {r, r, r, r}, w4[4] = {awra_pxf(1.5), 0, 0, 0};
-    awra_paint_rbox4(d, b, r4, NULL, w4, &sh);
+    const AwraRGBA sh = {0, 0, 0, 0.22f};
+    awra_paint_inset_shadow(d, b, bh * 0.5f, 0, awra_pxf(1), 0, awra_pxf(2), &sh);
   }
   const float tw = awra_pxf(21), th = awra_pxf(22), inset = awra_pxf(3);
   AwraBox thumb = {b.x + inset + floorf(x->pos * tw + 0.5f), b.y + inset, tw, th};
@@ -379,6 +378,11 @@ typedef struct SliderExt {
 
 #define SLX(w) AWRA_EXT(w, SliderExt)
 
+bool awra_slider_dragging(const AwraWidget *w)
+{
+  return SLX(w)->dragging;
+}
+
 /* GtkScale's value text: "%.*f" of the value (C locale) */
 static int slider_value_text(const SliderExt *x, double v, char *buf, size_t size)
 {
@@ -457,9 +461,8 @@ static void slider_draw(AwraWidget *w, AwraDraw *d)
   }
   awra_paint_rbox(d, trough, th * 0.5f, &t->control_track, 0, NULL);
   { /* inset 0 1px 2px rgba(0,0,0,.18) */
-    const AwraRGBA sh = {0, 0, 0, 0.13f};
-    const float r = th * 0.5f, r4[4] = {r, r, r, r}, w4[4] = {awra_pxf(1.2), 0, 0, 0};
-    awra_paint_rbox4(d, trough, r4, NULL, w4, &sh);
+    const AwraRGBA sh = {0, 0, 0, 0.18f};
+    awra_paint_inset_shadow(d, trough, th * 0.5f, 0, awra_pxf(1), 0, awra_pxf(2), &sh);
   }
   const float len = horiz ? trough.w : trough.h;
   const float mpos = floorf((len - th) * frac); /* the slider's margin box (6 px) */

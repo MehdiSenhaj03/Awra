@@ -17,6 +17,7 @@
 void awra_button_set_look(AwraWidget *w, int look);
 void awra_entry_set_quiet(AwraWidget *w, bool quiet);
 void awra_header_set_dialog(AwraWidget *w, bool dialog);
+void awra_header_set_close_only(AwraWidget *w);
 void awra_header_set_compact(AwraWidget *w, bool compact);
 
 /* ======================================================================= */
@@ -384,6 +385,9 @@ static void pop_closed(BKNode *n)
   AwraWidget *now = bwin ? awra_focus_of(bwin) : NULL;
   const bool inside = !now || within(now, w);
   x->open = false;
+  if (x->anchor) {
+    awra_invalidate(x->anchor); /* .awra-open goes */
+  }
   awra_map_tree(w, false);
   w->parent = NULL;
   if (back) {
@@ -514,6 +518,7 @@ static void popup_with(AwraWidget *w, AwraWidget *owner)
   }
   awra_widget_ref(w); /* held while open */
   x->open = true;
+  awra_invalidate(owner); /* a menu button shows itself open (.awra-open) */
   x->unfold = awra_style_reduced_motion() ? 1.0f : 0.0f;
   bk_open_popup(ctx, w, owner, NULL);
   awra_map_tree(w, true);
@@ -534,9 +539,11 @@ static void popup_with(AwraWidget *w, AwraWidget *owner)
       x->return_focus = before;
       awra_widget_ref(before);
     }
+    /* gtk_popover_show: an autohide popover moves the focus to its first
+     * focusable widget, its ring shown as the window's focus-visible says */
     AwraWidget *f = awra_first_focusable(w);
     const bool keyboard = awra_focus_visible(owner);
-    if (f && ((AWRA_CLASS_OF(f)->flags & AWRA_CLASS_TEXT_INPUT) || keyboard)) {
+    if (f && (!x->autohide_off || (AWRA_CLASS_OF(f)->flags & AWRA_CLASS_TEXT_INPUT) || keyboard)) {
       awra_set_focus(win, f, keyboard);
     }
   }
@@ -654,10 +661,14 @@ AwraWidget *awra_first_focusable(AwraWidget *root)
   if (!root || !(root->flags & NF_VISIBLE)) {
     return NULL;
   }
-  if (awra_is_widget(root) && (AWRA_CLASS_OF(root)->flags & (AWRA_CLASS_FOCUSABLE | AWRA_CLASS_TEXT_INPUT)) &&
-      awra_sensitive(root))
-  {
-    return root;
+  if (awra_is_widget(root) && awra_sensitive(root)) {
+    /* as the window's Tab chain: gtk_widget_set_focusable wins over the class */
+    const AwraAux *a = awra_aux(root);
+    if (a->focusable_set ? a->focusable :
+                           (AWRA_CLASS_OF(root)->flags & (AWRA_CLASS_FOCUSABLE | AWRA_CLASS_TEXT_INPUT)) != 0)
+    {
+      return root;
+    }
   }
   for (int i = 0; i < root->nkids; i++) {
     AwraWidget *f = awra_first_focusable(root->kids[i]);
@@ -782,8 +793,7 @@ static void row_draw(AwraWidget *w, AwraDraw *d)
   else {
     bg = (hot || x->selected) ? t->control_cap_hover : bg;
   }
-  const float m = x->kind == 1 ? awra_pxf(1) : 0;
-  AwraBox b = {(float)w->x, (float)w->y + m, (float)w->w, (float)w->h - 2 * m};
+  AwraBox b = awra_box_of(w); /* dropdown rows: their 1 px margins are outside */
   awra_paint_rbox(d, b, rad, &bg, 0, NULL);
   const bool sens = awra_sensitive(w);
   AwraRGBA fg = x->destructive ? t->danger : t->foreground;
@@ -1318,6 +1328,19 @@ AwraWidget *awra_menu_popover_new(const AwraMenuItem *items, int n)
   return menu_build(items, 0, n);
 }
 
+void awra_popover_set_menu(AwraWidget *popover, const AwraMenuItem *items, int n)
+{
+  AwraWidget *m = menu_build(items, 0, n);
+  AwraWidget *content = POPX(m)->child;
+  awra_widget_ref(content);
+  awra_popover_set_child(m, NULL);
+  awra_popover_set_child(popover, content);
+  awra_widget_unref(content);
+  /* a menu's insets (.awra-menu: padding 7px, min-width 210px) */
+  awra_popover_set_padding_internal(popover, POPX(m)->pad, POPX(m)->menu);
+  awra_widget_unref(m);
+}
+
 /* The row a keyboard elsewhere points at (path suggestions): highlighted as
  * if hovered; -1 none. */
 static void highlight_rows(AwraWidget *n, int *k, int index)
@@ -1428,6 +1451,23 @@ void awra_popover_owner_a11y(AwraWidget *w, AwraA11yInfo *info)
   if (d) {
     info->role = AWRA_ACCESSIBLE_ROLE_COMBO_BOX;
   }
+}
+
+AwraWidget *awra_attached_popover(AwraWidget *w)
+{
+  MenuBtnData *m = (MenuBtnData *)awra_widget_get_data(w, "awra-menu-button");
+  if (m && m->popover) {
+    return m->popover;
+  }
+  return awra_widget_get_data(w, "awra-dropdown") ? drop_popover(dd(w)) : NULL;
+}
+
+/* awra.css .awra-menu-button.awra-open: a menu button whose popover shows
+ * looks pressed (checked) */
+bool awra_menu_button_open(const AwraWidget *b)
+{
+  MenuBtnData *m = (MenuBtnData *)awra_widget_get_data((AwraWidget *)b, "awra-menu-button");
+  return m && m->popover && POPX(m->popover)->open;
 }
 
 static void mb_clicked(AwraWidget *b, const AwraArgs *a, void *data)
@@ -1651,6 +1691,7 @@ static void drop_open(AwraWidget *w, const AwraArgs *a, void *data)
     RX(r)->popover = pop;
     RX(r)->handler = drop_row_activated;
     RX(r)->data = w;
+    awra_widget_set_margins(r, 1, 0, 1, 0); /* listview > row { margin: 1px 0 } */
     awra_box_append(box, r);
     awra_widget_unref(r); /* its parent holds it */
   }
@@ -1758,6 +1799,8 @@ typedef struct Toast {
   unsigned timeout;
   AwraHandler handler;
   void *data;
+  AwraDestroyNotify destroy; /* the data's, when the toast goes */
+  int running;               /* its handler runs: the data stays until it returns */
   struct Toast *next;
 } Toast;
 
@@ -1823,6 +1866,9 @@ static void toast_overlay_finalize(AwraWidget *w)
     if (t->timer) {
       awra_source_remove(t->timer);
       free(t->timer_data);
+    }
+    if (t->destroy) {
+      t->destroy(t->data);
     }
     free(t);
   }
@@ -1907,7 +1953,15 @@ static void toast_remove(AwraWidget *w, Toast *t)
     free(t->timer_data);
   }
   awra_child_remove(w, t->surface);
-  free(t);
+  if (t->running) {
+    t->running = -1; /* toast_action frees it once the handler returns */
+  }
+  else {
+    if (t->destroy) {
+      t->destroy(t->data);
+    }
+    free(t);
+  }
   awra_queue_allocate(w);
   awra_invalidate(w);
 }
@@ -1949,12 +2003,24 @@ static void toast_action(AwraWidget *b, const AwraArgs *a, void *data)
   const unsigned id = (unsigned)(uintptr_t)awra_widget_get_data(b, "awra-toast-id");
   for (Toast *t = TX(w)->toasts; t; t = t->next) {
     if (t->id == id) {
+      awra_widget_ref(w);
       if (t->handler) {
         AwraArgs args = {0};
         args.signal = AWRA_SIGNAL_ACTIVATE;
+        t->running = 1;
         t->handler(w, &args, t->data);
       }
-      toast_remove(w, t);
+      if (t->running == -1) { /* the handler dismissed it */
+        if (t->destroy) {
+          t->destroy(t->data);
+        }
+        free(t);
+      }
+      else {
+        t->running = 0;
+        toast_remove(w, t);
+      }
+      awra_widget_unref(w);
       return;
     }
   }
@@ -1963,12 +2029,20 @@ static void toast_action(AwraWidget *b, const AwraArgs *a, void *data)
 unsigned awra_toast_overlay_show_with_action(AwraWidget *w, const char *title, const char *action,
                                              AwraHandler handler, void *data, unsigned timeout)
 {
+  return awra_toast_overlay_show_with_action_full(w, title, action, handler, data, NULL, timeout);
+}
+
+unsigned awra_toast_overlay_show_with_action_full(AwraWidget *w, const char *title, const char *action,
+                                                  AwraHandler handler, void *data,
+                                                  AwraDestroyNotify destroy, unsigned timeout)
+{
   ToastExt *x = TX(w);
   Toast *t = (Toast *)calloc(1, sizeof(Toast));
   t->id = x->next_id++;
   t->timeout = timeout;
   t->handler = handler;
   t->data = data;
+  t->destroy = destroy;
   t->surface = awra_widget_new(&toast_surface_class);
   float *slide = (float *)malloc(sizeof(float));
   *slide = awra_style_reduced_motion() ? 1.0f : 0.0f;
@@ -2253,7 +2327,9 @@ void awra_command_palette_present(AwraWidget *w, AwraWidget *window)
     AwraWidget *h = awra_header_new();
     awra_header_set_title(h, p->title ? p->title : "Commands");
     p->header = h;
-    awra_header_set_dialog(h, true);
+    /* Awra 1's palette is an AwraWindow (.awra-command-palette, not
+     * .awra-dialog): the full 74 px header, with only its close button */
+    awra_header_set_close_only(h);
     awra_header_set_drag_enabled(h, false);
     awra_box_append(col, h);
     awra_widget_unref(h); /* held by the column (and p->header, borrowed) */
@@ -2303,6 +2379,7 @@ AwraWidget *awra_dialog_new(const char *title)
   awra_widget_set_data(win, "awra-dialog", d, free);
   d->window = win;
   awra_window_set_resizable(win, false);
+  awra_window_set_modal(win, true); /* Awra 1's AwraDialog is modal */
   awra_window_set_keep_rounded_corners(win, true);
   AwraWidget *h = awra_window_titlebar(win);
   awra_header_set_dialog(h, true);
@@ -2448,7 +2525,9 @@ void awra_dialog_set_default_response(AwraWidget *w, int response)
 
 void awra_dialog_present(AwraWidget *w, AwraWidget *parent)
 {
-  (void)parent;
+  if (parent && !awra_window_get_transient_for(w)) {
+    awra_window_set_transient_for(w, parent);
+  }
   awra_window_present(w);
 }
 

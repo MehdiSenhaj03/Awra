@@ -538,6 +538,7 @@ struct BKContext {
   bool has_ungrab;
   bool has_skip;
   int pointer_x, pointer_y;
+  int blocked; /* BUI-Awra: a modal window over this one: no input */
   double last_click_t;
   BKNode *last_click_node;
   int last_click_x, last_click_y;

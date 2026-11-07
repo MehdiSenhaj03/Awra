@@ -208,18 +208,12 @@ void awra_paint_button_bg(AwraDraw *d, AwraBox b, float radius, const AwraButton
   if (c->ring.a > 0) {
     awra_paint_rbox(d, b, radius, NULL, awra_pxf(1), &c->ring);
   }
-  if (c->rim.a > 0) {
-    /* inset 0 1px rim: the box minus itself moved down a pixel */
-    const float r4[4] = {radius, radius, radius, radius};
-    const float w4[4] = {awra_pxf(1), 0, 0, 0};
-    awra_paint_rbox4(d, b, r4, NULL, w4, &c->rim);
+  if (c->rim.a > 0) { /* inset 0 1px rim */
+    awra_paint_inset_shadow(d, b, radius, 0, awra_pxf(1), 0, 0, &c->rim);
   }
-  if (c->pressed_shadow > 0) {
-    /* inset 0 1px 2px rgba(10,8,18,a): a soft band under the top edge */
-    const float r4[4] = {radius, radius, radius, radius};
-    const AwraRGBA dark = {10 / 255.0f, 8 / 255.0f, 18 / 255.0f, c->pressed_shadow * 0.75f};
-    const float w4[4] = {awra_pxf(2), awra_pxf(0.5), 0, awra_pxf(0.5)};
-    awra_paint_rbox4(d, b, r4, NULL, w4, &dark);
+  if (c->pressed_shadow > 0) { /* inset 0 1px 2px rgba(10,8,18,a) */
+    const AwraRGBA dark = {10 / 255.0f, 8 / 255.0f, 18 / 255.0f, c->pressed_shadow};
+    awra_paint_inset_shadow(d, b, radius, 0, awra_pxf(1), 0, awra_pxf(2), &dark);
   }
   if (focus_ring) {
     /* outline: 3px solid @awra_focus; outline-offset: 2px */
@@ -246,6 +240,7 @@ typedef struct ButtonExt {
   AwraButtonColors colors, from;
   float color_t;
   int pad_x, pad_y, min_w; /* > 0: overrides (dropdowns) */
+  bool accent_fg; /* the content in @awra_accent_content (a playing media row's first button) */
 } ButtonExt;
 
 #define BX(w) AWRA_EXT(w, ButtonExt)
@@ -552,6 +547,11 @@ static void current_colors(AwraWidget *w, AwraButtonColors *c)
   const bool checked = x->toggle && x->active;
   AwraButtonColors rest, hov, prs;
   const AwraLook look = (AwraLook)eff_look(w);
+  if (awra_menu_button_open(w)) {
+    /* .awra-menu-button.awra-open: as :active (control_pressed, inset) */
+    awra_button_colors(look, true, true, checked, sens, c);
+    return;
+  }
   awra_button_colors(look, false, false, checked, sens, &rest);
   role_colors(w, look, false, checked, sens, &rest);
   if (ht <= 0.0f && pt <= 0.0f) {
@@ -571,6 +571,19 @@ static void current_colors(AwraWidget *w, AwraButtonColors *c)
   if (!x->frame && !(ht > 0 || pt > 0 || checked)) {
     c->bg.a = 0;
     c->rim.a = 0;
+  }
+  if (x->accent_fg && sens) {
+    c->fg = awra_tokens()->accent_content;
+  }
+}
+
+extern AwraClass awra_button_class;
+
+void awra_button_set_accent_fg_internal(AwraWidget *w, bool on)
+{
+  if (AWRA_CLASS_OF(w) == &awra_button_class && BX(w)->accent_fg != on) {
+    BX(w)->accent_fg = on;
+    awra_invalidate(w);
   }
 }
 
@@ -601,11 +614,12 @@ static void button_draw(AwraWidget *w, AwraDraw *d)
   const int avail = w->w - 2 * ipx;
   const int text_w = BK_MIN(tw, BK_MAX(0, avail - icon - gap));
   const int total = icon + gap + text_w;
-  float cx = (float)w->x + floorf((w->w - total) * 0.5f + 0.5f);
+  /* GtkLabel / GtkImage place by floor (gtk_label_get_layout_location) */
+  float cx = (float)w->x + floorf((w->w - total) * 0.5f);
   /* the icon starts the button's box (at the right, right to left) */
   if (icon) {
     awra_paint_icon(d, x->icon, awra_mirror_x(w, cx, (float)icon),
-                    (float)w->y + floorf((w->h - icon) * 0.5f + 0.5f), icon, &c.fg);
+                    (float)w->y + floorf((w->h - icon) * 0.5f), icon, &c.fg);
     cx += icon + gap;
   }
   if (tw) {
@@ -613,7 +627,7 @@ static void button_draw(AwraWidget *w, AwraDraw *d)
       awra_text_layout_size(x->layout, text_w, NULL, &th);
     }
     awra_text_layout_draw(x->layout, d, awra_mirror_x(w, cx, (float)text_w),
-                          (float)w->y + floorf((w->h - th) * 0.5f + 0.5f), text_w < tw ? text_w : -1,
+                          (float)w->y + floorf((w->h - th) * 0.5f), text_w < tw ? text_w : -1,
                           &c.fg);
   }
 }
@@ -625,6 +639,42 @@ static bool button_child_style(AwraWidget *w, AwraRGBA *r_color, int *r_weight)
   *r_color = c.fg;
   *r_weight = BX(w)->look == AWRA_LOOK_PRIMARY ? 640 : 0;
   return true;
+}
+
+/* awra.css: `.awra-button label { color: inherit }` (and the menu
+ * button's) outranks a typography's colour (`.awra-muted`...): a muted or
+ * monospace label in an Awra button takes the button's colour; on plain
+ * buttons, inline and row actions keep muted labels muted, search launchers
+ * pass their colour to every label, other roles to none. */
+extern AwraClass awra_button_class;
+
+bool awra_button_label_inherits(const AwraWidget *w, AwraTypography t)
+{
+  if (AWRA_CLASS_OF(w) != &awra_button_class) {
+    return false;
+  }
+  switch (role_look(w)) {
+    case -1:
+      break;
+    case AWRA_LOOK_INLINE_ACTION:
+    case AWRA_LOOK_ROW_ACTION:
+      return t != AWRA_TYPOGRAPHY_MUTED;
+    case AWRA_LOOK_SEARCH_LAUNCHER:
+      return true;
+    default:
+      return false;
+  }
+  switch (BX(w)->look) {
+    case AWRA_LOOK_SECONDARY:
+    case AWRA_LOOK_PRIMARY:
+    case AWRA_LOOK_GHOST:
+    case AWRA_LOOK_DESTRUCTIVE:
+    case AWRA_LOOK_TOOLBAR:
+    case AWRA_LOOK_SUCCESS:
+      return true;
+    default:
+      return false;
+  }
 }
 
 static void toggle_set(AwraWidget *w, bool active, bool notify);
@@ -777,7 +827,11 @@ void awra_button_set_label(AwraWidget *w, const char *label)
     return;
   }
   ButtonExt *x = BX(w);
-  if (x->label && label && !strcmp(x->label, label)) {
+  /* gtk_button_set_label: the label replaces a child set before */
+  if (x->child && label) {
+    awra_set_slot(w, &x->child, NULL);
+  }
+  else if (x->label && label && !strcmp(x->label, label)) {
     return;
   }
   awra_set_str(&x->label, label);

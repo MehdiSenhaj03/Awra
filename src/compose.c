@@ -938,6 +938,8 @@ typedef struct ActionRowExt {
   bool activatable;
 } ActionRowExt;
 
+static void arow_set_activatable(AwraWidget *w, bool a);
+
 #define ARX(w) AWRA_EXT(w, ActionRowExt)
 
 static void arow_measure(AwraWidget *w, int o, int f, int *mn, int *nt)
@@ -1070,6 +1072,8 @@ AwraWidget *awra_action_row_new(const char *title, const char *subtitle)
   awra_widget_unref(texts); /* its parent holds it */
   awra_child_insert(w, x->box, -1);
   awra_widget_unref(x->box); /* its parent holds it */
+  /* Awra 1's row is a flat GtkButton: it hovers, takes focus and clicks */
+  arow_set_activatable(w, true);
   return w;
 }
 
@@ -1109,7 +1113,29 @@ void awra_action_row_add_suffix(AwraWidget *w, AwraWidget *suffix)
   awra_box_append(ARX(w)->box, suffix);
 }
 
-void awra_action_row_set_activatable(AwraWidget *w, bool a)
+/* awra_action_row_set_suffix: Awra 1's one suffix, replaced, appended to the
+ * row's box as it comes (a button fills the row's height, as in GTK) */
+void awra_action_row_set_suffix(AwraWidget *w, AwraWidget *suffix)
+{
+  ActionRowExt *x = ARX(w);
+  if (x->suffix == suffix) {
+    return;
+  }
+  if (x->suffix) {
+    awra_box_remove(x->box, x->suffix);
+  }
+  x->suffix = suffix;
+  if (suffix) {
+    awra_box_append(x->box, suffix);
+  }
+}
+
+AwraWidget *awra_action_row_get_suffix(AwraWidget *w)
+{
+  return ARX(w)->suffix;
+}
+
+static void arow_set_activatable(AwraWidget *w, bool a)
 {
   ARX(w)->activatable = a;
   if (a) {
@@ -1118,7 +1144,13 @@ void awra_action_row_set_activatable(AwraWidget *w, bool a)
   else {
     w->flags &= ~NF_EVENTS;
   }
+  awra_widget_set_focusable(w, a);
   awra_invalidate(w);
+}
+
+void awra_action_row_set_activatable(AwraWidget *w, bool a)
+{
+  arow_set_activatable(w, a);
 }
 
 /* ======================================================================= */
@@ -2060,9 +2092,18 @@ typedef struct SplitExt {
 /* GtkPaned's handle: a 1 px separator taking presses 6 px on each side */
 #define SPLIT_HANDLE_EXTRA 6
 
+/* Awra 1's get_sidebar_inset (times two): an AwraSidebar's inset around its
+ * surface, else the sidebar's own margins */
 static int sidebar_inset(const SplitExt *x)
 {
-  return awra_is_widget(x->sidebar) ? awra_aux(x->sidebar)->margin[1] + awra_aux(x->sidebar)->margin[3] : 0;
+  if (!awra_is_widget(x->sidebar)) {
+    return 0;
+  }
+  if (AWRA_CLASS_OF(x->sidebar) == &surface_class && BINX(x->sidebar)->role == AWRA_ROLE_SIDEBAR) {
+    const BinExt *b = BINX(x->sidebar);
+    return b->inset + (b->inset_end >= 0 ? b->inset_end : b->inset);
+  }
+  return awra_aux(x->sidebar)->margin[1] + awra_aux(x->sidebar)->margin[3];
 }
 
 /* 0 compact, 1 medium, 2 expanded (AwraLayoutMode) for a width in px */

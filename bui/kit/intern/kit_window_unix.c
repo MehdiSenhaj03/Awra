@@ -63,6 +63,7 @@ void bkwl_window_set_icon(BKWindow *win, const char *name, const uint32_t *const
                         const int *sizes, int n);
 void bkwl_window_activate(BKWindow *win, const char *startup_id);
 void bkwl_window_set_transient_for_exported(BKWindow *win, const char *handle);
+void bkwl_window_set_parent(BKWindow *win, BKWindow *parent, int modal);
 #  endif
 #  ifdef BUI_WINDOW_X11
 int bkx11_window_supported(void);
@@ -116,6 +117,7 @@ void bkx11_window_set_icon(BKWindow *win, const char *name, const uint32_t *cons
                         const int *sizes, int n);
 void bkx11_window_activate(BKWindow *win, const char *startup_id);
 void bkx11_window_set_transient_for_exported(BKWindow *win, const char *handle);
+void bkx11_window_set_parent(BKWindow *win, BKWindow *parent, int modal);
 #  endif
 
 /* 1 Wayland, 2 X11, 0 not chosen yet */
@@ -392,6 +394,11 @@ void BK_window_activate(BKWindow *win, const char *startup_id)
 void BK_window_set_transient_for_exported(BKWindow *win, const char *handle)
 {
   DISPATCH(window_set_transient_for_exported)(win, handle);
+}
+
+void BK_window_set_parent(BKWindow *win, BKWindow *parent, int modal)
+{
+  DISPATCH(window_set_parent)(win, parent, modal);
 }
 
 #endif

@@ -795,6 +795,14 @@ void BK_window_activate(BKWindow *win, const char *startup_id);
  * that application exported it: an xdg-foreign v2 handle (Wayland) or a
  * window ID in hexadecimal (X11); NULL lets it go. */
 void BK_window_set_transient_for_exported(BKWindow *win, const char *handle);
+/* BUI-Awra: an application window's parent among its own windows
+ * (WM_TRANSIENT_FOR and a dialog's window type on X11,
+ * xdg_toplevel.set_parent on Wayland, the owner on Windows) and whether it
+ * is modal (_NET_WM_STATE_MODAL); NULL lets it go. */
+void BK_window_set_parent(BKWindow *win, BKWindow *parent, int modal);
+/* BUI-Awra: the context takes no pointer or key input (a modal window of
+ * the application is over it, as GTK's grab); the pointer leaves it first. */
+void BK_context_set_blocked(BKContext *ctx, int blocked);
 
 /* One of Blender's widgets drawn straight into a raster, outside any BKContext: the same
  * drawing (interface_widgets.cc port, theme, Inter text) the kit's own nodes use. For

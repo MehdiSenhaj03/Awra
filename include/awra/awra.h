@@ -842,7 +842,13 @@ void awra_action_row_set_subtitle(AwraWidget *row, const char *subtitle);
 void awra_action_row_set_icon_name(AwraWidget *row, const char *icon_name);
 void awra_action_row_set_prefix(AwraWidget *row, AwraWidget *prefix);
 void awra_action_row_add_suffix(AwraWidget *row, AwraWidget *suffix);
+/* Activatable rows (the default, as Awra 1's GtkButton rows) hover, take
+ * keyboard focus and emit clicked; a row that is not is a group. */
 void awra_action_row_set_activatable(AwraWidget *row, bool activatable);
+/* Awra 1's suffix: one widget at the row's end, replaced by the next call,
+ * NULL removes it; it keeps its own alignment (a button fills the row). */
+void awra_action_row_set_suffix(AwraWidget *row, AwraWidget *suffix);
+AwraWidget *awra_action_row_get_suffix(AwraWidget *row);
 
 AwraWidget *awra_badge_new(const char *label, AwraBadgeAppearance appearance);
 void awra_badge_set_label(AwraWidget *badge, const char *label);
@@ -969,6 +975,9 @@ void awra_popover_set_autohide(AwraWidget *popover, bool autohide);
 bool awra_popover_autohide(AwraWidget *popover);
 /* A popover menu of items, at a point of `relative_to` (context menus). */
 AwraWidget *awra_menu_popover_new(const AwraMenuItem *items, int n);
+/* The items as `popover`'s content, with a menu's insets (a popover built
+ * from a menu model, GtkPopoverMenu). */
+void awra_popover_set_menu(AwraWidget *popover, const AwraMenuItem *items, int n);
 void awra_context_menu_attach(AwraWidget *widget, const AwraMenuItem *items, int n);
 
 AwraWidget *awra_dialog_new(const char *title);
@@ -996,6 +1005,12 @@ unsigned awra_toast_overlay_show(AwraWidget *overlay, const char *title, unsigne
 unsigned awra_toast_overlay_show_with_action(AwraWidget *overlay, const char *title,
                                              const char *action_label, AwraHandler handler,
                                              void *data, unsigned timeout_ms);
+/* As above; `destroy` frees `data` when the toast goes (expired, dismissed,
+ * acted on, or with the overlay). */
+unsigned awra_toast_overlay_show_with_action_full(AwraWidget *overlay, const char *title,
+                                                  const char *action_label, AwraHandler handler,
+                                                  void *data, AwraDestroyNotify destroy,
+                                                  unsigned timeout_ms);
 void awra_toast_overlay_dismiss(AwraWidget *overlay, unsigned id);
 /* Space kept under toasts (logical px; -1: the default 24), above a
  * floating bar for instance. */
@@ -2118,6 +2133,18 @@ void awra_window_set_startup_id(AwraWidget *window, const char *startup_id);
  * names it: "wayland:<xdg-foreign handle>" or "x11:<window id in hex>" (GTK's
  * gdk_toplevel_set_transient_for_exported). NULL or "" lets it go. */
 void awra_window_set_transient_for_exported(AwraWidget *window, const char *parent);
+/* GtkWindow's transient-for (one of the application's windows: kept above
+ * it, a dialog to the window manager) and modality (the parent takes no
+ * pointer or key input while the modal window shows, as GTK's grab). */
+void awra_window_set_transient_for(AwraWidget *window, AwraWidget *parent);
+AwraWidget *awra_window_get_transient_for(AwraWidget *window);
+void awra_window_set_modal(AwraWidget *window, bool modal);
+bool awra_window_get_resizable(AwraWidget *window);
+/* A desktop notification (Linux: org.freedesktop.Notifications on the
+ * session bus); false when there is no way to show one. */
+bool awra_desktop_notify(const char *app_name, const char *icon_name, const char *title,
+                         const char *body);
+bool awra_window_get_modal(AwraWidget *window);
 /* Whether a popover or menu is open over the window (its keys go there
  * first: a window-wide key handler leaves them alone). */
 bool awra_window_has_popup(AwraWidget *window);

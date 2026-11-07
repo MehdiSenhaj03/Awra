@@ -341,6 +341,8 @@ void awra_paint_rbox(AwraDraw *d, AwraBox b, float radius, const AwraRGBA *fill,
                      float border_width, const AwraRGBA *border);
 void awra_paint_rbox4(AwraDraw *d, AwraBox b, const float radii[4], const AwraRGBA *fill,
                       const float widths[4], const AwraRGBA *border);
+void awra_paint_inset_shadow(AwraDraw *d, AwraBox b, float radius, float dx, float dy, float spread,
+                             float blur, const AwraRGBA *color); /* CSS inset box-shadow */
 void awra_paint_shadow(AwraDraw *d, AwraBox b, float radius, float dx, float dy, float spread,
                        float blur, const AwraRGBA *color, bool clip_out);
 void awra_paint_rect(AwraDraw *d, AwraBox b, const AwraRGBA *color);
@@ -566,6 +568,13 @@ typedef struct AwraButtonColors {
   AwraRGBA ring;      /* inset 0 0 0 1px (primary hover) */
   float pressed_shadow; /* inset 0 1px 2px dark, alpha */
 } AwraButtonColors;
+bool awra_button_label_inherits(const AwraWidget *button, AwraTypography t);
+bool awra_menu_button_open(const AwraWidget *button); /* popover.c */
+bool awra_slider_dragging(const AwraWidget *slider);   /* controls.c */
+void awra_release_handlers_and_data(AwraWidget *w);    /* core.c */
+void awra_dispose_tree(AwraWidget *root);              /* core.c: a closed window's */
+AwraWidget *awra_attached_popover(AwraWidget *w);      /* popover.c */
+void awra_button_set_accent_fg_internal(AwraWidget *button, bool on); /* button.c */
 void awra_button_colors(AwraLook look, bool hover, bool pressed, bool checked, bool sensitive,
                         AwraButtonColors *r);
 /* Paints a button background (state, scale .96 while pressed, focus ring). */

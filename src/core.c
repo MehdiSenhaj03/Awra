@@ -563,6 +563,19 @@ void awra_bk_free(BKNode *n)
   }
   free(n->ext);
   n->ext = NULL;
+  awra_release_handlers_and_data(n);
+  free(a->name);
+  a->name = NULL;
+  if (a->a11y) {
+    awra_a11y_free(n);
+  }
+}
+
+/* A widget's signal handlers and data go (their destroy notifies run): what
+ * an application's closures hold is released. */
+void awra_release_handlers_and_data(AwraWidget *n)
+{
+  AwraAux *a = awra_aux(n);
   for (AwraHandlerEntry *h = a->handlers; h;) {
     AwraHandlerEntry *next = h->next;
     if (h->destroy) {
@@ -585,11 +598,53 @@ void awra_bk_free(BKNode *n)
     free(e);
     e = next;
   }
-  free(a->name);
-  a->name = NULL;
-  if (a->a11y) {
-    awra_a11y_free(n);
+  a->handler_mask = 0;
+}
+
+static void collect_tree(AwraWidget *w, AwraWidget ***list, int *n, int *cap)
+{
+  if (!awra_is_widget(w)) {
+    return;
   }
+  for (int i = 0; i < *n; i++) {
+    if ((*list)[i] == w) {
+      return;
+    }
+  }
+  if (*n == *cap) {
+    *cap = *cap ? *cap * 2 : 256;
+    AwraWidget **grown = (AwraWidget **)realloc(*list, sizeof(AwraWidget *) * (size_t)*cap);
+    if (!grown) {
+      return;
+    }
+    *list = grown;
+  }
+  (*list)[(*n)++] = awra_widget_ref(w);
+  for (int i = 0; i < w->nkids; i++) {
+    collect_tree(w->kids[i], list, n, cap);
+  }
+  AwraWidget *pop = awra_attached_popover(w); /* popover.c: a menu button's, a dropdown's */
+  if (pop) {
+    collect_tree(pop, list, n, cap);
+  }
+}
+
+/* GTK's dispose of a destroyed window's widgets: every widget of the tree
+ * (and the popovers its menu buttons own) lets its handlers and data go, so
+ * closures that hold widgets of the window (a dialog's button holding the
+ * dialog) no longer keep it alive. */
+void awra_dispose_tree(AwraWidget *root)
+{
+  AwraWidget **list = NULL;
+  int n = 0, cap = 0;
+  collect_tree(root, &list, &n, &cap);
+  for (int i = 0; i < n; i++) {
+    awra_release_handlers_and_data(list[i]);
+  }
+  for (int i = 0; i < n; i++) {
+    awra_widget_unref(list[i]);
+  }
+  free(list);
 }
 
 void awra_bk_finish_edit(BKNode *n, bool confirm)
@@ -603,6 +658,7 @@ void awra_bk_finish_edit(BKNode *n, bool confirm)
 
 static void set_mapped_tree(AwraWidget *w, bool mapped);
 void awra_window_focus_unmapped(AwraWidget *w); /* window.c */
+void awra_window_hover_unmapped(AwraWidget *w); /* window.c */
 
 void awra_child_insert(AwraWidget *parent, AwraWidget *child, int index)
 {
@@ -1047,6 +1103,9 @@ static void set_mapped_tree(AwraWidget *w, bool mapped)
   a->mapped = now;
   if (!now) {
     awra_window_focus_unmapped(w);
+    if (a->hovered) {
+      awra_window_hover_unmapped(w);
+    }
   }
   if (AWRA_CLASS_OF(w)->map) {
     AWRA_CLASS_OF(w)->map(w, now);

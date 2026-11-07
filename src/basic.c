@@ -213,14 +213,27 @@ static AwraRGBA label_color(AwraWidget *w)
   if (x->has_color) {
     return x->color;
   }
-  AwraRGBA c = awra_typography_color(awra_widget_typography(w));
+  const AwraTypography t = awra_widget_typography(w);
+  AwraRGBA c = awra_typography_color(t);
   int weight;
-  if (!awra_aux(w)->typography_set || awra_widget_typography(w) == AWRA_TYPOGRAPHY_BODY ||
-      awra_widget_typography(w) == AWRA_TYPOGRAPHY_LABEL)
-  {
+  if (!awra_aux(w)->typography_set || t == AWRA_TYPOGRAPHY_BODY || t == AWRA_TYPOGRAPHY_LABEL) {
     AwraRGBA ic;
     if (awra_inherited_style(w, &ic, &weight) && ic.a > 0) {
       c = ic;
+    }
+  }
+  else {
+    /* a typography's colour gives way inside an Awra button (awra.css) */
+    for (const BKNode *n = w->parent; n; n = n->parent) {
+      if (awra_is_widget(n) && AWRA_CLASS_OF(n)->child_style) {
+        AwraRGBA ic;
+        if (awra_button_label_inherits((const AwraWidget *)n, t) &&
+            AWRA_CLASS_OF(n)->child_style((AwraWidget *)n, &ic, &weight) && ic.a > 0)
+        {
+          c = ic;
+        }
+        break;
+      }
     }
   }
   if (awra_has_class_bit(w, AWRA_CB_DIM)) {
@@ -259,8 +272,9 @@ static void label_origin(AwraWidget *w, float *r_x, float *r_y, int *r_width)
   }
   /* right to left, xalign counts from the right (gtk_label_get_layout_location) */
   const float xalign = awra_widget_rtl(w) ? 1.0f - x->xalign : x->xalign;
-  *r_x = (float)w->x + floorf((w->w - lw) * xalign + 0.5f) - lx0;
-  *r_y = (float)w->y + floorf((w->h - th) * x->yalign + 0.5f);
+  /* gtk_label_get_layout_location: floor, not rounded */
+  *r_x = (float)w->x + floorf((w->w - lw) * xalign - lx0);
+  *r_y = (float)w->y + floorf((w->h - th) * x->yalign);
   *r_width = fit ? w->w : -1;
 }
 

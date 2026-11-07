@@ -2650,6 +2650,17 @@ void BK_window_set_transient_for_exported(BKWindow *win, const char *handle)
   (void)handle; /* no portal on Windows */
 }
 
+/* BUI-Awra: owned by its parent (above it, minimized with it, no taskbar
+ * button of its own); modality is the application's (its parent takes no
+ * input meanwhile) */
+void BK_window_set_parent(BKWindow *win, BKWindow *parent, int modal)
+{
+  (void)modal;
+  if (win && win->hwnd) {
+    SetWindowLongPtrW(win->hwnd, GWLP_HWNDPARENT, (LONG_PTR)(parent ? parent->hwnd : NULL));
+  }
+}
+
 void BK_window_activate(BKWindow *win, const char *startup_id)
 {
   (void)startup_id;

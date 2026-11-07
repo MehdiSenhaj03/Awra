@@ -871,7 +871,9 @@ unsafe extern "C" fn menu_item_activated(_w: *mut ffi::AwraWidget, args: *const 
 }
 
 /// AwraMenuItems for a menu model; strings live in `keep`.
-fn menu_items(menu: &Menu, keep: &mut Vec<std::ffi::CString>, dispatch: *mut c_void) -> (Vec<ffi::AwraMenuItem>, Vec<ActivateItem>) {
+/// `headings`: labelled sections show their label (as GtkPopoverMenu);
+/// Awra 1's menu buttons and popovers only separate them.
+fn menu_items(menu: &Menu, keep: &mut Vec<std::ffi::CString>, dispatch: *mut c_void, headings: bool) -> (Vec<ffi::AwraMenuItem>, Vec<ActivateItem>) {
     let owner = unsafe { (*(dispatch as *const MenuDispatch)).owner.upgrade() };
     let mut items = Vec::new();
     let mut acts = Vec::new();
@@ -892,6 +894,7 @@ fn menu_items(menu: &Menu, keep: &mut Vec<std::ffi::CString>, dispatch: *mut c_v
             FlatEntry::Separator => {
                 acts.push((None, None));
             }
+            FlatEntry::Heading(_) if !headings => continue,
             FlatEntry::Heading(h) => {
                 it.label = push_str(Some(&h), keep);
                 it.check = -2;
@@ -956,7 +959,7 @@ fn refresh_menu(owner: &Widget) {
 }
 
 /// Shows `menu` in a menu button / popover, following its changes.
-fn attach_menu(owner: &Widget, menu: Option<&Menu>, apply: fn(&Widget, &[ffi::AwraMenuItem])) {
+fn attach_menu(owner: &Widget, menu: Option<&Menu>, headings: bool, apply: fn(&Widget, &[ffi::AwraMenuItem])) {
     let key = c"awra-rs-menu";
     let dispatch = std::boxed::Box::into_raw(std::boxed::Box::new(MenuDispatch {
         items: RefCell::new(Vec::new()),
@@ -978,7 +981,7 @@ fn attach_menu(owner: &Widget, menu: Option<&Menu>, apply: fn(&Widget, &[ffi::Aw
                 return;
             }
             let mut keep = Vec::new();
-            let (items, acts) = menu_items(&menu, &mut keep, d as *mut c_void);
+            let (items, acts) = menu_items(&menu, &mut keep, d as *mut c_void, headings);
             unsafe { *(*d).items.borrow_mut() = acts };
             apply(&owner, &items);
         }
@@ -1021,7 +1024,8 @@ impl MenuButton {
         unsafe { ffi::awra_menu_button_set_appearance(ptr!(self), a as _) }
     }
     pub fn set_menu_model(&self, menu: Option<&Menu>) {
-        attach_menu(&self.0, menu, |w, items| unsafe {
+        // Awra 1's AwraMenuButton: no section headings
+        attach_menu(&self.0, menu, false, |w, items| unsafe {
             ffi::awra_menu_button_set_menu(w.as_ptr(), items.as_ptr(), items.len() as i32)
         });
         // the items' state as the menu opens
@@ -1064,17 +1068,9 @@ impl Popover {
         p
     }
     pub fn set_menu_model(&self, menu: Option<&Menu>) {
-        attach_menu(&self.0, menu, |w, items| unsafe {
-            let m = ffi::awra_menu_popover_new(items.as_ptr(), items.len() as i32);
-            // the menu popover's content moves into this popover
-            let content = ffi::awra_widget_child(m, 0);
-            if !content.is_null() {
-                ffi::awra_widget_ref(content);
-                ffi::awra_container_remove(m, content);
-                ffi::awra_popover_set_child(w.as_ptr(), content);
-                ffi::awra_widget_unref(content);
-            }
-            ffi::awra_widget_unref(m);
+        // Awra 1's AwraPopover menus: sections separated, their labels unshown
+        attach_menu(&self.0, menu, false, |w, items| unsafe {
+            ffi::awra_popover_set_menu(w.as_ptr(), items.as_ptr(), items.len() as i32);
             place_menu_widgets(w);
         });
     }
@@ -1859,11 +1855,12 @@ impl ActionRow {
     pub fn add_suffix(&self, w: &impl IsWidget) {
         unsafe { ffi::awra_action_row_add_suffix(ptr!(self), w.widget_ptr()) }
     }
+    /// Awra 1's suffix: replaces the previous one, `None` removes it.
     pub fn set_suffix(&self, w: impl IntoOptWidget) {
-        let p = w.into_opt_ptr();
-        if !p.is_null() {
-            unsafe { ffi::awra_action_row_add_suffix(ptr!(self), p) }
-        }
+        unsafe { ffi::awra_action_row_set_suffix(ptr!(self), w.into_opt_ptr()) }
+    }
+    pub fn suffix(&self) -> Option<Widget> {
+        unsafe { Widget::from_none_opt(ffi::awra_action_row_get_suffix(ptr!(self))) }
     }
     pub fn set_activatable(&self, a: bool) {
         unsafe { ffi::awra_action_row_set_activatable(ptr!(self), a) }
@@ -2336,25 +2333,27 @@ impl ToastOverlay {
     /// A toast with a button running `f`.
     pub fn show_with_callback<F: Fn() + 'static>(&self, message: &str, action: &str, timeout: u32, f: F) -> u32 {
         let (m, a) = (cstring(message), cstring(action));
-        // the closure lives with the overlay (toasts are short lived)
+        // the closure lives as long as the toast (freed when it goes)
         let data: std::boxed::Box<ToastAction> = std::boxed::Box::new(std::boxed::Box::new(f));
         let raw = std::boxed::Box::into_raw(data);
-        let id = unsafe {
-            ffi::awra_toast_overlay_show_with_action(ptr!(self), m.as_ptr(), a.as_ptr(), Some(toast_action), raw as *mut c_void, timeout)
-        };
-        let keep: Rc<ToastHolder> = Rc::new(ToastHolder(raw));
-        self.0.set_rust_data(&format!("toast-{id}"), keep);
-        id
+        unsafe {
+            ffi::awra_toast_overlay_show_with_action_full(
+                ptr!(self),
+                m.as_ptr(),
+                a.as_ptr(),
+                Some(toast_action),
+                raw as *mut c_void,
+                Some(toast_action_free),
+                timeout,
+            )
+        }
     }
     pub fn dismiss(&self, id: u32) {
         unsafe { ffi::awra_toast_overlay_dismiss(ptr!(self), id) }
     }
 }
-struct ToastHolder(*mut ToastAction);
-impl Drop for ToastHolder {
-    fn drop(&mut self) {
-        unsafe { drop(std::boxed::Box::from_raw(self.0)) }
-    }
+unsafe extern "C" fn toast_action_free(data: *mut c_void) {
+    drop(std::boxed::Box::from_raw(data as *mut ToastAction));
 }
 impl Default for ToastOverlay {
     fn default() -> Self {
@@ -2461,6 +2460,7 @@ impl Dialog {
         let d = unsafe { Dialog(Widget::from_none(ffi::awra_dialog_new(std::ptr::null()))) };
         if let Some(p) = parent {
             d.0.set_rust_data("dialog-parent", p.downgrade());
+            unsafe { ffi::awra_window_set_transient_for(d.0.as_ptr(), p.as_ptr()) };
         }
         if let Ok(w) = d.0.clone().downcast::<crate::Window>() {
             crate::window::window_added(&w);
@@ -2488,10 +2488,11 @@ impl Dialog {
         d
     }
     fn state(&self) -> std::rc::Rc<RefCell<DialogState>> {
-        self.0.rust_data("dialog-state").expect("a dialog's state")
+        // a closed dialog let its data go (Awra disposes closed windows)
+        self.0.rust_data("dialog-state").unwrap_or_default()
     }
     fn handlers(&self) -> std::rc::Rc<RefCell<Vec<ResponseFn>>> {
-        self.0.rust_data("dialog-handlers").expect("a dialog's handlers")
+        self.0.rust_data("dialog-handlers").unwrap_or_default()
     }
     fn response_index(&self, id: &str) -> Option<i32> {
         self.state().borrow().ids.iter().position(|i| i == id).map(|i| i as i32)
@@ -2518,7 +2519,14 @@ impl Dialog {
         let t = OptC::new(t);
         unsafe { ffi::awra_window_set_title(ptr!(self), t.ptr()) }
     }
-    pub fn set_modal(&self, _m: bool) {}
+    /// Modal (the default, as Awra 1's AwraDialog): its parent takes no
+    /// input while it shows.
+    pub fn set_modal(&self, m: bool) {
+        unsafe { ffi::awra_window_set_modal(ptr!(self), m) }
+    }
+    pub fn set_transient_for(&self, w: Option<&crate::Window>) {
+        unsafe { ffi::awra_window_set_transient_for(ptr!(self), w.map_or(std::ptr::null_mut(), |w| w.as_ptr())) }
+    }
     pub fn set_content(&self, w: impl IntoOptWidget) {
         unsafe { ffi::awra_dialog_set_child(ptr!(self), w.into_opt_ptr()) }
     }

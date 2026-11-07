@@ -177,8 +177,9 @@ static void edit_pads(AwraWidget *w, int *l, int *r, int *t, int *b)
   if (x->icon || x->search) {
     *l += awra_px(16) + awra_px(x->search ? 4 + 6 : 12);
   }
-  if (x->search) {
-    *r += awra_px(16) + awra_px(6 + 4); /* the clear icon is always reserved */
+  if (x->search && x->te && x->te->len > 0) {
+    /* GtkSearchEntry: the clear icon shows (and takes room) with text */
+    *r += awra_px(16) + awra_px(6 + 4);
   }
   if (x->spin) {
     *r += awra_px(96);
@@ -369,10 +370,10 @@ static void edit_draw(AwraWidget *w, AwraDraw *d)
     vb = (AwraRGBA){0.322f, 0.788f, 0.510f, 0.72f};
   }
   awra_paint_rbox(d, b, radius, fill, focus || vb.a > 0 ? awra_pxf(1) : 0, vb.a > 0 ? &vb : &t->focus_ring);
-  if (!quiet) { /* inset 0 1px 2px rgba(0,0,0,.20) */
-    const AwraRGBA sh = {0, 0, 0, 0.15f};
-    const float r4[4] = {radius, radius, radius, radius}, w4[4] = {awra_pxf(1.5), 0, 0, 0};
-    awra_paint_rbox4(d, b, r4, NULL, w4, &sh);
+  if (!quiet) { /* inset 0 1px 2px rgba(0,0,0,.20), inside the 1 px border */
+    const AwraRGBA sh = {0, 0, 0, 0.20f};
+    awra_paint_inset_shadow(d, awra_box_inset(b, awra_pxf(1)), radius - awra_pxf(1), 0, awra_pxf(1), 0,
+                            awra_pxf(2), &sh);
   }
   }
   AwraBox a = text_area(w);
@@ -1304,10 +1305,10 @@ static void capture_draw(AwraWidget *w, AwraDraw *d)
                            awra_hovered(w) ? &t->border : NULL;
   awra_paint_rbox(d, b, r, x->listening ? &t->accent_soft : &t->control_well,
                   border ? awra_pxf(1) : 0, border);
-  if (!x->listening) {
-    const AwraRGBA sh = {0, 0, 0, 0.15f};
-    const float r4[4] = {r, r, r, r}, w4[4] = {awra_pxf(1.5), 0, 0, 0};
-    awra_paint_rbox4(d, b, r4, NULL, w4, &sh);
+  if (!x->listening) { /* inset 0 1px 2px rgba(0,0,0,.20), inside the 1 px border */
+    const AwraRGBA sh = {0, 0, 0, 0.20f};
+    awra_paint_inset_shadow(d, awra_box_inset(b, awra_pxf(1)), r - awra_pxf(1), 0, awra_pxf(1), 0,
+                            awra_pxf(2), &sh);
   }
   float cx = b.x + awra_pxf(9);
   const AwraFont cf = chip_font();

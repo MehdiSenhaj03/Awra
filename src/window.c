@@ -41,6 +41,9 @@ typedef struct WinExt {
   int blur_state; /* -1 unknown, 0 no, 1 yes */
   AwraWidget *path[MAX_PATH];
   int npath;
+  bool hover_repick; /* a widget under the pointer went: pick again on idle */
+  AwraWidget *transient_for; /* not held: cleared when it closes */
+  bool modal;
   AwraWidget *focus;
   bool focus_moving; /* the focus is unmapped: it moves on idle */
   AwraWidget *pressed3; /* secondary-button press target */
@@ -199,10 +202,15 @@ static void window_allocate(AwraWidget *w)
   WinExt *x = WEXT(w);
   int th = 0;
   if (x->titlebar && awra_child_visible(x->titlebar)) {
-    int mn, nat;
-    awra_measure(x->titlebar, AWRA_ORIENTATION_VERTICAL, w->w, &mn, &nat);
+    /* never under its minimum, as the content (GTK allocates a window's
+     * minimum and the surface clips): a too narrow window must not lay its
+     * header's parts over each other */
+    int mn, nat, tw;
+    awra_measure(x->titlebar, AWRA_ORIENTATION_HORIZONTAL, -1, &tw, &nat);
+    tw = BK_MAX(w->w, tw);
+    awra_measure(x->titlebar, AWRA_ORIENTATION_VERTICAL, tw, &mn, &nat);
     th = mn;
-    awra_allocate(x->titlebar, w->x, w->y, w->w, th);
+    awra_allocate(x->titlebar, w->x, w->y, tw, th);
   }
   if (x->overlay_titlebar) {
     th = 0; /* the title bar floats over the content */
@@ -922,6 +930,46 @@ void awra_windows_direction_changed(void (*fn)(AwraWidget *))
   }
 }
 
+static bool hover_repick(void *data)
+{
+  AwraWidget *win = (AwraWidget *)data;
+  WinExt *x = WEXT(win);
+  x->hover_repick = false;
+  if (!x->closed && x->ctx && x->npath > 0 && !awra_window_dragging(win)) {
+    bk_ctx_prepare(x->ctx); /* the new widgets' places */
+    update_hover(win, x->ctx->pointer_x, x->ctx->pointer_y, false);
+  }
+  return false;
+}
+
+static void hover_repick_unref(void *data)
+{
+  awra_widget_unref((AwraWidget *)data);
+}
+
+/* gtk_window_update_pointer_focus_on_state_change: when the widget under
+ * the pointer or one of its ancestors is unmapped (a page switched, a row
+ * removed), the pointer's target is picked again and crossing follows, so
+ * what now lies under a still pointer lights up and the gone one lets go. */
+void awra_window_hover_unmapped(AwraWidget *w); /* core.c */
+void awra_window_hover_unmapped(AwraWidget *w)
+{
+  for (int i = 0; i < g_nwindows; i++) {
+    AwraWidget *win = g_windows[i];
+    WinExt *x = WEXT(win);
+    if (x->closed || x->hover_repick) {
+      continue;
+    }
+    for (int k = 0; k < x->npath; k++) {
+      if (x->path[k] == w) {
+        x->hover_repick = true;
+        awra_idle_add(hover_repick, awra_widget_ref(win), hover_repick_unref);
+        break;
+      }
+    }
+  }
+}
+
 void awra_window_focus_unmapped(AwraWidget *w); /* core.c */
 void awra_window_focus_unmapped(AwraWidget *w)
 {
@@ -1229,10 +1277,11 @@ static AwraWidget *window_create(const char *title, int width, int height, bool 
   }
   WinExt *x = WEXT(w);
   x->title = awra_strdup(title ? title : "");
-  if (width > 0) {
+  /* -1: unset, the contents' natural size (GTK); 0: Awra's 900 x 620 */
+  if (width != 0) {
     x->default_w = width;
   }
-  if (height > 0) {
+  if (height != 0) {
     x->default_h = height;
   }
   x->offscreen = offscreen;
@@ -1246,8 +1295,8 @@ static AwraWidget *window_create(const char *title, int width, int height, bool 
   if (offscreen) {
     x->scale = (float)(scale > 0 ? scale : 1.0);
     BK_set_scale(x->scale);
-    x->off_w = (int)(x->default_w * x->scale + 0.5);
-    x->off_h = (int)(x->default_h * x->scale + 0.5);
+    x->off_w = (int)((x->default_w > 0 ? x->default_w : 900) * x->scale + 0.5);
+    x->off_h = (int)((x->default_h > 0 ? x->default_h : 620) * x->scale + 0.5);
     x->raster = BUI_raster_create(x->off_w, x->off_h);
     BUI_raster_set_diff(x->raster, 0);
     x->blur_state = 0;
@@ -1290,6 +1339,8 @@ static void forget_measures(AwraWidget *n)
   }
 }
 
+static void native_parent(AwraWidget *w);
+
 static void ensure_native(AwraWidget *w)
 {
   WinExt *x = WEXT(w);
@@ -1301,13 +1352,17 @@ static void ensure_native(AwraWidget *w)
    * measures are forgotten once it is known) */
   const bool measured = x->child || x->titlebar;
   if (measured) {
+    /* an unset default size (-1) is the contents' natural size
+     * (gtk_window_compute_default_size): a dialog's height */
     const float s = awra_scale();
     int mn = 0, nat = 0;
     window_measure(w, AWRA_ORIENTATION_HORIZONTAL, -1, &mn, &nat);
-    x->default_w = BK_MAX(x->default_w, (int)ceilf(mn / s));
+    x->default_w = x->default_w > 0 ? BK_MAX(x->default_w, (int)ceilf(mn / s)) : (int)ceilf(nat / s);
     window_measure(w, AWRA_ORIENTATION_VERTICAL, (int)(x->default_w * s), &mn, &nat);
-    x->default_h = BK_MAX(x->default_h, (int)ceilf(mn / s));
+    x->default_h = x->default_h > 0 ? BK_MAX(x->default_h, (int)ceilf(mn / s)) : (int)ceilf(nat / s);
   }
+  x->default_w = x->default_w > 0 ? x->default_w : 900;
+  x->default_h = x->default_h > 0 ? x->default_h : 620;
   x->bkw = BK_window_new_ex(x->ctx, x->title, x->default_w, x->default_h,
                             BK_WINDOW_TRANSPARENT | BK_WINDOW_UNDECORATED);
   if (!x->bkw) {
@@ -1326,6 +1381,10 @@ static void ensure_native(AwraWidget *w)
     forget_measures(w);
   }
   awra_window_identity_native(w); /* identity.c: its icon */
+  native_parent(w);
+  if (!x->resizable) {
+    BK_window_wm(x->bkw, "resizable", 0, 0);
+  }
   x->blur_state = BK_window_blur_available(x->bkw);
   if (x->blur_state == 1) {
     x->state |= AWRA_WINDOW_STATE_BLUR;
@@ -1333,7 +1392,8 @@ static void ensure_native(AwraWidget *w)
 }
 
 /* AWRA_DUMP_TREE=seconds: the window's widgets, their boxes and sizes, on
- * stderr that long after it shows (layout debugging). */
+ * stderr that long after it shows (layout debugging); with an r after the
+ * seconds ("2r"), every that many seconds. */
 static void dump_tree(AwraWidget *w, int depth)
 {
   int mn = 0, nt = 0, hm = 0, hn = 0;
@@ -1356,13 +1416,87 @@ static bool dump_later(void *data)
   AwraWidget *w = (AwraWidget *)data;
   if (!WEXT(w)->closed) {
     dump_tree(w, 0);
+    BKContext *ctx = WEXT(w)->ctx;
+    for (int i = 0; ctx && i < ctx->npopups; i++) { /* open popovers, menus, tooltips */
+      if (awra_is_widget(ctx->popups[i])) {
+        fprintf(stderr, "AwraPopup %d\n", i);
+        dump_tree(ctx->popups[i], 1);
+      }
+    }
+    fflush(stderr);
   }
-  return false;
+  /* AWRA_DUMP_TREE=<seconds>r: again every that many seconds */
+  const char *dump = getenv("AWRA_DUMP_TREE");
+  return !WEXT(w)->closed && dump && strchr(dump, 'r');
 }
 
 static void dump_unref(void *data)
 {
   awra_widget_unref((AwraWidget *)data);
+}
+
+/* GTK's modal grab: a window takes no input while a modal window shown
+ * for it (transient for it) is up */
+static void update_blocked(AwraWidget *parent)
+{
+  if (!parent || !awra_widget_is(parent, "AwraWindow")) {
+    return;
+  }
+  bool blocked = false;
+  for (int i = 0; i < g_nwindows && !blocked; i++) {
+    const WinExt *c = WEXT(g_windows[i]);
+    blocked = c->transient_for == parent && c->modal && c->presented && !c->closed &&
+              !(c->state & AWRA_WINDOW_STATE_HIDDEN);
+  }
+  WinExt *x = WEXT(parent);
+  if (x->ctx) {
+    BK_context_set_blocked(x->ctx, blocked);
+  }
+}
+
+static void native_parent(AwraWidget *w)
+{
+  WinExt *x = WEXT(w);
+  if (x->bkw) {
+    WinExt *p = x->transient_for ? WEXT(x->transient_for) : NULL;
+    BK_window_set_parent(x->bkw, p ? p->bkw : NULL, x->modal);
+  }
+}
+
+void awra_window_set_transient_for(AwraWidget *w, AwraWidget *parent)
+{
+  if (!awra_widget_is(w, "AwraWindow") || (parent && !awra_widget_is(parent, "AwraWindow"))) {
+    return;
+  }
+  WinExt *x = WEXT(w);
+  if (x->transient_for == parent || parent == w) {
+    return;
+  }
+  AwraWidget *old = x->transient_for;
+  x->transient_for = parent;
+  native_parent(w);
+  update_blocked(old);
+  update_blocked(parent);
+}
+
+AwraWidget *awra_window_get_transient_for(AwraWidget *w)
+{
+  return awra_widget_is(w, "AwraWindow") ? WEXT(w)->transient_for : NULL;
+}
+
+void awra_window_set_modal(AwraWidget *w, bool modal)
+{
+  if (!awra_widget_is(w, "AwraWindow") || WEXT(w)->modal == modal) {
+    return;
+  }
+  WEXT(w)->modal = modal;
+  native_parent(w);
+  update_blocked(WEXT(w)->transient_for);
+}
+
+bool awra_window_get_modal(AwraWidget *w)
+{
+  return awra_widget_is(w, "AwraWindow") && WEXT(w)->modal;
 }
 
 void awra_window_present(AwraWidget *w)
@@ -1406,6 +1540,7 @@ void awra_window_present(AwraWidget *w)
     BK_window_wm(x->bkw, "focus", 0, 0);
     awra_window_identity_present(w); /* identity.c: activation (startup id) */
   }
+  update_blocked(x->transient_for);
 }
 
 void awra_window_hide(AwraWidget *w)
@@ -1421,6 +1556,7 @@ void awra_window_hide(AwraWidget *w)
     awra_map_tree(w, false);
   }
   awra_emit_index(w, AWRA_SIGNAL_STATE, x->state);
+  update_blocked(x->transient_for);
 }
 
 void awra_window_close(AwraWidget *w)
@@ -1444,7 +1580,10 @@ void awra_window_begin_move_internal(AwraWidget *w)
 
 static bool release_closed(void *data)
 {
-  awra_widget_unref((AwraWidget *)data);
+  AwraWidget *w = (AwraWidget *)data;
+  /* closed for good: its widgets' closures go, then the list's reference */
+  awra_dispose_tree(w);
+  awra_widget_unref(w);
   return false;
 }
 
@@ -1473,6 +1612,15 @@ static void window_destroy(AwraWidget *w)
       memmove(g_windows + i, g_windows + i + 1, sizeof(AwraWidget *) * (size_t)(g_nwindows - i - 1));
       g_nwindows--;
       break;
+    }
+  }
+  /* its parent takes input again; windows transient for it let it go */
+  update_blocked(x->transient_for);
+  x->transient_for = NULL;
+  for (int i = 0; i < g_nwindows; i++) {
+    if (WEXT(g_windows[i])->transient_for == w) {
+      WEXT(g_windows[i])->transient_for = NULL;
+      native_parent(g_windows[i]);
     }
   }
   /* the list's reference goes once the event that closed the window is
@@ -1603,6 +1751,9 @@ void awra_window_set_titlebar(AwraWidget *w, AwraWidget *titlebar)
   awra_set_slot(w, &x->titlebar, titlebar);
   /* the title bar paints over the content: keep it last among children */
   restack(w);
+  if (titlebar) {
+    awra_header_window_state_changed(titlebar); /* its controls follow the window */
+  }
 }
 
 AwraWidget *awra_window_titlebar(AwraWidget *w)
@@ -1646,9 +1797,27 @@ void awra_window_set_min_size(AwraWidget *w, int width, int height)
   }
 }
 
+/* gtk_window_set_resizable: the window manager is told (fixed size hints,
+ * no maximize), the client-side resize band goes and the header shows no
+ * maximize button (GtkWindowControls) */
 void awra_window_set_resizable(AwraWidget *w, bool resizable)
 {
-  WEXT(w)->resizable = resizable;
+  WinExt *x = WEXT(w);
+  if (x->resizable == resizable) {
+    return;
+  }
+  x->resizable = resizable;
+  if (x->bkw) {
+    BK_window_wm(x->bkw, "resizable", resizable ? 1 : 0, resizable ? 1 : 0);
+  }
+  if (x->titlebar) {
+    awra_header_window_state_changed(x->titlebar);
+  }
+}
+
+bool awra_window_get_resizable(AwraWidget *w)
+{
+  return awra_widget_is(w, "AwraWindow") && WEXT(w)->resizable;
 }
 
 static void wm_state(AwraWidget *w, int state)

@@ -753,6 +753,8 @@ extern "C" {
     pub fn awra_action_row_set_prefix(row: *mut AwraWidget, prefix: *mut AwraWidget);
     pub fn awra_action_row_add_suffix(row: *mut AwraWidget, suffix: *mut AwraWidget);
     pub fn awra_action_row_set_activatable(row: *mut AwraWidget, activatable: bool);
+    pub fn awra_action_row_set_suffix(row: *mut AwraWidget, suffix: *mut AwraWidget);
+    pub fn awra_action_row_get_suffix(row: *mut AwraWidget) -> *mut AwraWidget;
     pub fn awra_badge_new(label: *const c_char, appearance: c_int) -> *mut AwraWidget;
     pub fn awra_badge_set_label(badge: *mut AwraWidget, label: *const c_char);
     pub fn awra_badge_set_appearance(badge: *mut AwraWidget, appearance: c_int);
@@ -837,6 +839,7 @@ extern "C" {
     pub fn awra_popover_set_autohide(popover: *mut AwraWidget, autohide: bool);
     pub fn awra_popover_autohide(popover: *mut AwraWidget) -> bool;
     pub fn awra_menu_popover_new(items: *const AwraMenuItem, n: c_int) -> *mut AwraWidget;
+    pub fn awra_popover_set_menu(popover: *mut AwraWidget, items: *const AwraMenuItem, n: c_int);
     pub fn awra_context_menu_attach(widget: *mut AwraWidget, items: *const AwraMenuItem, n: c_int);
     pub fn awra_dialog_new(title: *const c_char) -> *mut AwraWidget;
     pub fn awra_dialog_set_child(dialog: *mut AwraWidget, child: *mut AwraWidget);
@@ -854,6 +857,7 @@ extern "C" {
     pub fn awra_toast_overlay_set_child(overlay: *mut AwraWidget, child: *mut AwraWidget);
     pub fn awra_toast_overlay_show(overlay: *mut AwraWidget, title: *const c_char, timeout_ms: c_uint) -> c_uint;
     pub fn awra_toast_overlay_show_with_action(overlay: *mut AwraWidget, title: *const c_char, action_label: *const c_char, handler: Option<unsafe extern "C" fn(*mut AwraWidget, *const AwraArgs, *mut c_void)>, data: *mut c_void, timeout_ms: c_uint) -> c_uint;
+    pub fn awra_toast_overlay_show_with_action_full(overlay: *mut AwraWidget, title: *const c_char, action_label: *const c_char, handler: Option<unsafe extern "C" fn(*mut AwraWidget, *const AwraArgs, *mut c_void)>, data: *mut c_void, destroy: Option<unsafe extern "C" fn(*mut c_void)>, timeout_ms: c_uint) -> c_uint;
     pub fn awra_toast_overlay_dismiss(overlay: *mut AwraWidget, id: c_uint);
     pub fn awra_toast_overlay_set_bottom_inset(overlay: *mut AwraWidget, inset: c_int);
     pub fn awra_command_palette_new() -> *mut AwraWidget;
@@ -1337,6 +1341,12 @@ extern "C" {
     pub fn awra_window_set_default_icon_name(name: *const c_char);
     pub fn awra_window_set_startup_id(window: *mut AwraWidget, startup_id: *const c_char);
     pub fn awra_window_set_transient_for_exported(window: *mut AwraWidget, parent: *const c_char);
+    pub fn awra_window_set_transient_for(window: *mut AwraWidget, parent: *mut AwraWidget);
+    pub fn awra_window_get_transient_for(window: *mut AwraWidget) -> *mut AwraWidget;
+    pub fn awra_window_set_modal(window: *mut AwraWidget, modal: bool);
+    pub fn awra_window_get_resizable(window: *mut AwraWidget) -> bool;
+    pub fn awra_desktop_notify(app_name: *const c_char, icon_name: *const c_char, title: *const c_char, body: *const c_char) -> bool;
+    pub fn awra_window_get_modal(window: *mut AwraWidget) -> bool;
     pub fn awra_window_has_popup(window: *mut AwraWidget) -> bool;
     pub fn awra_transition_bin_new() -> *mut AwraWidget;
     pub fn awra_transition_bin_set_child(bin: *mut AwraWidget, child: *mut AwraWidget);

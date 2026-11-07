@@ -559,8 +559,8 @@ impl Application {
     }
 }
 
-/// A desktop notification (notify-send on Linux; Windows applications
-/// use their tray icon).
+/// A desktop notification (the session bus's notification service on
+/// Linux; Windows applications use their tray icon).
 #[derive(Debug, Clone, Default)]
 pub struct Notification {
     title: String,
@@ -577,30 +577,13 @@ impl Notification {
 }
 
 impl Application {
-    /// Shows a notification; false when the desktop has no way to.
+    /// Shows a notification (org.freedesktop.Notifications on the session
+    /// bus, as GApplication); false when the desktop has no way to.
     pub fn send_notification(&self, _id: Option<&str>, n: &Notification) -> bool {
-        #[cfg(unix)]
-        {
-            let Some(prog) = crate::glib::find_program_in_path("notify-send") else {
-                return false;
-            };
-            let mut cmd = std::process::Command::new(prog);
-            cmd.arg("--app-name").arg(&self.0.id).arg(&n.title);
-            if let Some(b) = &n.body {
-                cmd.arg(b);
-            }
-            cmd.stdin(std::process::Stdio::null()).stdout(std::process::Stdio::null()).stderr(std::process::Stdio::null());
-            return cmd.spawn().map(|mut c| {
-                std::thread::spawn(move || {
-                    let _ = c.wait();
-                });
-            }).is_ok();
-        }
-        #[allow(unreachable_code)]
-        {
-            let _ = n;
-            false
-        }
+        let app = crate::object::cstring(&self.0.id);
+        let title = crate::object::cstring(&n.title);
+        let body = crate::object::cstring(n.body.as_deref().unwrap_or(""));
+        unsafe { crate::ffi::awra_desktop_notify(app.as_ptr(), std::ptr::null(), title.as_ptr(), body.as_ptr()) }
     }
 }
 

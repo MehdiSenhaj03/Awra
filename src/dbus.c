@@ -14,6 +14,7 @@
 
 #include <errno.h>
 #include <fcntl.h>
+#include <poll.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -871,6 +872,30 @@ static void on_readable(int fd, void *data)
   b->busy--;
   if (b->free_later && !b->busy) {
     really_free(b);
+  }
+}
+
+/* Reads and dispatches what comes until *done or the time is up (a startup
+ * question that must be answered before the first frame, as GTK reads its
+ * portal settings synchronously). */
+void awra_dbus_pump(AwraDBus *b, const bool *done, int timeout_ms)
+{
+  const double end = awra_now_ms() + timeout_ms;
+  while (b && b->state != ST_CLOSED && !*done) {
+    const int left = (int)(end - awra_now_ms());
+    if (left <= 0) {
+      break;
+    }
+    struct pollfd p = {b->fd, POLLIN, 0};
+    const int r = poll(&p, 1, left);
+    if (r < 0 && errno == EINTR) {
+      continue;
+    }
+    if (r <= 0) {
+      break;
+    }
+    const int fd = b->fd;
+    on_readable(fd, b);
   }
 }
 

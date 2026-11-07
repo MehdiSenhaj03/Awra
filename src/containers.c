@@ -416,7 +416,45 @@ static int grid_lines(AwraWidget *g, int o, int **r_min, int **r_nat, bool **r_e
   bool *ex = (bool *)calloc((size_t)count + 1, sizeof(bool));
   const GridExt *ge = AWRA_EXT(g, GridExt);
   const int sp = awra_px(o == AWRA_ORIENTATION_HORIZONTAL ? ge->col_spacing : ge->row_spacing);
-  /* single-span children first, then spans grow their lines if needed */
+  /* grid_request_compute_expand: lines of expanding single-span children
+   * expand; a spanning child that expands makes its lines expand only when
+   * none of them does already */
+  bool *need = (bool *)calloc((size_t)count + 1, sizeof(bool));
+  for (int pass = 0; pass < 2; pass++) {
+    for (int i = 0; i < g->nkids; i++) {
+      AwraWidget *k = g->kids[i];
+      GridCell *c = cell_of(k);
+      if (!c || !awra_child_visible(k)) {
+        continue;
+      }
+      const int start = o == AWRA_ORIENTATION_HORIZONTAL ? c->col : c->row;
+      const int span = o == AWRA_ORIENTATION_HORIZONTAL ? c->w : c->h;
+      if ((span == 1) != (pass == 0)) {
+        continue;
+      }
+      if (span == 1) {
+        if (awra_compute_expand(k, o)) {
+          ex[start] = true;
+        }
+        continue;
+      }
+      bool has = false;
+      for (int s = start; s < start + span; s++) {
+        has |= ex[s];
+      }
+      if (!has && awra_compute_expand(k, o)) {
+        for (int s = start; s < start + span; s++) {
+          need[s] = true;
+        }
+      }
+    }
+  }
+  for (int s = 0; s < count; s++) {
+    ex[s] |= need[s];
+  }
+  free(need);
+  /* single-span children first (grid_request_non_spanning), then spans
+   * grow their lines, the expanding ones if any (grid_request_spanning) */
   for (int pass = 0; pass < 2; pass++) {
     for (int i = 0; i < g->nkids; i++) {
       AwraWidget *k = g->kids[i];
@@ -431,27 +469,34 @@ static int grid_lines(AwraWidget *g, int o, int **r_min, int **r_nat, bool **r_e
       }
       int cm, cn;
       awra_measure(k, o, -1, &cm, &cn);
-      if (awra_compute_expand(k, o)) {
-        for (int s = start; s < start + span; s++) {
-          ex[s] = true;
-        }
-      }
       if (span == 1) {
         mn[start] = BK_MAX(mn[start], cm);
         nt[start] = BK_MAX(nt[start], cn);
+        continue;
       }
-      else {
-        int have_m = sp * (span - 1), have_n = sp * (span - 1);
-        for (int s = start; s < start + span; s++) {
-          have_m += mn[s];
-          have_n += nt[s];
+      int have_m = sp * (span - 1), have_n = sp * (span - 1), n_ex = 0;
+      for (int s = start; s < start + span; s++) {
+        have_m += mn[s];
+        have_n += nt[s];
+        n_ex += ex[s];
+      }
+      const bool force = n_ex == 0;
+      if (force) {
+        n_ex = span;
+      }
+      for (int which = 0; which < 2; which++) {
+        int *line = which ? nt : mn;
+        int extra = which ? cn - have_n : cm - have_m;
+        if (extra <= 0) {
+          continue;
         }
+        int left = n_ex;
         for (int s = start; s < start + span; s++) {
-          if (cm > have_m) {
-            mn[s] += (cm - have_m) / span + 1;
-          }
-          if (cn > have_n) {
-            nt[s] += (cn - have_n) / span + 1;
+          if (force || ex[s]) {
+            const int e = extra / left;
+            line[s] += e;
+            extra -= e;
+            left--;
           }
         }
       }

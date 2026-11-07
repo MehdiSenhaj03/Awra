@@ -489,6 +489,19 @@ void BUI_raster_rbox(BuiRaster *r,
                      const float fill[4],
                      const float widths[4],
                      const float border[4]);
+/* CSS inset box-shadow inside a rounded box: offset (dx, dy), spread, blur
+ * radius (Gaussian, sigma = blur / 2). */
+void BUI_raster_box_shadow_inset(BuiRaster *r,
+                                 float x,
+                                 float y,
+                                 float w,
+                                 float h,
+                                 const float radii[4],
+                                 float dx,
+                                 float dy,
+                                 float spread,
+                                 float blur,
+                                 const float rgba[4]);
 /* CSS outset box-shadow of a rounded box: offset (dx, dy), spread, blur
  * radius (Gaussian, sigma = blur / 2). clip_out: nothing inside the box. */
 void BUI_raster_box_shadow(BuiRaster *r,
