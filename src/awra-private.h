@@ -363,6 +363,10 @@ void awra_paint_shadow(AwraDraw *d, AwraBox b, float radius, float dx, float dy,
 void awra_paint_rect(AwraDraw *d, AwraBox b, const AwraRGBA *color);
 void awra_paint_focus_ring(AwraDraw *d, AwraBox b, float radius);
 void awra_paint_circle(AwraDraw *d, float cx, float cy, float r, const AwraRGBA *fill);
+/* A stroke along points on pixel edges, round caps and joins (cairo's
+ * stroke of a path with CAIRO_LINE_CAP_ROUND / CAIRO_LINE_JOIN_ROUND). */
+void awra_paint_polyline(AwraDraw *d, const float (*points)[2], int n, float width,
+                         const AwraRGBA *color);
 void awra_paint_line(AwraDraw *d, float x0, float y0, float x1, float y1, float width,
                      const AwraRGBA *color);
 

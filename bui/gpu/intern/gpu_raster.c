@@ -802,6 +802,92 @@ void BUI_raster_line(
   }
 }
 
+/* BUI-Awra: the area of pixel (px, py) a stroke of half width `hw` along
+ * the polyline covers, with round caps and joins (cairo's stroke with
+ * CAIRO_LINE_CAP_ROUND / CAIRO_LINE_JOIN_ROUND): 8 x 8 samples, each in
+ * the union of the segments' capsules. Coordinates on pixel edges. */
+static float polyline_cov(const float (*pts)[2], int n, float hw, int px, int py)
+{
+  enum { SS = 8 };
+  const float hw2 = hw * hw;
+  int inside = 0;
+  for (int sy = 0; sy < SS; sy++) {
+    const float y = (float)py + ((float)sy + 0.5f) / SS;
+    for (int sx = 0; sx < SS; sx++) {
+      const float x = (float)px + ((float)sx + 0.5f) / SS;
+      for (int i = 0; i + 1 < n || (n == 1 && i == 0); i++) {
+        const float ax = pts[i][0], ay = pts[i][1];
+        const float bx = n > 1 ? pts[i + 1][0] : ax, by = n > 1 ? pts[i + 1][1] : ay;
+        const float vx = bx - ax, vy = by - ay, len2 = vx * vx + vy * vy;
+        const float wx = x - ax, wy = y - ay;
+        const float t = len2 > 0.0f ? clampf((wx * vx + wy * vy) / len2, 0.0f, 1.0f) : 0.0f;
+        const float ex = wx - vx * t, ey = wy - vy * t;
+        if (ex * ex + ey * ey <= hw2) {
+          inside++;
+          break;
+        }
+      }
+    }
+  }
+  return (float)inside / (SS * SS);
+}
+
+void BUI_raster_polyline(BuiRaster *r, const float (*pts)[2], int n, float width, const float rgba[4])
+{
+  if (n < 1 || rgba[3] <= 0.0f) {
+    return;
+  }
+  const float hw = (width > 0.0f ? width : 1.0f) * 0.5f;
+  float minx = pts[0][0], maxx = pts[0][0], miny = pts[0][1], maxy = pts[0][1];
+  for (int i = 1; i < n; i++) {
+    minx = fminf(minx, pts[i][0]);
+    maxx = fmaxf(maxx, pts[i][0]);
+    miny = fminf(miny, pts[i][1]);
+    maxy = fmaxf(maxy, pts[i][1]);
+  }
+  int x0, y0, x1, y1;
+  if (!clip_box(r, minx - hw, miny - hw, maxx + hw, maxy + hw, &x0, &y0, &x1, &y1)) {
+    return;
+  }
+  if (r->gpu) { /* the coverage as a mask */
+    const int mw = x1 - x0, mh = y1 - y0;
+    uint8_t *mask = (uint8_t *)malloc((size_t)mw * mh);
+    if (!mask) {
+      return;
+    }
+    for (int py = y0; py < y1; py++) {
+      for (int px = x0; px < x1; px++) {
+        mask[(size_t)(py - y0) * mw + (px - x0)] =
+            (uint8_t)(polyline_cov(pts, n, hw, px, py) * 255.0f + 0.5f);
+      }
+    }
+    int ax, ay;
+    BuiGpuInst *in = bui_gpu_mask(r->gpu, NULL, 0, mask, mw, mh, &ax, &ay) ?
+                         gpu_inst(r, BG_MASK, x0, y0, x1, y1) :
+                         NULL;
+    if (in) {
+      v4(in->rect, (float)x0, (float)y0, (float)mw, (float)mh);
+      v4(in->uv, (float)ax, (float)ay, 0.0f, 0.0f);
+      c4(in->c0, rgba);
+    }
+    free(mask);
+    return;
+  }
+  const Paint p = paint_from(rgba);
+  if (p.a <= 0) {
+    return;
+  }
+  for (int py = y0; py < y1; py++) {
+    uint32_t *row = RASTER_ROW(r, py);
+    for (int px = x0; px < x1; px++) {
+      const float c = polyline_cov(pts, n, hw, px, py);
+      if (c > 0.0f) {
+        put_cov(row + px, p, c);
+      }
+    }
+  }
+}
+
 void BUI_raster_ellipse(BuiRaster *r,
                         float cx,
                         float cy,

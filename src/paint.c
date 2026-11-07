@@ -91,6 +91,17 @@ void awra_paint_line(AwraDraw *d, float x0, float y0, float x1, float y1, float 
   BUI_raster_line(d->r, x0, y0, x1, y1, width, c);
 }
 
+void awra_paint_polyline(AwraDraw *d, const float (*points)[2], int n, float width,
+                         const AwraRGBA *color)
+{
+  if (!color || color->a <= 0.0f || n < 1) {
+    return;
+  }
+  float c[4];
+  col(d, color, c);
+  BUI_raster_polyline(d->r, points, n, width, c);
+}
+
 /* Keyboard focus: a 2px accent ring just outside the widget's shape
  * (awra.css: outline: 2px solid @awra_focus_ring; outline-offset: 2px). */
 void awra_paint_focus_ring(AwraDraw *d, AwraBox b, float radius)
