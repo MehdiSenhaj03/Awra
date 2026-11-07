@@ -276,6 +276,77 @@ void BUI_raster_box_shadow(BuiRaster *r,
   }
 }
 
+/* CSS inset box-shadow (GSK's inset shadow node): inside the rounded box,
+ * the colour where the box moved by (dx, dy) and shrunk by the spread,
+ * blurred, does not cover. */
+void BUI_raster_box_shadow_inset(BuiRaster *r,
+                                 float x,
+                                 float y,
+                                 float w,
+                                 float h,
+                                 const float radii[4],
+                                 float dx,
+                                 float dy,
+                                 float spread,
+                                 float blur,
+                                 const float rgba[4])
+{
+  if (!(w > 0.0f) || !(h > 0.0f) || !rgba || !(rgba[3] > 0.0f) || r->gpu) {
+    return;
+  }
+  float rad[4], hrad[4];
+  clamp_radii(radii, w, h, rad);
+  /* the hole: the box moved and shrunk by the spread */
+  const float hx0 = x + dx + spread, hy0 = y + dy + spread;
+  const float hx1 = x + w + dx - spread, hy1 = y + h + dy - spread;
+  for (int i = 0; i < 4; i++) {
+    hrad[i] = fmaxf(0.0f, rad[i] - spread);
+  }
+  const float sigma = fmaxf(blur * 0.5f, 0.01f);
+  const float reach = blur > 0.0f ? sigma * 3.0f : 0.5f;
+  int x0, y0, x1, y1;
+  if (!clip_box(r, x, y, x + w, y + h, &x0, &y0, &x1, &y1)) {
+    return;
+  }
+  const Paint p = paint_from(rgba);
+  const float inv = 1.0f / (sigma * 1.41421356f);
+  const float hmax = fmaxf(fmaxf(hrad[0], hrad[1]), fmaxf(hrad[2], hrad[3]));
+  for (int py = y0; py < y1; py++) {
+    uint32_t *row = RASTER_ROW(r, py);
+    const float cy = (float)py + 0.5f;
+    /* deep inside the hole (rows clear of its corners): nothing to draw */
+    int sa = x1, sb = x0;
+    if (hx1 > hx0 && cy - 0.5f >= hy0 + hmax + reach && cy + 0.5f <= hy1 - hmax - reach) {
+      sa = clampi((int)ceilf(hx0 + reach), x0, x1);
+      sb = clampi((int)floorf(hx1 - reach), x0, x1);
+      if (sb <= sa) {
+        sa = x1;
+        sb = x0;
+      }
+    }
+    for (int px = x0; px < x1; px++) {
+      if (px == sa) {
+        px = sb - 1;
+        continue;
+      }
+      const float cx = (float)px + 0.5f;
+      const float co = clampf(0.5f - sd_rbox(cx, cy, x, y, x + w, y + h, rad), 0.0f, 1.0f);
+      if (co <= 0.0f) {
+        continue;
+      }
+      float hole = 0.0f;
+      if (hx1 > hx0 && hy1 > hy0) {
+        const float d = sd_rbox(cx, cy, hx0, hy0, hx1, hy1, hrad);
+        hole = blur > 0.0f ? half_erfc(d * inv) : clampf(0.5f - d, 0.0f, 1.0f);
+      }
+      const float cov = co * (1.0f - hole);
+      if (cov > 0.002f) {
+        put_cov(row + px, p, cov);
+      }
+    }
+  }
+}
+
 /** \} */
 
 /* -------------------------------------------------------------------- */

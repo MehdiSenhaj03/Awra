@@ -94,7 +94,7 @@ static void cap_place(AwraDraw *d, AwraTextLayout *l, float ax, float ay, float 
   awra_text_layout_logical(l, width, &lx0, &lw);
   lw = fminf(ceilf(lw), aw);
   const float xa = rtl ? 1.0f - xalign : xalign;
-  awra_text_layout_draw(l, d, ax + floorf((aw - lw) * xa + 0.5f) - lx0, ay + floorf((ah - th) * 0.5f + 0.5f),
+  awra_text_layout_draw(l, d, ax + floorf((aw - lw) * xa - lx0), ay + floorf((ah - th) * 0.5f),
                         width, c);
 }
 
@@ -170,16 +170,14 @@ static void cap_draw(AwraWidget *w, AwraDraw *d)
     const float w4[4] = {0, 0, awra_pxf(3), 0};
     awra_paint_rbox4(d, b, r4, NULL, w4, &x->edge);
   }
-  if (x->bound && x->depth < 1) {
+  if (x->bound && x->depth < 1) { /* inset 0 1px rim */
     AwraRGBA rim = t->rim;
     rim.a *= 1.0f - x->depth;
-    const float w4[4] = {awra_pxf(1), 0, 0, 0};
-    awra_paint_rbox4(d, b, r4, NULL, w4, &rim);
+    awra_paint_inset_shadow(d, b, r, 0, awra_pxf(1), 0, 0, &rim);
   }
-  else if (!x->bound) {
+  else if (!x->bound) { /* a well's lip: inset 0 1px, spread 1 */
     const AwraRGBA lip = {0, 0, 0, t->dark ? 0.22f : 0.06f};
-    const float w4[4] = {awra_pxf(2), awra_pxf(1), 0, awra_pxf(1)};
-    awra_paint_rbox4(d, b, r4, NULL, w4, &lip);
+    awra_paint_inset_shadow(d, b, r, 0, awra_pxf(1), awra_pxf(1), 0, &lip);
   }
   if (x->selected || x->drop) {
     awra_paint_rbox(d, b, r, NULL, awra_pxf(2), &t->accent);
@@ -215,7 +213,7 @@ static void cap_draw(AwraWidget *w, AwraDraw *d)
     AwraBox bb = {rtl ? b.x + awra_pxf(3) : b.x + b.w - badge_w - awra_pxf(3), b.y + awra_pxf(3), badge_w,
                   bh};
     awra_paint_rbox(d, bb, bh * 0.5f, &t->accent, 0, NULL);
-    awra_draw_text(d, &bf, bb.x + floorf((badge_w - tw) * 0.5f + 0.5f), bb.y + awra_font_ascent(&bf),
+    awra_draw_text(d, &bf, bb.x + floorf((badge_w - tw) * 0.5f), bb.y + awra_font_ascent(&bf),
                    x->badge, -1, &t->on_accent);
   }
   if (x->label && x->label[0]) {

@@ -41,6 +41,7 @@ typedef struct WinExt {
   int blur_state; /* -1 unknown, 0 no, 1 yes */
   AwraWidget *path[MAX_PATH];
   int npath;
+  bool hover_repick; /* a widget under the pointer went: pick again on idle */
   AwraWidget *focus;
   bool focus_moving; /* the focus is unmapped: it moves on idle */
   AwraWidget *pressed3; /* secondary-button press target */
@@ -922,6 +923,46 @@ void awra_windows_direction_changed(void (*fn)(AwraWidget *))
   }
 }
 
+static bool hover_repick(void *data)
+{
+  AwraWidget *win = (AwraWidget *)data;
+  WinExt *x = WEXT(win);
+  x->hover_repick = false;
+  if (!x->closed && x->ctx && x->npath > 0 && !awra_window_dragging(win)) {
+    bk_ctx_prepare(x->ctx); /* the new widgets' places */
+    update_hover(win, x->ctx->pointer_x, x->ctx->pointer_y, false);
+  }
+  return false;
+}
+
+static void hover_repick_unref(void *data)
+{
+  awra_widget_unref((AwraWidget *)data);
+}
+
+/* gtk_window_update_pointer_focus_on_state_change: when the widget under
+ * the pointer or one of its ancestors is unmapped (a page switched, a row
+ * removed), the pointer's target is picked again and crossing follows, so
+ * what now lies under a still pointer lights up and the gone one lets go. */
+void awra_window_hover_unmapped(AwraWidget *w); /* core.c */
+void awra_window_hover_unmapped(AwraWidget *w)
+{
+  for (int i = 0; i < g_nwindows; i++) {
+    AwraWidget *win = g_windows[i];
+    WinExt *x = WEXT(win);
+    if (x->closed || x->hover_repick) {
+      continue;
+    }
+    for (int k = 0; k < x->npath; k++) {
+      if (x->path[k] == w) {
+        x->hover_repick = true;
+        awra_idle_add(hover_repick, awra_widget_ref(win), hover_repick_unref);
+        break;
+      }
+    }
+  }
+}
+
 void awra_window_focus_unmapped(AwraWidget *w); /* core.c */
 void awra_window_focus_unmapped(AwraWidget *w)
 {
@@ -1333,7 +1374,8 @@ static void ensure_native(AwraWidget *w)
 }
 
 /* AWRA_DUMP_TREE=seconds: the window's widgets, their boxes and sizes, on
- * stderr that long after it shows (layout debugging). */
+ * stderr that long after it shows (layout debugging); with an r after the
+ * seconds ("2r"), every that many seconds. */
 static void dump_tree(AwraWidget *w, int depth)
 {
   int mn = 0, nt = 0, hm = 0, hn = 0;
@@ -1356,8 +1398,11 @@ static bool dump_later(void *data)
   AwraWidget *w = (AwraWidget *)data;
   if (!WEXT(w)->closed) {
     dump_tree(w, 0);
+    fflush(stderr);
   }
-  return false;
+  /* AWRA_DUMP_TREE=<seconds>r: again every that many seconds */
+  const char *dump = getenv("AWRA_DUMP_TREE");
+  return !WEXT(w)->closed && dump && strchr(dump, 'r');
 }
 
 static void dump_unref(void *data)

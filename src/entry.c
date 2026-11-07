@@ -353,10 +353,10 @@ static void edit_draw(AwraWidget *w, AwraDraw *d)
     vb = (AwraRGBA){0.322f, 0.788f, 0.510f, 0.72f};
   }
   awra_paint_rbox(d, b, radius, fill, focus || vb.a > 0 ? awra_pxf(1) : 0, vb.a > 0 ? &vb : &t->focus_ring);
-  if (!quiet) { /* inset 0 1px 2px rgba(0,0,0,.20) */
-    const AwraRGBA sh = {0, 0, 0, 0.15f};
-    const float r4[4] = {radius, radius, radius, radius}, w4[4] = {awra_pxf(1.5), 0, 0, 0};
-    awra_paint_rbox4(d, b, r4, NULL, w4, &sh);
+  if (!quiet) { /* inset 0 1px 2px rgba(0,0,0,.20), inside the 1 px border */
+    const AwraRGBA sh = {0, 0, 0, 0.20f};
+    awra_paint_inset_shadow(d, awra_box_inset(b, awra_pxf(1)), radius - awra_pxf(1), 0, awra_pxf(1), 0,
+                            awra_pxf(2), &sh);
   }
   }
   AwraBox a = text_area(w);

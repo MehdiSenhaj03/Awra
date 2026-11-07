@@ -46,6 +46,18 @@ void awra_paint_rbox(AwraDraw *d, AwraBox b, float radius, const AwraRGBA *fill,
                    border_width > 0 ? border : NULL);
 }
 
+void awra_paint_inset_shadow(AwraDraw *d, AwraBox b, float radius, float dx, float dy, float spread,
+                             float blur, const AwraRGBA *color)
+{
+  if (!color || color->a <= 0.0f) {
+    return;
+  }
+  float c[4];
+  col(d, color, c);
+  const float r4[4] = {radius, radius, radius, radius};
+  BUI_raster_box_shadow_inset(d->r, b.x, b.y, b.w, b.h, r4, dx, dy, spread, blur, c);
+}
+
 void awra_paint_shadow(AwraDraw *d, AwraBox b, float radius, float dx, float dy, float spread,
                        float blur, const AwraRGBA *color, bool clip_out)
 {

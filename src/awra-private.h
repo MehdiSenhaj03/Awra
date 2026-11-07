@@ -341,6 +341,8 @@ void awra_paint_rbox(AwraDraw *d, AwraBox b, float radius, const AwraRGBA *fill,
                      float border_width, const AwraRGBA *border);
 void awra_paint_rbox4(AwraDraw *d, AwraBox b, const float radii[4], const AwraRGBA *fill,
                       const float widths[4], const AwraRGBA *border);
+void awra_paint_inset_shadow(AwraDraw *d, AwraBox b, float radius, float dx, float dy, float spread,
+                             float blur, const AwraRGBA *color); /* CSS inset box-shadow */
 void awra_paint_shadow(AwraDraw *d, AwraBox b, float radius, float dx, float dy, float spread,
                        float blur, const AwraRGBA *color, bool clip_out);
 void awra_paint_rect(AwraDraw *d, AwraBox b, const AwraRGBA *color);

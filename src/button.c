@@ -208,18 +208,12 @@ void awra_paint_button_bg(AwraDraw *d, AwraBox b, float radius, const AwraButton
   if (c->ring.a > 0) {
     awra_paint_rbox(d, b, radius, NULL, awra_pxf(1), &c->ring);
   }
-  if (c->rim.a > 0) {
-    /* inset 0 1px rim: the box minus itself moved down a pixel */
-    const float r4[4] = {radius, radius, radius, radius};
-    const float w4[4] = {awra_pxf(1), 0, 0, 0};
-    awra_paint_rbox4(d, b, r4, NULL, w4, &c->rim);
+  if (c->rim.a > 0) { /* inset 0 1px rim */
+    awra_paint_inset_shadow(d, b, radius, 0, awra_pxf(1), 0, 0, &c->rim);
   }
-  if (c->pressed_shadow > 0) {
-    /* inset 0 1px 2px rgba(10,8,18,a): a soft band under the top edge */
-    const float r4[4] = {radius, radius, radius, radius};
-    const AwraRGBA dark = {10 / 255.0f, 8 / 255.0f, 18 / 255.0f, c->pressed_shadow * 0.75f};
-    const float w4[4] = {awra_pxf(2), awra_pxf(0.5), 0, awra_pxf(0.5)};
-    awra_paint_rbox4(d, b, r4, NULL, w4, &dark);
+  if (c->pressed_shadow > 0) { /* inset 0 1px 2px rgba(10,8,18,a) */
+    const AwraRGBA dark = {10 / 255.0f, 8 / 255.0f, 18 / 255.0f, c->pressed_shadow};
+    awra_paint_inset_shadow(d, b, radius, 0, awra_pxf(1), 0, awra_pxf(2), &dark);
   }
   if (focus_ring) {
     /* outline: 3px solid @awra_focus; outline-offset: 2px */
@@ -564,11 +558,12 @@ static void button_draw(AwraWidget *w, AwraDraw *d)
   const int avail = w->w - 2 * ipx;
   const int text_w = BK_MIN(tw, BK_MAX(0, avail - icon - gap));
   const int total = icon + gap + text_w;
-  float cx = (float)w->x + floorf((w->w - total) * 0.5f + 0.5f);
+  /* GtkLabel / GtkImage place by floor (gtk_label_get_layout_location) */
+  float cx = (float)w->x + floorf((w->w - total) * 0.5f);
   /* the icon starts the button's box (at the right, right to left) */
   if (icon) {
     awra_paint_icon(d, x->icon, awra_mirror_x(w, cx, (float)icon),
-                    (float)w->y + floorf((w->h - icon) * 0.5f + 0.5f), icon, &c.fg);
+                    (float)w->y + floorf((w->h - icon) * 0.5f), icon, &c.fg);
     cx += icon + gap;
   }
   if (tw) {
@@ -576,7 +571,7 @@ static void button_draw(AwraWidget *w, AwraDraw *d)
       awra_text_layout_size(x->layout, text_w, NULL, &th);
     }
     awra_text_layout_draw(x->layout, d, awra_mirror_x(w, cx, (float)text_w),
-                          (float)w->y + floorf((w->h - th) * 0.5f + 0.5f), text_w < tw ? text_w : -1,
+                          (float)w->y + floorf((w->h - th) * 0.5f), text_w < tw ? text_w : -1,
                           &c.fg);
   }
 }
@@ -776,7 +771,11 @@ void awra_button_set_label(AwraWidget *w, const char *label)
     return;
   }
   ButtonExt *x = BX(w);
-  if (x->label && label && !strcmp(x->label, label)) {
+  /* gtk_button_set_label: the label replaces a child set before */
+  if (x->child && label) {
+    awra_set_slot(w, &x->child, NULL);
+  }
+  else if (x->label && label && !strcmp(x->label, label)) {
     return;
   }
   awra_set_str(&x->label, label);

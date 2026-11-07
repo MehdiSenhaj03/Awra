@@ -272,8 +272,9 @@ static void label_origin(AwraWidget *w, float *r_x, float *r_y, int *r_width)
   }
   /* right to left, xalign counts from the right (gtk_label_get_layout_location) */
   const float xalign = awra_widget_rtl(w) ? 1.0f - x->xalign : x->xalign;
-  *r_x = (float)w->x + floorf((w->w - lw) * xalign + 0.5f) - lx0;
-  *r_y = (float)w->y + floorf((w->h - th) * x->yalign + 0.5f);
+  /* gtk_label_get_layout_location: floor, not rounded */
+  *r_x = (float)w->x + floorf((w->w - lw) * xalign - lx0);
+  *r_y = (float)w->y + floorf((w->h - th) * x->yalign);
   *r_width = fit ? w->w : -1;
 }
 
