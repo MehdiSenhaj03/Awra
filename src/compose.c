@@ -1525,6 +1525,7 @@ void awra_sidebar_append_heading(AwraWidget *w, const char *title)
   awra_label_set_weight(l, 650);
   awra_widget_set_margins(l, 20, 16, 6, 16);
   awra_box_append(BINX(w)->a, l);
+  awra_widget_unref(l);
 }
 
 void awra_sidebar_set_footer(AwraWidget *w, AwraWidget *footer)

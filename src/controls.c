@@ -802,6 +802,7 @@ int awra_segmented_control_append(AwraWidget *w, const char *label, const char *
     awra_toggle_button_set_group(b, x->box->kids[0]);
   }
   awra_box_append(x->box, b);
+  awra_widget_unref(b); /* the box holds it */
   awra_signal_connect(b, AWRA_SIGNAL_TOGGLED, seg_toggled, w, NULL);
   const int index = x->box->nkids - 1;
   if (index == 0) {
