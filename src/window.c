@@ -1418,6 +1418,15 @@ int awra_window_render_offscreen(AwraWidget *w, bool full)
   return regions;
 }
 
+BuiRaster *awra_window_raster(AwraWidget *w)
+{
+  if (!w || !awra_widget_is(w, "AwraWindow")) {
+    return NULL;
+  }
+  WinExt *x = WEXT(w);
+  return x->offscreen ? x->raster : (x->bkw ? BK_window_raster(x->bkw) : NULL);
+}
+
 bool awra_window_snapshot_png(AwraWidget *w, const char *path)
 {
   WinExt *x = WEXT(w);

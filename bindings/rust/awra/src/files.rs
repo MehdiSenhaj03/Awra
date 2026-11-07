@@ -42,3 +42,34 @@ impl crate::DropZone {
         unsafe { ffi::awra_drop_zone_set_hover(ptr!(self), hover) }
     }
 }
+
+crate::awra_wrapper!(
+    /// Awra 1's AwraTransitionBin: its child changes in place and `play`
+    /// shows the change as a short motion; the top `fixed_top` px stay still.
+    TransitionBin, ["AwraTransitionBin"]
+);
+
+impl TransitionBin {
+    pub fn new() -> TransitionBin {
+        unsafe { TransitionBin::from_full(ffi::awra_transition_bin_new()) }
+    }
+    pub fn set_child(&self, child: impl crate::object::IntoOptWidget) {
+        unsafe { ffi::awra_transition_bin_set_child(ptr!(self), child.into_opt_ptr()) }
+    }
+    pub fn child(&self) -> Option<crate::Widget> {
+        unsafe { crate::Widget::from_none_opt(ffi::awra_transition_bin_child(ptr!(self))) }
+    }
+    pub fn set_fixed_top(&self, height: i32) {
+        unsafe { ffi::awra_transition_bin_set_fixed_top(ptr!(self), height) }
+    }
+    /// Call it right after the child's content changed, before the next frame.
+    pub fn play(&self, dx: f64, dy: f64) {
+        unsafe { ffi::awra_transition_bin_play(ptr!(self), dx, dy) }
+    }
+}
+
+impl Default for TransitionBin {
+    fn default() -> Self {
+        Self::new()
+    }
+}

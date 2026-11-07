@@ -1117,4 +1117,9 @@ extern "C" {
     pub fn awra_tag_entry_clear(tags: *mut AwraWidget);
     pub fn awra_tag_entry_n_tags(tags: *mut AwraWidget) -> c_int;
     pub fn awra_tag_entry_tag(tags: *mut AwraWidget, index: c_int) -> *const c_char;
+    pub fn awra_transition_bin_new() -> *mut AwraWidget;
+    pub fn awra_transition_bin_set_child(bin: *mut AwraWidget, child: *mut AwraWidget);
+    pub fn awra_transition_bin_child(bin: *mut AwraWidget) -> *mut AwraWidget;
+    pub fn awra_transition_bin_set_fixed_top(bin: *mut AwraWidget, height: c_int);
+    pub fn awra_transition_bin_play(bin: *mut AwraWidget, dx: f64, dy: f64);
 }

@@ -1785,6 +1785,19 @@ int awra_tag_entry_n_tags(AwraWidget *tags);
 const char *awra_tag_entry_tag(AwraWidget *tags, int index);
 
 
+/* ----------------------------------------------------------------------- */
+/* Transition bin (Awra 1's AwraTransitionBin): its child changes in place
+ * and play() shows the change as a short motion (the Normal preset; none
+ * with reduced motion): the frame before drifts away and fades out, the new
+ * one comes from (dx, dy) logical px and fades in. The top `height` px stay
+ * still (a column header). Call play() right after changing the child's
+ * content, before the next frame. */
+AwraWidget *awra_transition_bin_new(void);
+void awra_transition_bin_set_child(AwraWidget *bin, AwraWidget *child);
+AwraWidget *awra_transition_bin_child(AwraWidget *bin);
+void awra_transition_bin_set_fixed_top(AwraWidget *bin, int height);
+void awra_transition_bin_play(AwraWidget *bin, double dx, double dy);
+
 #ifdef __cplusplus
 }
 #endif

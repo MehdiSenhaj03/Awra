@@ -28,6 +28,7 @@ mod collection;
 mod window;
 mod video;
 mod files;
+pub use files::TransitionBin;
 pub mod gdk;
 pub mod gio;
 pub mod glib;
