@@ -2541,14 +2541,14 @@ typedef struct TextRun {
   int mw;   /* mask width */
   int ncol;
   float advance;
-  float ext_asc, ext_desc; /* BUI-Awra: extents of the fallback fonts it uses (0: none) */
+  float ext_asc, ext_desc; /* BUI-Awra: its fonts' logical extents (when uses_font) */
   int16_t mh, ox;          /* mask height; ox: left padding baked into the mask */
   int16_t asc;             /* BUI-Awra: the baseline's row in the mask */
   int16_t ls;              /* BUI-Awra: letter spacing, Pango units (BuiTextContext) */
   uint8_t pre, post;       /* BUI-Awra: bytes of context before / after `text` (BuiTextContext) */
   uint8_t dir : 2;         /* BUI-Awra: 0 a paragraph of its own, 1 one LTR level, 2 one RTL level */
   uint8_t built : 1;       /* the mask was made */
-  uint8_t uses_font : 1;   /* BUI-Awra: it draws glyphs of its own font (not only fallbacks) */
+  uint8_t uses_font : 1;   /* BUI-Awra: ext_asc / ext_desc are known (not with GDI) */
   uint8_t hyphen : 2;      /* BUI-Awra: BuiTextContext.hyphen */
 } TextRun;
 
@@ -2572,8 +2572,8 @@ static unsigned g_text_gen = 1; /* bumped whenever runs or fonts are freed */
 /* backend */
 static int be_font_open(FontSlot *s, const char *family, int flags, int px);
 static void be_font_close(FontSlot *s);
-/* the run's width; r_ext: the ascent and descent of the fonts it falls back to (0: none),
- * and whether it uses its own font (1) or only fallbacks (0) */
+/* the run's width; r_ext: the ascent and descent of its logical extents
+ * and 1 when they are known (0: the font's metrics stand for them) */
 static float be_measure(const TextRun *e, float r_ext[3]);
 static void be_build(TextRun *e, const FontSlot *s);
 static void be_flush_glyphs(void);
@@ -3214,7 +3214,9 @@ static float gdi_measure(const FontSlot *s, int dir, const char *utf8, int len, 
 /* GDI shapes runs whole: the context of BUI_text_set_context is not used */
 static float be_measure(const TextRun *e, float r_ext[3])
 {
-  return gdi_measure(&g_fonts[e->font], e->dir, e->text, e->len, r_ext);
+  const float w = gdi_measure(&g_fonts[e->font], e->dir, e->text, e->len, r_ext);
+  r_ext[2] = 0.0f; /* the font's metrics stand for the run's extents */
+  return w;
 }
 
 static void be_build(TextRun *e, const FontSlot *fs)
@@ -4733,31 +4735,42 @@ int BUI_text_hint_metrics(void)
   return g_hint_metrics;
 }
 
-/* r_ext (may be NULL): the highest ascent and descent of the fallback
- * fonts the run uses, as Pango's logical extents of a line take every
- * run's font (0, 0 when it uses only its own), and 1 when it uses its own
- * font, 0 when only fallbacks (Pango's line then has none of its
- * metrics). */
+/* r_ext (may be NULL): the ascent and descent of the run's logical
+ * extents, the union of its items' fonts as Pango's line extents take
+ * them (a run drawn only with fallback fonts has none of its own font's
+ * metrics), and 1 (known). */
 static float glyph_walk_part(const TextRun *e, GlyphFn fn, void *user, float r_ext[3])
 {
   WRun w;
   const int slot0 = e->font, from = e->pfrom, to = e->pto;
   text_itemize_run(e, &w);
   if (r_ext) {
-    r_ext[0] = r_ext[1] = 0.0f;
-    r_ext[2] = w.n == 0 ? 1.0f : 0.0f;
-    int last = slot0;
-    for (int i = 0; i < w.n; i++) {
-      if (w.g[i].slot == slot0) {
-        r_ext[2] = 1.0f;
+    /* the union of its items' logical extents (Pango's line extents):
+     * each font's ascent and descent, rounded outwards with hinted
+     * metrics, where the item sits after baseline alignment */
+    r_ext[0] = r_ext[1] = r_ext[2] = 0.0f;
+    for (int i = 0; i < w.nit; i++) {
+      const WItem *it = &w.it[i];
+      const FontSlot *fs = &g_fonts[it->slot];
+      const Face *f = &g_faces[fs->face];
+      float a, d;
+      if (it->slot == slot0) {
+        a = (float)f->ascent * fs->scale; /* as BUI_text_metrics */
+        d = (float)-f->descent * fs->scale;
       }
-      if (w.g[i].slot != slot0 && w.g[i].slot != last) {
-        last = w.g[i].slot;
-        const FontSlot *fs = &g_fonts[last];
-        const Face *f = &g_faces[fs->face];
-        r_ext[0] = fmaxf(r_ext[0], (float)f->hb_ascent * fs->scale);
-        r_ext[1] = fmaxf(r_ext[1], (float)-f->hb_descent * fs->scale);
+      else {
+        a = (float)f->hb_ascent * fs->scale;
+        d = (float)-f->hb_descent * fs->scale;
       }
+      if (g_hint_metrics) {
+        a = ceilf(a - 0.001f);
+        d = ceilf(d - 0.001f);
+      }
+      a -= it->dy;
+      d += it->dy;
+      r_ext[0] = r_ext[2] != 0.0f ? fmaxf(r_ext[0], a) : a;
+      r_ext[1] = r_ext[2] != 0.0f ? fmaxf(r_ext[1], d) : d;
+      r_ext[2] = 1.0f;
     }
   }
   if (fn) {
@@ -5694,23 +5707,10 @@ int BUI_text_extents(const char *family, int flags, float size, const char *utf8
   }
   const int f = font_get(family, flags & ~TEXT_DIRS, size);
   const TextRun *e = f >= 0 ? run_get(f, text_dir(flags), utf8, len) : NULL;
-  float ea = e ? e->ext_asc : 0.0f, ed = e ? e->ext_desc : 0.0f;
-#if !TEXT_GDI
-  if (g_hint_metrics) {
-    /* Pango with hinted metrics: each font's extents rounded outwards, as
-     * the font's own are (BUI_text_metrics) */
-    ea = ceilf(ea - 0.001f);
-    ed = ceilf(ed - 0.001f);
-  }
-#endif
-  if (e && !e->uses_font && (ea > 0.0f || ed > 0.0f)) {
-    /* drawn only with fallback fonts: theirs */
-    *r_ascent = ea;
-    *r_descent = ed;
-  }
-  else if (e) {
-    *r_ascent = ea > *r_ascent ? ea : *r_ascent;
-    *r_descent = ed > *r_descent ? ed : *r_descent;
+  if (e && e->uses_font) {
+    /* the union of its fonts' extents, as aligned (glyph_walk_part) */
+    *r_ascent = e->ext_asc;
+    *r_descent = e->ext_desc;
   }
   return 1;
 }

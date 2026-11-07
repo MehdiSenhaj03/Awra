@@ -615,6 +615,8 @@ typedef struct WItem {
   int start, end; /* byte range */
   uint8_t level;
   uint8_t slot;
+  hb_script_t script;
+  float dy; /* moved down this far to align baselines with the first item (px) */
 } WItem;
 
 typedef struct WRun {
@@ -1101,6 +1103,55 @@ static int text_chars(int slot, const uint32_t *cp, int n, int npre, int npost, 
   return 1;
 }
 
+/* An item's baseline `tag` in its font (Pango units, up), as
+ * apply_baseline_shift asks HarfBuzz for it. */
+static hb_position_t text_item_baseline(const WItem *it, hb_ot_layout_baseline_tag_t tag)
+{
+  hb_font_t *font = slot_hb(&g_fonts[it->slot]);
+  if (!font) {
+    return 0;
+  }
+  hb_tag_t st[HB_OT_MAX_TAGS_PER_SCRIPT], lt[HB_OT_MAX_TAGS_PER_LANGUAGE];
+  unsigned int sc = HB_OT_MAX_TAGS_PER_SCRIPT, lc = HB_OT_MAX_TAGS_PER_LANGUAGE;
+  hb_ot_tags_from_script_and_language(it->script, hb_language_from_string(text_script_lang(it->script), -1),
+                                      &sc, st, &lc, lt);
+  hb_position_t v = 0;
+  hb_ot_layout_get_baseline_with_fallback(font, tag, HB_DIRECTION_LTR, sc ? st[sc - 1] : HB_TAG_NONE,
+                                          lc ? lt[lc - 1] : HB_TAG_NONE, &v);
+  return v;
+}
+
+/* Pango's apply_baseline_shift: items of other fonts are moved to sit on
+ * the baseline the first one's script uses (ideographic for Han and
+ * Hangul, hanging for Devanagari...), as each font places it. */
+static void text_align_baselines(WRun *w)
+{
+  if (w->nit < 2) {
+    return;
+  }
+  int first = 0;
+  for (int i = 1; i < w->nit; i++) {
+    if (w->it[i].start < w->it[first].start) {
+      first = i;
+    }
+  }
+  const hb_ot_layout_baseline_tag_t tag = hb_ot_layout_get_horizontal_baseline_tag_for_script(w->it[first].script);
+  const hb_position_t base = text_item_baseline(&w->it[first], tag);
+  int moved = 0;
+  for (int i = 0; i < w->nit; i++) {
+    WItem *it = &w->it[i];
+    if (i != first) {
+      it->dy = (float)(text_item_baseline(it, tag) - base) / 1024.0f;
+      moved |= it->dy != 0.0f;
+    }
+  }
+  if (moved) {
+    for (int i = 0; i < w->n; i++) {
+      w->g[i].dy += w->it[w->g[i].item].dy;
+    }
+  }
+}
+
 /* The glyphs of `utf8` in slot `slot` and its fallbacks, in visual order.
  * `dir`: 0 a paragraph of its own (direction from its first strong
  * character, left-to-right when none), 1 one left-to-right level, 2 one
@@ -1203,11 +1254,13 @@ static void text_itemize(int slot, const char *utf8, int len, int dir, int pre, 
     if (i == n && ctx_ok) {
       WItem *it = wrun_item(w);
       if (it) {
+        const hb_script_t script = letters ? HB_SCRIPT_LATIN : HB_SCRIPT_COMMON;
         it->start = 0;
         it->end = len;
         it->level = 0;
         it->slot = (uint8_t)slot;
-        const hb_script_t script = letters ? HB_SCRIPT_LATIN : HB_SCRIPT_COMMON;
+        it->script = script;
+        it->dy = 0.0f;
         float pen = 0.0f;
         text_shape_item(w, slot, cp, npre, nall, off, 0, n, 0, script, text_script_lang(script), &pen,
                         &opts);
@@ -1235,6 +1288,8 @@ static void text_itemize(int slot, const char *utf8, int len, int dir, int pre, 
     it->end = e;
     it->level = ch[k].level;
     it->slot = (uint8_t)ch[k].slot;
+    it->script = ch[k].script;
+    it->dy = 0.0f;
     k = e;
   }
   {
@@ -1272,6 +1327,7 @@ static void text_itemize(int slot, const char *utf8, int len, int dir, int pre, 
     if (order != ordl) {
       free(order);
     }
+    text_align_baselines(w);
   }
 out:
   if (ch != chl) {
