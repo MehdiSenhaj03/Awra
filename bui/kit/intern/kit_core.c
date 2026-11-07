@@ -3182,6 +3182,77 @@ static int te_step(BKTextEdit *te, int pos, bool next, bool word)
   return pos;
 }
 
+/* BUI-Awra: the cursor position (grapheme boundary) after / before byte
+ * `pos`, as GTK moves and deletes characters. */
+static int te_grapheme(const BKTextEdit *te, int pos, bool next)
+{
+  if (next ? pos >= te->len : pos <= 0) {
+    return next ? te->len : 0;
+  }
+  uint8_t local[256];
+  uint8_t *br = te->len < 256 ? local : (uint8_t *)malloc((size_t)te->len + 1);
+  if (!br) {
+    return next ? pos + 1 : pos - 1;
+  }
+  BUI_text_breaks(te->text, te->len, br);
+  do {
+    if (next) {
+      pos++;
+      while (pos < te->len && ((uchar)te->text[pos] & 0xC0) == 0x80) {
+        pos++;
+      }
+    }
+    else {
+      pos--;
+      while (pos > 0 && ((uchar)te->text[pos] & 0xC0) == 0x80) {
+        pos--;
+      }
+    }
+  } while (pos > 0 && pos < te->len && !(br[pos] & BUI_TEXT_CURSOR));
+  if (br != local) {
+    free(br);
+  }
+  return pos;
+}
+
+/* BUI-Awra: GTK's backspace (gtk_text_backspace): the grapheme before the
+ * caret goes, or, where Pango says backspace deletes a character (scripts
+ * whose graphemes are typed as letters and marks: Arabic harakat, Indic
+ * vowel signs, Hangul jamo...), only its last character, the rest kept
+ * decomposed (NFD). */
+static void te_backspace(BKTextEdit *te)
+{
+  const int end = te->caret;
+  const int prev = te_grapheme(te, end, false);
+  uint8_t local[256];
+  uint8_t *br = te->len < 256 ? local : (uint8_t *)malloc((size_t)te->len + 1);
+  bool one_char = false;
+  if (br) {
+    BUI_text_breaks(te->text, te->len, br);
+    one_char = (br[end] & BUI_TEXT_BACKSPACE_CHAR) != 0;
+    if (br != local) {
+      free(br);
+    }
+  }
+  char nfd[128];
+  const int n = one_char ? BUI_text_nfd(te->text + prev, end - prev, nfd, (int)sizeof(nfd)) : -1;
+  int last = n - 1;
+  while (last > 0 && ((uchar)nfd[last] & 0xC0) == 0x80) {
+    last--;
+  }
+  te_delete(te, prev, end);
+  if (n > 0 && last > 0) { /* more than one character: all but the last stay */
+    if (te->len + last + 1 > te->cap) {
+      te->cap = te->len + last + 64;
+      te->text = (char *)realloc(te->text, (size_t)te->cap);
+    }
+    memmove(te->text + prev + last, te->text + prev, (size_t)(te->len - prev + 1));
+    memcpy(te->text + prev, nfd, (size_t)last);
+    te->len += last;
+    te->caret = prev + last;
+  }
+}
+
 static int te_key(BKTextEdit *te, BKContext *ctx, const char *text, const char *ks, int mods);
 
 /* Blender's ui_do_but_textedit undo: Ctrl+Z / Ctrl+Shift+Z (and Ctrl+Y) step
@@ -3266,7 +3337,7 @@ static int te_key(BKTextEdit *te, BKContext *ctx, const char *text, const char *
       te_move(te, a, false);
     }
     else {
-      te_move(te, te_step(te, te->caret, false, ctrl), shift);
+      te_move(te, ctrl ? te_step(te, te->caret, false, true) : te_grapheme(te, te->caret, false), shift);
     }
     return TE_CHANGED;
   }
@@ -3275,7 +3346,7 @@ static int te_key(BKTextEdit *te, BKContext *ctx, const char *text, const char *
       te_move(te, b, false);
     }
     else {
-      te_move(te, te_step(te, te->caret, true, ctrl), shift);
+      te_move(te, ctrl ? te_step(te, te->caret, true, true) : te_grapheme(te, te->caret, true), shift);
     }
     return TE_CHANGED;
   }
@@ -3289,14 +3360,19 @@ static int te_key(BKTextEdit *te, BKContext *ctx, const char *text, const char *
   }
   if (bk_keysym_is(ks, "BackSpace")) {
     if (!te_delete_selection(te) && te->caret > 0) {
-      te_delete(te, te_step(te, te->caret, false, ctrl), te->caret);
+      if (ctrl) {
+        te_delete(te, te_step(te, te->caret, false, true), te->caret);
+      }
+      else {
+        te_backspace(te);
+      }
     }
     return TE_CHANGED;
   }
   if (bk_keysym_is(ks, "Delete")) {
     if (!te_delete_selection(te) && te->caret < te->len) {
       const int c = te->caret;
-      te_delete(te, c, te_step(te, c, true, ctrl));
+      te_delete(te, c, ctrl ? te_step(te, c, true, true) : te_grapheme(te, c, true));
     }
     return TE_CHANGED;
   }

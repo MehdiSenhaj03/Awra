@@ -57,6 +57,7 @@ static void layout_sync(AwraWidget *w)
   awra_text_layout_set_font(x->layout, &f);
   awra_text_layout_set_wrap(x->layout, x->multiline ? AWRA_WRAP_WORD : AWRA_WRAP_NONE,
                             AWRA_ELLIPSIZE_NONE, -1);
+  awra_text_layout_set_text_view(x->layout, x->multiline);
   if (!x->visibility) {
     const int n = (int)strlen(x->te->text);
     char *dots = (char *)malloc((size_t)n * 3 + 1);
@@ -365,20 +366,15 @@ static void edit_draw(AwraWidget *w, AwraDraw *d)
     }
   }
   else {
-    int s0, s1;
     if (x->te->anchor >= 0 && x->te->anchor != x->te->caret && focus) {
-      s0 = shown_index(w, BK_MIN(x->te->anchor, x->te->caret));
-      s1 = shown_index(w, BK_MAX(x->te->anchor, x->te->caret));
-      float x0, y0, h0, x1, y1, h1;
-      awra_text_layout_index_to_pos(x->layout, lw, s0, &x0, &y0, &h0);
-      awra_text_layout_index_to_pos(x->layout, lw, s1, &x1, &y1, &h1);
-      if (y0 == y1) {
-        awra_paint_rect(d, (AwraBox){tx + x0, ty + y0, x1 - x0, h0}, &t->selection);
+      /* the selected runs (bidi text: several stretches per line) */
+      const int s0 = shown_index(w, BK_MIN(x->te->anchor, x->te->caret));
+      const int s1 = shown_index(w, BK_MAX(x->te->anchor, x->te->caret));
+      if (x->multiline) {
+        awra_text_layout_draw_selection_view(x->layout, d, tx, ty, lw, s0, s1, &t->selection, a.w);
       }
       else {
-        awra_paint_rect(d, (AwraBox){tx + x0, ty + y0, a.w - x0, h0}, &t->selection);
-        awra_paint_rect(d, (AwraBox){a.x, ty + y0 + h0, a.w, y1 - y0 - h0}, &t->selection);
-        awra_paint_rect(d, (AwraBox){a.x, ty + y1, x1, h1}, &t->selection);
+        awra_text_layout_draw_selection(x->layout, d, tx, ty, lw, s0, s1, &t->selection);
       }
     }
     awra_text_layout_draw(x->layout, d, tx, ty, lw, &fg);
@@ -539,6 +535,38 @@ static int edit_key(AwraWidget *w, BKEvent *e)
     }
     x->te->caret = idx;
     after_edit(w, x->te->text);
+    return 1;
+  }
+  if ((bk_keysym_is(e->keysym, "Left") || bk_keysym_is(e->keysym, "Right")) &&
+      !(e->mods & (BK_CTRL | BK_ALT)))
+  {
+    /* GtkText's visual moves: Left and Right go left and right on screen
+     * (pango_layout_move_cursor_visually), in bidi text too; a selection
+     * collapses to its end on that side */
+    const int dir = bk_keysym_is(e->keysym, "Left") ? -1 : 1;
+    const int lw = x->multiline ? (int)text_area(w).w : -1;
+    const bool shift = e->mods & BK_SHIFT;
+    BKTextEdit *te = x->te;
+    int to;
+    if (te->anchor >= 0 && te->anchor != te->caret && !shift) {
+      float xa, xc, wk, yy, hh;
+      awra_text_layout_cursor_pos(x->layout, lw, shown_index(w, te->anchor), &xa, &wk, &yy, &hh);
+      awra_text_layout_cursor_pos(x->layout, lw, shown_index(w, te->caret), &xc, &wk, &yy, &hh);
+      to = (dir < 0) == (xc < xa) ? te->caret : te->anchor;
+    }
+    else {
+      to = real_index(w, awra_text_layout_move_visually(x->layout, lw, shown_index(w, te->caret), dir));
+    }
+    if (shift) {
+      if (te->anchor < 0) {
+        te->anchor = te->caret;
+      }
+    }
+    else {
+      te->anchor = -1;
+    }
+    te->caret = BK_CLAMP(to, 0, te->len);
+    after_edit(w, te->text);
     return 1;
   }
   char *before = awra_strdup(x->te->text);
@@ -788,8 +816,28 @@ static bool edit_a11y_do(AwraWidget *w, int item, int verb, double value)
   return false;
 }
 
+/* the layout's place, as edit_draw puts it (hidden passwords: none) */
+static bool edit_a11y_layout(AwraWidget *w, AwraTextLayout **r_layout, float *r_x, float *r_y,
+                             int *r_width)
+{
+  EditExt *x = EX(w);
+  if (!x->visibility) {
+    return false;
+  }
+  const AwraBox a = text_area(w);
+  const int lw = x->multiline ? (int)a.w : -1;
+  int tw, th;
+  awra_text_layout_size(x->layout, lw, &tw, &th);
+  *r_layout = x->layout;
+  *r_x = a.x - x->scroll_x;
+  *r_y = x->multiline ? a.y - x->scroll_y : a.y + floorf((a.h - th) * 0.5f + 0.5f);
+  *r_width = lw;
+  return true;
+}
+
 static AwraClass entry_class = {
     .a11y = edit_a11y,
+    .a11y_layout = edit_a11y_layout,
     .a11y_do = edit_a11y_do,
     .bk = AWRA_BK("AwraEntry", CLS_INTERACTIVE),
     .type = "AwraEntry",
