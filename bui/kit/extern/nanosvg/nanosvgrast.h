@@ -156,7 +156,7 @@ NSVGrasterizer* nsvgCreateRasterizer(void)
 	if (r == NULL) goto error;
 	memset(r, 0, sizeof(NSVGrasterizer));
 
-	r->tessTol = 0.25f;
+	r->tessTol = 0.05f; /* BUI-Awra: curves flattened finely enough to cover what cairo covers (GTK draws icons through it) */
 	r->distTol = 0.01f;
 
 	return r;

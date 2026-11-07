@@ -761,6 +761,28 @@ static void take_planes(AwraIconRaster *r, uint32_t *px)
   r->bytes = n * 4;
 }
 
+/* An element GtkSvg (GTK 4.22) reports as not supported: GTK then loads the
+ * file with gdk-pixbuf instead (gdk_texture_new_from_svg_bytes). */
+static bool gtksvg_unsupported(const unsigned char *bytes, size_t len)
+{
+  static const char *const els[] = {"style", "textPath", "feConvolveMatrix", "feDiffuseLighting",
+                                    "feMorphology", "feSpecularLighting", "feTurbulence"};
+  for (size_t i = 0; i + 1 < len; i++) {
+    if (bytes[i] != '<') {
+      continue;
+    }
+    for (size_t k = 0; k < sizeof(els) / sizeof(els[0]); k++) {
+      const size_t l = strlen(els[k]);
+      if (i + 1 + l < len && !memcmp(bytes + i + 1, els[k], l) &&
+          strchr(" \t\r\n/>", bytes[i + 1 + l]))
+      {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
 static void load_raster(AwraIconRaster *r)
 {
   const AwraIconFile *f = r->file;
@@ -782,6 +804,23 @@ static void load_raster(AwraIconRaster *r)
       }
       else {
         ib = imb_svg_render((const char *)bytes, len, px, px, 1, NULL, NULL);
+      }
+    }
+    else if (gtksvg_unsupported(bytes, len)) {
+      /* GtkSvg doesn't take it: GTK loads it as an image of its own size
+       * (gdk-pixbuf) and scales that */
+      ib = imb_svg_render((const char *)bytes, len, 0, 0, 0, NULL, NULL);
+      if (ib) {
+        int w = 0, h = 0;
+        BK_imbuf_size(ib, &w, &h);
+        uint32_t *sq = fit_square(BK_imbuf_pixels(ib, 0), w, h, px);
+        BK_imbuf_free(ib);
+        ib = NULL;
+        if (sq) {
+          r->kind = RASTER_COLOR;
+          r->argb = sq;
+          r->bytes = (size_t)px * px * 4;
+        }
       }
     }
     else {

@@ -108,7 +108,8 @@ BKImBuf *imb_svg_rasterize(const char *svg, int want_w, int want_h)
   return ib;
 }
 
-/* BUI-Awra: an icon's SVG drawn into exactly out_w x out_h pixels, scaled
+/* BUI-Awra: an icon's SVG drawn into exactly out_w x out_h pixels (0: its
+ * own size), scaled
  * to fit and centred (GtkSvg's preserveAspectRatio "xMidYMid meet"), as
  * GTK draws icons; `symbolic`: GTK's traditional symbolic reading
  * (nsvgParseSymbolic). *r_w, *r_h: the SVG's own size (NULL: not wanted).
@@ -116,9 +117,7 @@ BKImBuf *imb_svg_rasterize(const char *svg, int want_w, int want_h)
 BKImBuf *imb_svg_render(const char *svg, size_t len, int out_w, int out_h, int symbolic, float *r_w,
                         float *r_h)
 {
-  if (out_w <= 0 || out_h <= 0) {
-    return NULL;
-  }
+  /* out_w, out_h 0: the SVG's own size */
   char *text = (char *)MEM_mallocN(len + 1, "svg text");
   if (!text) {
     return NULL;
@@ -139,6 +138,10 @@ BKImBuf *imb_svg_render(const char *svg, size_t len, int out_w, int out_h, int s
   }
   if (r_h) {
     *r_h = image->height;
+  }
+  if (out_w <= 0 || out_h <= 0) {
+    out_w = BK_MAX(1, (int)ceilf(image->width));
+    out_h = BK_MAX(1, (int)ceilf(image->height));
   }
   const float scale = fminf((float)out_w / image->width, (float)out_h / image->height);
   const float tx = ((float)out_w - image->width * scale) * 0.5f;
