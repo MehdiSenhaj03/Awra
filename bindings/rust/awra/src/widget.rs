@@ -131,6 +131,23 @@ impl Widget {
     pub fn vexpands(&self) -> bool {
         unsafe { ffi::awra_widget_vexpand(self.as_ptr()) }
     }
+    /// gtk_widget_set_direction: right to left mirrors the widget as GTK
+    /// does; `TextDirection::None` follows `Widget::set_default_direction`.
+    pub fn set_direction(&self, dir: TextDirection) {
+        unsafe { ffi::awra_widget_set_direction(self.as_ptr(), dir as _) }
+    }
+    /// The direction in effect (`Ltr` or `Rtl`).
+    pub fn direction(&self) -> TextDirection {
+        TextDirection::from_c(unsafe { ffi::awra_widget_get_direction(self.as_ptr()) })
+    }
+    /// gtk_widget_set_default_direction: the direction of widgets without
+    /// one of their own (at start, the locale's).
+    pub fn set_default_direction(dir: TextDirection) {
+        unsafe { ffi::awra_widget_set_default_direction(dir as _) }
+    }
+    pub fn default_direction() -> TextDirection {
+        TextDirection::from_c(unsafe { ffi::awra_widget_get_default_direction() })
+    }
     pub fn set_halign(&self, align: Align) {
         unsafe { ffi::awra_widget_set_halign(self.as_ptr(), align as _) }
     }
@@ -649,3 +666,8 @@ pub trait Cast: IsWidget {
     }
 }
 impl<T: IsWidget> Cast for T {}
+
+/// gtk_get_locale_direction: the direction of the user's language.
+pub fn locale_direction() -> TextDirection {
+    TextDirection::from_c(unsafe { ffi::awra_get_locale_direction() })
+}
