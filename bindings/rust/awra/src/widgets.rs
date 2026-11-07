@@ -2179,7 +2179,8 @@ awra_wrapper!(
 );
 impl Dialog {
     pub fn new(parent: Option<&crate::Window>) -> Dialog {
-        let d = unsafe { Dialog::from_full(ffi::awra_dialog_new(std::ptr::null())) };
+        // the window list keeps the creation reference until it is closed
+        let d = unsafe { Dialog(Widget::from_none(ffi::awra_dialog_new(std::ptr::null()))) };
         if let Some(p) = parent {
             d.0.set_rust_data("dialog-parent", p.downgrade());
         }

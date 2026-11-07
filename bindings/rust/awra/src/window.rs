@@ -88,16 +88,23 @@ impl Window {
     /// A new window of `application` (registers its accelerators).
     pub fn new(application: &crate::gio::Application) -> Window {
         let t = cstring("");
-        let w = unsafe { Window::from_full(ffi::awra_window_new(t.as_ptr(), 800, 600)) };
+        // the window list keeps the creation reference until the window is
+        // closed (as GTK's toplevel list does): this handle takes its own
+        let w = unsafe { Window::from_none_ptr(ffi::awra_window_new(t.as_ptr(), 800, 600)) };
         application.add_window(&w.0);
         window_added(&w);
         w
     }
     pub fn with_title(title: &str, width: i32, height: i32) -> Window {
         let t = cstring(title);
-        let w = unsafe { Window::from_full(ffi::awra_window_new(t.as_ptr(), width, height)) };
+        let w = unsafe { Window::from_none_ptr(ffi::awra_window_new(t.as_ptr(), width, height)) };
         window_added(&w);
         w
+    }
+    /// # Safety
+    /// `ptr` is a live window.
+    pub(crate) unsafe fn from_none_ptr(ptr: *mut ffi::AwraWidget) -> Window {
+        Window(crate::Widget::from_none(ptr))
     }
     /// Calls `f` for every window created from now on.
     pub fn connect_window_added<F: Fn(&Window) + 'static>(f: F) {
@@ -114,7 +121,7 @@ impl Window {
     /// A window rendered offscreen (tests, benchmarks).
     pub fn offscreen(title: &str, width: i32, height: i32, scale: f64) -> Window {
         let t = cstring(title);
-        unsafe { Window::from_full(ffi::awra_window_new_offscreen(t.as_ptr(), width, height, scale)) }
+        unsafe { Window::from_none_ptr(ffi::awra_window_new_offscreen(t.as_ptr(), width, height, scale)) }
     }
     pub fn render_offscreen(&self, full: bool) -> i32 {
         unsafe { ffi::awra_window_render_offscreen(self.0.as_ptr(), full) }
