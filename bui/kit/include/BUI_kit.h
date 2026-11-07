@@ -750,6 +750,13 @@ int BK_drop(BKContext *ctx, int kind, int x, int y, const char *uris);
 const char *BK_key_label(int evdev);
 /* The backend in use: "wayland", "x11", "win32", "cocoa" or "none". */
 const char *BK_window_backend(void);
+/* BUI-Awra: a string XSETTINGS value of the X11 settings daemon (GDK's
+ * Net/IconThemeName for gtk-icon-theme-name...) into `out`: 1 when the
+ * windows are on X11 and the daemon has it, else 0. */
+int BK_xsettings_string(const char *name, char *out, size_t cap);
+/* BUI-Awra: `fn` runs on the loop's thread when the settings daemon changes
+ * its settings (X11); NULL: nothing. */
+void BK_set_settings_notify(void (*fn)(void));
 
 /* -- BUI-Awra: data transfer: the clipboard in any format, drags out --------- */
 /* Data under a MIME type: "text/plain;charset=utf-8", "text/uri-list",

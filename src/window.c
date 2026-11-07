@@ -2207,6 +2207,20 @@ void awra_window_style_changed_all(void)
   }
 }
 
+/* icontheme.c: the icon theme changed: every window drawn again (layout
+ * stays: icon sizes don't change with the theme) */
+void awra_windows_icons_changed(void);
+void awra_windows_icons_changed(void)
+{
+  for (int i = 0; i < g_nwindows; i++) {
+    WinExt *x = WEXT(g_windows[i]);
+    if (x->ctx) {
+      x->ctx->full_dirty = true;
+      bk_ctx_request(x->ctx);
+    }
+  }
+}
+
 void awra_windows_request_frame(void)
 {
   for (int i = 0; i < g_nwindows; i++) {
