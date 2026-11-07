@@ -114,6 +114,10 @@ BKImBuf *imb_svg_rasterize(const char *svg, int want_w, int want_h)
  * GTK draws icons; `symbolic`: GTK's traditional symbolic reading
  * (nsvgParseSymbolic). *r_w, *r_h: the SVG's own size (NULL: not wanted).
  * Premultiplied 0xAARRGGBB; NULL when it isn't an SVG nanosvg reads. */
+/* BUI-Awra: a sub-pixel offset added to where the image is drawn (an icon
+ * at x.5, as GTK draws a symbolic icon's paths there); set around a call */
+float imb_svg_offset_x, imb_svg_offset_y;
+
 BKImBuf *imb_svg_render(const char *svg, size_t len, int out_w, int out_h, int symbolic, float *r_w,
                         float *r_h)
 {
@@ -154,7 +158,8 @@ BKImBuf *imb_svg_render(const char *svg, size_t len, int out_w, int out_h, int s
     return NULL;
   }
   memset(ib->rect, 0, (size_t)out_w * out_h * 4);
-  nsvgRasterize(rast, image, tx, ty, scale, (unsigned char *)ib->rect, out_w, out_h, out_w * 4);
+  nsvgRasterize(rast, image, tx + imb_svg_offset_x, ty + imb_svg_offset_y, scale, (unsigned char *)ib->rect,
+                out_w, out_h, out_w * 4);
   nsvgDeleteRasterizer(rast);
   nsvgDelete(image);
   imb_premultiply_rgba(ib->rect, (const uint8_t *)ib->rect, out_w * out_h);
