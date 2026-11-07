@@ -1593,6 +1593,12 @@ AwraWidget *awra_rail_selected_item(AwraWidget *rail);
 void awra_rail_set_selected_item(AwraWidget *rail, AwraWidget *item);
 void awra_rail_set_header(AwraWidget *rail, AwraWidget *header);
 void awra_rail_set_footer(AwraWidget *rail, AwraWidget *footer);
+/* A reorderable rail's entries drag (an item by its tile, a folder by its
+ * own tile; past 8 px, the column scrolling near its edges): the others
+ * make room, and on release the rail emits AWRA_SIGNAL_MOVED: the entry
+ * now at args->index was moved there, or, with args->active, the item at
+ * args->index was dropped onto the entry at (int)args->value (the middle
+ * of a tile; the rail moves nothing then: folders are the application's). */
 void awra_rail_set_reorderable(AwraWidget *rail, bool reorderable);
 bool awra_rail_reorderable(AwraWidget *rail);
 AwraWidget *awra_rail_item_new(const char *label);

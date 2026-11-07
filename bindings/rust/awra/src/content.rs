@@ -439,10 +439,32 @@ impl Rail {
     pub fn is_reorderable(&self) -> bool {
         unsafe { ffi::awra_rail_reorderable(ptr!(self)) }
     }
-    /// An entry dragged to `position` (not offered yet: entries don't drag).
-    pub fn connect_item_moved<F: Fn(&Rail, &Widget, u32) + 'static>(&self, _f: F) {}
-    /// An entry dropped onto another (not offered yet).
-    pub fn connect_item_merged<F: Fn(&Rail, &Widget, &Widget) + 'static>(&self, _f: F) {}
+    /// An entry dragged to `position` among the entries (a reorderable
+    /// rail's entries drag; it is there already).
+    pub fn connect_item_moved<F: Fn(&Rail, &Widget, u32) + 'static>(&self, f: F) -> crate::SignalHandlerId {
+        self.upcast_ref::<Widget>().connect_raw(crate::sig::MOVED, move |w, args| {
+            if args.active() || args.index() < 0 {
+                return;
+            }
+            let rail = Rail(w.clone());
+            if let Some(entry) = rail.entry(args.index() as u32) {
+                f(&rail, &entry, args.index() as u32);
+            }
+        })
+    }
+    /// An item dropped onto another entry, an item or a folder: what to
+    /// make of it is the application's (the rail moves nothing).
+    pub fn connect_item_merged<F: Fn(&Rail, &Widget, &Widget) + 'static>(&self, f: F) -> crate::SignalHandlerId {
+        self.upcast_ref::<Widget>().connect_raw(crate::sig::MOVED, move |w, args| {
+            if !args.active() {
+                return;
+            }
+            let rail = Rail(w.clone());
+            if let (Some(dropped), Some(onto)) = (rail.entry(args.index() as u32), rail.entry(args.value() as u32)) {
+                f(&rail, &dropped, &onto);
+            }
+        })
+    }
 }
 impl Default for Rail {
     fn default() -> Self {
