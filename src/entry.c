@@ -393,7 +393,9 @@ static void edit_draw(AwraWidget *w, AwraDraw *d)
   }
   if (x->search && x->te->len > 0) {
     const int s = awra_px(16);
-    const float ix = awra_mirror_x(w, b.x + b.w - awra_pxf(1) - awra_pxf(8) - s, (float)s);
+    /* GtkSearchEntry's clear image: 20 px wide inside the 9 px padding, its
+     * icon at its start (as the search icon at the other end) */
+    const float ix = awra_mirror_x(w, b.x + b.w - awra_pxf(9) - awra_pxf(20), (float)s);
     awra_paint_icon(d, "edit-clear-symbolic", ix, b.y + floorf((b.h - s) * 0.5f + 0.5f), s,
                     &t->muted);
   }
@@ -428,7 +430,7 @@ static void edit_draw(AwraWidget *w, AwraDraw *d)
   int tw, th;
   const int lw = x->multiline ? (int)a.w : -1;
   awra_text_layout_size(x->layout, lw, &tw, &th);
-  const float ty = x->multiline ? a.y - x->scroll_y : a.y + floorf((a.h - th) * 0.5f + 0.5f);
+  const float ty = x->multiline ? a.y - x->scroll_y : a.y + (float)(int)((a.h - th) * 0.5f); /* GtkText: truncated */
   const float tx = text_x(w, a);
   if (x->te->len == 0) {
     if (x->placeholder && !(x->spin)) {
@@ -678,7 +680,7 @@ static int edit_index_at(AwraWidget *w, int px, int py)
   int tw, th;
   const int lw = x->multiline ? (int)a.w : -1;
   awra_text_layout_size(x->layout, lw, &tw, &th);
-  const float ty = x->multiline ? a.y - x->scroll_y : a.y + floorf((a.h - th) * 0.5f + 0.5f);
+  const float ty = x->multiline ? a.y - x->scroll_y : a.y + (float)(int)((a.h - th) * 0.5f); /* GtkText: truncated */
   return real_index(w, awra_text_layout_pos_to_index(x->layout, lw, px - text_x(w, a), py - ty));
 }
 
@@ -689,7 +691,7 @@ static bool in_peek_icon(AwraWidget *w, int px)
 
 static bool in_clear_icon(AwraWidget *w, int px)
 {
-  return EX(w)->search && EX(w)->te->len > 0 && awra_mirror_px(w, px) > w->x + w->w - awra_px(8 + 16 + 4);
+  return EX(w)->search && EX(w)->te->len > 0 && awra_mirror_px(w, px) >= w->x + w->w - awra_px(9 + 20);
 }
 
 static int spin_button_at(AwraWidget *w, int px, int py)
@@ -935,7 +937,7 @@ static bool edit_a11y_layout(AwraWidget *w, AwraTextLayout **r_layout, float *r_
   awra_text_layout_size(x->layout, lw, &tw, &th);
   *r_layout = x->layout;
   *r_x = text_x(w, a);
-  *r_y = x->multiline ? a.y - x->scroll_y : a.y + floorf((a.h - th) * 0.5f + 0.5f);
+  *r_y = x->multiline ? a.y - x->scroll_y : a.y + (float)(int)((a.h - th) * 0.5f); /* GtkText: truncated */
   *r_width = lw;
   return true;
 }

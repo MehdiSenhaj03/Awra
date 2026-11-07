@@ -826,11 +826,9 @@ static void row_draw(AwraWidget *w, AwraDraw *d)
     const float ccx = right - awra_pxf(8), ccy = cy;
     const AwraRGBA *c = &t->muted;
     const float k = rtl ? -1.0f : 1.0f, ox = rtl ? mx0 - ccx : ccx; /* points mirrored */
-    awra_paint_line(d, ox - k * 1.5f * s, ccy - 3 * s, ox + k * 1.8f * s, ccy, lw, c);
-    awra_paint_line(d, ox + k * 1.8f * s, ccy, ox - k * 1.5f * s, ccy + 3 * s, lw, c);
-    awra_paint_circle(d, ox - k * 1.5f * s, ccy - 3 * s, lw * 0.5f, c);
-    awra_paint_circle(d, ox - k * 1.5f * s, ccy + 3 * s, lw * 0.5f, c);
-    awra_paint_circle(d, ox + k * 1.8f * s, ccy, lw * 0.5f, c);
+    const float p[3][2] = {{ox - k * 1.5f * s, ccy - 3 * s}, {ox + k * 1.8f * s, ccy},
+                           {ox - k * 1.5f * s, ccy + 3 * s}};
+    awra_paint_polyline(d, p, 3, lw, c);
     right -= awra_px(16) + gap;
   }
   if (x->kind == 1 && x->selected) {
@@ -1409,17 +1407,15 @@ static void chev_draw(AwraWidget *w, AwraDraw *d)
   const float cx = w->x + w->w * 0.5f, cy = w->y + w->h * 0.5f, s = awra_scale();
   const AwraRGBA *c = &awra_tokens()->muted;
   const float lw = 1.7f * s;
+  /* Awra 1's chevron_draw_cb: one cairo stroke, round caps and join */
   if (AWRA_EXT(w, ChevExt)->right) {
-    awra_paint_line(d, cx - 1.5f * s, cy - 3 * s, cx + 1.8f * s, cy, lw, c);
-    awra_paint_line(d, cx + 1.8f * s, cy, cx - 1.5f * s, cy + 3 * s, lw, c);
+    const float p[3][2] = {{cx - 1.5f * s, cy - 3 * s}, {cx + 1.8f * s, cy}, {cx - 1.5f * s, cy + 3 * s}};
+    awra_paint_polyline(d, p, 3, lw, c);
   }
   else {
-    awra_paint_line(d, cx - 3 * s, cy - 1.5f * s, cx, cy + 1.8f * s, lw, c);
-    awra_paint_line(d, cx, cy + 1.8f * s, cx + 3 * s, cy - 1.5f * s, lw, c);
+    const float p[3][2] = {{cx - 3 * s, cy - 1.5f * s}, {cx, cy + 1.8f * s}, {cx + 3 * s, cy - 1.5f * s}};
+    awra_paint_polyline(d, p, 3, lw, c);
   }
-  /* round caps */
-  awra_paint_circle(d, cx - 3 * s, cy - 1.5f * s, lw * 0.5f, c);
-  awra_paint_circle(d, cx + 3 * s, cy - 1.5f * s, lw * 0.5f, c);
 }
 
 static AwraClass chev_class = {

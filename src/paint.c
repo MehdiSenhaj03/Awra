@@ -91,6 +91,103 @@ void awra_paint_line(AwraDraw *d, float x0, float y0, float x1, float y1, float 
   BUI_raster_line(d->r, x0, y0, x1, y1, width, c);
 }
 
+/* cairo_stroke of an open polyline with round caps and round joins
+ * (CAIRO_LINE_CAP_ROUND, CAIRO_LINE_JOIN_ROUND): the outline of the stroke
+ * filled once, so the segments don't overlap where they meet (two lines
+ * and dots would be darker at the joints). */
+void awra_paint_polyline(AwraDraw *d, const float (*pts)[2], int n, float width, const AwraRGBA *color)
+{
+  if (!color || color->a <= 0.0f || n < 2 || n > 16) {
+    return;
+  }
+  enum { ARC = 12 }; /* segments per half turn */
+  float out[16 * 2 * (ARC + 2) + 8][2];
+  int k = 0;
+  const float h = width * 0.5f;
+  float nx[16], ny[16]; /* each segment's left normal */
+  for (int i = 0; i + 1 < n; i++) {
+    float dx = pts[i + 1][0] - pts[i][0], dy = pts[i + 1][1] - pts[i][1];
+    const float l = sqrtf(dx * dx + dy * dy);
+    if (l <= 0.0f) {
+      return;
+    }
+    nx[i] = -dy / l;
+    ny[i] = dx / l;
+  }
+  /* an arc around c from angle a0 turning by `sweep` (radians) */
+#define ARC_TO(cx, cy, a0, sweep)                                              \
+  do {                                                                         \
+    const int steps_ = BK_MAX(1, (int)ceilf(fabsf(sweep) / (float)M_PI * ARC)); \
+    for (int s_ = 0; s_ <= steps_; s_++) {                                     \
+      const float t_ = (a0) + (sweep) * (float)s_ / (float)steps_;             \
+      out[k][0] = (cx) + h * cosf(t_);                                         \
+      out[k][1] = (cy) + h * sinf(t_);                                         \
+      k++;                                                                     \
+    }                                                                          \
+  } while (0)
+  /* one side forward (left normal), the other back, joined by the caps */
+  for (int side = 0; side < 2; side++) {
+    const float sg = side == 0 ? 1.0f : -1.0f;
+    for (int j = 0; j + 1 < n; j++) {
+      const int i = side == 0 ? j : n - 2 - j; /* segment */
+      const int a = side == 0 ? i : i + 1, b = side == 0 ? i + 1 : i;
+      const float ox = sg * nx[i] * h, oy = sg * ny[i] * h;
+      if (j == 0) {
+        out[k][0] = pts[a][0] + ox;
+        out[k][1] = pts[a][1] + oy;
+        k++;
+      }
+      if (j + 2 < n) { /* the joint at b with the next segment of this side */
+        const int i2 = side == 0 ? i + 1 : i - 1;
+        const float ox2 = sg * nx[i2] * h, oy2 = sg * ny[i2] * h;
+        /* this side is the outer one when the next segment turns away
+         * from it */
+        const int c2 = side == 0 ? i + 2 : i - 1;
+        const float nxd = pts[c2][0] - pts[b][0], nyd = pts[c2][1] - pts[b][1];
+        const bool outer = nxd * ox + nyd * oy < 0.0f;
+        if (outer) {
+          float a0 = atan2f(oy, ox), a1 = atan2f(oy2, ox2);
+          float sweep = a1 - a0;
+          while (sweep > (float)M_PI) {
+            sweep -= 2.0f * (float)M_PI;
+          }
+          while (sweep < -(float)M_PI) {
+            sweep += 2.0f * (float)M_PI;
+          }
+          ARC_TO(pts[b][0], pts[b][1], a0, sweep);
+        }
+        else { /* inner: where the two offset edges cross */
+          const float px1 = pts[a][0] + ox, py1 = pts[a][1] + oy;
+          const float px2 = pts[c2][0] + ox2, py2 = pts[c2][1] + oy2;
+          const float ex1 = pts[b][0] - pts[a][0], ey1 = pts[b][1] - pts[a][1];
+          const float ex2 = pts[b][0] - pts[c2][0], ey2 = pts[b][1] - pts[c2][1];
+          const float den = ex1 * ey2 - ey1 * ex2;
+          if (fabsf(den) > 1e-6f) {
+            const float t = ((px2 - px1) * ey2 - (py2 - py1) * ex2) / den;
+            out[k][0] = px1 + t * ex1;
+            out[k][1] = py1 + t * ey1;
+          }
+          else {
+            out[k][0] = pts[b][0] + ox;
+            out[k][1] = pts[b][1] + oy;
+          }
+          k++;
+        }
+      }
+      else { /* the end: round cap half a turn around it */
+        out[k][0] = pts[b][0] + ox;
+        out[k][1] = pts[b][1] + oy;
+        k++;
+        ARC_TO(pts[b][0], pts[b][1], atan2f(oy, ox), -(float)M_PI);
+      }
+    }
+  }
+#undef ARC_TO
+  float c[4];
+  col(d, color, c);
+  BUI_raster_polygon(d->r, (const float(*)[2])out, k, c);
+}
+
 /* Keyboard focus: a 2px accent ring just outside the widget's shape
  * (awra.css: outline: 2px solid @awra_focus_ring; outline-offset: 2px). */
 void awra_paint_focus_ring(AwraDraw *d, AwraBox b, float radius)

@@ -171,13 +171,27 @@ static void vv_fit_rect(AwraWidget *w, VPool *p, float *x, float *y, float *dw, 
     *dh = H;
     return;
   }
-  const float sx = W / fw, sy = H / fh;
-  const float s = x_->fit == 2 ? fmaxf(sx, sy) : fminf(sx, sy);
-  /* whole pixels: a frame decoded at the size shown is a plain copy */
-  *dw = floorf(fw * s + 0.5f);
-  *dh = floorf(fh * s + 0.5f);
-  *x = (float)w->x + floorf((W - *dw) * 0.5f);
-  *y = (float)w->y + floorf((H - *dh) * 0.5f);
+  /* gtk_picture_snapshot (GtkPicture with the frames' paintable): the
+   * size rounded up to whole logical px, the offset (size - drawn) / 2
+   * truncated towards zero */
+  const float k = awra_scale();
+  const float lw = W / k, lh = H / k;
+  const float ratio = fw / fh;
+  float nw, nh;
+  if ((lw / lh > ratio) == (x_->fit == 2)) {
+    nw = lw;
+    nh = lw / ratio;
+  }
+  else {
+    nw = lh * ratio;
+    nh = lh;
+  }
+  nw = ceilf(nw - 1e-4f);
+  nh = ceilf(nh - 1e-4f);
+  *dw = nw * k;
+  *dh = nh * k;
+  *x = (float)w->x + (float)(int)((lw - nw) * 0.5f) * k;
+  *y = (float)w->y + (float)(int)((lh - nh) * 0.5f) * k;
 }
 
 static void vv_draw(AwraWidget *w, AwraDraw *d)

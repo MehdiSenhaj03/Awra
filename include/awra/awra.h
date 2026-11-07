@@ -557,6 +557,10 @@ AwraWidget *awra_scrolled_new(void);
 void awra_scrolled_set_child(AwraWidget *scrolled, AwraWidget *child);
 AwraWidget *awra_scrolled_child(AwraWidget *scrolled);
 void awra_scrolled_set_policy(AwraWidget *scrolled, AwraPolicy horizontal, AwraPolicy vertical);
+/* Scrolls as GtkListView / GtkGridView do: a wheel step lands on a whole
+ * (logical) px, truncated (GtkListBase's adjustments); on by itself over
+ * a tile grid. */
+void awra_scrolled_set_whole_steps(AwraWidget *scrolled, bool whole);
 void awra_scrolled_set_propagate_natural(AwraWidget *scrolled, bool width, bool height);
 void awra_scrolled_set_max_content_height(AwraWidget *scrolled, int height);
 /* GtkScrolledWindow's min-/max-content-width (logical px, 0 none): the

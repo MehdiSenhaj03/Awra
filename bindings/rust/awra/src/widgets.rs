@@ -333,6 +333,11 @@ impl ScrolledWindow {
     fn policy(&self) -> (PolicyType, PolicyType) {
         self.0.rust_data("scroll-policy").unwrap_or((PolicyType::Automatic, PolicyType::Automatic))
     }
+    /// Scrolls as GtkListView / GtkGridView: each wheel step lands on a
+    /// whole px (on by itself over a TileGrid).
+    pub fn set_whole_steps(&self, whole: bool) {
+        unsafe { ffi::awra_scrolled_set_whole_steps(ptr!(self), whole) }
+    }
     pub fn set_policy(&self, h: PolicyType, v: PolicyType) {
         self.0.set_rust_data("scroll-policy", (h, v));
         unsafe { ffi::awra_scrolled_set_policy(ptr!(self), h as _, v as _) }
