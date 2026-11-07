@@ -77,6 +77,7 @@ typedef struct VBuf {
 struct VPool {
   int refs; /* the shared state while current, plus every buffer in use */
   int format, w, h;
+  bool bt709; /* NV12's matrix: BT.709, else BT.601 */
   double par;
   int strides[2], lines[2];
   size_t offsets[2], size;
@@ -93,6 +94,7 @@ typedef struct VShared {
   bool posted;
   uint64_t next_key, stream;
   uint64_t presented, dropped;
+  int matrix; /* 0: by the height (BT.709 above 576 rows), 601, 709 */
 } VShared;
 
 typedef struct VideoExt {
@@ -103,11 +105,30 @@ typedef struct VideoExt {
   /* where the frame was last drawn (raster px) */
   float dx, dy, dw, dh;
   uint64_t drawn;
-  /* the backdrop: a blurred, downscaled copy of what the view shows */
-  uint32_t *thumb, *tmp;
-  int tw, th, thumb_cap;
-  uint64_t thumb_key;
-  int thumb_vw, thumb_vh;
+  /* backdrops (glass over the view): the frame drawn around a surface,
+   * the horizontal pass, and the last results by box and frame */
+  BuiRaster *scratch;
+  uint8_t *hpass;
+  size_t hpass_cap;
+  struct {
+    int x, y, w, h;
+    uint64_t key;
+    uint32_t *px;
+    size_t cap;
+    unsigned used;
+  } bd[4];
+  /* playback: frames following each other; one blurred quarter-size copy
+   * of the view per frame for every surface */
+  bool playing;
+  uint64_t pb_key;
+  double pb_at;
+  unsigned bd_settle; /* timer: exact backdrops once the frames settle */
+  uint32_t *q;
+  size_t q_cap;
+  int q_w, q_h;
+  uint64_t q_key;
+  unsigned bd_clock;
+  uint64_t bd_gen; /* bumped when what the view shows moves */
 } VideoExt;
 
 #define VVX(w) AWRA_EXT(w, VideoExt)
@@ -171,13 +192,27 @@ static void vv_fit_rect(AwraWidget *w, VPool *p, float *x, float *y, float *dw, 
     *dh = H;
     return;
   }
-  const float sx = W / fw, sy = H / fh;
-  const float s = x_->fit == 2 ? fmaxf(sx, sy) : fminf(sx, sy);
-  /* whole pixels: a frame decoded at the size shown is a plain copy */
-  *dw = floorf(fw * s + 0.5f);
-  *dh = floorf(fh * s + 0.5f);
-  *x = (float)w->x + floorf((W - *dw) * 0.5f);
-  *y = (float)w->y + floorf((H - *dh) * 0.5f);
+  /* gtk_picture_snapshot (GtkPicture with the frames' paintable): the
+   * size rounded up to whole logical px, the offset (size - drawn) / 2
+   * truncated towards zero */
+  const float k = awra_scale();
+  const float lw = W / k, lh = H / k;
+  const float ratio = fw / fh;
+  float nw, nh;
+  if ((lw / lh > ratio) == (x_->fit == 2)) {
+    nw = lw;
+    nh = lw / ratio;
+  }
+  else {
+    nw = lh * ratio;
+    nh = lh;
+  }
+  nw = ceilf(nw - 1e-4f);
+  nh = ceilf(nh - 1e-4f);
+  *dw = nw * k;
+  *dh = nh * k;
+  *x = (float)w->x + (float)(int)((lw - nw) * 0.5f) * k;
+  *y = (float)w->y + (float)(int)((lh - nh) * 0.5f) * k;
 }
 
 static void vv_draw(AwraWidget *w, AwraDraw *d)
@@ -212,14 +247,14 @@ static void vv_draw(AwraWidget *w, AwraDraw *d)
   }
   const BuiPixmap pm = {(const uint32_t *)b->data, p->w, p->h, b->key,
                         p->format == AWRA_VIDEO_FORMAT_NV12 ?
-                            (p->h > 576 ? BUI_PIXMAP_NV12_BT709 : BUI_PIXMAP_NV12_BT601) :
+                            (p->bt709 ? BUI_PIXMAP_NV12_BT709 : BUI_PIXMAP_NV12_BT601) :
                             BUI_PIXMAP_ARGB,
                         x->s->stream};
   const bool clip = x->fit == 2;
   if (clip) {
     bk_clip_push(w->x, w->y, w->w, w->h);
   }
-  BUI_raster_image(d->r, fx, fy, fw, fh, &pm, NULL, d->opacity, 0);
+  SR_image(d->r, fx, fy, fw, fh, &pm, NULL, d->opacity, 0);
   if (clip) {
     bk_clip_pop();
   }
@@ -234,8 +269,17 @@ static void vv_finalize(AwraWidget *w)
   vm_unlock(&x->s->lock);
   BUI_image_forget(x->s->stream);
   shared_unref(x->s);
-  free(x->thumb);
-  free(x->tmp);
+  if (x->scratch) {
+    BUI_raster_free(x->scratch);
+  }
+  free(x->hpass);
+  for (int i = 0; i < 4; i++) {
+    free(x->bd[i].px);
+  }
+  if (x->bd_settle) {
+    awra_source_remove(x->bd_settle);
+  }
+  free(x->q);
 }
 
 static void vv_allocate(AwraWidget *w)
@@ -291,6 +335,13 @@ bool awra_video_view_configure(AwraWidget *w, AwraVideoFormat format, int width,
   p->format = format;
   p->w = width;
   p->h = height;
+  {
+    VShared *vs = VVX(w)->s;
+    vm_lock(&vs->lock);
+    const int m = vs->matrix;
+    vm_unlock(&vs->lock);
+    p->bt709 = m == 709 || (m == 0 && height > 576);
+  }
   p->par = pixel_aspect > 0 ? pixel_aspect : 1.0;
   p->n = n;
   if (format == AWRA_VIDEO_FORMAT_NV12) {
@@ -451,6 +502,14 @@ void awra_video_view_release(AwraWidget *w, void *frame)
   vm_unlock(&s->lock);
 }
 
+void awra_video_view_set_matrix(AwraWidget *w, int matrix)
+{
+  VShared *s = VVX(w)->s;
+  vm_lock(&s->lock);
+  s->matrix = matrix == 601 || matrix == 709 ? matrix : 0;
+  vm_unlock(&s->lock);
+}
+
 void awra_video_view_clear(AwraWidget *w)
 {
   VShared *s = VVX(w)->s;
@@ -459,7 +518,7 @@ void awra_video_view_clear(AwraWidget *w)
   buf_free_locked(s->pending);
   s->shown = s->pending = NULL;
   vm_unlock(&s->lock);
-  VVX(w)->thumb_key = 0;
+  VVX(w)->bd_gen++;
   awra_invalidate(w);
 }
 
@@ -485,7 +544,7 @@ void awra_video_view_frame_size(AwraWidget *w, int *r_width, int *r_height, doub
 void awra_video_view_set_content_fit(AwraWidget *w, int fit)
 {
   VVX(w)->fit = BK_CLAMP(fit, 0, 2);
-  VVX(w)->thumb_key = 0;
+  VVX(w)->bd_gen++;
   awra_invalidate(w);
 }
 
@@ -539,7 +598,7 @@ bool awra_video_view_save_png(AwraWidget *w, const char *path)
   }
   const BuiPixmap pm = {(const uint32_t *)b->data, p->w, p->h, 0,
                         p->format == AWRA_VIDEO_FORMAT_NV12 ?
-                            (p->h > 576 ? BUI_PIXMAP_NV12_BT709 : BUI_PIXMAP_NV12_BT601) :
+                            (p->bt709 ? BUI_PIXMAP_NV12_BT709 : BUI_PIXMAP_NV12_BT601) :
                             BUI_PIXMAP_ARGB,
                         0};
   for (int y = 0; y < oh; y++) {
@@ -556,126 +615,281 @@ bool awra_video_view_save_png(AwraWidget *w, const char *path)
 }
 
 /* ----------------------------------------------------------------------- */
-/* Backdrop: what the view shows, about 160 px wide, blurred like Awra 1's
- * local backdrop (gtk_snapshot_push_blur with the XL spacing, 24 px). */
+/* Backdrop: Awra 1's local backdrop as GSK renders it. AwraSurface pushes
+ * gtk_snapshot_push_blur (the XL spacing, 24 px) over the view's texture
+ * alone, which the GPU renderers blur with a separable Gaussian (sigma =
+ * radius / 2, floor(radius) taps each side, normalised; gskgpublur.glsl),
+ * transparent around the texture, through an 8-bit horizontal pass, the
+ * vertical pass blended over what is under the surface. */
 
-static inline uint32_t sample_px(const VPool *p, const uint8_t *data, int fx, int fy)
+/* gskgpublur.glsl's weights, as its incremental Gaussian computes them in
+ * float, in 16.16 fixed point; returns the taps on each side */
+static int gsk_blur_kernel(float radius, int32_t *wq, int max)
 {
-  if (p->format == AWRA_VIDEO_FORMAT_NV12) {
-    const uint8_t *yp = data, *uv = data + p->offsets[1];
-    const int Y = yp[(size_t)fy * p->w + fx];
-    const uint8_t *c = uv + (size_t)(fy >> 1) * p->w + (fx & ~1);
-    const int u = c[0] - 128, v = c[1] - 128;
-    const int k = p->h > 576;
-    const int kk[2][5] = {{76309, 104597, 25675, 53279, 132201}, {76309, 117489, 13975, 34925, 138438}};
-    const int l = (Y - 16) * kk[k][0] + 32768;
-    const int r = BK_CLAMP((l + kk[k][1] * v) >> 16, 0, 255);
-    const int g = BK_CLAMP((l - kk[k][2] * u - kk[k][3] * v) >> 16, 0, 255);
-    const int bl = BK_CLAMP((l + kk[k][4] * u) >> 16, 0, 255);
-    return (uint32_t)r << 16 | (uint32_t)g << 8 | (uint32_t)bl;
+  const int n = BK_MIN((int)floorf(radius), max);
+  const float sigma = radius / 2.0f;
+  float x = 1.0f / (sqrtf(2.0f * (float)M_PI) * sigma);
+  float y = expf(-0.5f / (sigma * sigma));
+  const float z = y * y;
+  float w[256];
+  w[0] = x;
+  float sum = x;
+  x *= y;
+  y *= z;
+  for (int i = 1; i <= n; i++) {
+    w[i] = x;
+    sum += 2.0f * x;
+    x *= y;
+    y *= z;
   }
-  return ((const uint32_t *)data)[(size_t)fy * p->w + fx] & 0xFFFFFFu;
+  for (int i = 0; i <= n; i++) {
+    wq[i] = (int32_t)lrintf(w[i] / sum * 65536.0f);
+  }
+  return n;
 }
 
-static void box_blur(uint32_t *src, uint32_t *tmp, int w, int h, int r)
+/* One pass over `count` lines of `len` premultiplied ARGB pixels: line l of
+ * `out` from lines l .. l + 2n of `in` (vertical) or from pixels i .. i + 2n
+ * of line l (horizontal), rounded to 8 bits as a unorm target. Tap-major,
+ * so the inner loops run over contiguous bytes (vectorized). */
+static void blur_pass(const uint8_t *in, size_t in_stride, uint8_t *out, size_t out_stride, int len,
+                      int count, int n, const int32_t *wq, bool vertical, int32_t *acc)
 {
-  /* horizontal then vertical, separable running sums per channel */
-  for (int pass = 0; pass < 2; pass++) {
-    const int len = pass == 0 ? w : h, lines = pass == 0 ? h : w;
-    const int step = pass == 0 ? 1 : w, lstep = pass == 0 ? w : 1;
-    for (int l = 0; l < lines; l++) {
-      const uint32_t *in = src + (size_t)l * lstep;
-      uint32_t *out = tmp + (size_t)l * lstep;
-      int sr = 0, sg = 0, sb = 0;
-      const int n = 2 * r + 1;
-      for (int i = -r; i <= r; i++) {
-        const uint32_t p = in[(size_t)BK_CLAMP(i, 0, len - 1) * step];
-        sr += (p >> 16) & 255;
-        sg += (p >> 8) & 255;
-        sb += p & 255;
-      }
-      for (int i = 0; i < len; i++) {
-        out[(size_t)i * step] = 0xFF000000u | (uint32_t)(sr / n) << 16 | (uint32_t)(sg / n) << 8 |
-                                (uint32_t)(sb / n);
-        const uint32_t a = in[(size_t)BK_CLAMP(i - r, 0, len - 1) * step];
-        const uint32_t b = in[(size_t)BK_CLAMP(i + r + 1, 0, len - 1) * step];
-        sr += (int)((b >> 16) & 255) - (int)((a >> 16) & 255);
-        sg += (int)((b >> 8) & 255) - (int)((a >> 8) & 255);
-        sb += (int)(b & 255) - (int)(a & 255);
+  const int bytes = len * 4;
+  for (int l = 0; l < count; l++) {
+    memset(acc, 0, sizeof(int32_t) * (size_t)bytes);
+    for (int k = -n; k <= n; k++) {
+      const int32_t wt = wq[k < 0 ? -k : k];
+      const uint8_t *src = vertical ? in + (size_t)(l + k + n) * in_stride :
+                                      in + (size_t)l * in_stride + (size_t)(k + n) * 4;
+      for (int j = 0; j < bytes; j++) {
+        acc[j] += wt * src[j];
       }
     }
-    memcpy(src, tmp, sizeof(uint32_t) * (size_t)w * h);
+    uint8_t *dst = out + (size_t)l * out_stride;
+    for (int j = 0; j < bytes; j++) {
+      const int32_t v = (acc[j] + 32768) >> 16;
+      dst[j] = (uint8_t)(v > 255 ? 255 : v);
+    }
   }
 }
 
-static bool vv_update_thumb(AwraWidget *w)
+/* Three running-sum boxes of radius r along `len` premultiplied pixels of
+ * each of `count` lines, in place, transparent beyond the ends: the
+ * playback approximation of the Gaussian (O(1) per pixel). */
+static void box3(uint8_t *buf, size_t step, size_t lstep, int len, int count, int r, int32_t *line)
 {
-  VideoExt *x = VVX(w);
-  VBuf *b = x->s->shown;
-  if (w->w <= 0 || w->h <= 0) {
-    return false;
-  }
-  const uint64_t key = b ? b->key : 1;
-  if (x->thumb && x->thumb_key == key && x->thumb_vw == w->w && x->thumb_vh == w->h) {
-    return true;
-  }
-  const int tw = BK_MAX(8, BK_MIN(160, w->w / 4));
-  const int th = BK_MAX(8, (int)((int64_t)tw * w->h / w->w));
-  if (tw * th > x->thumb_cap) {
-    free(x->thumb);
-    free(x->tmp);
-    x->thumb = (uint32_t *)malloc(sizeof(uint32_t) * (size_t)tw * th);
-    x->tmp = (uint32_t *)malloc(sizeof(uint32_t) * (size_t)tw * th);
-    x->thumb_cap = x->thumb && x->tmp ? tw * th : 0;
-    if (!x->thumb_cap) {
-      return false;
+  const int n = 2 * r + 1;
+  for (int l = 0; l < count; l++) {
+    uint8_t *base = buf + (size_t)l * lstep;
+    for (int i = 0; i < len; i++) {
+      for (int c = 0; c < 4; c++) {
+        line[i * 4 + c] = base[(size_t)i * step + c];
+      }
     }
-  }
-  x->tw = tw;
-  x->th = th;
-  const AwraRGBA bgc = x->custom_background ? x->background : awra_rgba(0, 0, 0, 1);
-  const uint32_t bg = 0xFF000000u | (uint32_t)(bgc.r * 255) << 16 | (uint32_t)(bgc.g * 255) << 8 |
-                      (uint32_t)(bgc.b * 255);
-  float fx = 0, fy = 0, fw = 0, fh = 0;
-  if (b) {
-    vv_fit_rect(w, b->pool, &fx, &fy, &fw, &fh);
-    fx -= w->x;
-    fy -= w->y;
-  }
-  const float cell = (float)w->w / tw;
-  for (int ty = 0; ty < th; ty++) {
-    for (int tx = 0; tx < tw; tx++) {
-      uint32_t acc_r = 0, acc_g = 0, acc_b = 0, n = 0;
-      for (int sy = 0; sy < 3; sy++) {
-        for (int sx = 0; sx < 3; sx++) {
-          const float vx = (tx + (sx + 0.5f) / 3.0f) * cell;
-          const float vy = (ty + (sy + 0.5f) / 3.0f) * cell;
-          uint32_t p = bg;
-          if (b && vx >= fx && vx < fx + fw && vy >= fy && vy < fy + fh) {
-            const int ix = BK_CLAMP((int)((vx - fx) / fw * b->pool->w), 0, b->pool->w - 1);
-            const int iy = BK_CLAMP((int)((vy - fy) / fh * b->pool->h), 0, b->pool->h - 1);
-            p = sample_px(b->pool, b->data, ix, iy);
-          }
-          acc_r += (p >> 16) & 255;
-          acc_g += (p >> 8) & 255;
-          acc_b += p & 255;
-          n++;
+    for (int pass = 0; pass < 3; pass++) {
+      int32_t sum[4] = {0, 0, 0, 0};
+      for (int i = 0; i < r && i < len; i++) {
+        for (int c = 0; c < 4; c++) {
+          sum[c] += line[i * 4 + c];
         }
       }
-      x->thumb[(size_t)ty * tw + tx] =
-          0xFF000000u | (acc_r / n) << 16 | (acc_g / n) << 8 | (acc_b / n);
+      int32_t *out = line + (size_t)len * 4;
+      for (int i = 0; i < len; i++) {
+        const int in = i + r, gone = i - r - 1;
+        for (int c = 0; c < 4; c++) {
+          if (in < len) {
+            sum[c] += line[in * 4 + c];
+          }
+          if (gone >= 0) {
+            sum[c] -= line[gone * 4 + c];
+          }
+          out[i * 4 + c] = sum[c];
+        }
+      }
+      for (int i = 0; i < len * 4; i++) {
+        line[i] = (out[i] + n / 2) / n;
+      }
+    }
+    for (int i = 0; i < len; i++) {
+      for (int c = 0; c < 4; c++) {
+        base[(size_t)i * step + c] = (uint8_t)line[i * 4 + c];
+      }
     }
   }
-  /* sigma 12 logical px, in thumbnail pixels: three box passes */
-  const float sigma = awra_pxf(12) / cell;
-  const int r = BK_CLAMP((int)lroundf(sqrtf(sigma * sigma * 4.0f + 1.0f) / 2.0f), 1, 6);
-  for (int i = 0; i < 3; i++) {
-    box_blur(x->thumb, x->tmp, tw, th, r);
+}
+
+/* Playback: the frames follow each other; once they settle (paused, a
+ * still), the surfaces are drawn again with the exact backdrop. */
+static bool bd_settled(void *data)
+{
+  AwraWidget *w = (AwraWidget *)data;
+  VideoExt *x = VVX(w);
+  x->bd_settle = 0;
+  x->playing = false;
+  awra_invalidate(w);
+  return false;
+}
+
+/* While playing, every surface takes its part of one blurred copy of the
+ * view at a quarter of its resolution, made once per frame: three running
+ * boxes each way, the truncated Gaussian's spread (about 10.6 px) in
+ * quarter pixels, transparent around the texture as GSK's. Drawn scaled
+ * up; GSK's within a few levels on moving pictures. */
+static const uint32_t *vv_playback_backdrop(AwraWidget *w, int *r_w, int *r_h)
+{
+  VideoExt *x = VVX(w);
+  VBuf *buf = x->s->shown;
+  const int QW = (w->w + 3) / 4, QH = (w->h + 3) / 4;
+  *r_w = QW;
+  *r_h = QH;
+  const uint64_t key = buf->key ^ (x->bd_gen << 48) ^ ((uint64_t)(uint32_t)w->w << 20) ^ (uint64_t)w->h;
+  if (x->q && x->q_key == key && x->q_w == QW && x->q_h == QH) {
+    return x->q;
   }
-  x->thumb_key = key;
-  x->thumb_vw = w->w;
-  x->thumb_vh = w->h;
-  return true;
+  if (!x->scratch) {
+    x->scratch = BUI_raster_create(QW, QH);
+    if (!x->scratch) {
+      return NULL;
+    }
+    BUI_raster_set_diff(x->scratch, 0);
+  }
+  BUI_raster_begin_frame(x->scratch, QW, QH);
+  BUI_raster_set_origin(x->scratch, 0, 0);
+  uint32_t *spx = (uint32_t *)BUI_raster_pixels(x->scratch);
+  memset(spx, 0, sizeof(uint32_t) * (size_t)QW * QH);
+  VPool *p = buf->pool;
+  float fx, fy, fw, fh;
+  vv_fit_rect(w, p, &fx, &fy, &fw, &fh);
+  const BuiPixmap pm = {(const uint32_t *)buf->data, p->w, p->h, 0,
+                        p->format == AWRA_VIDEO_FORMAT_NV12 ?
+                            (p->bt709 ? BUI_PIXMAP_NV12_BT709 : BUI_PIXMAP_NV12_BT601) :
+                            BUI_PIXMAP_ARGB,
+                        0};
+  BUI_raster_image(x->scratch, (fx - w->x) / 4.0f, (fy - w->y) / 4.0f, fw / 4.0f, fh / 4.0f, &pm, NULL, 1.0f, 0);
+  const size_t need = sizeof(int32_t) * (size_t)BK_MAX(QW, QH) * 8;
+  if (need > x->hpass_cap) {
+    free(x->hpass);
+    x->hpass = (uint8_t *)malloc(need);
+    x->hpass_cap = x->hpass ? need : 0;
+    if (!x->hpass) {
+      return NULL;
+    }
+  }
+  if ((size_t)QW * QH > x->q_cap) {
+    free(x->q);
+    x->q = (uint32_t *)malloc(sizeof(uint32_t) * (size_t)QW * QH);
+    x->q_cap = x->q ? (size_t)QW * QH : 0;
+    if (!x->q) {
+      return NULL;
+    }
+  }
+  const float sigma = awra_pxf(24) * 0.44f / 4.0f; /* sigma 12 truncated at 2 sigma */
+  const int r = BK_CLAMP((int)lroundf((sqrtf(4.0f * sigma * sigma + 1.0f) - 1.0f) * 0.5f), 1, 32);
+  box3((uint8_t *)spx, 4, (size_t)QW * 4, QW, QH, r, (int32_t *)x->hpass);
+  box3((uint8_t *)spx, (size_t)QW * 4, 4, QH, QW, r, (int32_t *)x->hpass);
+  memcpy(x->q, spx, sizeof(uint32_t) * (size_t)QW * QH);
+  x->q_key = key;
+  x->q_w = QW;
+  x->q_h = QH;
+  return x->q;
+}
+
+/* The blurred texture over box b (raster px, whole), exactly as GSK
+ * computes it, from the cache when it holds it; NULL when it can't be. */
+static const uint32_t *vv_backdrop(AwraWidget *w, AwraBox b, int *r_w, int *r_h)
+{
+  VideoExt *x = VVX(w);
+  VBuf *buf = x->s->shown;
+  if (!buf) {
+    return NULL;
+  }
+  const int bx = (int)floorf(b.x), by = (int)floorf(b.y);
+  const int W = (int)ceilf(b.x + b.w) - bx, H = (int)ceilf(b.y + b.h) - by;
+  if (W <= 0 || H <= 0) {
+    return NULL;
+  }
+  const uint64_t key = buf->key ^ (x->bd_gen << 48) ^ ((uint64_t)(uint32_t)w->w << 20) ^ (uint64_t)w->h;
+  int slot = -1, oldest = 0;
+  for (int i = 0; i < 4; i++) {
+    if (x->bd[i].px && x->bd[i].x == bx && x->bd[i].y == by && x->bd[i].w == W && x->bd[i].h == H) {
+      slot = i;
+      break;
+    }
+    if (x->bd[i].used < x->bd[oldest].used) {
+      oldest = i;
+    }
+  }
+  if (slot >= 0 && x->bd[slot].key == key) {
+    x->bd[slot].used = ++x->bd_clock;
+    *r_w = W;
+    *r_h = H;
+    return x->bd[slot].px;
+  }
+  if (slot < 0) {
+    slot = oldest;
+  }
+  int32_t wq[257];
+  const int n = gsk_blur_kernel(awra_pxf(24), wq, 256);
+  /* the texture as the view draws it, transparent around, over the box
+   * and n px more each side */
+  const int OW = W, OH = H;
+  const int SW = OW + 2 * n, SH = OH + 2 * n;
+  if (!x->scratch) {
+    x->scratch = BUI_raster_create(SW, SH);
+    if (!x->scratch) {
+      return NULL;
+    }
+    BUI_raster_set_diff(x->scratch, 0);
+  }
+  BUI_raster_begin_frame(x->scratch, SW, SH);
+  BUI_raster_set_origin(x->scratch, bx - n, by - n);
+  uint32_t *spx = (uint32_t *)BUI_raster_pixels(x->scratch);
+  memset(spx, 0, sizeof(uint32_t) * (size_t)SW * SH);
+  VPool *p = buf->pool;
+  float fx, fy, fw, fh;
+  vv_fit_rect(w, p, &fx, &fy, &fw, &fh);
+  const BuiPixmap pm = {(const uint32_t *)buf->data, p->w, p->h, 0,
+                        p->format == AWRA_VIDEO_FORMAT_NV12 ?
+                            (p->bt709 ? BUI_PIXMAP_NV12_BT709 : BUI_PIXMAP_NV12_BT601) :
+                            BUI_PIXMAP_ARGB,
+                        0};
+  /* a cover's texture is clipped to the view (local_backdrop_node) */
+  BUI_raster_set_clip(x->scratch, w->x, w->y, w->w, w->h);
+  BUI_raster_image(x->scratch, fx, fy, fw, fh, &pm, NULL, 1.0f, 0);
+  {
+  /* the horizontal pass over the box's columns, n rows more each side */
+  const size_t need = (size_t)OW * SH * 4 + sizeof(int32_t) * (size_t)OW * 4;
+  if (need > x->hpass_cap) {
+    free(x->hpass);
+    x->hpass = (uint8_t *)malloc(need);
+    x->hpass_cap = x->hpass ? need : 0;
+    if (!x->hpass) {
+      return NULL;
+    }
+  }
+  int32_t *acc = (int32_t *)(x->hpass + (size_t)OW * SH * 4);
+  blur_pass((const uint8_t *)spx, (size_t)SW * 4, x->hpass, (size_t)OW * 4, OW, SH, n, wq, false, acc);
+  const size_t px = (size_t)W * H; /* room for the exact one */
+  if (x->bd[slot].cap < px) {
+    free(x->bd[slot].px);
+    x->bd[slot].px = (uint32_t *)malloc(sizeof(uint32_t) * px);
+    x->bd[slot].cap = x->bd[slot].px ? px : 0;
+    if (!x->bd[slot].px) {
+      return NULL;
+    }
+  }
+  blur_pass(x->hpass, (size_t)OW * 4, (uint8_t *)x->bd[slot].px, (size_t)OW * 4, OW, OH, n, wq, true, acc);
+  }
+  x->bd[slot].x = bx;
+  x->bd[slot].y = by;
+  x->bd[slot].w = W;
+  x->bd[slot].h = H;
+  x->bd[slot].key = key;
+  x->bd[slot].used = ++x->bd_clock;
+  *r_w = OW;
+  *r_h = OH;
+  return x->bd[slot].px;
 }
 
 /* Paints the blurred image of what `source` shows under box b (raster px),
@@ -690,21 +904,41 @@ bool awra_backdrop_paint(AwraWidget *source, AwraDraw *d, AwraBox b, const float
   }
   /* a view showing nothing lends no backdrop (an empty GtkPicture): the
    * surface paints its own material */
-  if (!VVX(source)->s->shown || !vv_update_thumb(source)) {
+  if (!VVX(source)->s->shown) {
     return false;
   }
   VideoExt *x = VVX(source);
-  /* the part of b over the view */
-  const float x0 = fmaxf(b.x, (float)source->x), y0 = fmaxf(b.y, (float)source->y);
-  const float x1 = fminf(b.x + b.w, (float)(source->x + source->w));
-  const float y1 = fminf(b.y + b.h, (float)(source->y + source->h));
-  if (x1 <= x0 || y1 <= y0) {
+  /* a new frame within 120 ms of the one before: playing */
+  const uint64_t fk = x->s->shown->key;
+  const double now = awra_now_ms();
+  if (fk != x->pb_key) {
+    x->playing = x->pb_key != 0 && now - x->pb_at < 120.0;
+    x->pb_key = fk;
+    x->pb_at = now;
+    if (x->playing) {
+      if (x->bd_settle) {
+        awra_source_remove(x->bd_settle);
+      }
+      x->bd_settle = awra_timeout_add(250, bd_settled, source, NULL);
+    }
+  }
+  int W, H;
+  if (x->playing) {
+    const uint32_t *q = vv_playback_backdrop(source, &W, &H);
+    if (!q) {
+      return false;
+    }
+    const BuiPixmap pm = {q, W, H, 0, BUI_PIXMAP_ARGB, 0};
+    const float src[4] = {(b.x - source->x) / 4.0f, (b.y - source->y) / 4.0f, b.w / 4.0f, b.h / 4.0f};
+    SR_image_rounded(d->r, b.x, b.y, b.w, b.h, &pm, src, d->opacity, radii);
+    return true;
+  }
+  const uint32_t *px = vv_backdrop(source, b, &W, &H);
+  if (!px) {
     return false;
   }
-  const float kx = (float)x->tw / source->w, ky = (float)x->th / source->h;
-  const float src[4] = {(x0 - source->x) * kx, (y0 - source->y) * ky, (x1 - x0) * kx, (y1 - y0) * ky};
-  const BuiPixmap pm = {x->thumb, x->tw, x->th, 0, BUI_PIXMAP_ARGB, 0};
-  BUI_raster_image_rounded(d->r, x0, y0, x1 - x0, y1 - y0, &pm, src, d->opacity, radii);
+  const BuiPixmap pm = {px, W, H, 0, BUI_PIXMAP_ARGB, 0};
+  SR_image_rounded(d->r, floorf(b.x), floorf(b.y), (float)W, (float)H, &pm, NULL, d->opacity, radii);
   return true;
 }
 
@@ -876,7 +1110,9 @@ static void tl_place_preview(AwraWidget *w)
   const float sc = awra_scale();
   const double cx = (w->x + s->hover_x * sc) / sc;
   const double top = w->y / sc;
-  awra_window_place_overlay(win, s->preview, cx - pw / sc / 2.0, top - ph / sc - 8);
+  /* GtkPopover above the pointed-to point, its bottom on the timeline
+   * (Awra 1's popover: no arrow, no margin) */
+  awra_window_place_overlay(win, s->preview, cx - pw / sc / 2.0, top - ph / sc);
 }
 
 static void tl_show_preview(AwraWidget *w, bool show)

@@ -51,6 +51,12 @@ typedef struct PopExt {
   bool surfaced; /* the last placement gave it a native surface */
   bool blur;     /* ... and the compositor blurs behind it */
   unsigned too_small; /* the idle closing it: its surface is under its minimum size */
+  /* GtkPopover clips its contents to their 18 px radius (awra.css's
+   * popover.awra-popover > contents), over the surface's own 17: what lay
+   * under those corners, kept while it draws */
+  uint32_t *corners;
+  size_t corners_cap;
+  bool corners_saved;
 } PopExt;
 
 #define POPX(w) AWRA_EXT(w, PopExt)
@@ -105,17 +111,32 @@ static void pop_material(const AwraWidget *w, AwraResolvedMaterial *m, float *r_
                         x->surfaced && x->blur, m);
 }
 
+#define CONTENTS_RADIUS 18.0f
+
 static void pop_draw(AwraWidget *w, AwraDraw *d)
 {
+  PopExt *x = POPX(w);
   AwraResolvedMaterial m;
   float radius;
   AwraElevation elevation;
   pop_material(w, &m, &radius, &elevation);
-  /* the outline and rim are drawn once, over the content (pop_draw_over):
-   * drawn here too they doubled (GSK draws them once) */
-  m.border_edges = 0;
-  m.highlight_edges = 0;
-  awra_paint_material(d, awra_box_of(w), &m, radius, 15, AWRA_EDGE_ALL, elevation);
+  x->corners_saved = false;
+  if (elevation != AWRA_ELEVATION_FLAT) { /* (a native frame rounds itself) */
+    const AwraBox b = awra_box_of(w);
+    const float cr = awra_pxf(CONTENTS_RADIUS), r4[4] = {cr, cr, cr, cr};
+    const size_t n = (size_t)BUI_raster_corners_size(b.w, b.h, r4);
+    if (n > x->corners_cap) {
+      uint32_t *grown = (uint32_t *)realloc(x->corners, sizeof(uint32_t) * n);
+      if (grown) {
+        x->corners = grown;
+        x->corners_cap = n;
+      }
+    }
+    x->corners_saved = n <= x->corners_cap &&
+                       SR_corners_save(d->r, b.x, b.y, b.w, b.h, r4, x->corners);
+  }
+  /* its outline and rim: once, over the content (pop_draw_over) */
+  awra_paint_material(d, awra_box_of(w), &m, radius, 15, 0, elevation);
 }
 
 static void pop_draw_over(AwraWidget *w, AwraDraw *d)
@@ -128,9 +149,18 @@ static void pop_draw_over(AwraWidget *w, AwraDraw *d)
   pop_material(w, &m, &r, &elevation);
   const float r4[4] = {r, r, r, r};
   const float bw = awra_pxf(m.border_width), hw = awra_pxf(m.highlight_width);
-  const float b4[4] = {bw, bw, bw, bw}, h4[4] = {hw, 0, 0, hw};
+  /* the rim on the top and start edges (the right one, right to left) */
+  const bool rtl = awra_widget_rtl(w);
+  const float b4[4] = {bw, bw, bw, bw}, h4[4] = {hw, rtl ? hw : 0, 0, rtl ? 0 : hw};
   awra_paint_rbox4(d, awra_box_of(w), r4, NULL, b4, &m.border);
   awra_paint_rbox4(d, awra_box_of(w), r4, NULL, h4, &m.highlight);
+  PopExt *x = POPX(w);
+  if (x->corners_saved) {
+    const AwraBox b = awra_box_of(w);
+    const float cr = awra_pxf(CONTENTS_RADIUS), c4[4] = {cr, cr, cr, cr};
+    SR_corners_clip(d->r, b.x, b.y, b.w, b.h, c4, x->corners);
+    x->corners_saved = false;
+  }
 }
 
 static AwraWidget *window_root(AwraWidget *w)
@@ -416,6 +446,7 @@ static void pop_finalize(AwraWidget *w)
   if (x->anchor && !x->submenu_row && !x->anchor_weak) {
     awra_widget_unref(x->anchor);
   }
+  free(x->corners);
 }
 
 AwraWidget *awra_first_focusable(AwraWidget *root);
@@ -510,12 +541,33 @@ static void unfold_anim(AwraWidget *w, double t, void *data)
   }
 }
 
+/* The logical height of the monitor `window` is on (0: unknown). */
+static int monitor_height(AwraWidget *window)
+{
+  BKWindow *bkw = window ? awra_window_bkw(window) : NULL;
+  double sw, sh;
+  if (!bkw || !BK_window_wm_get(bkw, "screen", &sw, &sh) || sh <= 0) {
+    return 0;
+  }
+  /* Wayland answers in logical pixels; X11 and Win32 in the device's */
+  if (strcmp(BK_window_backend(), "wayland") != 0) {
+    sh /= BK_MAX(awra_scale(), 1.0f);
+  }
+  return (int)sh;
+}
+
 static void popup_with(AwraWidget *w, AwraWidget *owner)
 {
   PopExt *x = POPX(w);
   BKContext *ctx = owner ? awra_ctx(owner) : NULL;
   if (!ctx) {
     return;
+  }
+  if (x->menu && x->child && awra_widget_is(x->child, "AwraScrolledWindow")) {
+    /* Awra 1's rebuild_menu: as tall as the monitor less 64 px (120 at
+     * least), 600 when it can't tell */
+    const int mh = monitor_height(awra_window_of(owner));
+    awra_scrolled_set_max_content_height(x->child, mh > 0 ? BK_MAX(120, mh - 64) : 600);
   }
   if (x->open) {
     BK_close_popups(ctx); /* reopen fresh */
@@ -845,8 +897,9 @@ static void row_draw(AwraWidget *w, AwraDraw *d)
     const float ccx = right - awra_pxf(8), ccy = cy;
     const AwraRGBA *c = &t->muted;
     const float k = rtl ? -1.0f : 1.0f, ox = rtl ? mx0 - ccx : ccx; /* points mirrored */
-    const float pts[3][2] = {{ox - k * 1.5f * s, ccy - 3 * s}, {ox + k * 1.8f * s, ccy}, {ox - k * 1.5f * s, ccy + 3 * s}};
-    awra_paint_polyline(d, pts, 3, lw, c);
+    const float p[3][2] = {{ox - k * 1.5f * s, ccy - 3 * s}, {ox + k * 1.8f * s, ccy},
+                           {ox - k * 1.5f * s, ccy + 3 * s}};
+    awra_paint_polyline(d, p, 3, lw, c);
     right -= awra_px(16) + gap;
   }
   if (x->kind == 1 && x->selected) {
@@ -864,9 +917,11 @@ static void row_draw(AwraWidget *w, AwraDraw *d)
     AwraFont af = awra_font_for(AWRA_TYPOGRAPHY_BODY);
     af.size *= x->kind == 2 ? 0.92f : 0.86f;
     const float aw = awra_text_width(&af, x->accel, -1);
-    awra_draw_text(d, &af, awra_mirror_x(w, right - aw, aw),
-                   floorf(cy - ceilf(awra_font_line_height(&af)) * 0.5f) + awra_font_ascent(&af), x->accel,
-                   -1, &t->muted);
+    /* a GtkLabel centred in the row: its whole-pixel height, the half
+     * pixel left over rounded down (GtkBox's valign center) */
+    const float atop = b.y + floorf((b.h - ceilf(awra_font_line_height(&af))) * 0.5f);
+    awra_draw_text(d, &af, awra_mirror_x(w, right - aw, aw), floorf(atop + awra_font_ascent(&af) + 0.5f),
+                   x->accel, -1, &t->muted);
     right -= aw + gap;
   }
   AwraFont f = row_font();
@@ -887,8 +942,7 @@ static void row_draw(AwraWidget *w, AwraDraw *d)
     awra_text_layout_logical(l, avail, &lx0, &lw);
     lx = awra_mirror_x(w, cx, (float)avail) + avail - fminf(ceilf(lw), (float)avail) - lx0;
   }
-  /* GTK centres the label: floor ((height - logical height) / 2) */
-  awra_text_layout_draw(l, d, lx, floorf(cy - th * 0.5f), avail, &fg);
+  awra_text_layout_draw(l, d, lx, b.y + floorf((b.h - th) * 0.5f), avail, &fg);
   awra_text_layout_free(l);
 }
 
@@ -1454,13 +1508,14 @@ static void chev_draw(AwraWidget *w, AwraDraw *d)
   const float cx = w->x + w->w * 0.5f, cy = w->y + w->h * 0.5f, s = awra_scale();
   const AwraRGBA *c = &awra_tokens()->muted;
   const float lw = 1.7f * s;
+  /* Awra 1's chevron_draw_cb: one cairo stroke, round caps and join */
   if (AWRA_EXT(w, ChevExt)->right) {
-    const float pts[3][2] = {{cx - 1.5f * s, cy - 3 * s}, {cx + 1.8f * s, cy}, {cx - 1.5f * s, cy + 3 * s}};
-    awra_paint_polyline(d, pts, 3, lw, c);
+    const float p[3][2] = {{cx - 1.5f * s, cy - 3 * s}, {cx + 1.8f * s, cy}, {cx - 1.5f * s, cy + 3 * s}};
+    awra_paint_polyline(d, p, 3, lw, c);
   }
   else {
-    const float pts[3][2] = {{cx - 3 * s, cy - 1.5f * s}, {cx, cy + 1.8f * s}, {cx + 3 * s, cy - 1.5f * s}};
-    awra_paint_polyline(d, pts, 3, lw, c);
+    const float p[3][2] = {{cx - 3 * s, cy - 1.5f * s}, {cx, cy + 1.8f * s}, {cx + 3 * s, cy - 1.5f * s}};
+    awra_paint_polyline(d, p, 3, lw, c);
   }
 }
 
@@ -1772,6 +1827,7 @@ static void drop_open(AwraWidget *w, const AwraArgs *a, void *data)
   AwraWidget *scroll = awra_scrolled_new();
   awra_scrolled_set_policy(scroll, AWRA_POLICY_NEVER, AWRA_POLICY_AUTOMATIC);
   awra_scrolled_set_propagate_natural(scroll, false, true);
+  awra_widget_set_data(scroll, "awra-pill-bar", (void *)1, NULL); /* .awra-dropdown-popup scrollbar */
   awra_scrolled_set_max_content_height(scroll, 280);
   awra_scrolled_set_child(scroll, box);
   awra_widget_unref(box); /* its parent holds it */
@@ -2142,6 +2198,7 @@ unsigned awra_toast_overlay_show_with_action_full(AwraWidget *w, const char *tit
     awra_button_set_appearance(b, AWRA_BUTTON_GHOST);
     awra_widget_set_valign(b, AWRA_ALIGN_CENTER);
     awra_widget_add_class(b, "toast-action");
+    awra_button_set_accent_fg_internal(b, true); /* color: @awra_accent_content */
     awra_widget_set_data(b, "awra-toast-id", (void *)(uintptr_t)t->id, NULL);
     awra_signal_connect(b, AWRA_SIGNAL_CLICKED, toast_action, w, NULL);
     awra_box_append(box, b);
@@ -2452,6 +2509,25 @@ static DialogData *dlg(AwraWidget *w)
   return (DialogData *)awra_widget_get_data(w, "awra-dialog");
 }
 
+/* Awra 1's AwraDialog: Escape (captured, so a search entry can't keep it)
+ * closes the dialog as its close button does, answering the close
+ * response; an open popover keeps its own Escape. */
+static void dialog_escape(AwraWidget *win, const AwraArgs *a, void *data)
+{
+  (void)data;
+  if (!a->keysym || strcmp(a->keysym, "Escape") != 0 || a->mods) {
+    return;
+  }
+  BKContext *ctx = awra_ctx(win);
+  if (ctx && ctx->npopups > 0) {
+    return;
+  }
+  if (a->handled) {
+    *a->handled = true;
+  }
+  awra_window_close_request(win);
+}
+
 AwraWidget *awra_dialog_new(const char *title)
 {
   AwraWidget *win = awra_window_new(title, 440, -1);
@@ -2462,6 +2538,7 @@ AwraWidget *awra_dialog_new(const char *title)
   awra_window_set_modal(win, true); /* Awra 1's AwraDialog is modal */
   awra_window_set_keep_rounded_corners(win, true);
   awra_window_set_floating_internal(win, true);
+  awra_signal_connect(win, AWRA_SIGNAL_KEY_CAPTURE, dialog_escape, NULL, NULL);
   AwraWidget *h = awra_window_titlebar(win);
   awra_header_set_dialog(h, true);
   d->body = awra_box_new(AWRA_ORIENTATION_VERTICAL, 0);
@@ -2650,8 +2727,10 @@ static void tip_draw(BKContext *ctx, const char *text, const BKRect *rect)
 {
   AwraDraw d = {bk_draw.r, 1.0f};
   AwraBox b = {(float)rect->xmin, (float)rect->ymin, (float)bk_rw(rect), (float)bk_rh(rect)};
-  AwraRGBA bg = awra_tokens()->material_tint[AWRA_MATERIAL_FLOATING];
-  bg.a = 1.0f; /* drawn over the window's content: the opaque fallback */
+  /* GtkTooltip's own surface, @awra_floating (60 % in the dark) composited
+   * over what is under it: drawn over the window's content, it blends the
+   * same */
+  const AwraRGBA bg = awra_tokens()->material_tint[AWRA_MATERIAL_FLOATING];
   awra_paint_rbox(&d, b, awra_pxf(8), &bg, 0, NULL);
   AwraTextLayout *l = awra_text_layout_new();
   AwraFont f = tip_font();
@@ -2659,7 +2738,8 @@ static void tip_draw(BKContext *ctx, const char *text, const BKRect *rect)
   awra_text_layout_set_base_dir(l, awra_widget_rtl(NULL));
   awra_text_layout_set_text(l, text, false);
   awra_text_layout_set_wrap(l, AWRA_WRAP_WORD, AWRA_ELLIPSIZE_NONE, -1);
-  const AwraRGBA fg = awra_tokens()->dark ? awra_rgba(1, 1, 1, 1) : awra_tokens()->foreground;
+  /* awra.css: tooltip.background { color: white } in both themes */
+  const AwraRGBA fg = awra_rgba(1, 1, 1, 1);
   awra_text_layout_draw(l, &d, b.x + awra_px(10), b.y + awra_px(6), (int)b.w - awra_px(20), &fg);
   awra_text_layout_free(l);
 }

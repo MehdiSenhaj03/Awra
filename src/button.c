@@ -329,18 +329,9 @@ static int eff_look(const AwraWidget *w)
   return r >= 0 ? r : BX(w)->look;
 }
 
-/* awra.css .awra-button.awra-toast-action: the action of a toast, in the
- * accent's content colour, weight 700, 5 px 12 px, at least 20 px high */
-static bool toast_action(const AwraWidget *w)
-{
-  static int bit = -2;
-  if (bit == -2) {
-    bit = awra_class_bit("toast-action");
-  }
-  return bit >= 0 && awra_has_class_bit(w, bit);
-}
-
 /* padding (logical) and radius per variant (spec B §1.1) */
+static bool toast_action_button(const AwraWidget *w);
+
 static void geometry(const AwraWidget *w, float *pad_x, float *pad_y, float *min_w, float *min_h,
                      float *radius)
 {
@@ -432,11 +423,21 @@ static void geometry(const AwraWidget *w, float *pad_x, float *pad_y, float *min
     *pad_y = 3;
     *min_h = 20;
   }
-  if (toast_action(w)) {
+  if (toast_action_button(w)) { /* min-height: 20px; padding: 5px 12px */
     *pad_x = 12;
     *pad_y = 5;
     *min_h = 20;
   }
+}
+
+/* a toast's action (awra.css .awra-button.awra-toast-action) */
+static bool toast_action_button(const AwraWidget *w)
+{
+  static int bit = -2;
+  if (bit == -2) {
+    bit = awra_class_bit("toast-action");
+  }
+  return bit >= 0 && awra_has_class_bit(w, bit);
 }
 
 static AwraFont button_font(AwraWidget *w)
@@ -445,7 +446,7 @@ static AwraFont button_font(AwraWidget *w)
   if (BX(w)->look == AWRA_LOOK_PRIMARY) {
     f.weight = 640;
   }
-  if (toast_action(w)) {
+  if (toast_action_button(w)) {
     f.weight = 700;
   }
   return f;
@@ -591,7 +592,7 @@ static void current_colors(AwraWidget *w, AwraButtonColors *c)
     c->bg.a = 0;
     c->rim.a = 0;
   }
-  if ((x->accent_fg || toast_action(w)) && sens) {
+  if ((x->accent_fg || toast_action_button(w)) && sens) {
     c->fg = awra_tokens()->accent_content;
   }
 }
@@ -614,8 +615,21 @@ static void button_draw(AwraWidget *w, AwraDraw *d)
   AwraButtonColors c;
   current_colors(w, &c);
   const bool reduced = awra_style_reduced_motion();
-  awra_paint_button_bg(d, awra_box_of(w), awra_pxf(rad), &c, reduced ? 0.0f : awra_press_t(w),
-                       awra_focus_visible(w));
+  if (awra_widget_get_data(w, "awra-dropdown")) {
+    /* button.awra-dropdown-button: a 1 px transparent border, and
+     * .awra-button's background-clip: padding-box inside it */
+    const float bw = awra_pxf(1);
+    awra_paint_button_bg(d, awra_box_inset(awra_box_of(w), bw), awra_pxf(rad) - bw, &c,
+                         reduced ? 0.0f : awra_press_t(w), false);
+    if (awra_focus_visible(w)) {
+      AwraButtonColors ring = {0};
+      awra_paint_button_bg(d, awra_box_of(w), awra_pxf(rad), &ring, 0.0f, true);
+    }
+  }
+  else {
+    awra_paint_button_bg(d, awra_box_of(w), awra_pxf(rad), &c, reduced ? 0.0f : awra_press_t(w),
+                         awra_focus_visible(w));
+  }
   x->colors = c;
   if (x->child) {
     return; /* the child draws, with this button's color (child_style) */

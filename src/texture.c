@@ -588,7 +588,8 @@ void awra_paint_texture(AwraDraw *d, const AwraTexture *t, AwraBox b, float radi
   /* more than twice smaller: sampled from the mipmaps as GSK does */
   if ((t->w > 2.0f * bw * t->w / src[2] || t->h > 2.0f * bh * t->h / src[3]) && !BUI_pixmap_yuv(t->format)) {
     int X, Y;
-    if (texture_sampled((AwraTexture *)t, bx, by, bw, bh, src, radius, &X, &Y)) {
+    /* at the draw shift (raster-shift.h): its pixels are placed whole */
+    if (texture_sampled((AwraTexture *)t, bx + awra_shift_x, by + awra_shift_y, bw, bh, src, radius, &X, &Y)) {
       const BuiPixmap spm = {t->small, t->small_w, t->small_h, t->small_key, BUI_PIXMAP_ARGB, 0};
       BUI_raster_image(d->r, (float)X, (float)Y, (float)t->small_w, (float)t->small_h, &spm, NULL, d->opacity, 0);
       return;
@@ -596,9 +597,9 @@ void awra_paint_texture(AwraDraw *d, const AwraTexture *t, AwraBox b, float radi
   }
   if (radius > 0.0f) {
     const float radii[4] = {radius, radius, radius, radius};
-    BUI_raster_image_rounded(d->r, bx, by, bw, bh, &pm, src, d->opacity, radii);
+    SR_image_rounded(d->r, bx, by, bw, bh, &pm, src, d->opacity, radii);
   }
   else {
-    BUI_raster_image(d->r, bx, by, bw, bh, &pm, src, d->opacity, 0);
+    SR_image(d->r, bx, by, bw, bh, &pm, src, d->opacity, 0);
   }
 }

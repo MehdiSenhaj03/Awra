@@ -246,6 +246,8 @@ struct BKWindow {
   int root_x, root_y; /* the window's origin on the screen when popups were placed */
   int leave_pending;  /* the pointer left a surface: a leave unless it entered another */
   int mapped;         /* shown: the WM is asked for state changes */
+  int viewable;       /* BUI-Awra: MapNotify seen (focus can be given) */
+  int focus_on_map;   /* BUI-Awra: focus asked before it was viewable */
 };
 
 static Display *g_dpy = NULL;
@@ -661,12 +663,32 @@ static void handle_event(XEvent *ev)
       }
       x11_popups_follow(win); /* BUI-Awra: popups move with their window */
       break;
+    case MapNotify:
+      /* BUI-Awra: the focus asked while it wasn't viewable (X refuses it
+       * then): a dialog presented under a window holding the focus takes
+       * it once mapped, as GDK focuses a surface it shows */
+      win->viewable = 1;
+      if (win->focus_on_map) {
+        win->focus_on_map = 0;
+        XSetInputFocus(g_dpy, win->xid, RevertToParent, CurrentTime);
+      }
+      break;
     case UnmapNotify:
+      win->viewable = 0;
       BK_close_popups(ctx); /* BUI-Awra: minimized: popups close, as GTK's */
       break;
     case MotionNotify:
       win->leave_pending = 0;
       BK_motion(ctx, ev->xmotion.x, ev->xmotion.y, mods_of(ev->xmotion.state));
+      break;
+    case EnterNotify:
+      /* BUI-Awra: entering lights up what is under the pointer without a
+       * motion (a window under a still pointer, its modal dialog gone),
+       * as GTK's crossing does */
+      if (ev->xcrossing.mode == NotifyNormal || ev->xcrossing.mode == NotifyUngrab) {
+        win->leave_pending = 0;
+        BK_motion(ctx, ev->xcrossing.x, ev->xcrossing.y, mods_of(ev->xcrossing.state));
+      }
       break;
     case LeaveNotify:
       /* BUI-Awra: a leave into one of its popups is no leave (decided once
@@ -776,7 +798,7 @@ BKWindow *BK_window_new_ex(BKContext *ctx, const char *title, int width, int hei
   memset(&attr, 0, sizeof(attr));
   attr.background_pixel = BlackPixel(g_dpy, screen);
   attr.event_mask = ExposureMask | StructureNotifyMask | PointerMotionMask | ButtonPressMask |
-                    ButtonReleaseMask | KeyPressMask | KeyReleaseMask | LeaveWindowMask |
+                    ButtonReleaseMask | KeyPressMask | KeyReleaseMask | LeaveWindowMask | EnterWindowMask |
                     FocusChangeMask | PropertyChangeMask; /* PropertyNotify: INCR transfers */
   win->flags = flags;
   XVisualInfo vi;
@@ -1020,7 +1042,12 @@ void BK_window_wm(BKWindow *win, const char *key, double a, double b)
     XLowerWindow(g_dpy, win->xid);
   }
   else if (!strcmp(key, "focus")) {
-    XSetInputFocus(g_dpy, win->xid, RevertToParent, CurrentTime);
+    if (win->viewable) {
+      XSetInputFocus(g_dpy, win->xid, RevertToParent, CurrentTime);
+    }
+    else {
+      win->focus_on_map = 1;
+    }
   }
   else if (!strcmp(key, "state")) {
     x11_set_state(win, (int)a);

@@ -99,10 +99,6 @@ void BUI_raster_ellipse(BuiRaster *r,
                         float ry,
                         float line_width,
                         const float rgba[4]);
-/* BUI-Awra: a stroke along `n` points (x/y pairs on pixel edges, as
- * cairo's) with round caps and joins, anti-aliased by area. */
-void BUI_raster_polyline(BuiRaster *r, const float (*points)[2], int n, float width,
-                         const float rgba[4]);
 /* Filled polygon (even-odd), anti-aliased; `points` holds `n` x/y pairs. */
 void BUI_raster_polygon(BuiRaster *r, const float (*points)[2], int n, const float rgba[4]);
 

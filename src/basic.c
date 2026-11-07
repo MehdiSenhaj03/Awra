@@ -965,19 +965,31 @@ static void image_draw(AwraWidget *w, AwraDraw *d)
   float bw = (float)w->w, bh = (float)w->h, bx = (float)w->x, by = (float)w->y;
   const float ar = (float)x->iw / x->ih, br = bw / bh;
   if (x->fit != 0) {
+    /* gtk_picture_snapshot: the size rounded up to whole (logical) px,
+     * then an int offset, (size - drawn) / 2 truncated towards zero */
     const bool contain = x->fit == 1;
+    const float s = awra_scale();
     if ((ar > br) == contain) {
-      const float nh = bw / ar;
-      by += (bh - nh) * 0.5f;
-      bh = nh;
+      const float nh = ceilf(bw / ar / s);
+      by += (float)(int)((bh / s - nh) * 0.5f) * s;
+      bh = nh * s;
     }
     else {
-      const float nw = bh * ar;
-      bx += (bw - nw) * 0.5f;
-      bw = nw;
+      const float nw = ceilf(bh * ar / s);
+      bx += (float)(int)((bw / s - nw) * 0.5f) * s;
+      bw = nw * s;
     }
   }
-  decode_at(w, (int)ceilf(bw), (int)ceilf(bh));
+  /* GSK samples the texture itself (linear, at the place and scale the
+   * fit gives): it is decoded at its own size, unless shown at less than
+   * half of it (a large photo in a small box keeps memory down; GSK uses
+   * mipmaps there) */
+  if (x->iw > 0 && x->ih > 0 && bw * 2.0f >= (float)x->iw && bh * 2.0f >= (float)x->ih) {
+    decode_at(w, x->iw, x->ih);
+  }
+  else {
+    decode_at(w, (int)ceilf(bw), (int)ceilf(bh));
+  }
   if (!x->argb) {
     return;
   }
@@ -989,7 +1001,7 @@ static void image_draw(AwraWidget *w, AwraDraw *d)
   }
   const float r = awra_pxf(x->radius);
   const float radii[4] = {r, r, r, r};
-  BUI_raster_image_rounded(d->r, bx, by, bw, bh, &pm, NULL, d->opacity, radii);
+  SR_image_rounded(d->r, bx, by, bw, bh, &pm, NULL, d->opacity, radii);
   if (x->fit == 2) {
     bk_clip_pop();
   }

@@ -401,8 +401,30 @@ static GridCell *cell_of(AwraWidget *c)
   return (GridCell *)awra_widget_get_data(c, "awra-grid-cell");
 }
 
-/* Line sizes along `o` (columns when horizontal); returns the count. */
-static int grid_lines(AwraWidget *g, int o, int **r_min, int **r_nat, bool **r_expand)
+/* The size along the other orientation a child spans, given those lines'
+ * sizes (`other`, `n_other` of them): what GtkGridLayout measures it for
+ * (height for width); -1 without them. */
+static int grid_span_size(AwraWidget *g, const GridCell *c, int o, const int *other, int n_other)
+{
+  if (!other) {
+    return -1;
+  }
+  const GridExt *ge = AWRA_EXT(g, GridExt);
+  const bool rows = o == AWRA_ORIENTATION_HORIZONTAL; /* the other lines are rows */
+  const int start = rows ? c->row : c->col, span = rows ? c->h : c->w;
+  const int sp = awra_px(rows ? ge->row_spacing : ge->col_spacing);
+  int size = 0;
+  for (int s = start; s < start + span && s < n_other; s++) {
+    size += other[s] + (s > start ? sp : 0);
+  }
+  return size;
+}
+
+/* Line sizes along `o` (columns when horizontal); returns the count.
+ * `other`: the sizes of the lines across (columns when measuring rows),
+ * children measured for the size they span (NULL: for any). */
+static int grid_lines_for(AwraWidget *g, int o, const int *other, int n_other, int **r_min, int **r_nat,
+                          bool **r_expand)
 {
   int count = 0;
   for (int i = 0; i < g->nkids; i++) {
@@ -468,7 +490,7 @@ static int grid_lines(AwraWidget *g, int o, int **r_min, int **r_nat, bool **r_e
         continue;
       }
       int cm, cn;
-      awra_measure(k, o, -1, &cm, &cn);
+      awra_measure(k, o, grid_span_size(g, c, o, other, n_other), &cm, &cn);
       if (span == 1) {
         mn[start] = BK_MAX(mn[start], cm);
         nt[start] = BK_MAX(nt[start], cn);
@@ -523,11 +545,29 @@ static int grid_lines(AwraWidget *g, int o, int **r_min, int **r_nat, bool **r_e
   return count;
 }
 
+static int grid_lines(AwraWidget *g, int o, int **r_min, int **r_nat, bool **r_expand)
+{
+  return grid_lines_for(g, o, NULL, 0, r_min, r_nat, r_expand);
+}
+
+static int *grid_sizes_for(AwraWidget *g, int o, int avail, const int *other, int n_other, int *r_n);
+
 static void grid_measure(AwraWidget *g, int o, int for_size, int *r_min, int *r_nat)
 {
   int *mn, *nt;
   bool *ex;
-  const int n = grid_lines(g, o, &mn, &nt, &ex);
+  int n;
+  if (o == AWRA_ORIENTATION_VERTICAL && for_size >= 0) {
+    /* height for width: the columns that width gives, each child's
+     * height for the columns it spans (gtk_grid_layout_measure) */
+    int nc;
+    int *cw = grid_sizes_for(g, AWRA_ORIENTATION_HORIZONTAL, for_size, NULL, 0, &nc);
+    n = grid_lines_for(g, o, cw, nc, &mn, &nt, &ex);
+    free(cw);
+  }
+  else {
+    n = grid_lines(g, o, &mn, &nt, &ex);
+  }
   const GridExt *ge = AWRA_EXT(g, GridExt);
   const int sp = awra_px(o == AWRA_ORIENTATION_HORIZONTAL ? ge->col_spacing : ge->row_spacing);
   int sm = 0, sn = 0;
@@ -546,11 +586,11 @@ static void grid_measure(AwraWidget *g, int o, int for_size, int *r_min, int *r_
   *r_nat = sn;
 }
 
-static int *grid_sizes(AwraWidget *g, int o, int avail, int *r_n)
+static int *grid_sizes_for(AwraWidget *g, int o, int avail, const int *other, int n_other, int *r_n)
 {
   int *mn, *nt;
   bool *ex;
-  const int n = grid_lines(g, o, &mn, &nt, &ex);
+  const int n = grid_lines_for(g, o, other, n_other, &mn, &nt, &ex);
   const GridExt *ge = AWRA_EXT(g, GridExt);
   const int sp = awra_px(o == AWRA_ORIENTATION_HORIZONTAL ? ge->col_spacing : ge->row_spacing);
   const bool homo = o == AWRA_ORIENTATION_HORIZONTAL ? ge->col_homo : ge->row_homo;
@@ -591,8 +631,8 @@ static int *grid_sizes(AwraWidget *g, int o, int avail, int *r_n)
 static void grid_allocate(AwraWidget *g)
 {
   int nc, nr;
-  int *cw = grid_sizes(g, AWRA_ORIENTATION_HORIZONTAL, g->w, &nc);
-  int *rh = grid_sizes(g, AWRA_ORIENTATION_VERTICAL, g->h, &nr);
+  int *cw = grid_sizes_for(g, AWRA_ORIENTATION_HORIZONTAL, g->w, NULL, 0, &nc);
+  int *rh = grid_sizes_for(g, AWRA_ORIENTATION_VERTICAL, g->h, cw, nc, &nr);
   const GridExt *ge = AWRA_EXT(g, GridExt);
   const int cs = awra_px(ge->col_spacing), rs = awra_px(ge->row_spacing);
   for (int i = 0; i < g->nkids; i++) {
@@ -1329,6 +1369,47 @@ static void overlay_allocate(AwraWidget *w)
       awra_allocate(c, w->x + awra_px(rx), w->y + awra_px(ry), awra_px(rw), awra_px(rh));
       continue;
     }
+    AwraAux *a = awra_aux(c);
+    if (c != x->child && (a->halign == AWRA_ALIGN_CENTER || a->valign == AWRA_ALIGN_CENTER) &&
+        awra_child_visible(c))
+    {
+      /* GtkOverlay's own get-child-position: the preferred size within
+       * the overlay, centred as width / 2 - size / 2 in whole logical px
+       * (half a pixel lower and further right than gtk_widget's
+       * (size - natural) / 2) */
+      const int k = BK_MAX(1, (int)awra_scale());
+      int min_w, nat_w, min_h, nat_h, unused;
+      awra_measure(c, AWRA_ORIENTATION_HORIZONTAL, -1, &min_w, &nat_w);
+      awra_measure(c, AWRA_ORIENTATION_VERTICAL, min_w, &min_h, &unused);
+      awra_measure(c, AWRA_ORIENTATION_VERTICAL, nat_w, &unused, &nat_h);
+      int cw = BK_MAX(min_w, BK_MIN(w->w, nat_w)), ch = BK_MAX(min_h, BK_MIN(w->h, nat_h));
+      int cx = 0, cy = 0;
+      if (a->halign == AWRA_ALIGN_CENTER) {
+        cx = (w->w / k / 2 - cw / k / 2) * k;
+      }
+      else if (a->halign == AWRA_ALIGN_FILL) {
+        cw = BK_MAX(cw, w->w);
+      }
+      else {
+        cx = 0;
+        cw = w->w; /* start / end: aligned by awra_allocate */
+      }
+      if (a->valign == AWRA_ALIGN_CENTER) {
+        cy = (w->h / k / 2 - ch / k / 2) * k;
+      }
+      else if (a->valign == AWRA_ALIGN_FILL) {
+        ch = BK_MAX(ch, w->h);
+      }
+      else {
+        cy = 0;
+        ch = w->h;
+      }
+      if (awra_widget_rtl(w) && a->halign == AWRA_ALIGN_CENTER) {
+        cx = w->w - cx - cw; /* mirrored back by awra_allocate */
+      }
+      awra_allocate(c, w->x + cx, w->y + cy, cw, ch);
+      continue;
+    }
     awra_allocate(c, w->x, w->y, w->w, w->h);
   }
 }
@@ -1418,14 +1499,20 @@ void awra_overlay_add_overlay(AwraWidget *w, AwraWidget *child)
 typedef struct ScrollExt {
   AwraWidget *child;
   AwraPolicy hpolicy, vpolicy;
+  bool whole_steps; /* GtkListBase's adjustments: whole px after each step */
   bool prop_w, prop_h;
   int max_h, min_h; /* logical, -1 none */
   int max_w, min_w; /* logical, 0 none (GtkScrolledWindow's content widths) */
   double vvalue, hvalue; /* raster px */
   int content_w, content_h;
   int view_w;       /* the width hvalue was kept for (right to left) */
-  float bar_t;      /* indicator opacity */
-  double bar_until; /* ms: keep showing */
+  /* GtkScrolledWindow's overlay indicator: its opacity now, the one it
+   * fades to (from bar_from, since bar_start), when it was last shown
+   * (scrolled, or the pointer came in: last_scroll_time) and the timer
+   * that hides it 2 s after (maybe_hide_indicator, every 500 ms) */
+  float bar_t, bar_target, bar_from;
+  double bar_start, bar_shown;
+  unsigned bar_conceal;
   bool dragging;
   int drag_y0;
   double drag_v0;
@@ -1540,8 +1627,8 @@ static void scroll_draw(AwraWidget *w, AwraDraw *d)
     x->fade_cap = need;
   }
   /* top rows first, the bottom rows after them */
-  x->fade_h[0] = top && BUI_raster_read(d->r, w->x, w->y, w->w, top, x->fade_under) ? top : 0;
-  x->fade_h[1] = bottom && BUI_raster_read(d->r, w->x, w->y + w->h - bottom, w->w, bottom,
+  x->fade_h[0] = top && SR_read(d->r, w->x, w->y, w->w, top, x->fade_under) ? top : 0;
+  x->fade_h[1] = bottom && SR_read(d->r, w->x, w->y + w->h - bottom, w->w, bottom,
                                            x->fade_under + (size_t)w->w * top) ?
                      bottom :
                      0;
@@ -1552,68 +1639,180 @@ static void scroll_fade(AwraWidget *w, AwraDraw *d)
 {
   ScrollExt *x = SX(w);
   if (x->fade_h[0] > 0) {
-    BUI_raster_fade(d->r, w->x, w->y, w->w, x->fade_h[0], x->fade_under, 0.0f, 1.0f);
+    SR_fade(d->r, w->x, w->y, w->w, x->fade_h[0], x->fade_under, 0.0f, 1.0f);
   }
   if (x->fade_h[1] > 0) {
-    BUI_raster_fade(d->r, w->x, w->y + w->h - x->fade_h[1], w->w, x->fade_h[1],
+    SR_fade(d->r, w->x, w->y + w->h - x->fade_h[1], w->w, x->fade_h[1],
                     x->fade_under + (size_t)w->w * x->fade_skip, 1.0f, 0.0f);
   }
   x->fade_h[0] = x->fade_h[1] = 0;
 }
 
+/* The indicator's look: Awra's 5 px pill under an AwraPage (awra.css's
+ * awrapage scrollbar slider) and in the widgets that style theirs; GTK's
+ * default theme's overlay indicator anywhere else. */
+static bool scroll_awra_bar(AwraWidget *w)
+{
+  if (awra_widget_get_data(w, "awra-pill-bar")) {
+    return true;
+  }
+  for (AwraWidget *p = w->parent; p; p = p->parent) {
+    if (!awra_is_widget(p)) {
+      continue;
+    }
+    const char *t = AWRA_CLASS_OF(p)->type;
+    if (t && (!strcmp(t, "AwraPage") || !strcmp(t, "AwraListView") || !strcmp(t, "AwraConversationView") ||
+              !strcmp(t, "AwraEmojiPicker")))
+    {
+      return true;
+    }
+  }
+  return false;
+}
+
+static bool scroll_bar_shown(AwraWidget *w)
+{
+  ScrollExt *x = SX(w);
+  return x->content_h > w->h && x->vpolicy != AWRA_POLICY_EXTERNAL && x->vpolicy != AWRA_POLICY_NEVER;
+}
+
 static void scroll_draw_over(AwraWidget *w, AwraDraw *d)
 {
   ScrollExt *x = SX(w);
-  if (x->content_h <= w->h || x->bar_t <= 0.0f || x->vpolicy == AWRA_POLICY_EXTERNAL) {
+  if (!scroll_bar_shown(w) || x->bar_t <= 0.0f) {
     scroll_fade(w, d);
     return;
   }
   const float track = (float)w->h;
-  float len = track * (float)w->h / (float)x->content_h;
-  len = fmaxf(len, awra_pxf(18));
-  const float pos = (float)(x->vvalue / (x->content_h - w->h)) * (track - len);
-  AwraRGBA c = awra_tokens()->control_thumb;
-  c.a *= x->bar_t;
-  const float bw = awra_pxf(5);
-  /* at the left, right to left (GtkScrolledWindow's placement swaps) */
-  awra_paint_rbox(d, awra_mirror_box(w, (AwraBox){w->x + w->w - awra_pxf(6), w->y + pos, bw, len}),
-                  bw * 0.5f, &c, 0, NULL);
+  if (scroll_awra_bar(w)) {
+    float len = track * (float)w->h / (float)x->content_h;
+    len = fmaxf(len, awra_pxf(18));
+    const float pos = (float)(x->vvalue / (x->content_h - w->h)) * (track - len);
+    AwraRGBA c = awra_tokens()->control_thumb;
+    c.a *= x->bar_t;
+    const float bw = awra_pxf(5);
+    /* at the left, right to left (GtkScrolledWindow's placement swaps) */
+    awra_paint_rbox(d, awra_mirror_box(w, (AwraBox){w->x + w->w - awra_pxf(6), w->y + pos, bw, len}),
+                    bw * 0.5f, &c, 0, NULL);
+  }
+  else {
+    /* GTK's default theme: scrollbar.overlay-indicator, its slider 3 px
+     * inside a 1 px border, margin 2px 0, 40 px long at least, at the
+     * scrollbar's end edge (its start border transparent); faded as one */
+    const float m = awra_pxf(2), sw = awra_pxf(5);
+    const float range = track - 2 * m;
+    float len = fmaxf(range * (float)w->h / (float)x->content_h, awra_pxf(40));
+    len = fminf(len, range);
+    const float pos = (float)(x->vvalue / (x->content_h - w->h)) * (range - len);
+    const AwraBox sb = awra_mirror_box(w, (AwraBox){w->x + w->w - sw, w->y + m + floorf(pos + 0.5f), sw, roundf(len)});
+    /* the GTK theme's variant: the desktop's scheme, not the appearance */
+    const bool dark = awra_style_gtk_dark();
+    AwraRGBA fill = dark ? (AwraRGBA){238 / 255.0f, 238 / 255.0f, 236 / 255.0f, 0.4f} :
+                           (AwraRGBA){46 / 255.0f, 52 / 255.0f, 54 / 255.0f, 0.4f};
+    AwraRGBA rim = dark ? (AwraRGBA){0, 0, 0, 0.4f} : (AwraRGBA){1, 1, 1, 0.4f};
+    fill.a *= x->bar_t;
+    rim.a *= x->bar_t;
+    const float r = sw * 0.5f;
+    awra_paint_rbox(d, awra_box_inset(sb, awra_pxf(1)), r - awra_pxf(1), &fill, 0, NULL);
+    awra_paint_rbox(d, sb, r, NULL, awra_pxf(1), &rim);
+  }
   scroll_fade(w, d);
 }
 
-static bool fade_tick(void *data)
+static void bar_dirty(AwraWidget *w)
+{
+  if (bk_ctx(w)) {
+    const int bw = awra_px(8);
+    bk_node_dirty(w, bk_rect((int)awra_mirror_x(w, (float)(w->x + w->w - bw), (float)bw), w->y, bw, w->h));
+  }
+}
+
+static void bar_set(AwraWidget *w, float pos);
+
+static bool bar_tick(void *data)
 {
   AwraWidget *w = (AwraWidget *)data;
   ScrollExt *x = SX(w);
-  const double now = awra_now_ms();
-  if (now < x->bar_until) {
-    return true;
-  }
-  /* 1 s fade after the 2 s delay */
-  const float t = (float)(1.0 - (now - x->bar_until) / 1000.0);
-  x->bar_t = t > 0 ? t : 0;
-  BKRect r = bk_rect((int)awra_mirror_x(w, (float)(w->x + w->w - awra_px(8)), (float)awra_px(8)), w->y,
-                     awra_px(8), w->h);
-  BKContext *ctx = bk_ctx(w);
-  if (ctx) {
-    bk_node_dirty(w, r);
-  }
-  if (x->bar_t <= 0.0f) {
+  const double t = fmin(1.0, (awra_now_ms() - x->bar_start) / 1000.0);
+  /* INDICATOR_FADE_OUT_DURATION, ease out cubic */
+  bar_set(w, x->bar_from + (float)awra_ease_out_cubic(t) * (x->bar_target - x->bar_from));
+  if (t >= 1.0) {
     x->fade_timer = 0;
     return false;
   }
   return true;
 }
 
-static void show_bar(AwraWidget *w)
+static void bar_fade(AwraWidget *w, float target);
+
+/* maybe_hide_indicator */
+static bool bar_conceal(void *data)
+{
+  AwraWidget *w = (AwraWidget *)data;
+  ScrollExt *x = SX(w);
+  if (awra_now_ms() - x->bar_shown >= 2000.0) {
+    bar_fade(w, 0.0f);
+  }
+  return true;
+}
+
+/* indicator_set_fade */
+static void bar_set(AwraWidget *w, float pos)
 {
   ScrollExt *x = SX(w);
-  x->bar_t = 1.0f;
-  x->bar_until = awra_now_ms() + 2000.0;
-  if (!x->fade_timer) {
-    x->fade_timer = awra_timeout_add(33, fade_tick, w, NULL);
+  const bool changed = x->bar_t != pos;
+  x->bar_t = pos;
+  const bool visible = x->bar_t != 0.0f || x->bar_target != 0.0f;
+  if (visible && !x->bar_conceal) {
+    x->bar_conceal = awra_timeout_add(500, bar_conceal, w, NULL);
+  }
+  if (!visible && x->bar_conceal) {
+    awra_source_remove(x->bar_conceal);
+    x->bar_conceal = 0;
+  }
+  if (changed) {
+    bar_dirty(w);
   }
 }
+
+/* indicator_start_fade */
+static void bar_fade(AwraWidget *w, float target)
+{
+  ScrollExt *x = SX(w);
+  if (x->bar_target == target) {
+    return;
+  }
+  x->bar_target = target;
+  if (target != 0.0f) {
+    x->bar_shown = awra_now_ms();
+  }
+  if (awra_style_reduced_motion()) {
+    bar_set(w, target);
+    return;
+  }
+  x->bar_from = x->bar_t;
+  x->bar_start = awra_now_ms();
+  if (!x->fade_timer) {
+    x->fade_timer = awra_timeout_add(16, bar_tick, w, NULL);
+  }
+}
+
+/* the content scrolled (indicator_value_changed) */
+static void show_bar(AwraWidget *w)
+{
+  SX(w)->bar_shown = awra_now_ms();
+  bar_fade(w, 1.0f);
+}
+
+/* GtkScrolledWindow's captured motion: the pointer moved over it */
+void awra_scrolled_pointer_moved(AwraWidget *w)
+{
+  if (scroll_bar_shown(w)) {
+    bar_fade(w, 1.0f);
+  }
+}
+
+bool awra_is_scrolled(const AwraWidget *w);
 
 static void scroll_to(AwraWidget *w, double v, double h)
 {
@@ -1638,15 +1837,22 @@ static int scroll_scroll(AwraWidget *w, BKEvent *e)
   if (!can_v && !can_h) {
     return 0;
   }
-  /* GTK: a wheel step is page_size^(2/3) pixels */
-  const double step_v = pow((double)w->h, 2.0 / 3.0), step_h = pow((double)w->w, 2.0 / 3.0);
+  /* GTK: a wheel step is page_size^(2/3) (logical) pixels */
+  const double k = awra_scale();
+  const double step_v = pow((double)w->h / k, 2.0 / 3.0) * k, step_h = pow((double)w->w / k, 2.0 / 3.0) * k;
   double dy = -e->wheel_y, dx = e->wheel_x;
   if ((e->mods & BK_SHIFT) && !can_v) {
     dx = dy;
     dy = 0;
   }
-  const double nv = x->vvalue + (can_v ? dy * step_v : 0);
-  const double nh = x->hvalue + (can_h ? dx * step_h : 0);
+  double nv = x->vvalue + (can_v ? dy * step_v : 0);
+  double nh = x->hvalue + (can_h ? dx * step_h : 0);
+  /* GtkListBase (a tile grid is GtkGridView's layout) keeps its
+   * adjustments on whole px: each step lands truncated */
+  if (x->whole_steps || (x->child && awra_widget_is(x->child, "AwraTileGrid"))) {
+    nv = trunc(nv / k) * k;
+    nh = trunc(nh / k) * k;
+  }
   const double ov = x->vvalue, oh = x->hvalue;
   scroll_to(w, nv, nh);
   return x->vvalue != ov || x->hvalue != oh || can_v;
@@ -1656,6 +1862,9 @@ static void scroll_finalize(AwraWidget *w)
 {
   if (SX(w)->fade_timer) {
     awra_source_remove(SX(w)->fade_timer);
+  }
+  if (SX(w)->bar_conceal) {
+    awra_source_remove(SX(w)->bar_conceal);
   }
   free(SX(w)->fade_under);
 }
@@ -1687,6 +1896,11 @@ static AwraClass scrolled_class = {
     .scroll = scroll_scroll,
 };
 
+bool awra_is_scrolled(const AwraWidget *w)
+{
+  return w && awra_is_widget((AwraWidget *)w) && AWRA_CLASS_OF(w) == &scrolled_class;
+}
+
 AwraWidget *awra_scrolled_new(void)
 {
   AwraWidget *w = awra_widget_new(&scrolled_class);
@@ -1704,6 +1918,11 @@ void awra_scrolled_set_child(AwraWidget *w, AwraWidget *child)
 AwraWidget *awra_scrolled_child(AwraWidget *w)
 {
   return SX(w)->child;
+}
+
+void awra_scrolled_set_whole_steps(AwraWidget *w, bool whole)
+{
+  SX(w)->whole_steps = whole;
 }
 
 void awra_scrolled_set_policy(AwraWidget *w, AwraPolicy h, AwraPolicy v)

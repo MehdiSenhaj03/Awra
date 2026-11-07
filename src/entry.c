@@ -32,6 +32,7 @@ typedef struct EditExt {
   /* spin */
   double min, max, step, value;
   int digits;
+  int width_chars; /* spin buttons: the text's width in chars (Awra 1's) */
   int spin_hot; /* -1 none, 0 down, 1 up */
   bool dragging;
   char masked[1]; /* (unused) */
@@ -178,6 +179,14 @@ static AwraBox edit_box(AwraWidget *w)
   return b;
 }
 
+/* A GtkEntry that is not an AwraEntry (awra_entry_new_gtk): GTK 4's
+ * default theme draws it (Default-dark/light.css: min-height 32px,
+ * padding 0 8px, 1px border, radius 5px), Awra 1's stylesheet leaves it. */
+static bool entry_gtk(const AwraWidget *w)
+{
+  return awra_widget_get_data((AwraWidget *)w, "awra-gtk-entry") != NULL;
+}
+
 static void edit_pads(AwraWidget *w, int *l, int *r, int *t, int *b)
 {
   EditExt *x = EX(w);
@@ -188,6 +197,19 @@ static void edit_pads(AwraWidget *w, int *l, int *r, int *t, int *b)
   if (inline_edit(w) && !x->multiline && !x->bare) {
     *t = *b = awra_px(1) + awra_px(1);
     *l = *r = awra_px(5) + awra_px(1);
+    return;
+  }
+  if (entry_gtk(w) && !x->multiline && !x->bare) {
+    *t = *b = awra_px(1);
+    *l = *r = awra_px(8) + awra_px(1);
+    if (x->icon) { /* entry > image.left { margin-right: 6px } */
+      *l += awra_px(16) + awra_px(6);
+    }
+    if (awra_widget_rtl(w)) {
+      const int k = *l;
+      *l = *r;
+      *r = k;
+    }
     return;
   }
   *t = *b = awra_px(5) + awra_px(1);
@@ -233,11 +255,16 @@ static void edit_measure(AwraWidget *w, int o, int for_size, int *r_min, int *r_
   layout_sync(w);
   if (o == AWRA_ORIENTATION_HORIZONTAL) {
     if (x->spin) {
+      /* GtkText with width-chars: char_pixels (the larger of Pango's
+       * approximate char and digit widths, rounded up) times the chars */
       AwraFont f = edit_font(w);
-      char buf[64];
-      snprintf(buf, sizeof(buf), "%.*f", x->digits, x->max);
-      const int tw = (int)ceilf(awra_text_width(&f, buf, -1));
-      *r_min = *r_nat = l + r + BK_MAX(tw, awra_px(16));
+      static const char sample[] = "The quick brown fox jumps over the lazy dog.";
+      float cw = awra_text_width(&f, sample, (int)sizeof(sample) - 1) / (float)(sizeof(sample) - 1);
+      for (char d = '0'; d <= '9'; d++) {
+        cw = fmaxf(cw, awra_text_width(&f, &d, 1));
+      }
+      const int tw = (int)ceilf(cw) * x->width_chars;
+      *r_min = *r_nat = l + r + tw;
       return;
     }
     *r_min = l + r + (inline_edit(w) ? 0 : awra_px(64));
@@ -263,7 +290,10 @@ static void edit_measure(AwraWidget *w, int o, int for_size, int *r_min, int *r_
     awra_text_layout_size(x->layout, for_size >= 0 ? for_size - l - r : -1, NULL, &h);
     th = BK_MAX(th * 3, h);
   }
-  if (!x->frameless && !inline_edit(w)) {
+  if (entry_gtk(w) && !x->frameless) {
+    th = BK_MAX(th, awra_px(32)); /* min-height: 32px */
+  }
+  else if (!x->frameless && !inline_edit(w)) {
     th = BK_MAX(th, awra_px(22));
   }
   if (x->spin) {
@@ -370,8 +400,25 @@ static void edit_draw(AwraWidget *w, AwraDraw *d)
   const bool sens = awra_sensitive(w);
   const float radius = awra_pxf(inline_edit(w) ? 6 : x->search ? 9 : 11);
   AwraBox b = edit_box(w);
+  const bool gtk = entry_gtk(w) && !x->multiline;
+  /* GTK's default theme: its colours (Default-dark.css / Default-light.css) */
+  const AwraRGBA gtk_fg = t->dark ? (sens ? (AwraRGBA){1, 1, 1, 1} : (AwraRGBA){0x91 / 255.0f, 0x91 / 255.0f, 0x90 / 255.0f, 1}) :
+                                    (sens ? (AwraRGBA){0, 0, 0, 1} : (AwraRGBA){0x92 / 255.0f, 0x95 / 255.0f, 0x95 / 255.0f, 1});
   if (x->frameless || x->bare) {
     /* a bare text field: its container draws the frame */
+  }
+  else if (gtk) {
+    const AwraRGBA bg = t->dark ? (sens ? (AwraRGBA){0x2d / 255.0f, 0x2d / 255.0f, 0x2d / 255.0f, 1} :
+                                          (AwraRGBA){0x32 / 255.0f, 0x32 / 255.0f, 0x32 / 255.0f, 1}) :
+                                  (sens ? (AwraRGBA){1, 1, 1, 1} : (AwraRGBA){0xfa / 255.0f, 0xf9 / 255.0f, 0xf8 / 255.0f, 1});
+    const AwraRGBA border = t->dark ? (AwraRGBA){0x1b / 255.0f, 0x1b / 255.0f, 0x1b / 255.0f, 1} :
+                                      (AwraRGBA){0xcd / 255.0f, 0xc7 / 255.0f, 0xc2 / 255.0f, 1};
+    awra_paint_rbox(d, b, awra_pxf(5), &bg, awra_pxf(1), &border);
+    if (focus) { /* entry:focus-within: outline 2px, offset -2px */
+      const AwraRGBA ring = t->dark ? (AwraRGBA){21 / 255.0f, 83 / 255.0f, 158 / 255.0f, 0.7f} :
+                                      (AwraRGBA){53 / 255.0f, 132 / 255.0f, 228 / 255.0f, 0.5f};
+      awra_paint_rbox(d, b, awra_pxf(5), NULL, awra_pxf(2), &ring);
+    }
   }
   else {
   if (focus) { /* outline 1px @awra_selection, offset 2 */
@@ -402,11 +449,11 @@ static void edit_draw(AwraWidget *w, AwraDraw *d)
   }
   }
   AwraBox a = text_area(w);
-  const AwraRGBA fg = sens ? t->foreground : t->disabled;
+  const AwraRGBA fg = gtk ? gtk_fg : sens ? t->foreground : t->disabled;
   /* icons */
   if (x->search || x->icon) {
     const int s = awra_px(16);
-    const float ix = awra_mirror_x(w, b.x + awra_pxf(1) + awra_pxf(x->search ? 8 : 11), (float)s);
+    const float ix = awra_mirror_x(w, b.x + awra_pxf(1) + awra_pxf(x->search ? 8 : gtk ? 8 : 11), (float)s);
     awra_paint_icon(d, x->search ? "system-search-symbolic" : x->icon, ix,
                     b.y + floorf((b.h - s) * 0.5f + 0.5f), s, &t->muted);
   }
@@ -418,8 +465,9 @@ static void edit_draw(AwraWidget *w, AwraDraw *d)
   }
   if (x->search && x->te->len > 0) {
     const int s = awra_px(16);
-    /* .awra-search-entry image: 4 px of padding after the icon */
-    const float ix = awra_mirror_x(w, b.x + b.w - awra_pxf(1) - awra_pxf(8) - awra_pxf(4) - s, (float)s);
+    /* GtkSearchEntry's clear image: 20 px wide inside the 9 px padding, its
+     * icon at its start (as the search icon at the other end) */
+    const float ix = awra_mirror_x(w, b.x + b.w - awra_pxf(9) - awra_pxf(20), (float)s);
     awra_paint_icon(d, "edit-clear-symbolic", ix, b.y + floorf((b.h - s) * 0.5f + 0.5f), s,
                     &t->muted);
   }
@@ -454,7 +502,7 @@ static void edit_draw(AwraWidget *w, AwraDraw *d)
   int tw, th;
   const int lw = x->multiline ? (int)a.w : -1;
   awra_text_layout_size(x->layout, lw, &tw, &th);
-  const float ty = x->multiline ? a.y - x->scroll_y : a.y + floorf((a.h - th) * 0.5f); /* GtkText get_layout_position: truncated */
+  const float ty = x->multiline ? a.y - x->scroll_y : a.y + (float)(int)((a.h - th) * 0.5f); /* GtkText: truncated */
   const float tx = text_x(w, a);
   if (x->te->len == 0) {
     if (x->placeholder && !(x->spin)) {
@@ -495,14 +543,29 @@ static void edit_draw(AwraWidget *w, AwraDraw *d)
         awra_text_layout_draw_selection_view(x->layout, d, tx, ty, lw, s0, s1, &t->selection, a.w);
       }
       else {
-        awra_text_layout_draw_selection_box(x->layout, d, tx, ty, lw, s0, s1, &t->selection);
+        /* entry > text > selection:focus-within, GTK's theme */
+        const AwraRGBA gsel = t->dark ? (AwraRGBA){21 / 255.0f, 83 / 255.0f, 158 / 255.0f, 0.8f} :
+                                        (AwraRGBA){53 / 255.0f, 132 / 255.0f, 228 / 255.0f, 0.3f};
+        awra_text_layout_draw_selection_box(x->layout, d, tx, ty, lw, s0, s1, gtk ? &gsel : &t->selection);
       }
     }
     awra_text_layout_draw(x->layout, d, tx, ty, lw, &fg);
+    if (gtk && !x->multiline && x->te->anchor >= 0 && x->te->anchor != x->te->caret && focus) {
+      /* entry > text > selection:focus-within { color: #eeeeec / #2e3436 } */
+      float ax, ay, ah, bx, by, bh;
+      awra_text_layout_index_to_pos(x->layout, -1, shown_index(w, BK_MIN(x->te->anchor, x->te->caret)), &ax, &ay, &ah);
+      awra_text_layout_index_to_pos(x->layout, -1, shown_index(w, BK_MAX(x->te->anchor, x->te->caret)), &bx, &by, &bh);
+      const AwraRGBA sc = t->dark ? (AwraRGBA){0xee / 255.0f, 0xee / 255.0f, 0xec / 255.0f, 1} :
+                                    (AwraRGBA){0x2e / 255.0f, 0x34 / 255.0f, 0x36 / 255.0f, 1};
+      const float x0 = fminf(ax, bx), x1 = fmaxf(ax, bx);
+      bk_clip_push((int)floorf(tx + x0), (int)b.y, (int)(ceilf(tx + x1) - floorf(tx + x0)), (int)b.h);
+      awra_text_layout_draw(x->layout, d, tx, ty, lw, &sc);
+      bk_clip_pop();
+    }
   }
-  /* GtkText draws no cursor while there is a selection */
+  /* GtkText draws its cursor only without a selection */
   const bool selecting = x->te->anchor >= 0 && x->te->anchor != x->te->caret;
-  if (focus && x->caret_on && x->editable && (x->multiline || !selecting)) {
+  if (focus && x->caret_on && x->editable && !selecting) {
     float cx, cy, ch;
     awra_text_layout_index_to_pos(x->layout, lw, shown_index(w, x->te->caret), &cx, &cy, &ch);
     awra_paint_rect(d, (AwraBox){floorf(tx + cx), ty + cy, awra_pxf(1), ch},
@@ -706,7 +769,7 @@ static int edit_index_at(AwraWidget *w, int px, int py)
   int tw, th;
   const int lw = x->multiline ? (int)a.w : -1;
   awra_text_layout_size(x->layout, lw, &tw, &th);
-  const float ty = x->multiline ? a.y - x->scroll_y : a.y + floorf((a.h - th) * 0.5f); /* GtkText get_layout_position: truncated */
+  const float ty = x->multiline ? a.y - x->scroll_y : a.y + (float)(int)((a.h - th) * 0.5f); /* GtkText: truncated */
   return real_index(w, awra_text_layout_pos_to_index(x->layout, lw, px - text_x(w, a), py - ty));
 }
 
@@ -717,7 +780,7 @@ static bool in_peek_icon(AwraWidget *w, int px)
 
 static bool in_clear_icon(AwraWidget *w, int px)
 {
-  return EX(w)->search && EX(w)->te->len > 0 && awra_mirror_px(w, px) > w->x + w->w - awra_px(1 + 8 + 4 + 16 + 2);
+  return EX(w)->search && EX(w)->te->len > 0 && awra_mirror_px(w, px) >= w->x + w->w - awra_px(9 + 20);
 }
 
 static int spin_button_at(AwraWidget *w, int px, int py)
@@ -963,7 +1026,7 @@ static bool edit_a11y_layout(AwraWidget *w, AwraTextLayout **r_layout, float *r_
   awra_text_layout_size(x->layout, lw, &tw, &th);
   *r_layout = x->layout;
   *r_x = text_x(w, a);
-  *r_y = x->multiline ? a.y - x->scroll_y : a.y + floorf((a.h - th) * 0.5f); /* GtkText get_layout_position: truncated */
+  *r_y = x->multiline ? a.y - x->scroll_y : a.y + (float)(int)((a.h - th) * 0.5f); /* GtkText: truncated */
   *r_width = lw;
   return true;
 }
@@ -1132,6 +1195,13 @@ void awra_search_entry_set_escape_stops(AwraWidget *w, bool stops)
   EX(w)->escape_stops = stops;
 }
 
+AwraWidget *awra_entry_new_gtk(void)
+{
+  AwraWidget *w = awra_entry_new();
+  awra_widget_set_data(w, "awra-gtk-entry", (void *)1, NULL);
+  return w;
+}
+
 void awra_entry_set_quiet(AwraWidget *w, bool quiet);
 void awra_entry_set_quiet(AwraWidget *w, bool quiet)
 {
@@ -1222,6 +1292,13 @@ AwraWidget *awra_spin_button_new(double min, double max, double step)
   x->step = step;
   x->value = min;
   x->digits = step > 0 && step < 1 ? (step < 0.1 ? 2 : 1) : 0;
+  /* Awra 1's fit_width_to_range, at construction while its GtkSpinButton
+   * still shows no decimals: the widest of the bounds as integers, 2 at
+   * least (decimals set later don't widen it) */
+  char lo[64], hi[64];
+  snprintf(lo, sizeof(lo), "%.0f", min);
+  snprintf(hi, sizeof(hi), "%.0f", max);
+  x->width_chars = BK_MAX(2, (int)BK_MAX(strlen(lo), strlen(hi)));
   awra_widget_set_data(w, "awra-type", (void *)"AwraSpinButton", NULL);
   spin_show(w);
   return w;

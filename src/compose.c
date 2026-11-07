@@ -36,6 +36,7 @@ typedef struct BinExt {
   short inset;               /* sidebars: logical px around the painted surface,
                               * inside the size request (Awra 1's inner surface margins) */
   short inset_end;           /* sidebars: at the end edge (-1: inset) */
+  bool drew_backdrop;        /* surfaces: the last draw went over the backdrop */
 } BinExt;
 
 bool awra_paint_material_backdrop(AwraDraw *d, AwraBox b, AwraMaterial material, int role,
@@ -120,26 +121,43 @@ static void surface_save_corners(AwraWidget *w, AwraDraw *d)
     g_corners = grown;
     g_corners_cap = cap;
   }
-  if (BUI_raster_corners_save(d->r, b.x, b.y, b.w, b.h, radii, g_corners + g_corners_top)) {
+  if (SR_corners_save(d->r, b.x, b.y, b.w, b.h, radii, g_corners + g_corners_top)) {
     g_corners_top += n;
     awra_aux(w)->corners_saved = 1;
   }
+}
+
+static AwraBox surface_paint_box(AwraWidget *w)
+{
+  BinExt *x = BINX(w);
+  AwraBox box = awra_box_inset(awra_box_of(w), awra_pxf(x->inset));
+  if (x->inset_end >= 0) {
+    box.w += awra_pxf(x->inset) - awra_pxf(x->inset_end);
+  }
+  return box;
 }
 
 static void surface_draw_over(AwraWidget *w, AwraDraw *d)
 {
   AwraBox b;
   float radii[4];
-  if (!awra_aux(w)->corners_saved) {
+  if (awra_aux(w)->corners_saved) {
+    awra_aux(w)->corners_saved = 0;
+    if (surface_clip_box(w, &b, radii)) { /* (it can't change while it draws) */
+      const size_t n = (size_t)BUI_raster_corners_size(b.w, b.h, radii);
+      g_corners_top -= n;
+      SR_corners_clip(d->r, b.x, b.y, b.w, b.h, radii, g_corners + g_corners_top);
+    }
+  }
+  BinExt *x = BINX(w);
+  if (!x->paints) {
     return;
   }
-  awra_aux(w)->corners_saved = 0;
-  if (!surface_clip_box(w, &b, radii)) {
-    return; /* (it can't change while it draws) */
-  }
-  const size_t n = (size_t)BUI_raster_corners_size(b.w, b.h, radii);
-  g_corners_top -= n;
-  BUI_raster_corners_clip(d->r, b.x, b.y, b.w, b.h, radii, g_corners + g_corners_top);
+  AwraResolvedMaterial m;
+  awra_material_resolve((AwraMaterial)x->material, x->role, (AwraElevation)x->elevation,
+                        x->drew_backdrop, &m);
+  const float r = x->radius >= 0 ? awra_pxf(x->radius) : awra_pxf(m.radius);
+  awra_paint_material_edges(d, surface_paint_box(w), &m, r, x->corner_mask, x->edge_mask);
 }
 
 static void surface_draw(AwraWidget *w, AwraDraw *d)
@@ -151,16 +169,15 @@ static void surface_draw(AwraWidget *w, AwraDraw *d)
   AwraResolvedMaterial m;
   awra_material_resolve((AwraMaterial)x->material, x->role, (AwraElevation)x->elevation, false, &m);
   const float r = x->radius >= 0 ? awra_pxf(x->radius) : awra_pxf(m.radius);
-  AwraBox box = awra_box_inset(awra_box_of(w), awra_pxf(x->inset));
-  if (x->inset_end >= 0) {
-    box.w += awra_pxf(x->inset) - awra_pxf(x->inset_end);
-  }
-  if (!(x->backdrop &&
-        awra_paint_material_backdrop(d, box, (AwraMaterial)x->material, x->role,
-                                     (AwraElevation)x->elevation, r, x->corner_mask, x->edge_mask,
-                                     x->backdrop)))
-  {
-    awra_paint_material(d, box, &m, r, x->corner_mask, x->edge_mask, (AwraElevation)x->elevation);
+  AwraBox box = surface_paint_box(w);
+  /* the fill under the content; the outline and rim over it
+   * (surface_draw_over), as AwraSurface's snapshot */
+  x->drew_backdrop = x->backdrop &&
+                     awra_paint_material_backdrop(d, box, (AwraMaterial)x->material, x->role,
+                                                  (AwraElevation)x->elevation, r, x->corner_mask, 0,
+                                                  x->backdrop);
+  if (!x->drew_backdrop) {
+    awra_paint_material(d, box, &m, r, x->corner_mask, 0, (AwraElevation)x->elevation);
   }
   surface_save_corners(w, d);
 }
@@ -397,6 +414,9 @@ static void pagecol_allocate(AwraWidget *w)
   const intptr_t mw = (intptr_t)awra_widget_get_data(w, "awra-maxw");
   const int cw = BK_MIN(w->w, awra_px(mw > 0 ? (int)mw : 960));
   awra_allocate(c, w->x + (w->w - cw) / 2, w->y, cw, w->h);
+  /* Awra 1: translated by (width - child_width) / 2.0f, half a pixel
+   * further when that is odd */
+  awra_widget_set_draw_shift(c, (float)((w->w - cw) & 1) * 0.5f, 0.0f);
 }
 
 static AwraClass pagecol_class = {
@@ -1332,8 +1352,7 @@ AwraWidget *awra_status_banner_new(const char *title, const char *description,
   x->variant = appearance;
   AwraWidget *root = awra_box_new(AWRA_ORIENTATION_HORIZONTAL, 12);
   x->a = awra_image_new_from_icon_name(status_icons[appearance & 3]);
-  awra_image_set_pixel_size(x->a, 20);
-  awra_widget_set_valign(x->a, AWRA_ALIGN_START);
+  awra_image_set_pixel_size(x->a, 20); /* -gtk-icon-size: 20px, centred in the row (Awra 1) */
   AwraWidget *copy = awra_box_new(AWRA_ORIENTATION_VERTICAL, 4);
   awra_widget_set_hexpand(copy, true);
   x->b = awra_label_new(title ? title : "");
@@ -2030,7 +2049,7 @@ void awra_navigation_item_set_suffix(AwraWidget *w, AwraWidget *suffix)
   }
   x->suffix = suffix;
   if (suffix) {
-    awra_widget_set_valign(suffix, AWRA_ALIGN_CENTER);
+    /* Awra 1 leaves its alignment alone: a badge fills the row's height */
     awra_widget_set_margin_start(suffix, 4);
     awra_box_append(x->box, suffix);
   }

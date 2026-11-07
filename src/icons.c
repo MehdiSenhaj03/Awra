@@ -994,7 +994,7 @@ static void draw_raster(AwraDraw *d, AwraIconRaster *r, int x, int y, const Awra
         return;
       }
       float c[4] = {fg.r, fg.g, fg.b, fg.a * d->opacity};
-      BUI_raster_mask(d->r, x, y, r->mask, r->px, r->px, r->px, c);
+      SR_mask(d->r, x, y, r->mask, r->px, r->px, r->px, c);
       return;
     }
     case RASTER_PLANES: {
@@ -1003,14 +1003,14 @@ static void draw_raster(AwraDraw *d, AwraIconRaster *r, int x, int y, const Awra
       const uint32_t *px = tinted(r, pal);
       if (px) {
         const BuiPixmap pm = {px, r->px, r->px, r->tint_key, BUI_PIXMAP_ARGB, 0};
-        BUI_raster_image(d->r, (float)x, (float)y, (float)r->px, (float)r->px, &pm, NULL, d->opacity, 0);
+        SR_image(d->r, (float)x, (float)y, (float)r->px, (float)r->px, &pm, NULL, d->opacity, 0); /* symbolic: paths, at the fraction */
       }
       return;
     }
     default:
       if (r->argb) {
         const BuiPixmap pm = {r->argb, r->px, r->px, r->key, BUI_PIXMAP_ARGB, 0};
-        BUI_raster_image(d->r, (float)x, (float)y, (float)r->px, (float)r->px, &pm, NULL, d->opacity, 0);
+        BUI_raster_image(d->r, (float)(x + awra_shift_ix()), (float)(y + awra_shift_iy()), (float)r->px, (float)r->px, &pm, NULL, d->opacity, 0); /* snapped, as GTK's icon textures */
       }
   }
 }

@@ -281,7 +281,8 @@ void awra_icon_glow_draw(AwraWidget *w, AwraDraw *d, const uint8_t *a8, const ui
   if (m) {
     const AwraRGBA a = awra_tokens()->accent;
     float c[4] = {a.r, a.g, a.b, a.a * d->opacity};
-    BUI_raster_mask(d->r, (int)floorf(ix + 0.5f) - pad, (int)floorf(iy + 0.5f) - pad, m, mw, mh, mw, c);
+    BUI_raster_mask(d->r, (int)floorf(ix + 0.5f) + awra_shift_ix() - pad, (int)floorf(iy + 0.5f) + awra_shift_iy() - pad, m,
+                    mw, mh, mw, c);
   }
   free(frame);
 }

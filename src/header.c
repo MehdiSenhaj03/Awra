@@ -19,6 +19,7 @@ typedef struct HeaderExt {
   int material;     /* when not blended (default Chrome) */
   int max_width;    /* logical, 0: none */
   AwraWidget *backdrop;
+  bool drew_backdrop;
 } HeaderExt;
 
 bool awra_paint_material_backdrop(AwraDraw *d, AwraBox b, AwraMaterial material, int role,
@@ -122,14 +123,26 @@ static void header_draw(AwraWidget *w, AwraDraw *d)
   }
   AwraResolvedMaterial m;
   awra_material_resolve((AwraMaterial)x->material, AWRA_ROLE_GENERIC, AWRA_ELEVATION_FLAT, false, &m);
-  if (awra_paint_material_backdrop(d, awra_box_of(w), (AwraMaterial)x->material, AWRA_ROLE_GENERIC,
-                                   AWRA_ELEVATION_FLAT, awra_pxf(m.radius), 15, AWRA_EDGE_ALL,
-                                   x->backdrop))
-  {
+  /* the fill under the content, the outline and rim over it
+   * (header_draw_over), as AwraHeader's surface */
+  x->drew_backdrop = awra_paint_material_backdrop(d, awra_box_of(w), (AwraMaterial)x->material,
+                                                  AWRA_ROLE_GENERIC, AWRA_ELEVATION_FLAT,
+                                                  awra_pxf(m.radius), 15, 0, x->backdrop);
+  if (!x->drew_backdrop) {
+    awra_paint_material(d, awra_box_of(w), &m, awra_pxf(m.radius), 15, 0, AWRA_ELEVATION_FLAT);
+  }
+}
+
+static void header_draw_over(AwraWidget *w, AwraDraw *d)
+{
+  HeaderExt *x = HX(w);
+  if (x->blend) {
     return;
   }
-  awra_paint_material(d, awra_box_of(w), &m, awra_pxf(m.radius), 15, AWRA_EDGE_ALL,
-                      AWRA_ELEVATION_FLAT);
+  AwraResolvedMaterial m;
+  awra_material_resolve((AwraMaterial)x->material, AWRA_ROLE_GENERIC, AWRA_ELEVATION_FLAT,
+                        x->drew_backdrop, &m);
+  awra_paint_material_edges(d, awra_box_of(w), &m, awra_pxf(m.radius), 15, AWRA_EDGE_ALL);
 }
 
 static int header_press(AwraWidget *w, BKEvent *e)
@@ -187,6 +200,7 @@ static AwraClass header_class = {
     .measure = header_measure,
     .allocate = header_allocate,
     .draw = header_draw,
+    .draw_over = header_draw_over,
     .press = header_press,
     .drag = header_drag,
     .release = header_release,

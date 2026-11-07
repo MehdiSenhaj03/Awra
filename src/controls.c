@@ -261,15 +261,17 @@ static void switch_draw(AwraWidget *w, AwraDraw *d)
     d->opacity *= 0.58f;
   }
   const bool on = x->active && awra_sensitive(w);
-  /* the color follows the state with a 110 ms transition, carried by pos */
-  awra_paint_rbox(d, b, bh * 0.5f, on ? &t->accent : &t->control_well, 0, NULL);
+  /* awra.css: a 1 px border (transparent, 8 % white when on), the
+   * background clipped to the padding box, and in every state the inset
+   * 0 1px 2px rgba(0,0,0,.22) shadow */
+  const float one = awra_pxf(1);
+  const AwraBox pb = {b.x + one, b.y + one, b.w - 2 * one, b.h - 2 * one};
+  awra_paint_rbox(d, pb, pb.h * 0.5f, on ? &t->accent : &t->control_well, 0, NULL);
+  const AwraRGBA sh = {0, 0, 0, 0.22f};
+  awra_paint_inset_shadow(d, pb, pb.h * 0.5f, 0, one, 0, awra_pxf(2), &sh);
   if (on) {
     const AwraRGBA edge = {1, 1, 1, 0.08f};
-    awra_paint_rbox(d, b, bh * 0.5f, NULL, awra_pxf(1), &edge);
-  }
-  else { /* inset 0 1px 2px rgba(0,0,0,.22) */
-    const AwraRGBA sh = {0, 0, 0, 0.22f};
-    awra_paint_inset_shadow(d, b, bh * 0.5f, 0, awra_pxf(1), 0, awra_pxf(2), &sh);
+    awra_paint_rbox(d, b, bh * 0.5f, NULL, one, &edge);
   }
   const float tw = awra_pxf(21), th = awra_pxf(22), inset = awra_pxf(3);
   AwraBox thumb = {b.x + inset + floorf(x->pos * tw + 0.5f), b.y + inset, tw, th};
@@ -277,8 +279,10 @@ static void switch_draw(AwraWidget *w, AwraDraw *d)
     thumb.x = 2.0f * b.x + b.w - thumb.x - thumb.w;
   }
   const AwraRGBA shadow = {0, 0, 0, 0.28f};
-  awra_paint_shadow(d, thumb, th * 0.5f, 0, awra_pxf(1), 0, awra_pxf(4), &shadow, true);
-  awra_paint_rbox(d, thumb, th * 0.5f, &t->control_thumb, 0, NULL);
+  /* border-radius 999px: half the smaller side */
+  const float tr = fminf(tw, th) * 0.5f;
+  awra_paint_shadow(d, thumb, tr, 0, awra_pxf(1), 0, awra_pxf(4), &shadow, true);
+  awra_paint_rbox(d, thumb, tr, &t->control_thumb, 0, NULL);
   if (awra_focus_visible(w)) {
     const float fw = awra_pxf(3), off = awra_pxf(2);
     AwraBox o = {b.x - off - fw, b.y - off - fw, b.w + 2 * (off + fw), b.h + 2 * (off + fw)};
@@ -441,10 +445,10 @@ static void slider_draw(AwraWidget *w, AwraDraw *d)
 {
   SliderExt *x = SLX(w);
   const AwraTokens *t = awra_tokens();
-  const float saved = d->opacity;
-  if (!awra_sensitive(w)) {
-    d->opacity *= 0.58f;
-  }
+  /* .awra-slider:disabled { opacity: .58 }: the slider fades as one layer
+   * (its thumb hides the highlight under it), with the thumb's shadow */
+  AwraGroup group;
+  awra_group_begin(d, awra_box_inset(awra_box_of(w), -awra_pxf(10)), awra_sensitive(w) ? 1.0f : 0.58f, &group);
   const bool horiz = x->orientation == AWRA_ORIENTATION_HORIZONTAL;
   const float th = awra_pxf(6);
   const float frac = (float)slider_frac(w);
@@ -486,7 +490,9 @@ static void slider_draw(AwraWidget *w, AwraDraw *d)
                           (AwraBox){trough.x + th * 0.5f - ts * 0.5f, cxy - ts * 0.5f, ts, ts};
   const AwraRGBA shadow = {0, 0, 0, 0.30f}, edge = {0, 0, 0, 0.12f};
   awra_paint_shadow(d, thumb, ts * 0.5f, 0, awra_pxf(2), 0, awra_pxf(6), &shadow, true);
-  awra_paint_rbox(d, thumb, ts * 0.5f, &t->control_thumb, awra_pxf(1), &edge);
+  /* background-clip: padding-box: the 1 px border rings the thumb's fill */
+  awra_paint_rbox(d, awra_box_inset(thumb, awra_pxf(1)), ts * 0.5f - awra_pxf(1), &t->control_thumb, 0, NULL);
+  awra_paint_rbox(d, thumb, ts * 0.5f, NULL, awra_pxf(1), &edge);
   if (vh) {
     /* scale > value { color: alpha(currentColor, .55) }, centered on the
      * thumb and kept inside the slider */
@@ -499,7 +505,7 @@ static void slider_draw(AwraWidget *w, AwraDraw *d)
     const AwraRGBA c = awra_with_alpha(t->foreground, 0.55f);
     awra_draw_text(d, &f, tx, (float)w->y + floorf(awra_font_ascent(&f) + 0.5f), buf, n, &c);
   }
-  d->opacity = saved;
+  awra_group_end(d, &group);
 }
 
 static void slider_set_value_internal(AwraWidget *w, double v, bool notify)
@@ -951,7 +957,10 @@ static void prog_draw(AwraWidget *w, AwraDraw *d)
     px = b.x + (float)x->pulse * (b.w - pw);
   }
   else {
-    pw = awra_pxf(1) + (b.w - awra_pxf(1)) * (float)x->fraction;
+    /* allocate_trough: a whole number of px, min-width + the fraction of
+     * the rest, truncated */
+    const double lw = b.w / awra_scale();
+    pw = awra_pxf((int)(1.0 + (lw - 1.0) * x->fraction));
   }
   const AwraRGBA *fill = meter && awra_widget_has_class(w, "usage-low") ? &t->danger : &t->accent;
   /* right to left, it fills from the right (GtkProgressBar) */
