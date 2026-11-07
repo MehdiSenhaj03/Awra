@@ -352,6 +352,11 @@ typedef struct Ini {
   char *text;
   IniEntry *e;
   int n;
+  /* by group: the first entry of each group name (hash, open addressing),
+   * then each entry's next one of the same group (-1: none) */
+  int *head, *next;
+  const char **head_name;
+  int cap;
 } Ini;
 
 static void ini_parse(Ini *ini, char *text)
@@ -411,22 +416,82 @@ static void ini_free(Ini *ini)
 {
   free(ini->text);
   free(ini->e);
+  free(ini->head);
+  free(ini->next);
+  free(ini->head_name);
   memset(ini, 0, sizeof(*ini));
 }
 
-static const char *ini_get(const Ini *ini, const char *group, const char *key)
+/* the index of groups (index.theme files have hundreds: hicolor's ~470) */
+static void ini_index(Ini *ini)
 {
-  const char *v = NULL;
+  int cap = 64;
+  while (cap < ini->n * 2) {
+    cap *= 2;
+  }
+  ini->head = (int *)malloc(sizeof(int) * cap);
+  ini->head_name = (const char **)calloc((size_t)cap, sizeof(char *));
+  ini->next = (int *)malloc(sizeof(int) * (ini->n ? ini->n : 1));
+  int *tail = (int *)malloc(sizeof(int) * cap);
+  if (!ini->head || !ini->head_name || !ini->next || !tail) {
+    free(ini->head);
+    free(ini->head_name);
+    free(ini->next);
+    free(tail);
+    ini->head = ini->next = NULL;
+    ini->head_name = NULL;
+    return;
+  }
+  ini->cap = cap;
   for (int i = 0; i < ini->n; i++) {
-    if (!strcmp(ini->e[i].key, key) && !strcmp(ini->e[i].group, group)) {
-      v = ini->e[i].value; /* the last one wins */
+    ini->next[i] = -1;
+    uint32_t h = fnv(ini->e[i].group, 2166136261u) & (uint32_t)(cap - 1);
+    while (ini->head_name[h] && strcmp(ini->head_name[h], ini->e[i].group) != 0) {
+      h = (h + 1) & (uint32_t)(cap - 1);
+    }
+    if (!ini->head_name[h]) {
+      ini->head_name[h] = ini->e[i].group;
+      ini->head[h] = i;
+    }
+    else {
+      ini->next[tail[h]] = i;
+    }
+    tail[h] = i;
+  }
+  free(tail);
+}
+
+static const char *ini_get(Ini *ini, const char *group, const char *key)
+{
+  if (!ini->head && ini->n) {
+    ini_index(ini);
+  }
+  const char *v = NULL;
+  if (!ini->head) {
+    for (int i = 0; i < ini->n; i++) {
+      if (!strcmp(ini->e[i].key, key) && !strcmp(ini->e[i].group, group)) {
+        v = ini->e[i].value; /* the last one wins */
+      }
+    }
+    return v;
+  }
+  uint32_t h = fnv(group, 2166136261u) & (uint32_t)(ini->cap - 1);
+  while (ini->head_name[h] && strcmp(ini->head_name[h], group) != 0) {
+    h = (h + 1) & (uint32_t)(ini->cap - 1);
+  }
+  if (!ini->head_name[h]) {
+    return NULL;
+  }
+  for (int i = ini->head[h]; i >= 0; i = ini->next[i]) {
+    if (!strcmp(ini->e[i].key, key)) {
+      v = ini->e[i].value; /* the last one wins (duplicate groups merge) */
     }
   }
   return v;
 }
 
 /* g_key_file_get_integer: a whole decimal number, else not one */
-static bool ini_int(const Ini *ini, const char *group, const char *key, int *r)
+static bool ini_int(Ini *ini, const char *group, const char *key, int *r)
 {
   const char *v = ini_get(ini, group, key);
   if (!v) {
@@ -445,7 +510,7 @@ static bool ini_int(const Ini *ini, const char *group, const char *key, int *r)
 
 /* g_key_file_get_string_list with ',' (escaped "\," kept), empty items
  * after the last separator dropped */
-static void ini_list(const Ini *ini, const char *group, const char *key, Strv *out)
+static void ini_list(Ini *ini, const char *group, const char *key, Strv *out)
 {
   const char *v = ini_get(ini, group, key);
   if (!v) {
@@ -484,36 +549,122 @@ enum {
   SUFFIX_SYMBOLIC_PNG = 1 << 4,
 };
 
+/* The file is read in 4 KiB blocks as lookups need them, a few kept: a
+ * lookup touches a handful of scattered entries, and mapping the file
+ * would bring large parts of it in (Papirus' is 2.8 MB). */
+#define CACHE_BLOCK 4096
+#define CACHE_SLOTS 16
+
 typedef struct IconCache {
-  const uint8_t *buf;
+#ifdef _WIN32
+  FILE *f;
+#else
+  int fd;
+#endif
   size_t len;
-  bool mapped;
+  uint32_t id[CACHE_SLOTS]; /* block number + 1, 0: empty */
+  unsigned used[CACHE_SLOTS];
+  unsigned clock;
+  uint8_t *blk[CACHE_SLOTS];
 } IconCache;
 
-static uint32_t rd32(const IconCache *c, uint32_t off)
+static const uint8_t *cache_block(IconCache *c, uint32_t b)
 {
-  if ((size_t)off + 4 > c->len) {
+  int victim = 0;
+  for (int i = 0; i < CACHE_SLOTS; i++) {
+    if (c->id[i] == b + 1) {
+      c->used[i] = ++c->clock;
+      return c->blk[i];
+    }
+    if (c->used[i] < c->used[victim]) {
+      victim = i;
+    }
+  }
+  if (!c->blk[victim]) {
+    c->blk[victim] = (uint8_t *)malloc(CACHE_BLOCK);
+    if (!c->blk[victim]) {
+      return NULL;
+    }
+  }
+  const size_t off = (size_t)b * CACHE_BLOCK;
+  const size_t want = c->len - off < CACHE_BLOCK ? c->len - off : CACHE_BLOCK;
+#ifdef _WIN32
+  const bool ok = _fseeki64(c->f, (long long)off, SEEK_SET) == 0 && fread(c->blk[victim], 1, want, c->f) == want;
+#else
+  const bool ok = pread(c->fd, c->blk[victim], want, (off_t)off) == (ssize_t)want;
+#endif
+  if (!ok) {
+    c->id[victim] = 0;
+    return NULL;
+  }
+  c->id[victim] = b + 1;
+  c->used[victim] = ++c->clock;
+  return c->blk[victim];
+}
+
+/* n bytes at off (within one call, possibly across blocks); false out of
+ * the file */
+static bool cache_read(IconCache *c, uint32_t off, void *dst, size_t n)
+{
+  if ((size_t)off + n > c->len) {
+    return false;
+  }
+  uint8_t *d = (uint8_t *)dst;
+  while (n) {
+    const uint8_t *blk = cache_block(c, off / CACHE_BLOCK);
+    if (!blk) {
+      return false;
+    }
+    const size_t in = off % CACHE_BLOCK, k = CACHE_BLOCK - in < n ? CACHE_BLOCK - in : n;
+    memcpy(d, blk + in, k);
+    d += k;
+    off += (uint32_t)k;
+    n -= k;
+  }
+  return true;
+}
+
+static uint32_t rd32(IconCache *c, uint32_t off)
+{
+  uint8_t p[4];
+  if (!cache_read(c, off, p, 4)) {
     return 0xffffffffu;
   }
-  const uint8_t *p = c->buf + off;
   return (uint32_t)p[0] << 24 | (uint32_t)p[1] << 16 | (uint32_t)p[2] << 8 | p[3];
 }
 
-static unsigned rd16(const IconCache *c, uint32_t off)
+static unsigned rd16(IconCache *c, uint32_t off)
 {
-  if ((size_t)off + 2 > c->len) {
+  uint8_t p[2];
+  if (!cache_read(c, off, p, 2)) {
     return 0xffffu;
   }
-  return (unsigned)c->buf[off] << 8 | c->buf[off + 1];
+  return (unsigned)p[0] << 8 | p[1];
 }
 
-/* a NUL-terminated string at off inside the file, else NULL */
-static const char *cstr(const IconCache *c, uint32_t off)
+/* whether the NUL-terminated string at off is `s` */
+static bool cache_streq(IconCache *c, uint32_t off, const char *s)
 {
-  if (off >= c->len) {
-    return NULL;
+  const size_t n = strlen(s) + 1; /* its NUL too */
+  for (size_t done = 0; done < n;) {
+    if ((size_t)off + done >= c->len) {
+      return false;
+    }
+    const uint8_t *blk = cache_block(c, (uint32_t)((off + done) / CACHE_BLOCK));
+    if (!blk) {
+      return false;
+    }
+    const size_t in = (off + done) % CACHE_BLOCK;
+    size_t k = CACHE_BLOCK - in < n - done ? CACHE_BLOCK - in : n - done;
+    if ((size_t)off + done + k > c->len) {
+      k = c->len - off - done;
+    }
+    if (memcmp(blk + in, s + done, k) != 0) {
+      return false;
+    }
+    done += k;
   }
-  return memchr(c->buf + off, 0, c->len - off) ? (const char *)c->buf + off : NULL;
+  return true;
 }
 
 /* gtk_icon_cache_new_for_path: only when not older than the directory */
@@ -528,38 +679,24 @@ static IconCache *cache_open(const char *dir)
     return NULL;
   }
   IconCache *c = NULL;
-  if (path_kind(path, &mtime, &size) == 2 && size >= 4 && mtime >= dir_mtime) {
+  if (path_kind(path, &mtime, &size) == 2 && size >= 12 && mtime >= dir_mtime && size < 0x7fffffff) {
     c = (IconCache *)calloc(1, sizeof(IconCache));
-#ifndef _WIN32
-    const int fd = c ? open(path, O_RDONLY | O_CLOEXEC) : -1;
-    if (fd >= 0) {
-      void *m = mmap(NULL, (size_t)size, PROT_READ, MAP_PRIVATE, fd, 0);
-      close(fd);
-      if (m != MAP_FAILED) {
-        c->buf = (const uint8_t *)m;
-        c->len = (size_t)size;
-        c->mapped = true;
-      }
-    }
-#endif
-    if (c && !c->buf) {
-      size_t len = 0;
-      char *data = awra_read_file(path, &len);
-      c->buf = (const uint8_t *)data;
-      c->len = len;
-    }
-    if (c && (!c->buf || c->len < 12)) {
-#ifndef _WIN32
-      if (c->mapped) {
-        munmap((void *)c->buf, c->len);
-      }
-      else
-#endif
-      {
-        free((void *)c->buf);
-      }
+#ifdef _WIN32
+    wchar_t *w = c ? wide(path) : NULL;
+    c && (c->f = w ? _wfopen(w, L"rb") : NULL);
+    free(w);
+    if (c && !c->f) {
       free(c);
       c = NULL;
+    }
+#else
+    if (c && (c->fd = open(path, O_RDONLY | O_CLOEXEC)) < 0) {
+      free(c);
+      c = NULL;
+    }
+#endif
+    if (c) {
+      c->len = (size_t)size;
     }
   }
   free(path);
@@ -571,19 +708,18 @@ static void cache_free(IconCache *c)
   if (!c) {
     return;
   }
-#ifndef _WIN32
-  if (c->mapped) {
-    munmap((void *)c->buf, c->len);
-  }
-  else
+#ifdef _WIN32
+  fclose(c->f);
+#else
+  close(c->fd);
 #endif
-  {
-    free((void *)c->buf);
+  for (int i = 0; i < CACHE_SLOTS; i++) {
+    free(c->blk[i]);
   }
   free(c);
 }
 
-static int cache_dir_index(const IconCache *c, const char *dir)
+static int cache_dir_index(IconCache *c, const char *dir)
 {
   const uint32_t list = rd32(c, 8);
   const uint32_t n = rd32(c, list);
@@ -591,11 +727,11 @@ static int cache_dir_index(const IconCache *c, const char *dir)
     return -1;
   }
   for (uint32_t i = 0; i < n && i < 65536; i++) {
-    const char *name = cstr(c, rd32(c, list + 4 + 4 * i));
-    if (!name) {
+    const uint32_t off = rd32(c, list + 4 + 4 * i);
+    if (off == 0xffffffffu) {
       return -1;
     }
-    if (!strcmp(name, dir)) {
+    if (cache_streq(c, off, dir)) {
       return (int)i;
     }
   }
@@ -603,7 +739,7 @@ static int cache_dir_index(const IconCache *c, const char *dir)
 }
 
 /* the image list of a name, 0 when the cache has none */
-static uint32_t cache_images(const IconCache *c, const char *name)
+static uint32_t cache_images(IconCache *c, const char *name)
 {
   const signed char *p = (const signed char *)name;
   uint32_t h = (uint32_t)(int)*p;
@@ -619,11 +755,11 @@ static uint32_t cache_images(const IconCache *c, const char *name)
   }
   uint32_t chain = rd32(c, hash + 4 + 4 * (h % buckets));
   for (int guard = 0; chain != 0xffffffffu && guard < 100000; guard++) {
-    const char *n = cstr(c, rd32(c, chain + 4));
-    if (!n) {
+    const uint32_t name_off = rd32(c, chain + 4);
+    if (name_off == 0xffffffffu) {
       return 0;
     }
-    if (!strcmp(n, name)) {
+    if (cache_streq(c, name_off, name)) {
       return rd32(c, chain + 8);
     }
     chain = rd32(c, chain);
@@ -631,14 +767,18 @@ static uint32_t cache_images(const IconCache *c, const char *name)
   return 0;
 }
 
-static unsigned cache_flags(const IconCache *c, uint32_t images, int dir)
+static unsigned cache_flags(IconCache *c, uint32_t images, int dir)
 {
   if (!images || images == 0xffffffffu) {
     return 0;
   }
   const uint32_t n = rd32(c, images);
   for (uint32_t j = 0; j < n && j < 4096; j++) {
-    if ((int)rd16(c, images + 4 + 8 * j) == dir) {
+    const unsigned d = rd16(c, images + 4 + 8 * j);
+    if (d == 0xffffu) {
+      return 0;
+    }
+    if ((int)d == dir) {
       return rd16(c, images + 4 + 8 * j + 2);
     }
   }
@@ -1010,7 +1150,7 @@ static void theme_add_dir(Theme *t, int root, const char *subdir, int size_index
 }
 
 /* theme_subdir_load */
-static void theme_subdir_load(Theme *t, const Ini *ini, const char *subdir)
+static void theme_subdir_load(Theme *t, Ini *ini, const char *subdir)
 {
   DirSize ds;
   if (!ini_int(ini, subdir, "Size", &ds.size)) {
