@@ -268,6 +268,10 @@ AwraWidget *awra_header_new(void)
   x->minimize = control_button(w, "window-minimize-symbolic");
   x->maximize = control_button(w, "window-maximize-symbolic");
   x->close = control_button(w, "window-close-symbolic");
+  /* GtkWindowControls' names */
+  awra_accessible_update_property_string(x->minimize, AWRA_ACCESSIBLE_PROPERTY_LABEL, "Minimize");
+  awra_accessible_update_property_string(x->maximize, AWRA_ACCESSIBLE_PROPERTY_LABEL, "Maximize");
+  awra_accessible_update_property_string(x->close, AWRA_ACCESSIBLE_PROPERTY_LABEL, "Close");
   awra_box_append(x->controls, x->minimize);
   awra_box_append(x->controls, x->maximize);
   awra_box_append(x->controls, x->close);
@@ -295,6 +299,8 @@ void awra_header_window_state_changed(AwraWidget *header)
   AwraWidget *win = awra_window_of(header);
   const bool max = win && (awra_window_state(win) & AWRA_WINDOW_STATE_MAXIMIZED);
   awra_button_set_icon_name(x->maximize, max ? "window-restore-symbolic" : "window-maximize-symbolic");
+  awra_accessible_update_property_string(x->maximize, AWRA_ACCESSIBLE_PROPERTY_LABEL,
+                                         max ? "Restore" : "Maximize");
 }
 
 void awra_header_set_title(AwraWidget *w, const char *title)

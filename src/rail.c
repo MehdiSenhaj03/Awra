@@ -8,6 +8,7 @@
  * SPDX-License-Identifier: GPL-3.0-or-later */
 
 #include "awra-private.h"
+#include "a11y.h"
 
 #include <stdio.h>
 
@@ -321,7 +322,42 @@ static void item_finalize(AwraWidget *w)
   free(x->icon_name);
 }
 
+/* Awra 1's AwraRailItem: a tab named by its label, described by its
+ * mentions / unread / muted state; a group's header is a button that
+ * expands it */
+static void item_a11y(AwraWidget *w, AwraA11yInfo *info)
+{
+  RailItemExt *x = RIX(w);
+  info->label = x->label;
+  int o = 0;
+  info->buf[0] = 0;
+  if (x->mention_count > 0) {
+    o = snprintf(info->buf, sizeof(info->buf), x->mention_count == 1 ? "%u mention" : "%u mentions",
+                 x->mention_count);
+  }
+  else if (x->unread && !x->muted) {
+    o = snprintf(info->buf, sizeof(info->buf), "Unread");
+  }
+  if (x->muted && o >= 0 && o < (int)sizeof(info->buf)) {
+    snprintf(info->buf + o, sizeof(info->buf) - (size_t)o, "%sMuted", o ? ", " : "");
+  }
+  if (info->buf[0]) {
+    info->description = info->buf;
+  }
+  if (x->group_header) {
+    info->role = AWRA_ACCESSIBLE_ROLE_BUTTON;
+    AwraWidget *g = w->parent;
+    if (g && awra_widget_is(g, "AwraRailGroup")) {
+      awra_a11y_set_state(info, AWRA_ACCESSIBLE_STATE_EXPANDED, awra_rail_group_expanded(g));
+    }
+  }
+  else {
+    awra_a11y_set_state(info, AWRA_ACCESSIBLE_STATE_SELECTED, x->selected);
+  }
+}
+
 static AwraClass item_class = {
+    .a11y = item_a11y,
     .bk = AWRA_BK("AwraRailItem", CLS_INTERACTIVE),
     .type = "AwraRailItem",
     .flags = AWRA_CLASS_CONTAINER | AWRA_CLASS_FOCUSABLE | AWRA_CLASS_ACTIVATABLE,
@@ -614,7 +650,13 @@ static void group_finalize(AwraWidget *w)
   free(x->icon_name);
 }
 
+static void group_a11y(AwraWidget *w, AwraA11yInfo *info)
+{
+  info->label = GRX(w)->label;
+}
+
 static AwraClass group_class = {
+    .a11y = group_a11y,
     .bk = AWRA_BK("AwraRailGroup", 0),
     .type = "AwraRailGroup",
     .flags = AWRA_CLASS_CONTAINER | AWRA_CLASS_CLIP,
@@ -824,7 +866,14 @@ static void rail_allocate(AwraWidget *w)
   awra_allocate(RLX(w)->box, w->x, w->y, w->w, w->h);
 }
 
+static void rail_a11y(AwraWidget *w, AwraA11yInfo *info)
+{
+  info->flags |= AWRA_A11Y_VERTICAL; /* Awra 1: orientation vertical */
+  info->selection = true;
+}
+
 static AwraClass rail_class = {
+    .a11y = rail_a11y,
     .bk = AWRA_BK("AwraRail", 0),
     .type = "AwraRail",
     .flags = AWRA_CLASS_CONTAINER,

@@ -5,6 +5,7 @@
  * SPDX-License-Identifier: GPL-3.0-or-later */
 
 #include "awra-private.h"
+#include "a11y.h"
 
 #include <stdio.h>
 
@@ -217,7 +218,25 @@ static void card_draw(AwraWidget *w, AwraDraw *d)
   }
 }
 
+static void card_a11y(AwraWidget *w, AwraA11yInfo *info)
+{
+  if (BINX(w)->activatable) {
+    info->action = "click";
+  }
+}
+
+static bool card_a11y_do(AwraWidget *w, int item, int verb, double value)
+{
+  if (item < 0 && verb == AWRA_A11Y_DO_ACTIVATE && BINX(w)->activatable && awra_sensitive(w)) {
+    awra_emit_simple(w, AWRA_SIGNAL_CLICKED);
+    return true;
+  }
+  return false;
+}
+
 static AwraClass card_class = {
+    .a11y = card_a11y,
+    .a11y_do = card_a11y_do,
     .bk = AWRA_BK("AwraCard", 0),
     .type = "AwraCard",
     .flags = AWRA_CLASS_CONTAINER | AWRA_CLASS_HOVER | AWRA_CLASS_EXPAND_ISOLATED,
@@ -313,7 +332,20 @@ static AwraClass pagecol_class = {
     .allocate = pagecol_allocate,
 };
 
+typedef struct StateParts StateParts;
+static StateParts *sp(AwraWidget *w);
+static void state_a11y(AwraWidget *w, StateParts *p, AwraA11yInfo *info);
+
+static void page_a11y(AwraWidget *w, AwraA11yInfo *info)
+{
+  StateParts *p = sp(w);
+  if (p) {
+    state_a11y(w, p, info);
+  }
+}
+
 static AwraClass page_class = {
+    .a11y = page_a11y,
     .bk = AWRA_BK("AwraPage", 0),
     .type = "AwraPage",
     .flags = AWRA_CLASS_CONTAINER | AWRA_CLASS_EXPAND_ISOLATED,
@@ -423,6 +455,13 @@ static AwraWidget *heading_new(const char *title, const char *subtitle, AwraTypo
   awra_widget_set_visible(h->subtitle, subtitle && subtitle[0]);
   awra_widget_set_visible(h->heading, (title && title[0]) || (subtitle && subtitle[0]));
   awra_widget_isolate_expand(root);
+  /* Awra 1's page header and section: a group named by its title, which is
+   * a heading (level 1 for pages, 2 for sections) */
+  awra_accessible_set_role(root, AWRA_ACCESSIBLE_ROLE_GROUP);
+  awra_accessible_update_relation(root, AWRA_ACCESSIBLE_RELATION_LABELLED_BY, &h->title, 1);
+  awra_accessible_set_role(h->title, AWRA_ACCESSIBLE_ROLE_HEADING);
+  awra_accessible_update_property_number(h->title, AWRA_ACCESSIBLE_PROPERTY_LEVEL,
+                                         title_t == AWRA_TYPOGRAPHY_TITLE_1 ? 1 : 2);
   return root;
 }
 
@@ -619,7 +658,24 @@ static void formrow_allocate(AwraWidget *w)
   awra_allocate(x->field, w->x + fx, w->y, BK_MAX(0, w->w - fx), w->h);
 }
 
+/* Awra 1's AwraFormRow: a group named by its label, described by its help
+ * or its error */
+static void formrow_a11y(AwraWidget *w, AwraA11yInfo *info)
+{
+  FormRowExt *x = FRX(w);
+  if (x->label && awra_widget_visible(x->label)) {
+    info->label = awra_label_text(x->label);
+  }
+  if (x->error && awra_widget_visible(x->error)) {
+    info->description = awra_label_text(x->error);
+  }
+  else if (x->help && awra_widget_visible(x->help)) {
+    info->description = awra_label_text(x->help);
+  }
+}
+
 static AwraClass formrow_class = {
+    .a11y = formrow_a11y,
     .bk = AWRA_BK("AwraFormRow", 0),
     .type = "AwraFormRow",
     .flags = AWRA_CLASS_CONTAINER | AWRA_CLASS_EXPAND_ISOLATED,
@@ -662,10 +718,16 @@ void awra_form_row_set_control(AwraWidget *w, AwraWidget *control)
 {
   FormRowExt *x = FRX(w);
   if (x->control) {
+    awra_accessible_reset_relation(x->control, AWRA_ACCESSIBLE_RELATION_LABELLED_BY);
+    awra_accessible_reset_relation(x->control, AWRA_ACCESSIBLE_RELATION_DESCRIBED_BY);
     awra_box_remove(x->field, x->control);
   }
   x->control = control;
   if (control) {
+    /* the row's label names its control, its help describes it */
+    awra_accessible_update_relation(control, AWRA_ACCESSIBLE_RELATION_LABELLED_BY, &x->label, 1);
+    AwraWidget *desc[2] = {x->help, x->error};
+    awra_accessible_update_relation(control, AWRA_ACCESSIBLE_RELATION_DESCRIBED_BY, desc, 2);
     /* text fields and pickers fill the field column; compact controls
      * (spin buttons, switches, segmented controls, captures...) keep their
      * natural width; an explicit hexpand wins (awra-form-row.c) */
@@ -707,6 +769,13 @@ static void formrow_update_validation(AwraWidget *w)
     }
     if (x->validation > 0 && x->validation < 4) {
       awra_widget_add_class(x->control, classes[x->validation]);
+    }
+    if (show_error) {
+      awra_accessible_update_state(x->control, AWRA_ACCESSIBLE_STATE_INVALID,
+                                   AWRA_ACCESSIBLE_INVALID_TRUE);
+    }
+    else {
+      awra_accessible_reset_state(x->control, AWRA_ACCESSIBLE_STATE_INVALID);
     }
     awra_invalidate(x->control);
   }
@@ -795,7 +864,35 @@ static void arow_activate(AwraWidget *w)
   }
 }
 
+/* Awra 1's AwraActionRow: a button (activatable) or a group, named by its
+ * title, described by its subtitle */
+static void arow_a11y(AwraWidget *w, AwraA11yInfo *info)
+{
+  ActionRowExt *x = ARX(w);
+  info->role = x->activatable ? AWRA_ACCESSIBLE_ROLE_BUTTON : AWRA_ACCESSIBLE_ROLE_GROUP;
+  info->label = awra_label_text(x->title);
+  if (awra_widget_visible(x->subtitle)) {
+    info->description = awra_label_text(x->subtitle);
+  }
+  info->action = x->activatable ? "click" : NULL;
+  if (x->activatable) {
+    info->flags |= AWRA_A11Y_FOCUSABLE;
+  }
+}
+
+static bool arow_a11y_do(AwraWidget *w, int item, int verb, double value)
+{
+  if (item < 0 && verb == AWRA_A11Y_DO_ACTIVATE && ARX(w)->activatable && awra_sensitive(w)) {
+    awra_emit_simple(w, AWRA_SIGNAL_ACTIVATE);
+    awra_emit_simple(w, AWRA_SIGNAL_CLICKED);
+    return true;
+  }
+  return false;
+}
+
 static AwraClass arow_class = {
+    .a11y = arow_a11y,
+    .a11y_do = arow_a11y_do,
     .bk = AWRA_BK("AwraActionRow", 0),
     .type = "AwraActionRow",
     .flags = AWRA_CLASS_CONTAINER | AWRA_CLASS_HOVER | AWRA_CLASS_ACTIVATABLE,
@@ -1023,7 +1120,19 @@ static void banner_style(AwraWidget *w)
   awra_image_set_color(x->a, &c);
 }
 
+static void banner_a11y(AwraWidget *w, AwraA11yInfo *info)
+{
+  BinExt *x = BINX(w);
+  if (x->b && awra_widget_visible(x->b)) {
+    info->label = awra_label_text(x->b);
+  }
+  if (x->c && awra_widget_visible(x->c)) {
+    info->description = awra_label_text(x->c);
+  }
+}
+
 static AwraClass banner_class = {
+    .a11y = banner_a11y,
     .bk = AWRA_BK("AwraStatusBanner", 0),
     .type = "AwraStatusBanner",
     .flags = AWRA_CLASS_CONTAINER | AWRA_CLASS_EXPAND_ISOLATED,
@@ -1070,6 +1179,7 @@ AwraWidget *awra_status_banner_new(const char *title, const char *description,
   awra_box_append(root, x->a);
   awra_box_append(root, copy);
   x->d = awra_button_new_from_icon_name("awra-close-symbolic");
+  awra_accessible_update_property_string(x->d, AWRA_ACCESSIBLE_PROPERTY_LABEL, "Dismiss");
   awra_button_set_appearance(x->d, AWRA_BUTTON_GHOST);
   awra_widget_set_visible(x->d, false);
   awra_widget_set_valign(x->d, AWRA_ALIGN_START);
@@ -1116,9 +1226,23 @@ void awra_status_banner_set_dismissible(AwraWidget *w, bool d)
 /* ======================================================================= */
 /* Empty / loading states (spec A §12) */
 
-typedef struct StateParts {
+struct StateParts {
   AwraWidget *icon, *title, *desc, *col;
-} StateParts;
+  int kind; /* 0 empty, 1 loading, 2 error */
+};
+
+/* Awra 1's state views: empty a group, loading a busy progress bar, error
+ * an alert; named by their title, described by their text */
+static void state_a11y(AwraWidget *w, StateParts *p, AwraA11yInfo *info)
+{
+  info->role = p->kind == 1 ? AWRA_ACCESSIBLE_ROLE_PROGRESS_BAR :
+               p->kind == 2 ? AWRA_ACCESSIBLE_ROLE_ALERT : AWRA_ACCESSIBLE_ROLE_GROUP;
+  info->label = awra_label_text(p->title);
+  info->description = awra_label_text(p->desc);
+  if (p->kind == 1) {
+    awra_a11y_set_state(info, AWRA_ACCESSIBLE_STATE_BUSY, 1);
+  }
+}
 
 static StateParts *sp(AwraWidget *w)
 {
@@ -1192,7 +1316,9 @@ AwraWidget *awra_error_state_new(const char *title, const char *desc)
   AwraWidget *icon = awra_image_new_from_icon_name("awra-status-error-symbolic");
   awra_image_set_pixel_size(icon, 32);
   awra_image_set_color(icon, &awra_tokens()->danger);
-  return state_new(icon, title, desc);
+  AwraWidget *w = state_new(icon, title, desc);
+  sp(w)->kind = 2;
+  return w;
 }
 
 AwraWidget *awra_loading_state_new(const char *title, const char *desc)
@@ -1202,6 +1328,7 @@ AwraWidget *awra_loading_state_new(const char *title, const char *desc)
   awra_spinner_set_spinning(s, true);
   awra_widget_set_data(s, "awra-accent", (void *)1, NULL); /* @awra_accent_content */
   AwraWidget *w = state_new(s, title, desc);
+  sp(w)->kind = 1;
   return w;
 }
 
@@ -1235,6 +1362,7 @@ AwraWidget *awra_sidebar_new(void)
   x->a = list;
   x->b = col;
   awra_widget_set_name(w, "AwraSidebar");
+  awra_accessible_set_role(w, AWRA_ACCESSIBLE_ROLE_NAVIGATION);
   return w;
 }
 
@@ -1541,7 +1669,21 @@ static void nav_finalize(AwraWidget *w)
   }
 }
 
+/* Awra 1's AwraNavigationItem: a button named by its label, described by
+ * its subtitle, selected in its group */
+static void nav_a11y(AwraWidget *w, AwraA11yInfo *info)
+{
+  NavExt *x = NX(w);
+  if (x->subtitle && awra_widget_visible(x->subtitle)) {
+    info->description = awra_label_text(x->subtitle);
+  }
+  if (x->in_sidebar || (x->group_next && x->group_next != w) || x->selected) {
+    awra_a11y_set_state(info, AWRA_ACCESSIBLE_STATE_SELECTED, x->selected);
+  }
+}
+
 static AwraClass nav_class = {
+    .a11y = nav_a11y,
     .bk = AWRA_BK("AwraNavigationItem", CLS_INTERACTIVE),
     .type = "AwraNavigationItem",
     .flags = AWRA_CLASS_CONTAINER | AWRA_CLASS_HOVER | AWRA_CLASS_FOCUSABLE | AWRA_CLASS_ACTIVATABLE,

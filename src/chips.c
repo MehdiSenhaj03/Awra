@@ -4,6 +4,7 @@
  * SPDX-License-Identifier: GPL-3.0-or-later */
 
 #include "awra-private.h"
+#include "a11y.h"
 
 #include <stdio.h>
 
@@ -277,7 +278,28 @@ static void chip_finalize(AwraWidget *w)
   awra_texture_unref(x->texture);
 }
 
+/* Awra 1's AwraChip: a toggle button named "label, count", pressed when
+ * active */
+static void chip_a11y(AwraWidget *w, AwraA11yInfo *info)
+{
+  ChipExt *x = CHX(w);
+  const char *name = x->label && x->label[0] ? x->label : x->emoji;
+  if (name && x->count >= 0) {
+    snprintf(info->buf, sizeof(info->buf), "%s, %d", name, x->count);
+    info->label = info->buf;
+  }
+  else if (name) {
+    info->label = name;
+  }
+  else if (x->count >= 0) {
+    snprintf(info->buf, sizeof(info->buf), "%d", x->count);
+    info->label = info->buf;
+  }
+  awra_a11y_set_state(info, AWRA_ACCESSIBLE_STATE_PRESSED, x->active);
+}
+
 static AwraClass chip_class = {
+    .a11y = chip_a11y,
     .bk = AWRA_BK("AwraChip", CLS_INTERACTIVE),
     .type = "AwraChip",
     .flags = AWRA_CLASS_HOVER | AWRA_CLASS_FOCUSABLE | AWRA_CLASS_ACTIVATABLE | AWRA_CLASS_EXPAND_ISOLATED,
@@ -514,7 +536,17 @@ static bool divider_child_style(AwraWidget *w, AwraRGBA *c, int *weight)
   return true;
 }
 
+/* a separator; with a label, a group named by it */
+static void divider_a11y(AwraWidget *w, AwraA11yInfo *info)
+{
+  if (divider_has_label(w)) {
+    info->role = AWRA_ACCESSIBLE_ROLE_GROUP;
+    info->label = awra_label_text(DVX(w)->label);
+  }
+}
+
 static AwraClass divider_class = {
+    .a11y = divider_a11y,
     .bk = AWRA_BK("AwraDivider", 0),
     .type = "AwraDivider",
     .flags = AWRA_CLASS_CONTAINER | AWRA_CLASS_EXPAND_ISOLATED,
@@ -643,7 +675,15 @@ static void skeleton_finalize(AwraWidget *w)
   }
 }
 
+/* a placeholder while content loads: a busy group */
+static void skeleton_a11y(AwraWidget *w, AwraA11yInfo *info)
+{
+  info->label = "Loading";
+  awra_a11y_set_state(info, AWRA_ACCESSIBLE_STATE_BUSY, 1);
+}
+
 static AwraClass skeleton_class = {
+    .a11y = skeleton_a11y,
     .bk = AWRA_BK("AwraSkeleton", 0),
     .type = "AwraSkeleton",
     .ext_size = sizeof(SkeletonExt),
@@ -796,7 +836,16 @@ static void typing_finalize(AwraWidget *w)
   }
 }
 
+/* Awra 1: a status named by its text, hidden while nobody types */
+static void typing_a11y(AwraWidget *w, AwraA11yInfo *info)
+{
+  TypingExt *x = TYX(w);
+  info->label = x->label ? awra_label_text(x->label) : NULL;
+  awra_a11y_set_state(info, AWRA_ACCESSIBLE_STATE_HIDDEN, !x->active);
+}
+
 static AwraClass typing_class = {
+    .a11y = typing_a11y,
     .bk = AWRA_BK("AwraTypingIndicator", 0),
     .type = "AwraTypingIndicator",
     .flags = AWRA_CLASS_CONTAINER | AWRA_CLASS_EXPAND_ISOLATED,

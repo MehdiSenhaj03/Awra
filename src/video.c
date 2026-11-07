@@ -7,6 +7,7 @@
  * SPDX-License-Identifier: GPL-3.0-or-later */
 
 #include "awra-private.h"
+#include "a11y.h"
 
 #include <stdio.h>
 
@@ -1086,7 +1087,50 @@ static void tl_style_changed(AwraWidget *w)
   }
 }
 
+/* Awra 1's AwraTimeline: a slider named "Timeline" over the position (or,
+ * editable, the offset in seconds) */
+static void timeline_a11y(AwraWidget *w, AwraA11yInfo *info)
+{
+  TimelineExt *s = TLX(w);
+  info->label = "Timeline";
+  info->has_value = true;
+  if (s->editable) {
+    const double m = fmax(s->duration, fabs(s->offset));
+    info->min = -m;
+    info->max = m;
+    info->value = s->offset;
+    snprintf(info->buf, sizeof(info->buf), "%+.2f s", s->offset);
+  }
+  else {
+    const int p = s->position > 0 ? (int)s->position : 0;
+    info->min = 0;
+    info->max = s->duration;
+    info->value = s->position;
+    if (p >= 3600) {
+      snprintf(info->buf, sizeof(info->buf), "%d:%02d:%02d", p / 3600, p / 60 % 60, p % 60);
+    }
+    else {
+      snprintf(info->buf, sizeof(info->buf), "%d:%02d", p / 60, p % 60);
+    }
+  }
+  info->value_text = info->buf;
+  info->step = s->step > 0 ? s->step : 1.0;
+  info->flags |= AWRA_A11Y_HORIZONTAL;
+}
+
+static bool timeline_a11y_do(AwraWidget *w, int item, int verb, double value)
+{
+  TimelineExt *s = TLX(w);
+  if (item < 0 && verb == AWRA_A11Y_DO_SET_VALUE && !s->editable && awra_sensitive(w)) {
+    awra_emit_value(w, AWRA_SIGNAL_SEEK, fmin(fmax(value, 0), s->duration));
+    return true;
+  }
+  return false;
+}
+
 static AwraClass timeline_class = {
+    .a11y = timeline_a11y,
+    .a11y_do = timeline_a11y_do,
     .bk = AWRA_BK("AwraTimeline", CLS_INTERACTIVE),
     .type = "AwraTimeline",
     .flags = AWRA_CLASS_FOCUSABLE | AWRA_CLASS_EXPAND_ISOLATED,
