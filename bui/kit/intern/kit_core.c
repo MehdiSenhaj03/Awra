@@ -1998,6 +1998,10 @@ void bk_clipboard_set(BKContext *ctx, const char *s)
 
 static void layout(BKContext *ctx)
 {
+  /* BUI-Awra: cleared first, so what a widget queues while it is arranged
+   * (a list that measured its rows) is laid out on the next frame, as GTK
+   * does a resize queued in size_allocate, instead of being lost */
+  ctx->layout_dirty = false;
   g_gen++;
   const int w = ctx->win_w, h = ctx->win_h;
   int hw = 0, hh = 0;
@@ -2022,7 +2026,6 @@ static void layout(BKContext *ctx)
     for (int i = 0; i < ctx->npopups; i++) {
       bk_popup_place(ctx->popups[i], w, h);
     }
-    ctx->layout_dirty = false;
     return;
   }
   const int view_h = h - hh;
@@ -2036,7 +2039,6 @@ static void layout(BKContext *ctx)
   for (int i = 0; i < ctx->npopups; i++) {
     bk_popup_place(ctx->popups[i], w, h);
   }
-  ctx->layout_dirty = false;
 }
 
 /* interface_region_tooltip.cc: portions of the line height, and the wrap width. */
