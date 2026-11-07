@@ -746,6 +746,7 @@ extern "C" {
     pub fn awra_drop_zone_set_icon_name(zone: *mut AwraWidget, icon_name: *const c_char);
     pub fn awra_drop_zone_set_browse_label(zone: *mut AwraWidget, label: *const c_char);
     pub fn awra_drop_zone_set_child(zone: *mut AwraWidget, child: *mut AwraWidget);
+    pub fn awra_drop_zone_set_hover(zone: *mut AwraWidget, hover: bool);
     pub fn awra_widget_set_accepts_file_drops(widget: *mut AwraWidget, accepts: bool);
     pub fn awra_drawing_area_new(draw: Option<unsafe extern "C" fn(*mut AwraWidget, *mut AwraCanvas, c_int, c_int, *mut c_void)>, data: *mut c_void, destroy: Option<unsafe extern "C" fn(*mut c_void)>) -> *mut AwraWidget;
     pub fn awra_drawing_area_set_content_size(area: *mut AwraWidget, width: c_int, height: c_int);

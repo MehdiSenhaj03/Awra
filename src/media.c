@@ -1528,6 +1528,13 @@ AwraWidget *awra_drop_zone_new(void)
   return w;
 }
 
+void awra_drop_zone_set_hover(AwraWidget *w, bool hover)
+{
+  AwraArgs a = {0};
+  a.active = hover;
+  zone_hover(w, &a, NULL);
+}
+
 void awra_drop_zone_set_title(AwraWidget *w, const char *t)
 {
   awra_label_set_text(ZX(w)->title, t);

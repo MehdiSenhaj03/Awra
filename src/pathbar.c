@@ -62,7 +62,11 @@ static void layout_crumbs(AwraWidget *w)
     AwraFont f = crumb_font(i == x->n - 1);
     const char *l = x->crumbs[i].label;
     x->crumbs[i].x = cx;
-    x->crumbs[i].w = (int)ceilf(awra_text_width(&f, l, (int)strlen(l))) + 2 * pad;
+    /* a compact header's buttons are at least 22 px wide inside (Awra 1's
+     * toolbar-button min-width): a short name sits in the middle */
+    const int text = (int)ceilf(awra_text_width(&f, l, (int)strlen(l)));
+    const int inner = awra_in_compact_header(w) ? BK_MAX(text, awra_px(22)) : text;
+    x->crumbs[i].w = inner + 2 * pad;
     cx += x->crumbs[i].w;
   }
 }
@@ -77,13 +81,6 @@ static int icon_space(PathExt *x)
   return x->icon ? awra_px(2) + awra_px(15) + awra_px(4) : 0;
 }
 
-/* Awra 1 drew the first crumb's text 29 px into the bar after its 15 px
- * icon: the trail starts 7 px before the field's text does. */
-static int trail_pull(PathExt *x)
-{
-  return x->icon ? awra_px(7) : 0;
-}
-
 static void path_measure(AwraWidget *w, int o, int for_size, int *r_min, int *r_nat)
 {
   PathExt *x = PX(w);
@@ -92,7 +89,7 @@ static void path_measure(AwraWidget *w, int o, int for_size, int *r_min, int *r_
     awra_measure(x->end, o, -1, &emn, &ent);
   }
   if (o == AWRA_ORIENTATION_HORIZONTAL) {
-    const int base = awra_px(1) * 2 + awra_px(6) + awra_px(3) + icon_space(x) - trail_pull(x) + emn;
+    const int base = awra_px(1) * 2 + awra_px(6) + awra_px(3) + icon_space(x) + emn;
     *r_min = base + awra_px(64);
     layout_crumbs(w);
     *r_nat = base + trail_width(x) + awra_px(36);
@@ -121,8 +118,8 @@ static void path_allocate(AwraWidget *w)
   /* the field */
   awra_allocate(x->entry, left + awra_px(4), w->y + b, BK_MAX(0, right - left - awra_px(8)), w->h - 2 * b);
   /* the trail keeps 36 px of the field empty, and shows its end */
-  x->trail_x = left - trail_pull(x);
-  x->trail_w = BK_MAX(0, right - x->trail_x - awra_px(36));
+  x->trail_x = left;
+  x->trail_w = BK_MAX(0, right - left - awra_px(36));
   const int tw = trail_width(x);
   x->offset = tw > x->trail_w ? tw - x->trail_w : 0;
 }
@@ -178,7 +175,9 @@ static void path_draw(AwraWidget *w, AwraDraw *d)
     AwraRGBA fg = i == x->drop ? t->accent_content :
                   (current || (i == x->hover && awra_hovered(w))) ? t->foreground : t->muted;
     const float base = w->y + floorf((w->h - awra_font_line_height(&f)) * 0.5f + 0.5f) + awra_font_ascent(&f);
-    awra_draw_text(d, &f, cx + crumb_pad(w), base, c->label, (int)strlen(c->label), &fg);
+    const float tw = awra_text_width(&f, c->label, (int)strlen(c->label));
+    const float tx = cx + floorf((c->w - tw) * 0.5f);
+    awra_draw_text(d, &f, tx, base, c->label, (int)strlen(c->label), &fg);
   }
   bk_clip_pop();
 }

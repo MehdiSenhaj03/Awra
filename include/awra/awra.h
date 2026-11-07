@@ -1032,10 +1032,14 @@ void awra_drop_zone_set_browse_label(AwraWidget *zone, const char *label); /* NU
 /* With a child, the zone shows it, and its icon and title over it while
  * files are dragged over (the drop message). */
 void awra_drop_zone_set_child(AwraWidget *zone, AwraWidget *child);
+/* Shows the zone as files over it would (an application's own drags). */
+void awra_drop_zone_set_hover(AwraWidget *zone, bool hover);
 
 /* Any widget can take dropped files (files-dropped, args->text = paths,
  * '\n'-separated); drop-hover reports a drag over it, on every move
- * (args->active; both carry args->x, y relative to the widget). */
+ * (args->active; both carry args->x, y relative to the widget). A window
+ * that takes none hears drop-hover once when files come over it (active)
+ * and once when they leave or land (inactive). */
 void awra_widget_set_accepts_file_drops(AwraWidget *widget, bool accepts);
 
 /* A widget the application draws itself (Awra's GtkDrawingArea). */

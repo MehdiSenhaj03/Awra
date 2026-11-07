@@ -35,3 +35,10 @@ impl crate::Label {
         unsafe { ffi::awra_label_set_line_spacing(ptr!(self), above_paragraph, inside_wrap) }
     }
 }
+
+impl crate::DropZone {
+    /// Shows the zone as files over it would (an application's own drags).
+    pub fn set_hover(&self, hover: bool) {
+        unsafe { ffi::awra_drop_zone_set_hover(ptr!(self), hover) }
+    }
+}
