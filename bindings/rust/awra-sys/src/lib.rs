@@ -6,6 +6,7 @@ use std::os::raw::{c_char, c_int, c_uint, c_ulong, c_void};
 #[repr(C)] pub struct AwraWidget { _p: [u8; 0] }
 #[repr(C)] pub struct AwraCanvas { _p: [u8; 0] }
 #[repr(C)] pub struct AwraTexture { _p: [u8; 0] }
+#[repr(C)] #[derive(Clone, Copy)] pub struct AwraEmoji { pub id: *const c_char, pub name: *const c_char, pub text: *const c_char, pub texture: *mut AwraTexture, pub keywords: *const c_char }
 #[repr(C)] #[derive(Clone, Copy, Debug, Default, PartialEq)] pub struct AwraRGBA { pub r: f32, pub g: f32, pub b: f32, pub a: f32 }
 #[repr(C)] #[derive(Clone, Copy)] pub struct AwraArgs { pub signal: c_int, pub active: bool, pub value: f64, pub index: c_int, pub text: *const c_char, pub x: f64, pub y: f64, pub dx: f64, pub dy: f64, pub button: c_int, pub n_press: c_int, pub mods: c_int, pub keysym: *const c_char, pub width: c_int, pub height: c_int, pub handled: *mut bool, pub code: *const c_char }
 #[repr(C)] #[derive(Clone, Copy)] pub struct AwraMenuItem { pub label: *const c_char, pub icon_name: *const c_char, pub accel: *const c_char, pub check: c_int, pub sensitive: bool, pub destructive: bool, pub handler: Option<unsafe extern "C" fn(*mut AwraWidget, *const AwraArgs, *mut c_void)>, pub data: *mut c_void }
@@ -189,6 +190,10 @@ pub const AWRA_EDGE_STATUS_FAILED: c_int = 2;
 pub const AWRA_CONVERSATION_ALIGN_TOP: c_int = 0;
 pub const AWRA_CONVERSATION_ALIGN_CENTER: c_int = 1;
 pub const AWRA_CONVERSATION_ALIGN_END: c_int = 2;
+pub const AWRA_DATA_VIEW_CONTENT: c_int = 0;
+pub const AWRA_DATA_VIEW_EMPTY: c_int = 1;
+pub const AWRA_DATA_VIEW_LOADING: c_int = 2;
+pub const AWRA_DATA_VIEW_ERROR: c_int = 3;
 pub const AWRA_MOD_SHIFT: c_int = 1;
 pub const AWRA_MOD_CTRL: c_int = 2;
 pub const AWRA_MOD_ALT: c_int = 4;
@@ -887,4 +892,45 @@ extern "C" {
     pub fn awra_completion_popover_visible(completion: *mut AwraWidget) -> bool;
     pub fn awra_completion_popover_present_at_cursor(completion: *mut AwraWidget);
     pub fn awra_completion_popover_popdown(completion: *mut AwraWidget);
+    pub fn awra_data_view_new() -> *mut AwraWidget;
+    pub fn awra_data_view_list(view: *mut AwraWidget) -> *mut AwraWidget;
+    pub fn awra_data_view_add_column(view: *mut AwraWidget, title: *const c_char, setup: Option<unsafe extern "C" fn(*mut AwraWidget, *mut AwraWidget, *mut c_void)>, bind: Option<unsafe extern "C" fn(*mut AwraWidget, *mut AwraWidget, *mut c_void)>, unbind: Option<unsafe extern "C" fn(*mut AwraWidget, *mut AwraWidget, *mut c_void)>, teardown: Option<unsafe extern "C" fn(*mut AwraWidget, *mut AwraWidget, *mut c_void)>, data: *mut c_void, destroy: Option<unsafe extern "C" fn(*mut c_void)>) -> c_int;
+    pub fn awra_data_view_set_column_visible(view: *mut AwraWidget, column: c_int, visible: bool);
+    pub fn awra_data_view_set_state(view: *mut AwraWidget, state: c_int);
+    pub fn awra_data_view_set_empty_widget(view: *mut AwraWidget, child: *mut AwraWidget);
+    pub fn awra_data_view_set_loading_widget(view: *mut AwraWidget, child: *mut AwraWidget);
+    pub fn awra_data_view_set_error_widget(view: *mut AwraWidget, child: *mut AwraWidget);
+    pub fn awra_emoji_picker_new() -> *mut AwraWidget;
+    pub fn awra_emoji_picker_clear(picker: *mut AwraWidget);
+    pub fn awra_emoji_picker_add_section(picker: *mut AwraWidget, id: *const c_char, title: *const c_char, icon_name: *const c_char, items: *const AwraEmoji, n: c_int);
+    pub fn awra_emoji_picker_set_search_text(picker: *mut AwraWidget, text: *const c_char);
+    pub fn awra_emoji_picker_set_texture(picker: *mut AwraWidget, id: *const c_char, texture: *mut AwraTexture);
+    pub fn awra_emoji_picker_search_entry(picker: *mut AwraWidget) -> *mut AwraWidget;
+    pub fn awra_color_palette_new() -> *mut AwraWidget;
+    pub fn awra_color_palette_add_color(palette: *mut AwraWidget, color: *const AwraRGBA, name: *const c_char);
+    pub fn awra_color_palette_clear(palette: *mut AwraWidget);
+    pub fn awra_color_palette_set_automatic_label(palette: *mut AwraWidget, label: *const c_char);
+    pub fn awra_color_palette_set_allows_custom(palette: *mut AwraWidget, allows: bool);
+    pub fn awra_color_palette_set_selected(palette: *mut AwraWidget, color: *const AwraRGBA);
+    pub fn awra_color_palette_selected(palette: *mut AwraWidget, color: *mut AwraRGBA) -> bool;
+    pub fn awra_text_area_new() -> *mut AwraWidget;
+    pub fn awra_password_entry_new() -> *mut AwraWidget;
+    pub fn awra_password_entry_entry(password: *mut AwraWidget) -> *mut AwraWidget;
+    pub fn awra_password_entry_set_show_peek_icon(password: *mut AwraWidget, show: bool);
+    pub fn awra_tag_entry_new() -> *mut AwraWidget;
+    pub fn awra_tag_entry_entry(tags: *mut AwraWidget) -> *mut AwraWidget;
+    pub fn awra_tag_entry_add(tags: *mut AwraWidget, tag: *const c_char) -> bool;
+    pub fn awra_tag_entry_clear(tags: *mut AwraWidget);
+    pub fn awra_tag_entry_n_tags(tags: *mut AwraWidget) -> c_int;
+    pub fn awra_tag_entry_tag(tags: *mut AwraWidget, index: c_int) -> *const c_char;
+    pub fn awra_overlay_bar_new() -> *mut AwraWidget;
+    pub fn awra_overlay_bar_set_content(bar: *mut AwraWidget, content: *mut AwraWidget);
+    pub fn awra_overlay_bar_set_bar(bar: *mut AwraWidget, controls: *mut AwraWidget);
+    pub fn awra_overlay_bar_set_auto_hide(bar: *mut AwraWidget, auto_hide: bool);
+    pub fn awra_overlay_bar_set_inhibit_auto_hide(bar: *mut AwraWidget, inhibit: bool);
+    pub fn awra_overlay_bar_set_revealed(bar: *mut AwraWidget, revealed: bool);
+    pub fn awra_overlay_bar_reveal(bar: *mut AwraWidget);
+    pub fn awra_overlay_bar_set_hide_delay(bar: *mut AwraWidget, ms: c_uint);
+    pub fn awra_overlay_bar_set_max_width(bar: *mut AwraWidget, width: c_int);
+    pub fn awra_overlay_bar_set_inset(bar: *mut AwraWidget, inset: c_int);
 }

@@ -1006,6 +1006,7 @@ impl Popover {
     }
     /// Anchors the popover to `parent` (GTK's set_parent on popovers).
     pub fn set_parent(&self, parent: &impl IsWidget) {
+        self.0.set_rust_data("popover-anchor", parent.upcast_ref().downgrade());
         unsafe { ffi::awra_popover_set_anchor(ptr!(self), parent.widget_ptr()) }
     }
     pub fn set_anchor(&self, anchor: &impl IsWidget) {

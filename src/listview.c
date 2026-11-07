@@ -822,3 +822,221 @@ unsigned awra_list_view_selected(AwraWidget *w)
 {
   return LVX(w)->selected;
 }
+
+/* ======================================================================= */
+/* Data view (Awra 1's AwraDataView over a GtkColumnView): a header of
+ * column titles over a list view whose rows hold a cell per column; each
+ * column has its own factory. Its states: content, empty, loading, error. */
+
+typedef struct Column {
+  char *title;
+  AwraListItemFunc setup, bind, unbind, teardown;
+  void *data;
+  AwraDestroyNotify destroy;
+  bool visible, expand;
+  AwraWidget *heading;
+} Column;
+
+typedef struct DataExt {
+  AwraWidget *header, *stack, *scroller, *list, *empty, *loading, *error;
+  Column *columns;
+  int n_columns;
+  int state;
+} DataExt;
+
+static DataExt *dvx(AwraWidget *w)
+{
+  return (DataExt *)awra_widget_get_data(w, "awra-data-view");
+}
+
+static void row_setup(AwraWidget *list, AwraWidget *item, void *data)
+{
+  AwraWidget *view = (AwraWidget *)data;
+  DataExt *x = dvx(view);
+  AwraWidget *row = awra_box_new(AWRA_ORIENTATION_HORIZONTAL, 12);
+  awra_box_set_homogeneous(row, true);
+  awra_widget_set_margins(row, 0, 12, 0, 12);
+  for (int c = 0; c < x->n_columns; c++) {
+    AwraWidget *cell = awra_widget_new(&item_class);
+    ItemExt *ix = ITX(cell);
+    ix->list = list;
+    ix->position = INVALID_POSITION;
+    awra_widget_set_hexpand(cell, true);
+    awra_widget_set_visible(cell, x->columns[c].visible);
+    awra_box_append(row, cell);
+    awra_widget_unref(cell);
+    if (x->columns[c].setup) {
+      x->columns[c].setup(list, cell, x->columns[c].data);
+    }
+  }
+  awra_list_item_set_child(item, row);
+  awra_widget_unref(row);
+}
+
+static AwraWidget *row_cells(AwraWidget *item)
+{
+  return ITX(item)->child;
+}
+
+static void row_bind(AwraWidget *list, AwraWidget *item, void *data)
+{
+  AwraWidget *view = (AwraWidget *)data;
+  DataExt *x = dvx(view);
+  AwraWidget *row = row_cells(item);
+  for (int c = 0; row && c < x->n_columns && c < row->nkids; c++) {
+    AwraWidget *cell = row->kids[c];
+    ITX(cell)->position = ITX(item)->position;
+    awra_widget_set_visible(cell, x->columns[c].visible);
+    if (x->columns[c].bind) {
+      x->columns[c].bind(list, cell, x->columns[c].data);
+    }
+  }
+}
+
+static void row_unbind(AwraWidget *list, AwraWidget *item, void *data)
+{
+  AwraWidget *view = (AwraWidget *)data;
+  DataExt *x = dvx(view);
+  AwraWidget *row = row_cells(item);
+  for (int c = 0; row && c < x->n_columns && c < row->nkids; c++) {
+    if (x->columns[c].unbind) {
+      x->columns[c].unbind(list, row->kids[c], x->columns[c].data);
+    }
+    ITX(row->kids[c])->position = INVALID_POSITION;
+  }
+}
+
+static void data_free(void *p)
+{
+  DataExt *x = (DataExt *)p;
+  for (int c = 0; c < x->n_columns; c++) {
+    if (x->columns[c].destroy) {
+      x->columns[c].destroy(x->columns[c].data);
+    }
+    free(x->columns[c].title);
+  }
+  free(x->columns);
+  free(x);
+}
+
+static void data_sync_state(AwraWidget *w)
+{
+  DataExt *x = dvx(w);
+  const char *name = x->state == AWRA_DATA_VIEW_EMPTY && x->empty     ? "empty" :
+                     x->state == AWRA_DATA_VIEW_LOADING && x->loading ? "loading" :
+                     x->state == AWRA_DATA_VIEW_ERROR && x->error     ? "error" :
+                                                                        "content";
+  awra_stack_set_visible_child_name(x->stack, name);
+  awra_widget_set_visible(x->header, !strcmp(name, "content"));
+}
+
+AwraWidget *awra_data_view_new(void)
+{
+  AwraWidget *w = awra_box_new(AWRA_ORIENTATION_VERTICAL, 0);
+  awra_widget_set_name(w, "AwraDataView");
+  DataExt *x = (DataExt *)calloc(1, sizeof(DataExt));
+  awra_widget_set_data(w, "awra-data-view", x, data_free);
+  x->header = awra_box_new(AWRA_ORIENTATION_HORIZONTAL, 12);
+  awra_box_set_homogeneous(x->header, true);
+  awra_widget_set_margins(x->header, 6, 12, 6, 12);
+  awra_box_append(w, x->header);
+  awra_widget_unref(x->header);
+  x->stack = awra_stack_new();
+  awra_widget_set_vexpand(x->stack, true);
+  x->scroller = awra_scrolled_new();
+  awra_scrolled_set_policy(x->scroller, AWRA_POLICY_NEVER, AWRA_POLICY_AUTOMATIC);
+  x->list = awra_list_view_new();
+  awra_list_view_set_factory(x->list, row_setup, row_bind, row_unbind, NULL, w, NULL);
+  awra_scrolled_set_child(x->scroller, x->list);
+  awra_widget_unref(x->list);
+  awra_stack_add_named(x->stack, x->scroller, "content");
+  awra_widget_unref(x->scroller);
+  awra_box_append(w, x->stack);
+  awra_widget_unref(x->stack);
+  return w;
+}
+
+AwraWidget *awra_data_view_list(AwraWidget *w)
+{
+  return dvx(w)->list;
+}
+
+int awra_data_view_add_column(AwraWidget *w, const char *title, AwraListItemFunc setup, AwraListItemFunc bind,
+                              AwraListItemFunc unbind, AwraListItemFunc teardown, void *data,
+                              AwraDestroyNotify destroy)
+{
+  DataExt *x = dvx(w);
+  x->columns = (Column *)realloc(x->columns, sizeof(Column) * (size_t)(x->n_columns + 1));
+  Column *c = &x->columns[x->n_columns];
+  memset(c, 0, sizeof(*c));
+  c->title = awra_strdup(title ? title : "");
+  c->setup = setup;
+  c->bind = bind;
+  c->unbind = unbind;
+  c->teardown = teardown;
+  c->data = data;
+  c->destroy = destroy;
+  c->visible = true;
+  c->heading = awra_label_new(c->title);
+  awra_label_set_xalign(c->heading, 0.0f);
+  awra_label_set_ellipsize(c->heading, AWRA_ELLIPSIZE_END);
+  awra_widget_set_typography(c->heading, AWRA_TYPOGRAPHY_MUTED);
+  awra_label_set_weight(c->heading, 600);
+  awra_widget_set_hexpand(c->heading, true);
+  awra_box_append(x->header, c->heading);
+  awra_widget_unref(c->heading);
+  /* rows made before this column go: they're made again */
+  awra_list_view_set_factory(x->list, row_setup, row_bind, row_unbind, NULL, w, NULL);
+  return x->n_columns++;
+}
+
+void awra_data_view_set_column_visible(AwraWidget *w, int column, bool visible)
+{
+  DataExt *x = dvx(w);
+  if (column < 0 || column >= x->n_columns || x->columns[column].visible == visible) {
+    return;
+  }
+  x->columns[column].visible = visible;
+  awra_widget_set_visible(x->columns[column].heading, visible);
+  ListExt *lx = LVX(x->list);
+  for (unsigned b = 0; b < lx->n_bound; b++) {
+    AwraWidget *row = row_cells(lx->bound[b]);
+    if (row && column < row->nkids) {
+      awra_widget_set_visible(row->kids[column], visible);
+    }
+  }
+}
+
+void awra_data_view_set_state(AwraWidget *w, AwraDataViewState state)
+{
+  dvx(w)->state = state;
+  data_sync_state(w);
+}
+
+static void set_state_widget(AwraWidget *w, AwraWidget **slot, const char *name, AwraWidget *child)
+{
+  DataExt *x = dvx(w);
+  if (*slot) {
+    awra_container_remove(x->stack, *slot);
+  }
+  *slot = child;
+  if (child) {
+    awra_stack_add_named(x->stack, child, name);
+  }
+  data_sync_state(w);
+}
+
+void awra_data_view_set_empty_widget(AwraWidget *w, AwraWidget *child)
+{
+  set_state_widget(w, &dvx(w)->empty, "empty", child);
+}
+
+void awra_data_view_set_loading_widget(AwraWidget *w, AwraWidget *child)
+{
+  set_state_widget(w, &dvx(w)->loading, "loading", child);
+}
+
+void awra_data_view_set_error_widget(AwraWidget *w, AwraWidget *child)
+{
+  set_state_widget(w, &dvx(w)->error, "error", child);
+}

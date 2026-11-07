@@ -1347,6 +1347,92 @@ bool awra_completion_popover_visible(AwraWidget *completion);
 void awra_completion_popover_present_at_cursor(AwraWidget *completion);
 void awra_completion_popover_popdown(AwraWidget *completion);
 
+/* ----------------------------------------------------------------------- */
+/* Data view (Awra 1's AwraDataView): column titles over a list view whose
+ * rows hold a cell per column (each column's factory fills its cells, as
+ * list items: awra_list_item_position); its list: awra_data_view_list. */
+
+typedef enum {
+  AWRA_DATA_VIEW_CONTENT = 0,
+  AWRA_DATA_VIEW_EMPTY,
+  AWRA_DATA_VIEW_LOADING,
+  AWRA_DATA_VIEW_ERROR
+} AwraDataViewState;
+AwraWidget *awra_data_view_new(void);
+AwraWidget *awra_data_view_list(AwraWidget *view);
+int awra_data_view_add_column(AwraWidget *view, const char *title, AwraListItemFunc setup,
+                              AwraListItemFunc bind, AwraListItemFunc unbind,
+                              AwraListItemFunc teardown, void *data, AwraDestroyNotify destroy);
+void awra_data_view_set_column_visible(AwraWidget *view, int column, bool visible);
+void awra_data_view_set_state(AwraWidget *view, AwraDataViewState state);
+void awra_data_view_set_empty_widget(AwraWidget *view, AwraWidget *child);
+void awra_data_view_set_loading_widget(AwraWidget *view, AwraWidget *child);
+void awra_data_view_set_error_widget(AwraWidget *view, AwraWidget *child);
+
+/* ----------------------------------------------------------------------- */
+/* Emoji picker (Awra 1's AwraEmojiPicker): search, section tabs, a grid of
+ * emoji drawn without a widget each, a preview. activate: args->text = the
+ * picked item's id. */
+
+typedef struct AwraEmoji {
+  const char *id;
+  const char *name;
+  const char *text;      /* the glyph, or NULL */
+  AwraTexture *texture;  /* a picture (custom emoji), or NULL */
+  const char *keywords;  /* space-separated, or NULL */
+} AwraEmoji;
+AwraWidget *awra_emoji_picker_new(void);
+void awra_emoji_picker_clear(AwraWidget *picker);
+void awra_emoji_picker_add_section(AwraWidget *picker, const char *id, const char *title,
+                                   const char *icon_name, const AwraEmoji *items, int n);
+void awra_emoji_picker_set_search_text(AwraWidget *picker, const char *text);
+/* An item's picture arrived. */
+void awra_emoji_picker_set_texture(AwraWidget *picker, const char *id, AwraTexture *texture);
+AwraWidget *awra_emoji_picker_search_entry(AwraWidget *picker);
+
+/* Colour palette (Awra 1's AwraColorPalette): an automatic swatch, colours
+ * and a custom one; selected: args->index 0 automatic, 1 a colour
+ * (args->text = #rrggbb). */
+AwraWidget *awra_color_palette_new(void);
+void awra_color_palette_add_color(AwraWidget *palette, const AwraRGBA *color, const char *name);
+void awra_color_palette_clear(AwraWidget *palette);
+void awra_color_palette_set_automatic_label(AwraWidget *palette, const char *label);
+void awra_color_palette_set_allows_custom(AwraWidget *palette, bool allows);
+void awra_color_palette_set_selected(AwraWidget *palette, const AwraRGBA *color);
+bool awra_color_palette_selected(AwraWidget *palette, AwraRGBA *color);
+
+/* ----------------------------------------------------------------------- */
+/* Fields (Awra 1's AwraTextArea, AwraPasswordEntry, AwraTagEntry) */
+
+/* A framed multi-line text view (its text: awra_text_view_*). */
+AwraWidget *awra_text_area_new(void);
+/* Hidden text, a peek button at the end; its entry: */
+AwraWidget *awra_password_entry_new(void);
+AwraWidget *awra_password_entry_entry(AwraWidget *password);
+void awra_password_entry_set_show_peek_icon(AwraWidget *password, bool show);
+/* Words as chips; Return in its entry adds one (activate: args->text), a
+ * chip's click removes it (stop-requested: args->text). */
+AwraWidget *awra_tag_entry_new(void);
+AwraWidget *awra_tag_entry_entry(AwraWidget *tags);
+bool awra_tag_entry_add(AwraWidget *tags, const char *tag);
+void awra_tag_entry_clear(AwraWidget *tags);
+int awra_tag_entry_n_tags(AwraWidget *tags);
+const char *awra_tag_entry_tag(AwraWidget *tags, int index);
+
+/* Overlay bar (Awra 1's AwraOverlayBar): controls floating at the foot of
+ * media on the Floating material, shown when the pointer moves and hidden
+ * after a rest (auto hide). */
+AwraWidget *awra_overlay_bar_new(void);
+void awra_overlay_bar_set_content(AwraWidget *bar, AwraWidget *content);
+void awra_overlay_bar_set_bar(AwraWidget *bar, AwraWidget *controls);
+void awra_overlay_bar_set_auto_hide(AwraWidget *bar, bool auto_hide);
+void awra_overlay_bar_set_inhibit_auto_hide(AwraWidget *bar, bool inhibit);
+void awra_overlay_bar_set_revealed(AwraWidget *bar, bool revealed);
+void awra_overlay_bar_reveal(AwraWidget *bar);
+void awra_overlay_bar_set_hide_delay(AwraWidget *bar, unsigned ms);
+void awra_overlay_bar_set_max_width(AwraWidget *bar, int width);
+void awra_overlay_bar_set_inset(AwraWidget *bar, AwraSpacing inset);
+
 #ifdef __cplusplus
 }
 #endif

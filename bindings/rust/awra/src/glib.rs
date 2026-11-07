@@ -318,3 +318,87 @@ pub fn find_program_in_path(program: impl AsRef<std::path::Path>) -> Option<Path
     }
     None
 }
+
+pub use crate::compat::{BoxedAnyObject, Object};
+pub use crate::object::WeakRef;
+
+/// Text as Pango markup shows it literally.
+pub fn markup_escape_text(text: &str) -> String {
+    let mut out = String::with_capacity(text.len());
+    for c in text.chars() {
+        match c {
+            '&' => out.push_str("&amp;"),
+            '<' => out.push_str("&lt;"),
+            '>' => out.push_str("&gt;"),
+            '"' => out.push_str("&quot;"),
+            '\'' => out.push_str("&#39;"),
+            c => out.push(c),
+        }
+    }
+    out
+}
+
+pub fn user_cache_dir() -> PathBuf {
+    if let Some(d) = std::env::var_os("XDG_CACHE_HOME").filter(|d| !d.is_empty()) {
+        return PathBuf::from(d);
+    }
+    #[cfg(windows)]
+    if let Some(d) = std::env::var_os("LOCALAPPDATA") {
+        return PathBuf::from(d);
+    }
+    home_dir().join(".cache")
+}
+
+/// Bytes shared without copying.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Bytes(Arc<[u8]>);
+impl Bytes {
+    pub fn from_owned(v: impl Into<Vec<u8>>) -> Bytes {
+        Bytes(Arc::from(v.into()))
+    }
+    pub fn from_static(v: &'static [u8]) -> Bytes {
+        Bytes(Arc::from(v))
+    }
+}
+impl From<&[u8]> for Bytes {
+    fn from(v: &[u8]) -> Bytes {
+        Bytes(Arc::from(v))
+    }
+}
+impl From<Vec<u8>> for Bytes {
+    fn from(v: Vec<u8>) -> Bytes {
+        Bytes(Arc::from(v))
+    }
+}
+impl std::ops::Deref for Bytes {
+    type Target = [u8];
+    fn deref(&self) -> &[u8] {
+        &self.0
+    }
+}
+
+/// The UI thread's main context.
+#[derive(Debug, Clone, Copy)]
+pub struct MainContext;
+impl MainContext {
+    pub fn default() -> MainContext {
+        MainContext
+    }
+    pub fn spawn_local<F: Future<Output = ()> + 'static>(&self, f: F) -> JoinHandle {
+        spawn_future_local(f)
+    }
+    /// Runs `f` on the UI thread (from any thread).
+    pub fn invoke<F: FnOnce() + Send + 'static>(&self, f: F) {
+        invoke(f)
+    }
+}
+
+/// Source priorities (accepted, all sources share one).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Priority(i32);
+impl Priority {
+    pub const DEFAULT: Priority = Priority(0);
+    pub const DEFAULT_IDLE: Priority = Priority(200);
+    pub const LOW: Priority = Priority(300);
+    pub const HIGH: Priority = Priority(-100);
+}

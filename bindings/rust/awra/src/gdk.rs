@@ -169,3 +169,91 @@ impl std::ops::BitAnd for ModifierType {
 pub const BUTTON_PRIMARY: u32 = 1;
 pub const BUTTON_MIDDLE: u32 = 2;
 pub const BUTTON_SECONDARY: u32 = 3;
+
+pub use crate::compat::{MemoryFormat, Paintable, Texture};
+
+/// GdkScrollUnit.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ScrollUnit {
+    Wheel,
+    Surface,
+}
+
+/// GdkMemoryTexture: straight or premultiplied pixels made a texture.
+pub struct MemoryTexture;
+impl MemoryTexture {
+    #[allow(clippy::new_ret_no_self)]
+    pub fn new(width: i32, height: i32, format: MemoryFormat, bytes: &crate::glib::Bytes, stride: usize) -> Texture {
+        texture_from(width, height, format, bytes, stride).expect("a texture of these pixels")
+    }
+}
+
+/// Converts pixels of `format` to a texture.
+pub fn texture_from(width: i32, height: i32, format: MemoryFormat, px: &[u8], stride: usize) -> Option<Texture> {
+    match format {
+        MemoryFormat::R8g8b8a8 => Texture::from_rgba(width, height, px, stride),
+        _ => {
+            let mut rgba = vec![0u8; width as usize * height as usize * 4];
+            for y in 0..height as usize {
+                for x in 0..width as usize {
+                    let o = y * width as usize * 4 + x * 4;
+                    match format {
+                        MemoryFormat::R8g8b8 => {
+                            let i = y * stride + x * 3;
+                            rgba[o..o + 3].copy_from_slice(&px[i..i + 3]);
+                            rgba[o + 3] = 255;
+                        }
+                        _ => {
+                            let i = y * stride + x * 4;
+                            let (r, g, b, a) = match format {
+                                MemoryFormat::B8g8r8a8 | MemoryFormat::B8g8r8a8Premultiplied => {
+                                    (px[i + 2], px[i + 1], px[i], px[i + 3])
+                                }
+                                _ => (px[i], px[i + 1], px[i + 2], px[i + 3]),
+                            };
+                            let un = |c: u8| if a == 0 { 0 } else { ((c as u32 * 255 + a as u32 / 2) / a as u32).min(255) as u8 };
+                            let premul = matches!(format, MemoryFormat::B8g8r8a8Premultiplied | MemoryFormat::R8g8b8a8Premultiplied);
+                            rgba[o..o + 4].copy_from_slice(&if premul { [un(r), un(g), un(b), a] } else { [r, g, b, a] });
+                        }
+                    }
+                }
+            }
+            Texture::from_rgba(width, height, &rgba, width as usize * 4)
+        }
+    }
+}
+
+/// GdkMemoryTextureBuilder.
+#[derive(Default)]
+pub struct MemoryTextureBuilder {
+    width: i32,
+    height: i32,
+    stride: usize,
+    format: Option<MemoryFormat>,
+    bytes: Option<crate::glib::Bytes>,
+}
+impl MemoryTextureBuilder {
+    pub fn new() -> MemoryTextureBuilder {
+        MemoryTextureBuilder::default()
+    }
+    pub fn set_width(self, width: i32) -> Self {
+        Self { width, ..self }
+    }
+    pub fn set_height(self, height: i32) -> Self {
+        Self { height, ..self }
+    }
+    pub fn set_stride(self, stride: usize) -> Self {
+        Self { stride, ..self }
+    }
+    pub fn set_format(self, format: MemoryFormat) -> Self {
+        Self { format: Some(format), ..self }
+    }
+    pub fn set_bytes(self, bytes: Option<&crate::glib::Bytes>) -> Self {
+        Self { bytes: bytes.cloned(), ..self }
+    }
+    pub fn build(self) -> Texture {
+        let b = self.bytes.unwrap_or_else(|| crate::glib::Bytes::from_owned(Vec::new()));
+        texture_from(self.width, self.height, self.format.unwrap_or(MemoryFormat::R8g8b8a8), &b, self.stride)
+            .expect("a texture of these pixels")
+    }
+}

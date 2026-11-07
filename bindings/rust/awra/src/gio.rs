@@ -145,6 +145,10 @@ pub(crate) fn lookup_action(window: &Widget, name: &str) -> Option<SimpleAction>
 
 /// Activates "win.name" (or "name") for the window of `widget`.
 pub fn activate_action(widget: &Widget, detailed: &str, target: Option<&Variant>) -> bool {
+    if let Some(a) = crate::compat::lookup_group_action(widget, detailed) {
+        a.activate(target);
+        return true;
+    }
     let name = detailed.strip_prefix("win.").or_else(|| detailed.strip_prefix("app.")).unwrap_or(detailed);
     let window = widget.root_widget().unwrap_or_else(|| widget.clone());
     let action = lookup_action(&window, name).or_else(|| {
@@ -494,3 +498,5 @@ impl Application {
         }
     }
 }
+
+pub use crate::compat::{ListStore, SimpleActionGroup};

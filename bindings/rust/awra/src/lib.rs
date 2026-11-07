@@ -16,6 +16,8 @@
 pub use awra_sys as ffi;
 
 pub mod object;
+mod compat;
+mod content;
 mod signal;
 mod enums;
 mod widget;
@@ -36,6 +38,8 @@ pub use object::{IntoOptStr, IntoOptWidget, IsWidget, StaticType, WeakRef, Widge
 pub use signal::{raw_args as signal_args, sig, Args, SignalHandlerId};
 pub use widget::*;
 pub use widgets::*;
+pub use compat::*;
+pub use content::*;
 pub use window::{accel_label, ApplicationWindow, Window};
 
 pub mod prelude {

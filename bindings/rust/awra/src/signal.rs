@@ -47,6 +47,10 @@ pub mod sig {
     pub const DROP_HOVER: i32 = ffi::AWRA_SIGNAL_DROP_HOVER as i32;
     pub const KEY_CAPTURE: i32 = ffi::AWRA_SIGNAL_KEY_CAPTURE as i32;
     pub const PRESS_CAPTURE: i32 = ffi::AWRA_SIGNAL_PRESS_CAPTURE as i32;
+    pub const ACTIVATE_LINK: i32 = ffi::AWRA_SIGNAL_ACTIVATE_LINK as i32;
+    pub const EDGE_REACHED: i32 = ffi::AWRA_SIGNAL_EDGE_REACHED as i32;
+    pub const RETRY: i32 = ffi::AWRA_SIGNAL_RETRY as i32;
+    pub const JUMP_ACTIVATED: i32 = ffi::AWRA_SIGNAL_JUMP_ACTIVATED as i32;
 }
 
 /// What a signal carries.
