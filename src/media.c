@@ -1388,10 +1388,13 @@ AwraWidget *awra_media_row_new(const char *title)
   awra_accessible_update_state(x->elapsed, AWRA_ACCESSIBLE_STATE_HIDDEN, 1);
   awra_accessible_update_state(x->total, AWRA_ACCESSIBLE_STATE_HIDDEN, 1);
   awra_box_append(seekbox, x->elapsed);
+  awra_widget_unref(x->elapsed); /* its parent holds it */
   awra_box_append(seekbox, x->seek);
   awra_widget_unref(x->seek); /* its parent holds it */
   awra_box_append(seekbox, x->total);
+  awra_widget_unref(x->total); /* its parent holds it */
   awra_grid_attach(x->grid, x->tile, 0, 0, 1, 2);
+  awra_widget_unref(x->tile); /* its parent holds it */
   awra_grid_attach(x->grid, texts, 1, 0, 1, 1);
   awra_widget_unref(texts); /* its parent holds it */
   awra_grid_attach(x->grid, x->ends, 2, 0, 1, 1);
