@@ -240,6 +240,7 @@ typedef struct ButtonExt {
   AwraButtonColors colors, from;
   float color_t;
   int pad_x, pad_y, min_w; /* > 0: overrides (dropdowns) */
+  bool accent_fg; /* the content in @awra_accent_content (a playing media row's first button) */
 } ButtonExt;
 
 #define BX(w) AWRA_EXT(w, ButtonExt)
@@ -533,6 +534,19 @@ static void current_colors(AwraWidget *w, AwraButtonColors *c)
   if (!x->frame && !(ht > 0 || pt > 0 || checked)) {
     c->bg.a = 0;
     c->rim.a = 0;
+  }
+  if (x->accent_fg && sens) {
+    c->fg = awra_tokens()->accent_content;
+  }
+}
+
+extern AwraClass awra_button_class;
+
+void awra_button_set_accent_fg_internal(AwraWidget *w, bool on)
+{
+  if (AWRA_CLASS_OF(w) == &awra_button_class && BX(w)->accent_fg != on) {
+    BX(w)->accent_fg = on;
+    awra_invalidate(w);
   }
 }
 

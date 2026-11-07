@@ -1450,11 +1450,13 @@ void awra_media_row_set_accent_color(AwraWidget *w, const AwraRGBA *c)
 void awra_media_row_set_show_play_button(AwraWidget *w, bool s)
 {
   awra_widget_set_visible(MX(w)->play, s);
+  media_sync(w);
 }
 
 void awra_media_row_set_show_stop_button(AwraWidget *w, bool s)
 {
   awra_widget_set_visible(MX(w)->stop, s);
+  media_sync(w);
 }
 
 void awra_media_row_set_show_volume(AwraWidget *w, bool s)
@@ -1483,6 +1485,11 @@ static void media_sync(AwraWidget *w)
   }
   awra_widget_set_sensitive(x->seek, !idle && x->seekable);
   awra_widget_set_sensitive(x->stop, !idle || x->playing);
+  /* awramediarow.awra-media-playing .awra-media-button:first-child: the
+   * first shown of play and stop in the accent */
+  AwraWidget *first = awra_widget_visible(x->play) ? x->play : x->stop;
+  awra_button_set_accent_fg_internal(x->play, x->playing && first == x->play);
+  awra_button_set_accent_fg_internal(x->stop, x->playing && first == x->stop);
   const AwraRGBA *dim = idle ? &awra_tokens()->disabled : NULL;
   awra_label_set_color(x->title, dim);
   awra_label_set_color(x->elapsed, dim);
