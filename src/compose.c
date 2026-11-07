@@ -1387,6 +1387,7 @@ AwraWidget *awra_status_banner_new(const char *title, const char *description,
   x->d = awra_button_new_from_icon_name("awra-close-symbolic");
   awra_accessible_update_property_string(x->d, AWRA_ACCESSIBLE_PROPERTY_LABEL, "Dismiss");
   awra_button_set_appearance(x->d, AWRA_BUTTON_GHOST);
+  awra_button_set_icon_size_internal(x->d, 20); /* awrastatusbanner image: -gtk-icon-size 20px */
   awra_widget_set_visible(x->d, false);
   awra_signal_connect(x->d, AWRA_SIGNAL_CLICKED, banner_dismiss, w, NULL);
   awra_box_append(root, x->d);
