@@ -974,7 +974,17 @@ static void image_draw(AwraWidget *w, AwraDraw *d)
     if (!awra_sensitive(w)) {
       c.a *= 0.5f;
     }
-    const float ix = w->x + awra_halfpx(w->w - s), iy = w->y + awra_halfpx(w->h - s);
+    /* GtkImage gives its icon helper the largest square that fits
+     * (centred in whole pixels), and GtkIconHelper centres the icon in that
+     * at floor (width - size) / 2: half a pixel when the difference is odd
+     * (gtkimage.c, gtkiconhelper.c) */
+    const float sc = awra_scale() > 0.0f ? awra_scale() : 1.0f;
+    const float W = w->w / sc, H = w->h / sc, S = s / sc;
+    const float side = W < H ? W : H;
+    const float ox = (float)(int)((W - ceilf(side)) / 2.0f), oy = (float)(int)(floorf(H - ceilf(side)) / 2.0f);
+    const float is = side < S ? side : S;
+    const float ix = w->x + (ox + floorf(side - ceilf(is)) / 2.0f) * sc,
+                iy = w->y + (oy + floorf(side - ceilf(is)) / 2.0f) * sc;
     if (awra_icon_glow_wanted(w)) {
       const AwraIconMask *m = awra_icon_mask(x->icon, s);
       const BuiPixmap *pm = m ? NULL : awra_icon_pixmap(x->icon, s);
@@ -987,7 +997,7 @@ static void image_draw(AwraWidget *w, AwraDraw *d)
     }
     x->shown = true;
     /* the theme's icon: a symbolic one tinted, a full-colour one as it is */
-    awra_paint_icon(d, x->icon, ix, iy, s, &c);
+    awra_paint_icon_at(d, x->icon, ix, iy, s, &c);
     return;
   }
   if (x->tex) {
