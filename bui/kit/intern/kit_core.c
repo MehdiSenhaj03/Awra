@@ -3614,7 +3614,8 @@ void BK_context_set_blocked(BKContext *ctx, int blocked)
     return;
   }
   if (blocked) {
-    BK_motion(ctx, -60000, -60000, 0); /* the pointer leaves what it was over */
+    /* BUI-Awra: GTK's modal grab blocks input but leaves :hover where the
+     * pointer is (the GTK_GRAB crossing doesn't unset PRELIGHT) */
     hide_tooltip(ctx);
   }
   ctx->blocked = blocked != 0;
@@ -3647,6 +3648,14 @@ int BK_motion(BKContext *ctx, int x, int y, int mods)
   if (ctx->blocked) {
     ctx->pointer_x = x; /* where it is once input comes back */
     ctx->pointer_y = y;
+    /* BUI-Awra: under a modal window GTK still moves :hover with the
+     * pointer (crossings are handled before the grab is checked); motion
+     * itself reaches no one */
+    BKNode *under = (x <= -50000 || y <= -50000) ? NULL : hit_all(ctx, x, y);
+    if (under != ctx->hover && !ctx->grab && !ctx->modal) {
+      set_hover(ctx, under);
+      return 1;
+    }
     return 0;
   }
   if (ctx->pointer_hook) {
