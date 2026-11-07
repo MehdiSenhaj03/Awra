@@ -563,6 +563,8 @@ extern "C" {
     pub fn awra_scrolled_set_policy(scrolled: *mut AwraWidget, horizontal: c_int, vertical: c_int);
     pub fn awra_scrolled_set_propagate_natural(scrolled: *mut AwraWidget, width: bool, height: bool);
     pub fn awra_scrolled_set_max_content_height(scrolled: *mut AwraWidget, height: c_int);
+    pub fn awra_scrolled_set_min_content_width(scrolled: *mut AwraWidget, width: c_int);
+    pub fn awra_scrolled_set_max_content_width(scrolled: *mut AwraWidget, width: c_int);
     pub fn awra_scrolled_set_min_content_height(scrolled: *mut AwraWidget, height: c_int);
     pub fn awra_scrolled_vvalue(scrolled: *mut AwraWidget) -> f64;
     pub fn awra_scrolled_set_vvalue(scrolled: *mut AwraWidget, value: f64);
