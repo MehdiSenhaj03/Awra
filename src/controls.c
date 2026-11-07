@@ -81,8 +81,11 @@ static void check_draw(AwraWidget *w, AwraDraw *d)
   if (on || x->inconsistent) {
     const AwraRGBA white = {1, 1, 1, on ? 1.0f : 0.0f};
     const int s = awra_px(16);
-    const char *glyph = x->inconsistent ? "mixed-symbolic" : x->radio ? "radio-symbolic" :
-                                                                         "check-symbolic";
+    /* Awra 1's marks: its own files, whatever the icon theme
+     * (-gtk-recolor(url("resource:///org/awra/icons/...")) in awra.css) */
+    const char *glyph = x->inconsistent ? "resource:///org/awra/icons/mixed-symbolic.svg" :
+                        x->radio        ? "resource:///org/awra/icons/radio-symbolic.svg" :
+                                          "resource:///org/awra/icons/check-symbolic.svg";
     awra_paint_icon(d, glyph, b.x + (box - s) * 0.5f, b.y + (box - s) * 0.5f, s, &white);
   }
 }

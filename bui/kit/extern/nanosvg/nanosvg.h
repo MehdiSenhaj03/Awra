@@ -194,6 +194,15 @@ NSVGimage* nsvgParseFromFile(const char* filename, const char* units, float dpi)
 // Important note: changes the string.
 NSVGimage* nsvgParse(char* input, const char* units, float dpi);
 
+/* BUI-Awra: parses a symbolic icon as GTK 4 does when it can't take the
+ * shapes as they are (GtkSvg's "traditional symbolic" feature): every shape
+ * is filled with a colour of its own class attribute, foreground by default
+ * ("success" / "success-fill" red, "warning" green, "error" blue,
+ * "transparent-fill" none; black otherwise), stroked only by a
+ * "*-stroke" class (width 2, round joins and caps), whatever fill and
+ * stroke it says. */
+NSVGimage* nsvgParseSymbolic(char* input, const char* units, float dpi);
+
 // Duplicates a path.
 NSVGpath* nsvgDuplicatePath(NSVGpath* p);
 
@@ -255,6 +264,7 @@ static NSVG_INLINE float nsvg__maxf(float a, float b) { return a > b ? a : b; }
 
 // Simple XML parser
 
+#define NSVG_MAX_CSS 32 /* BUI-Awra: class rules of <style> */
 #define NSVG_XML_TAG 1
 #define NSVG_XML_CONTENT 2
 #define NSVG_XML_MAX_ATTRIBS 256
@@ -459,6 +469,11 @@ typedef struct NSVGattrib
 	char hasFill;
 	char hasStroke;
 	char visible;
+	unsigned int curColor;	/* BUI-Awra: the color property (currentColor) */
+	char clsSet, ownFill, ownStroke, ownStrokeWidth, ownJoin, ownCap; /* BUI-Awra: GtkSvg's class colours */
+	char fillCurrent, strokeCurrent;	/* BUI-Awra: fill / stroke: currentColor */
+	char symFill;	/* BUI-Awra: symbolic mode: 0 fg, 1 success, 2 warning, 3 error, 4 none */
+	char symStroke;	/* BUI-Awra: 0 none, 1 fg, 2 success, 3 warning, 4 error */
 	char masks[NSVG_MAX_MASKS][64];	/* BUI: mask="url(#id)", inherited by children */
 	char clips[NSVG_MAX_MASKS][64];	/* BUI: clip-path="url(#id)" */
 } NSVGattrib;
@@ -479,6 +494,11 @@ typedef struct NSVGparser
 	float dpi;
 	char pathFlag;
 	char defsFlag;
+	char symbolic; /* BUI-Awra: nsvgParseSymbolic */
+	char inStyle; /* BUI-Awra: inside <style>: its ".class { ... }" rules */
+	int ncss;
+	char cssClass[NSVG_MAX_CSS][48];
+	char cssDecl[NSVG_MAX_CSS][256];
 	int hiddenDepth; /* BUI: inside a symbol or a nested mask / clipPath (not drawn) */
 	char defType;    /* BUI: inside a <mask> or <clipPath>: its shapes go to image->defs */
 	char defId[64];
@@ -783,7 +803,80 @@ static void nsvg__pushAttr(NSVGparser* p)
 	if (p->attrHead < NSVG_MAX_ATTR-1) {
 		p->attrHead++;
 		memcpy(&p->attr[p->attrHead], &p->attr[p->attrHead-1], sizeof(NSVGattrib));
+		/* BUI-Awra: each element has the class it says, foreground-fill by default */
+		p->attr[p->attrHead].symFill = 0;
+		p->attr[p->attrHead].symStroke = 0;
+		p->attr[p->attrHead].clsSet = 0;
+		p->attr[p->attrHead].ownFill = 0;
+		p->attr[p->attrHead].ownStroke = 0;
+		p->attr[p->attrHead].ownStrokeWidth = 0;
+		p->attr[p->attrHead].ownJoin = 0;
+		p->attr[p->attrHead].ownCap = 0;
 	}
+}
+
+/* BUI-Awra: GtkSvg's classes of symbolic icons (class="a b c") */
+static int nsvg__hasClass(const char* list, const char* name)
+{
+	size_t n = strlen(name);
+	const char* q = list;
+	while (*q) {
+		const char* e;
+		while (*q == ' ') q++;
+		e = q;
+		while (*e && *e != ' ') e++;
+		if ((size_t)(e - q) == n && strncmp(q, name, n) == 0) return 1;
+		q = e;
+	}
+	return 0;
+}
+
+static void nsvg__parseSymbolicClass(NSVGattrib* attr, const char* v)
+{
+	if (nsvg__hasClass(v, "transparent-fill")) attr->symFill = 4;
+	else if (nsvg__hasClass(v, "foreground-fill")) attr->symFill = 0;
+	else if (nsvg__hasClass(v, "success") || nsvg__hasClass(v, "success-fill")) attr->symFill = 1;
+	else if (nsvg__hasClass(v, "warning") || nsvg__hasClass(v, "warning-fill")) attr->symFill = 2;
+	else if (nsvg__hasClass(v, "error") || nsvg__hasClass(v, "error-fill")) attr->symFill = 3;
+	else attr->symFill = 0;
+	if (nsvg__hasClass(v, "success-stroke")) attr->symStroke = 2;
+	else if (nsvg__hasClass(v, "warning-stroke")) attr->symStroke = 3;
+	else if (nsvg__hasClass(v, "error-stroke")) attr->symStroke = 4;
+	else if (nsvg__hasClass(v, "foreground-stroke")) attr->symStroke = 1;
+	else attr->symStroke = 0;
+}
+
+/* BUI-Awra: GtkSvg's colours of classes in files that are not symbolic
+ * (gtksvg.c parse_shape_attrs with GTK_SVG_EXTENSIONS, drawn without
+ * colours: gtksymbolicpaintable's defaults), where the element sets no
+ * fill / stroke of its own */
+static void nsvg__applyClassPaint(NSVGattrib* attr)
+{
+	static const unsigned int defaults[4] = {NSVG_RGB(190, 190, 190), NSVG_RGB(78, 154, 6), NSVG_RGB(244, 121, 62), NSVG_RGB(203, 0, 0)};
+	if (!attr->clsSet)
+		return;
+	if (!attr->ownFill) {
+		if (attr->symFill == 4) {
+			attr->hasFill = 0;
+		} else {
+			attr->hasFill = 1;
+			attr->fillColor = defaults[(int)attr->symFill];
+			attr->fillCurrent = 0;
+		}
+	}
+	if (!attr->ownStroke) {
+		if (attr->symStroke == 0) {
+			attr->hasStroke = 0;
+		} else {
+			attr->hasStroke = 1;
+			attr->strokeColor = defaults[attr->symStroke - 1];
+			attr->strokeCurrent = 0;
+			if (!attr->ownStrokeWidth) attr->strokeWidth = 2.0f;
+			if (!attr->ownJoin) attr->strokeLineJoin = NSVG_JOIN_ROUND;
+			if (!attr->ownCap) attr->strokeLineCap = NSVG_CAP_ROUND;
+		}
+	}
+	attr->clsSet = 0;
 }
 
 static void nsvg__popAttr(NSVGparser* p)
@@ -1037,6 +1130,18 @@ static void nsvg__addShape(NSVGparser* p)
 		shape->bounds[3] = nsvg__maxf(shape->bounds[3], path->bounds[3]);
 	}
 
+	/* BUI-Awra: GtkSvg's class colours */
+	if (!p->symbolic && attr->clsSet) {
+		nsvg__applyClassPaint(attr);
+		scale = nsvg__getAverageScale(attr->xform);
+		shape->strokeWidth = attr->strokeWidth * scale;
+		shape->strokeLineJoin = attr->strokeLineJoin;
+		shape->strokeLineCap = attr->strokeLineCap;
+	}
+	/* BUI-Awra: currentColor */
+	if (attr->fillCurrent) attr->fillColor = attr->curColor;
+	if (attr->strokeCurrent) attr->strokeColor = attr->curColor;
+
 	// Set fill
 	if (attr->hasFill == 0) {
 		shape->fill.type = NSVG_PAINT_NONE;
@@ -1057,6 +1162,27 @@ static void nsvg__addShape(NSVGparser* p)
 		shape->stroke.color |= (unsigned int)(attr->strokeOpacity*255) << 24;
 	} else if (attr->hasStroke == 2) {
 		shape->stroke.type = NSVG_PAINT_UNDEF;
+	}
+
+	/* BUI-Awra: symbolic: the colours of the classes */
+	if (p->symbolic) {
+		static const unsigned int roles[5] = {NSVG_RGB(0,0,0), NSVG_RGB(255,0,0), NSVG_RGB(0,255,0), NSVG_RGB(0,0,255), 0};
+		if (attr->symFill == 4) {
+			shape->fill.type = NSVG_PAINT_NONE;
+		} else {
+			shape->fill.type = NSVG_PAINT_COLOR;
+			shape->fill.color = roles[(int)attr->symFill] | (unsigned int)(attr->fillOpacity*255) << 24;
+		}
+		if (attr->symStroke == 0) {
+			shape->stroke.type = NSVG_PAINT_NONE;
+		} else {
+			shape->stroke.type = NSVG_PAINT_COLOR;
+			shape->stroke.color = roles[attr->symStroke - 1] | (unsigned int)(attr->strokeOpacity*255) << 24;
+			shape->strokeWidth = 2.0f * scale;
+			shape->strokeLineJoin = NSVG_JOIN_ROUND;
+			shape->strokeLineCap = NSVG_CAP_ROUND;
+		}
+		shape->fillGradient[0] = shape->strokeGradient[0] = '\0';
 	}
 
 	// Set flags
@@ -1862,30 +1988,43 @@ static int nsvg__parseAttr(NSVGparser* p, const char* name, const char* value)
 		// Don't reset ->visible on display:inline, one display:none hides the whole subtree
 
 	} else if (strcmp(name, "fill") == 0) {
+		attr->ownFill = 1;
+		attr->fillCurrent = 0;
 		if (strcmp(value, "none") == 0) {
 			attr->hasFill = 0;
 		} else if (strncmp(value, "url(", 4) == 0) {
 			attr->hasFill = 2;
 			nsvg__parseUrl(attr->fillGradient, value);
+		} else if (strcmp(value, "currentColor") == 0) {
+			attr->hasFill = 1;
+			attr->fillCurrent = 1;
 		} else {
 			attr->hasFill = 1;
 			attr->fillColor = nsvg__parseColor(value);
 		}
+	} else if (strcmp(name, "color") == 0) {
+		attr->curColor = nsvg__parseColor(value);
 	} else if (strcmp(name, "opacity") == 0) {
 		attr->opacity = nsvg__parseOpacity(value);
 	} else if (strcmp(name, "fill-opacity") == 0) {
 		attr->fillOpacity = nsvg__parseOpacity(value);
 	} else if (strcmp(name, "stroke") == 0) {
+		attr->ownStroke = 1;
+		attr->strokeCurrent = 0;
 		if (strcmp(value, "none") == 0) {
 			attr->hasStroke = 0;
 		} else if (strncmp(value, "url(", 4) == 0) {
 			attr->hasStroke = 2;
 			nsvg__parseUrl(attr->strokeGradient, value);
+		} else if (strcmp(value, "currentColor") == 0) {
+			attr->hasStroke = 1;
+			attr->strokeCurrent = 1;
 		} else {
 			attr->hasStroke = 1;
 			attr->strokeColor = nsvg__parseColor(value);
 		}
 	} else if (strcmp(name, "stroke-width") == 0) {
+		attr->ownStrokeWidth = 1;
 		attr->strokeWidth = nsvg__parseCoordinate(p, value, 0.0f, nsvg__actualLength(p));
 	} else if (strcmp(name, "stroke-dasharray") == 0) {
 		attr->strokeDashCount = nsvg__parseStrokeDashArray(p, value, attr->strokeDashArray);
@@ -1894,8 +2033,10 @@ static int nsvg__parseAttr(NSVGparser* p, const char* name, const char* value)
 	} else if (strcmp(name, "stroke-opacity") == 0) {
 		attr->strokeOpacity = nsvg__parseOpacity(value);
 	} else if (strcmp(name, "stroke-linecap") == 0) {
+		attr->ownCap = 1;
 		attr->strokeLineCap = nsvg__parseLineCap(value);
 	} else if (strcmp(name, "stroke-linejoin") == 0) {
+		attr->ownJoin = 1;
 		attr->strokeLineJoin = nsvg__parseLineJoin(value);
 	} else if (strcmp(name, "stroke-miterlimit") == 0) {
 		attr->miterLimit = nsvg__parseMiterLimit(value);
@@ -1927,6 +2068,17 @@ static int nsvg__parseAttr(NSVGparser* p, const char* name, const char* value)
 	} else if (strcmp(name, "id") == 0) {
 		strncpy(attr->id, value, 63);
 		attr->id[63] = '\0';
+	} else if (strcmp(name, "class") == 0) {
+		int k;
+		/* BUI-Awra: symbolic mode, or GtkSvg's extension for other files:
+		 * a classed shape without its own fill takes its class's colour */
+		nsvg__parseSymbolicClass(attr, value);
+		attr->clsSet = 1;
+		/* BUI-Awra: the <style> rules of the element's classes */
+		for (k = 0; k < p->ncss; k++) {
+			if (nsvg__hasClass(value, p->cssClass[k]))
+				nsvg__parseStyle(p, p->cssDecl[k]);
+		}
 	} else {
 		return 0;
 	}
@@ -1989,12 +2141,17 @@ static void nsvg__parseStyle(NSVGparser* p, const char* str)
 static void nsvg__parseAttribs(NSVGparser* p, const char** attr)
 {
 	int i;
+	/* BUI-Awra: CSS order: presentation attributes (the class's <style>
+	 * rules with them), then the style attribute */
+	for (i = 0; attr[i]; i += 2)
+	{
+		if (strcmp(attr[i], "style") != 0)
+			nsvg__parseAttr(p, attr[i], attr[i + 1]);
+	}
 	for (i = 0; attr[i]; i += 2)
 	{
 		if (strcmp(attr[i], "style") == 0)
 			nsvg__parseStyle(p, attr[i + 1]);
-		else
-			nsvg__parseAttr(p, attr[i], attr[i + 1]);
 	}
 }
 
@@ -2872,7 +3029,9 @@ static void nsvg__startElement(void* ud, const char* el, const char** attr)
 
 	if (p->defsFlag && !p->defType) {
 		// Skip everything but gradients in defs
-		if (strcmp(el, "linearGradient") == 0) {
+		if (strcmp(el, "style") == 0) {
+			p->inStyle = 1; /* BUI-Awra */
+		} else if (strcmp(el, "linearGradient") == 0) {
 			nsvg__parseGradient(p, attr, NSVG_PAINT_LINEAR_GRADIENT);
 		} else if (strcmp(el, "radialGradient") == 0) {
 			nsvg__parseGradient(p, attr, NSVG_PAINT_RADIAL_GRADIENT);
@@ -2885,6 +3044,7 @@ static void nsvg__startElement(void* ud, const char* el, const char** attr)
 	if (strcmp(el, "g") == 0) {
 		nsvg__pushAttr(p);
 		nsvg__parseAttribs(p, attr);
+		if (!p->symbolic) nsvg__applyClassPaint(nsvg__getAttr(p));
 
     /* Save the breadcrumb of groups. */
     if (p->breadcrumb_len < NSVG_MAX_BREADCRUMB) {
@@ -2931,6 +3091,8 @@ static void nsvg__startElement(void* ud, const char* el, const char** attr)
 		nsvg__parseGradientStop(p, attr);
 	} else if (strcmp(el, "defs") == 0) {
 		p->defsFlag = 1;
+	} else if (strcmp(el, "style") == 0) {
+		p->inStyle = 1;
 	} else if (strcmp(el, "svg") == 0) {
 		nsvg__parseSVG(p, attr);
 	}
@@ -2966,14 +3128,46 @@ static void nsvg__endElement(void* ud, const char* el)
 		p->pathFlag = 0;
 	} else if (strcmp(el, "defs") == 0) {
 		p->defsFlag = 0;
+	} else if (strcmp(el, "style") == 0) {
+		p->inStyle = 0;
 	}
 }
 
+/* BUI-Awra: ".a, .b { decls }" rules of a <style> (what icon themes use:
+ * Papirus' ColorScheme-Text and the like) */
 static void nsvg__content(void* ud, const char* s)
 {
-	NSVG_NOTUSED(ud);
-	NSVG_NOTUSED(s);
-	// empty
+	NSVGparser* p = (NSVGparser*)ud;
+	const char* q = s;
+	if (!p->inStyle)
+		return;
+	while (*q) {
+		const char* open = strchr(q, '{');
+		const char* close = open ? strchr(open, '}') : NULL;
+		const char* sel = q;
+		size_t dl;
+		if (!open || !close)
+			break;
+		dl = (size_t)(close - open - 1);
+		while (sel < open) {
+			const char* e;
+			while (sel < open && (*sel == ' ' || *sel == ',' || *sel == '\n' || *sel == '\t' || *sel == '\r')) sel++;
+			e = sel;
+			while (e < open && *e != ',' && *e != ' ' && *e != '\n' && *e != '\t' && *e != '\r') e++;
+			if (*sel == '.' && e - sel > 1 && (size_t)(e - sel) < sizeof(p->cssClass[0]) && p->ncss < NSVG_MAX_CSS &&
+			    dl < sizeof(p->cssDecl[0])) {
+				memcpy(p->cssClass[p->ncss], sel + 1, (size_t)(e - sel - 1));
+				p->cssClass[p->ncss][e - sel - 1] = '\0';
+				memcpy(p->cssDecl[p->ncss], open + 1, dl);
+				p->cssDecl[p->ncss][dl] = '\0';
+				p->ncss++;
+			}
+			/* past the rest of this selector (".a .b" descendants are not followed) */
+			while (e < open && *e != ',') e++;
+			sel = e;
+		}
+		q = close + 1;
+	}
 }
 
 static void nsvg__imageBounds(NSVGparser* p, float* bounds)
@@ -3141,7 +3335,7 @@ static void nsvg__createGradients(NSVGparser* p)
 	}
 }
 
-NSVGimage* nsvgParse(char* input, const char* units, float dpi)
+static NSVGimage* nsvg__parseWith(char* input, const char* units, float dpi, int symbolic)
 {
 	NSVGparser* p;
 	NSVGimage* ret = 0;
@@ -3151,6 +3345,7 @@ NSVGimage* nsvgParse(char* input, const char* units, float dpi)
 		return NULL;
 	}
 	p->dpi = dpi;
+	p->symbolic = (char)symbolic;
 
 	nsvg__parseXML(input, nsvg__startElement, nsvg__endElement, nsvg__content, p);
 
@@ -3166,6 +3361,16 @@ NSVGimage* nsvgParse(char* input, const char* units, float dpi)
 	nsvg__deleteParser(p);
 
 	return ret;
+}
+
+NSVGimage* nsvgParse(char* input, const char* units, float dpi)
+{
+	return nsvg__parseWith(input, units, dpi, 0);
+}
+
+NSVGimage* nsvgParseSymbolic(char* input, const char* units, float dpi)
+{
+	return nsvg__parseWith(input, units, dpi, 1);
 }
 
 NSVGimage* nsvgParseFromFile(const char* filename, const char* units, float dpi)

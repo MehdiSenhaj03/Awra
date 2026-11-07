@@ -623,9 +623,17 @@ void awra_image_set_bytes(AwraWidget *image, const void *encoded, size_t length)
 void awra_image_set_corner_radius(AwraWidget *image, double radius);
 void awra_image_set_content_fit(AwraWidget *image, int fit); /* 0 fill 1 contain 2 cover */
 void awra_image_set_color(AwraWidget *image, const AwraRGBA *color); /* icon tint; NULL: text color */
-/* Registers an icon (SVG source) under a name; Awra ships the symbolic
- * icons its components and Adwaita's common names use. */
+/* Icon names are looked up in the icon theme as GtkImage does (see "Icon
+ * themes" below): a symbolic icon drawn in the text colour (or `color`), a
+ * full-colour one as it is; a path ("/...") shows that file. */
+/* GtkImage with a GIcon of these names (a GThemedIcon: each tried in
+ * turn, then their symbolic / regular variants): content type icons. */
+void awra_image_set_from_icon_names(AwraWidget *image, const char *const *names, int n_names);
+/* Registers an icon (SVG source) under a name, an application icon as GTK
+ * finds those it adds with gtk_icon_theme_add_resource_path: when no theme
+ * has the name. */
 bool awra_icon_register_svg(const char *name, const char *svg, size_t length);
+/* gtk_icon_theme_has_icon on the display's theme. */
 bool awra_icon_exists(const char *name);
 
 /* ----------------------------------------------------------------------- */
@@ -2207,6 +2215,99 @@ bool awra_widget_drop_active(AwraWidget *widget);
  * not Awra's well. Everything else is awra_entry_*. */
 AwraWidget *awra_entry_new_gtk(void);
 
+
+/* ----------------------------------------------------------------------- */
+/* Icon themes (GtkIconTheme, GThemedIcon) */
+
+/* The icon theme of the application (gtk_icon_theme_get_for_display):
+ * gtk-icon-theme-name as GTK reads it (the settings portal on Wayland,
+ * the settings daemon's Net/IconThemeName on X11, gtk-4.0/settings.ini,
+ * else "Adwaita"), followed live; looked up in $XDG_DATA_HOME/icons,
+ * ~/.icons, $XDG_DATA_DIRS/icons and /pixmaps with GTK's rules (Inherits,
+ * then hicolor; Fixed / Scalable / Threshold directories, sizes and
+ * scales; icon-theme.cache), then GTK's and Awra's built-in icons, then
+ * image-missing. Adwaita's symbolic icons are built in for systems that
+ * have no Adwaita (Windows). */
+typedef enum {
+  AWRA_ICON_LOOKUP_NONE = 0,
+  AWRA_ICON_LOOKUP_FORCE_REGULAR = 1 << 0,
+  AWRA_ICON_LOOKUP_FORCE_SYMBOLIC = 1 << 1,
+  AWRA_ICON_LOOKUP_PRELOAD = 1 << 2,
+} AwraIconLookupFlags;
+
+/* The theme in use (awra_free). */
+char *awra_icon_theme_get_theme_name(void);
+/* A theme other than the desktop's (gtk_icon_theme_set_theme_name); NULL:
+ * the desktop's again. */
+void awra_icon_theme_set_theme_name(const char *theme_name);
+/* The search path, '\n'-separated (awra_free). */
+char *awra_icon_theme_get_search_path(void);
+void awra_icon_theme_set_search_path(const char *const *paths, int n_paths);
+void awra_icon_theme_add_search_path(const char *path);
+bool awra_icon_theme_has_icon(const char *icon_name);
+/* Whether any of these names is in the theme (gtk_icon_theme_has_gicon). */
+bool awra_icon_theme_has_names(const char *const *names, int n_names);
+/* fn(data) after the theme changed (another theme, files installed); the
+ * windows are drawn again with the new icons by themselves. */
+unsigned long awra_icon_theme_connect_changed(void (*fn)(void *data), void *data);
+void awra_icon_theme_disconnect(unsigned long id);
+
+/* A looked-up icon (GtkIconPaintable): the file chosen for a size (in
+ * application px) and a window scale. */
+typedef struct AwraIconPaintable AwraIconPaintable;
+/* gtk_icon_theme_lookup_icon: `fallbacks` NULL-terminated or NULL;
+ * image-missing when nothing matches. */
+AwraIconPaintable *awra_icon_theme_lookup_icon(const char *icon_name, const char *const *fallbacks,
+                                               int size, int scale, AwraTextDirection direction,
+                                               AwraIconLookupFlags flags);
+/* gtk_icon_theme_lookup_by_gicon with a GThemedIcon of these names. */
+AwraIconPaintable *awra_icon_theme_lookup_names(const char *const *names, int n_names, int size,
+                                                int scale, AwraTextDirection direction,
+                                                AwraIconLookupFlags flags);
+AwraIconPaintable *awra_icon_paintable_new_for_file(const char *path, int size, int scale);
+AwraIconPaintable *awra_icon_paintable_ref(AwraIconPaintable *icon);
+void awra_icon_paintable_unref(AwraIconPaintable *icon);
+/* The file it shows (NULL: a built-in or registered icon). */
+const char *awra_icon_paintable_get_file(const AwraIconPaintable *icon);
+const char *awra_icon_paintable_get_icon_name(const AwraIconPaintable *icon);
+bool awra_icon_paintable_is_symbolic(const AwraIconPaintable *icon);
+int awra_icon_paintable_get_size(const AwraIconPaintable *icon);
+int awra_icon_paintable_get_scale(const AwraIconPaintable *icon);
+/* Drawn at size x scale px, a symbolic icon recoloured with `color` (NULL:
+ * the text colour) and GTK's success / warning / error colours. */
+AwraTexture *awra_icon_paintable_render(AwraIconPaintable *icon, const AwraRGBA *color);
+
+/* g_themed_icon_new_from_names (with_default_fallbacks: "a-b-c" also
+ * tries "a-b", "a"): the names it looks up, in order, '\n'-separated
+ * (awra_free). */
+char *awra_themed_icon_names(const char *const *names, int n_names, bool use_default_fallbacks);
+
+/* ----------------------------------------------------------------------- */
+/* Content types (GIO: g_content_type_* over shared-mime-info) */
+
+/* The type of a file from its name and, when given, the start of its data
+ * (g_content_type_guess); *result_uncertain when it is a guess. awra_free. */
+char *awra_content_type_guess(const char *filename, const void *data, size_t data_size,
+                              bool *result_uncertain);
+/* The type of a file on disk as GIO's local files give it
+ * (standard::content-type): inode/directory, inode/symlink for a broken
+ * link, application/x-zerosize, else its name, and its first bytes when the
+ * name is not enough unless `fast` (standard::fast-content-type). */
+char *awra_content_type_for_file(const char *path, bool fast);
+/* The names of g_content_type_get_icon / get_symbolic_icon's GThemedIcon,
+ * '\n'-separated (awra_free): give them to awra_image_set_from_icon_names. */
+char *awra_content_type_get_icon_names(const char *type);
+char *awra_content_type_get_symbolic_icon_names(const char *type);
+char *awra_content_type_get_generic_icon_name(const char *type);
+/* The type's comment in the user's language (g_content_type_get_description). */
+char *awra_content_type_get_description(const char *type);
+char *awra_content_type_get_mime_type(const char *type);
+char *awra_content_type_from_mime_type(const char *mime_type);
+bool awra_content_type_is_a(const char *type, const char *supertype);
+bool awra_content_type_is_mime_type(const char *type, const char *mime_type);
+bool awra_content_type_equals(const char *type1, const char *type2);
+bool awra_content_type_is_unknown(const char *type);
+bool awra_content_type_can_be_executable(const char *type);
 
 #ifdef __cplusplus
 }

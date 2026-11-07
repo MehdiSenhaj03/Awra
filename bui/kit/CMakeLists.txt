@@ -22,6 +22,7 @@ add_library(bui_kit STATIC
   intern/kit_window_null.c
   intern/kit_window_unix.c
   intern/kit_window_wayland.c
+  intern/kit_settings.c
   intern/kit_loop.c
   intern/kit_icons_svg.c
   intern/kit_regions.c

@@ -29,6 +29,11 @@ static bool g_answered;
  * org.gnome.desktop.interface keys, else the GNOME settings daemon's
  * xsettings plugin keys; -1 when absent. GsdFontHinting: 0 none .. 3 full;
  * GsdFontAntialiasingMode: 0 none, 1 grayscale, 2 rgba. */
+/* org.gnome.desktop.interface icon-theme (NULL: the portal has none) */
+static char *g_icon_theme;
+static bool g_icon_theme_changed;
+void awra_icon_theme_settings_changed(void); /* icontheme.c */
+
 static struct {
   bool portal; /* ReadAll answered with settings (GTK keeps the portal) */
   int if_aa, if_hint, xs_aa, xs_hint;
@@ -101,6 +106,15 @@ static void font_setting(AwraDBusR *r, const char *ns, const char *key)
     slot = &g_font.xs_hint;
     hinting = true;
   }
+  if (iface && !strcmp(key, "icon-theme") && !strcmp(sig, "s")) {
+    /* GTK's gtk-icon-theme-name on Wayland (gdksettings-wayland.c) */
+    const char *v = awra_dbus_r_str(r);
+    if (v && !r->err && (!g_icon_theme || strcmp(g_icon_theme, v) != 0)) {
+      awra_set_str(&g_icon_theme, v);
+      g_icon_theme_changed = true;
+    }
+    return;
+  }
   if (slot && !strcmp(sig, "s")) {
     const char *v = awra_dbus_r_str(r);
     if (v && !r->err) {
@@ -163,6 +177,8 @@ static void read_all_reply(AwraDBus *bus, const AwraDBusMsg *m, void *data)
     }
   }
   font_apply();
+  /* a late answer: the icon theme looked up before it is followed now */
+  awra_icon_theme_settings_changed();
 }
 
 static void ask(AwraDBus *bus, const char *method)
@@ -236,13 +252,29 @@ static void message(AwraDBus *bus, const AwraDBusMsg *m, void *data)
   }
   else if (ns && key && !strncmp(ns, "org.gnome.", 10)) {
     const int before[4] = {g_font.if_aa, g_font.if_hint, g_font.xs_aa, g_font.xs_hint};
+    g_icon_theme_changed = false;
     font_setting(&r, ns, key);
+    if (g_icon_theme_changed) {
+      awra_icon_theme_settings_changed();
+    }
     if (before[0] != g_font.if_aa || before[1] != g_font.if_hint || before[2] != g_font.xs_aa ||
         before[3] != g_font.xs_hint)
     {
       font_apply();
     }
   }
+}
+
+/* GTK's gtk-icon-theme-name from the portal on Wayland: the
+ * org.gnome.desktop.interface icon-theme key, "gnome" (GTK's fallback) when
+ * the portal answered without it; NULL without the portal's settings. */
+const char *awra_portal_icon_theme(void)
+{
+  awra_portal_start();
+  if (!g_font.portal) {
+    return NULL;
+  }
+  return g_icon_theme ? g_icon_theme : "gnome";
 }
 
 /* Windows on Wayland take GTK's font options from the portal (on X11 the
@@ -316,6 +348,11 @@ bool awra_desktop_notify(const char *app_name, const char *icon, const char *tit
 
 void awra_portal_start(void)
 {
+}
+
+const char *awra_portal_icon_theme(void)
+{
+  return NULL;
 }
 
 void awra_portal_wayland_fonts(void)

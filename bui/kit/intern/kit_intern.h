@@ -650,6 +650,8 @@ const char *bk_number_display(BKNode *n);
 
 void bk_ctx_dirty_rect(BKContext *ctx, BKRect r);
 void bk_ctx_request(BKContext *ctx);
+/* kit_settings.c: the settings daemon changed something (X11 hosts) */
+void bk_settings_changed(void);
 void bk_open_popup(BKContext *ctx, BKNode *popup, BKNode *owner, BKNode *parent_popup);
 void bk_close_popups_after(BKContext *ctx, BKNode *after); /* NULL: all */
 /* BUI-Awra: closes the popups from the first autohide one up (an outside
