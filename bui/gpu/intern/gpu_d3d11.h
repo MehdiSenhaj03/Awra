@@ -24,6 +24,23 @@ enum {
   BG_HSV = 8,
   BG_SPHERE = 9,
   BG_SLUG = 10, /* glyph outline (Slug): rect = pen x, baseline y, px per unit, shear */
+  /* BUI-Awra: a snapshot of the frame put back over what was drawn since:
+   * rect.xy = where the snapshot's (0, 0) lies; p[1] 0: a vertical fade
+   * (c1 = y, height, alpha at the top, at the bottom), 1: outside a rounded
+   * box (c1 = x0 y0 x1 y1, c2 = radii TL TR BR BL) */
+  BG_RESTORE = 11,
+  /* BUI-Awra, as the software raster's (gpu_raster_awra.inc.c), drawn by
+   * bui_gpu_inst_awra: a rounded box with per-corner radii and per-side
+   * borders (rect = x y w h, c0 fill, c1 border, c2 radii TL TR BR BL,
+   * c3 widths top right bottom left, p[1] has fill, p[2] has border) */
+  BG_RBOX = 12,
+  /* a box shadow (rect = the shadow's box x0 y0 x1 y1, c0 color, c1 its
+   * radii, c2 the box x0 y0 x1 y1, c3 the box's radii, uv = 1 / (sigma *
+   * sqrt 2), blurred, clipped out) */
+  BG_BOX_SHADOW = 13,
+  /* a rounded box's gradient (rect = x y w h, c0 from, c1 to, c2 radii,
+   * p[1] horizontal) */
+  BG_RBOX_GRADIENT = 14,
 };
 enum {
   BG_W_SHADE_H = 1,
@@ -97,6 +114,18 @@ int bui_gpu_max_texture(BuiGpu *g);
 /* An image instance sampling texture `tex` (0: the atlas), batched with
  * other instances that use the same one. */
 BuiGpuInst *bui_gpu_inst_image(BuiGpu *g, int tex, int x0, int y0, int x1, int y1);
+/* BUI-Awra: copies of the frame, for fades and rounded clips over what a
+ * widget draws (BUI_raster_read / _corners_save). snap_take draws what is
+ * queued and readies snapshot `snap` (< BUI_GPU_SNAPS; the caller reuses one
+ * once what it restores has been queued) at least w x h; snap_copy copies the
+ * frame's (x, y, w, h) to (dx, dy) in it; inst_snap draws part of it back
+ * (BG_RESTORE). inst_awra: an instance of the kinds above that upstream's
+ * shaders lack. */
+#define BUI_GPU_SNAPS 64
+int bui_gpu_snap_take(BuiGpu *g, int snap, int w, int h);
+BuiGpuInst *bui_gpu_inst_awra(BuiGpu *g, int kind, int x0, int y0, int x1, int y1);
+void bui_gpu_snap_copy(BuiGpu *g, int snap, int x, int y, int w, int h, int dx, int dy);
+BuiGpuInst *bui_gpu_inst_snap(BuiGpu *g, int snap, int x0, int y0, int x1, int y1);
 void bui_gpu_triangles(BuiGpu *g,
                        const float (*co)[2],
                        const float (*col)[4],

@@ -455,3 +455,82 @@ float4 ps_mesh(MeshOut i) : SV_Target
   const float4 c = i.color * mesh_tex.Sample(mesh_smp, i.uv);
   return premul(c, 1.0);
 }
+
+// BUI-Awra: the kinds upstream's ps_quad lacks, in a shader of their own
+// (gpu_d3d11.h: BG_RESTORE and after), as the software raster draws them
+// (gpu_raster_awra.inc.c).
+#define K_RESTORE 11
+#define K_RBOX 12
+#define K_BOX_SHADOW 13
+#define K_RBOX_GRADIENT 14
+
+// The software raster's rounded box: b = x0 y0 x1 y1, r = radii TL TR BR BL.
+float sd_rbox4(float2 s, float4 b, float4 r)
+{
+  const float2 c = (b.xy + b.zw) * 0.5, h = (b.zw - b.xy) * 0.5, p = s - c;
+  const float rr = p.y < 0.0 ? (p.x < 0.0 ? r.x : r.y) : (p.x < 0.0 ? r.w : r.z);
+  const float2 q = abs(p) - (h - rr);
+  if (q.x <= 0.0 || q.y <= 0.0) {
+    return max(q.x, q.y) - rr;
+  }
+  return length(q) - rr;
+}
+
+// 0.5 * erfc(x) (Abramowitz-Stegun 7.1.26, as half_erfc)
+float half_erfc(float x)
+{
+  const float ax = abs(x), t = 1.0 / (1.0 + 0.3275911 * ax);
+  const float y = 1.0 - (((((1.061405429 * t - 1.453152027) * t) + 1.421413741) * t - 0.284496736) * t +
+                         0.254829592) * t * exp(-ax * ax);
+  return x >= 0.0 ? 0.5 * (1.0 - y) : 0.5 * (1.0 + y);
+}
+
+float4 premul_a(float4 c, float cov)
+{
+  return float4(c.rgb * (c.a * cov), c.a * cov);
+}
+
+float4 ps_awra(VOut v) : SV_Target
+{
+  const float2 s = v.pos.xy; // pixel center
+  const int kind = (int)v.p.x;
+  const float4 R = v.rect;
+  if (kind == K_RESTORE) {
+    // a snapshot (t1) over what was drawn since: rect.xy = where its (0, 0)
+    // lies; p.y 0: a vertical fade (c1 = y, height, alpha at the top, at the
+    // bottom), 1: outside a rounded box (c1 = box, c2 = radii)
+    const float4 under = rgba_tex.Load(int3(int2(floor(s) - R.xy), 0));
+    const float a = v.p.y < 0.5 ? saturate(v.c1.z + (v.c1.w - v.c1.z) * ((s.y - v.c1.x) / v.c1.y)) :
+                                  saturate(0.5 - sd_rbox4(s, v.c1, v.c2));
+    return under * (1.0 - a);
+  }
+  if (kind == K_RBOX) {
+    const float4 b = float4(R.xy, R.xy + R.zw);
+    const float co = saturate(0.5 - sd_rbox4(s, b, v.c2));
+    float4 f = v.p.y > 0.5 ? premul_a(v.c0, co) : float4(0.0, 0.0, 0.0, 0.0);
+    if (v.p.z > 0.5) {
+      const float4 W = v.c3, rr = v.c2; // widths top right bottom left
+      const float4 ib = float4(b.x + W.w, b.y + W.x, b.z - W.y, b.w - W.z);
+      const float4 ir = max(float4(0.0, 0.0, 0.0, 0.0),
+                            rr - float4(max(W.w, W.x), max(W.y, W.x), max(W.y, W.z), max(W.w, W.z)));
+      const float ci = ib.z > ib.x && ib.w > ib.y ? saturate(0.5 - sd_rbox4(s, ib, ir)) : 0.0;
+      const float4 bo = premul_a(v.c1, max(co - ci, 0.0));
+      f = bo + f * (1.0 - bo.a);
+    }
+    return f;
+  }
+  if (kind == K_BOX_SHADOW) {
+    const float d = sd_rbox4(s, R, v.c1);
+    float cov = v.uv.y > 0.5 ? half_erfc(d * v.uv.x) : saturate(0.5 - d);
+    if (v.uv.z > 0.5) {
+      cov *= 1.0 - saturate(0.5 - sd_rbox4(s, v.c2, v.c3));
+    }
+    return cov > 0.002 ? premul_a(v.c0, cov) : float4(0.0, 0.0, 0.0, 0.0);
+  }
+  if (kind == K_RBOX_GRADIENT) {
+    const float cov = saturate(0.5 - sd_rbox4(s, float4(R.xy, R.xy + R.zw), v.c2));
+    const float t = v.p.y > 0.5 ? saturate((s.x - R.x) / R.z) : saturate((s.y - R.y) / R.w);
+    return premul_a(lerp(v.c0, v.c1, t), cov);
+  }
+  return float4(0.0, 0.0, 0.0, 0.0);
+}

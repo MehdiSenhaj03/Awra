@@ -122,9 +122,23 @@ void BUI_raster_rbox(BuiRaster *r,
   }
   float rad[4];
   clamp_radii(radii, w, h, rad);
-  if (r->gpu) { /* the GPU path keeps upstream's uniform-radius instances */
-    if (has_fill) {
-      BUI_raster_round_rect(r, x, y, w, h, rad[0], fill);
+  if (r->gpu) { /* BG_RBOX: the same box, radii and borders, per pixel */
+    int x0, y0, x1, y1;
+    BuiGpuInst *in = clip_box(r, x, y, x + w, y + h, &x0, &y0, &x1, &y1) ?
+                         bui_gpu_inst_awra(r->gpu, BG_RBOX, x0, y0, x1, y1) :
+                         NULL;
+    if (in) {
+      v4(in->rect, x, y, w, h);
+      if (has_fill) {
+        c4(in->c0, fill);
+      }
+      if (has_border) {
+        c4(in->c1, border);
+        c4(in->c3, widths);
+      }
+      c4(in->c2, rad);
+      in->p[1] = has_fill ? 1.0f : 0.0f;
+      in->p[2] = has_border ? 1.0f : 0.0f;
     }
     return;
   }
@@ -225,7 +239,7 @@ void BUI_raster_box_shadow(BuiRaster *r,
                            const float rgba[4],
                            int clip_out)
 {
-  if (!(w > 0.0f) || !(h > 0.0f) || !rgba || !(rgba[3] > 0.0f) || r->gpu) {
+  if (!(w > 0.0f) || !(h > 0.0f) || !rgba || !(rgba[3] > 0.0f)) {
     return;
   }
   float rad[4], srad[4];
@@ -242,8 +256,20 @@ void BUI_raster_box_shadow(BuiRaster *r,
   if (!clip_box(r, sx0 - reach, sy0 - reach, sx1 + reach, sy1 + reach, &x0, &y0, &x1, &y1)) {
     return;
   }
-  const Paint p = paint_from(rgba);
   const float inv = 1.0f / (sigma * 1.41421356f);
+  if (r->gpu) { /* BG_BOX_SHADOW: the same coverage per pixel */
+    BuiGpuInst *in = bui_gpu_inst_awra(r->gpu, BG_BOX_SHADOW, x0, y0, x1, y1);
+    if (in) {
+      v4(in->rect, sx0, sy0, sx1, sy1);
+      c4(in->c0, rgba);
+      c4(in->c1, srad);
+      v4(in->c2, x, y, x + w, y + h);
+      c4(in->c3, rad);
+      v4(in->uv, inv, blur > 0.0f ? 1.0f : 0.0f, clip_out ? 1.0f : 0.0f, 0.0f);
+    }
+    return;
+  }
+  const Paint p = paint_from(rgba);
   const float rmax = fmaxf(fmaxf(rad[0], rad[1]), fmaxf(rad[2], rad[3]));
   for (int py = y0; py < y1; py++) {
     uint32_t *row = RASTER_ROW(r, py);
@@ -294,6 +320,16 @@ void BUI_raster_image_rounded(BuiRaster *r,
 {
   float rad[4];
   clamp_radii(radii, w, h, rad);
+  if (r->gpu && (rad[0] > 0.0f || rad[1] > 0.0f || rad[2] > 0.0f || rad[3] > 0.0f)) {
+    /* the image, then what lay under its corners put back outside them */
+    uint32_t key[4]; /* only its address: the corners' parts on the GPU */
+    const int kept = BUI_raster_corners_save(r, x, y, w, h, rad, key);
+    BUI_raster_image(r, x, y, w, h, img, src, alpha, 0);
+    if (kept) {
+      BUI_raster_corners_clip(r, x, y, w, h, rad, key);
+    }
+    return;
+  }
   if (r->gpu || (rad[0] <= 0.0f && rad[1] <= 0.0f && rad[2] <= 0.0f && rad[3] <= 0.0f) ||
       BUI_pixmap_yuv(img->format))
   {
@@ -393,13 +429,24 @@ void BUI_raster_rbox_gradient(BuiRaster *r,
                               const float to[4],
                               int horizontal)
 {
-  if (!(w > 0.0f) || !(h > 0.0f) || r->gpu) {
+  if (!(w > 0.0f) || !(h > 0.0f)) {
     return;
   }
   float rad[4];
   clamp_radii(radii, w, h, rad);
   int x0, y0, x1, y1;
   if (!clip_box(r, x, y, x + w, y + h, &x0, &y0, &x1, &y1)) {
+    return;
+  }
+  if (r->gpu) { /* BG_RBOX_GRADIENT: the same, per pixel */
+    BuiGpuInst *in = bui_gpu_inst_awra(r->gpu, BG_RBOX_GRADIENT, x0, y0, x1, y1);
+    if (in) {
+      v4(in->rect, x, y, w, h);
+      c4(in->c0, from);
+      c4(in->c1, to);
+      c4(in->c2, rad);
+      in->p[1] = horizontal ? 1.0f : 0.0f;
+    }
     return;
   }
   for (int py = y0; py < y1; py++) {
@@ -428,6 +475,45 @@ void BUI_raster_rbox_gradient(BuiRaster *r,
 /** \name Coverage masks (symbolic icons)
  * \{ */
 
+/* On a GPU: the mask goes to the glyph atlas under a key of its content
+ * (icon masks are cached by whoever draws them, but a freed one's address
+ * can come back with other pixels), then draws as a glyph does. */
+static void mask_gpu(BuiRaster *r, int x, int y, const uint8_t *mask, int w, int h, int stride,
+                     const float rgba[4])
+{
+  int x0, y0, x1, y1;
+  if (rgba[3] <= 0.0f || !clip_box(r, (float)x, (float)y, (float)(x + w), (float)(y + h), &x0, &y0, &x1, &y1)) {
+    return;
+  }
+  uint8_t *packed = NULL;
+  if (stride != w) {
+    packed = (uint8_t *)malloc((size_t)w * h);
+    if (!packed) {
+      return;
+    }
+    for (int yy = 0; yy < h; yy++) {
+      memcpy(packed + (size_t)yy * w, mask + (size_t)yy * stride, (size_t)w);
+    }
+    mask = packed;
+  }
+  /* FNV-1a over the pixels, never 0 (0 asks for no caching) */
+  uint64_t key = 1469598103934665603ull;
+  for (size_t i = 0, n = (size_t)w * h; i < n; i++) {
+    key = (key ^ mask[i]) * 1099511628211ull;
+  }
+  key |= 1;
+  int ax, ay;
+  if (bui_gpu_mask(r->gpu, (const void *)(uintptr_t)key, g_text_gen, mask, w, h, &ax, &ay)) {
+    BuiGpuInst *in = gpu_inst(r, BG_MASK, x0, y0, x1, y1);
+    if (in) {
+      v4(in->rect, (float)x, (float)y, (float)w, (float)h);
+      v4(in->uv, (float)ax, (float)ay, 0.0f, 0.0f);
+      c4(in->c0, rgba);
+    }
+  }
+  free(packed);
+}
+
 void BUI_raster_mask(BuiRaster *r,
                      int x,
                      int y,
@@ -437,7 +523,11 @@ void BUI_raster_mask(BuiRaster *r,
                      int stride,
                      const float rgba[4])
 {
-  if (!mask || w <= 0 || h <= 0 || r->gpu) {
+  if (!mask || w <= 0 || h <= 0) {
+    return;
+  }
+  if (r->gpu) {
+    mask_gpu(r, x, y, mask, w, h, stride, rgba);
     return;
   }
   const Paint p = paint_from(rgba);
@@ -466,12 +556,86 @@ void BUI_raster_mask(BuiRaster *r,
 /** \name Fades (an alpha mask over what a widget draws)
  * \{ */
 
+static int clip_part(BuiRaster *r, int x, int y, int w, int h, int *x0, int *y0, int *x1, int *y1);
+
 /* The clip-limited part of (x, y, w, h); 0 when empty or rendering on a GPU. */
 static int fade_box(BuiRaster *r, int x, int y, int w, int h, int *x0, int *y0, int *x1, int *y1)
 {
   if (r->gpu) {
     return 0;
   }
+  return clip_part(r, x, y, w, h, x0, y0, x1, y1);
+}
+
+/* On a GPU (BUI-Awra): the part of the frame under (x, y, w, h), clipped,
+ * copied to (dx, dy) of snapshot `snap` and kept under `key`. */
+static int gpu_keep(BuiRaster *r, const uint32_t *key, int snap, int x, int y, int w, int h, int dx, int dy)
+{
+  int x0, y0, x1, y1;
+  if (snap < 0 || r->n_kept >= (int)(sizeof(r->kept) / sizeof(r->kept[0])) ||
+      !clip_part(r, x, y, w, h, &x0, &y0, &x1, &y1))
+  {
+    return 0;
+  }
+  dx += x0 - x;
+  dy += y0 - y;
+  bui_gpu_snap_copy(r->gpu, snap, x0, y0, x1 - x0, y1 - y0, dx, dy);
+  r->kept[r->n_kept].key = key;
+  r->kept[r->n_kept].snap = snap;
+  r->kept[r->n_kept].x = x0;
+  r->kept[r->n_kept].y = y0;
+  r->kept[r->n_kept].w = x1 - x0;
+  r->kept[r->n_kept].h = y1 - y0;
+  r->kept[r->n_kept].dx = dx;
+  r->kept[r->n_kept].dy = dy;
+  r->n_kept++;
+  return 1;
+}
+
+/* A snapshot at least w x h, ready for gpu_keep: one no kept part still
+ * waits on (its restores are queued, and taking one draws what is queued),
+ * -1 when every one is waited on. */
+static int gpu_snap(BuiRaster *r, int w, int h)
+{
+  for (int s = 0; s < BUI_GPU_SNAPS; s++) {
+    int busy = 0;
+    for (int i = 0; i < r->n_kept && !busy; i++) {
+      busy = r->kept[i].key && r->kept[i].snap == s;
+    }
+    if (!busy) {
+      return bui_gpu_snap_take(r->gpu, s, w, h) ? s : -1;
+    }
+  }
+  return -1;
+}
+
+/* What gpu_keep kept under `key` this frame put back over what was drawn
+ * since, where the restore instance's mode says; the part is then let go. */
+static BuiGpuInst *gpu_restore(BuiRaster *r, const uint32_t *key)
+{
+  for (int i = r->n_kept - 1; i >= 0; i--) {
+    if (r->kept[i].key == key) {
+      r->kept[i].key = NULL;
+      while (r->n_kept > 0 && !r->kept[r->n_kept - 1].key) {
+        r->n_kept--;
+      }
+      int x0, y0, x1, y1;
+      if (!clip_part(r, r->kept[i].x, r->kept[i].y, r->kept[i].w, r->kept[i].h, &x0, &y0, &x1, &y1)) {
+        return NULL;
+      }
+      BuiGpuInst *in = bui_gpu_inst_snap(r->gpu, r->kept[i].snap, x0, y0, x1, y1);
+      if (in) {
+        v4(in->rect, (float)(r->kept[i].x - r->kept[i].dx), (float)(r->kept[i].y - r->kept[i].dy),
+           (float)r->kept[i].w, (float)r->kept[i].h);
+      }
+      return in;
+    }
+  }
+  return NULL;
+}
+
+static int clip_part(BuiRaster *r, int x, int y, int w, int h, int *x0, int *y0, int *x1, int *y1)
+{
   *x0 = clampi(x, r->cx0, r->cx1);
   *y0 = clampi(y, r->cy0, r->cy1);
   *x1 = clampi(x + w, r->cx0, r->cx1);
@@ -482,6 +646,10 @@ static int fade_box(BuiRaster *r, int x, int y, int w, int h, int *x0, int *y0, 
 int BUI_raster_read(BuiRaster *r, int x, int y, int w, int h, uint32_t *dst)
 {
   int x0, y0, x1, y1;
+  if (r->gpu) { /* a snapshot on the GPU, kept under dst */
+    return clip_part(r, x, y, w, h, &x0, &y0, &x1, &y1) &&
+           gpu_keep(r, dst, gpu_snap(r, x1 - x0, y1 - y0), x, y, w, h, -(x0 - x), -(y0 - y));
+  }
   if (!fade_box(r, x, y, w, h, &x0, &y0, &x1, &y1)) {
     return 0;
   }
@@ -495,6 +663,14 @@ int BUI_raster_read(BuiRaster *r, int x, int y, int w, int h, uint32_t *dst)
 void BUI_raster_fade(BuiRaster *r, int x, int y, int w, int h, const uint32_t *saved, float a0, float a1)
 {
   int x0, y0, x1, y1;
+  if (h > 0 && r->gpu) {
+    BuiGpuInst *in = gpu_restore(r, saved);
+    if (in) {
+      in->p[1] = 0.0f;
+      v4(in->c1, (float)y, (float)h, a0, a1);
+    }
+    return;
+  }
   if (h <= 0 || !fade_box(r, x, y, w, h, &x0, &y0, &x1, &y1)) {
     return;
   }
@@ -546,11 +722,31 @@ int BUI_raster_corners_size(float w, float h, const float radii[4])
 
 int BUI_raster_corners_save(BuiRaster *r, float x, float y, float w, float h, const float radii[4], uint32_t *dst)
 {
-  if (r->gpu) {
-    return 0;
-  }
   float rad[4];
   clamp_radii(radii, w, h, rad);
+  if (r->gpu) { /* the four squares side by side in one snapshot */
+    int total = 0, side = 0;
+    for (int i = 0; i < 4; i++) {
+      if (rad[i] > 0.0f) {
+        const int n = (int)ceilf(rad[i]) + 1;
+        total += n;
+        side = n > side ? n : side;
+      }
+    }
+    const int snap = total > 0 ? gpu_snap(r, total, side) : -1;
+    int at = 0;
+    for (int i = 0; i < 4 && snap >= 0; i++) {
+      if (rad[i] <= 0.0f) {
+        continue;
+      }
+      const int n = (int)ceilf(rad[i]) + 1;
+      int cx, cy;
+      corner_square(x, y, w, h, i, n, &cx, &cy);
+      gpu_keep(r, dst + i, snap, cx, cy, n, n, at, 0); /* dst + i: only a key */
+      at += n;
+    }
+    return 1;
+  }
   for (int i = 0; i < 4; i++) {
     if (rad[i] <= 0.0f) {
       continue;
@@ -567,11 +763,22 @@ int BUI_raster_corners_save(BuiRaster *r, float x, float y, float w, float h, co
 void BUI_raster_corners_clip(BuiRaster *r, float x, float y, float w, float h, const float radii[4],
                              const uint32_t *saved)
 {
-  if (r->gpu) {
-    return;
-  }
   float rad[4];
   clamp_radii(radii, w, h, rad);
+  if (r->gpu) {
+    for (int i = 0; i < 4; i++) {
+      if (rad[i] <= 0.0f) {
+        continue;
+      }
+      BuiGpuInst *in = gpu_restore(r, saved + i);
+      if (in) {
+        in->p[1] = 1.0f;
+        v4(in->c1, x, y, x + w, y + h);
+        v4(in->c2, rad[0], rad[1], rad[2], rad[3]);
+      }
+    }
+    return;
+  }
   for (int i = 0; i < 4; i++) {
     if (rad[i] <= 0.0f) {
       continue;

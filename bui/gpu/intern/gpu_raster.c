@@ -39,6 +39,14 @@ struct BuiRaster {
   BuiGpu *gpu_pending;
   int gpu_switched; /* the renderer changed: the next frame must be full */
   struct BuiRaster *scratch; /* CPU coverage for polygons in GPU mode */
+  /* BUI-Awra: what BUI_raster_read and BUI_raster_corners_save kept on a
+   * GPU this frame, by the caller's buffer: the frame snapshot holding it,
+   * the part of the frame (x, y, w, h) and where it lies in the snapshot */
+  struct {
+    const uint32_t *key;
+    int snap, x, y, w, h, dx, dy;
+  } kept[64];
+  int n_kept;
 };
 
 /* -------------------------------------------------------------------- */
@@ -234,6 +242,7 @@ void BUI_raster_begin_frame(BuiRaster *r, int width, int height)
     raster_alloc(r, width, height);
   }
   raster_reset_clip(r);
+  r->n_kept = 0;
   if (r->gpu) {
     bui_gpu_begin(r->gpu, r->w, r->h);
   }

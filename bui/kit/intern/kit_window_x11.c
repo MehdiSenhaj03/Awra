@@ -466,7 +466,10 @@ static void host_emit(void *data, BKNode *node, int kind, void *ref, double a, d
 static void gpu_attach(BKWindow *win)
 {
   if (win->xid) {
-    BuiGpuX11Window target = {g_dpy, (unsigned long)win->xid};
+    /* a window with per-pixel alpha has its own 32-bit visual: GL draws
+     * through a config of that visual, or the present fails (BadMatch) */
+    BuiGpuX11Window target = {g_dpy, (unsigned long)win->xid,
+                              win->visual ? (unsigned long)win->visual->visualid : 0};
     BUI_raster_gpu_attach(win->raster, &target, 0);
   }
 }

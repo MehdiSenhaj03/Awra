@@ -556,6 +556,10 @@ AwraWidget *awra_scrolled_child(AwraWidget *scrolled);
 void awra_scrolled_set_policy(AwraWidget *scrolled, AwraPolicy horizontal, AwraPolicy vertical);
 void awra_scrolled_set_propagate_natural(AwraWidget *scrolled, bool width, bool height);
 void awra_scrolled_set_max_content_height(AwraWidget *scrolled, int height);
+/* GtkScrolledWindow's min-/max-content-width (logical px, 0 none): the
+ * width it asks for, while it may scroll sideways, stays between them. */
+void awra_scrolled_set_min_content_width(AwraWidget *scrolled, int width);
+void awra_scrolled_set_max_content_width(AwraWidget *scrolled, int width);
 void awra_scrolled_set_min_content_height(AwraWidget *scrolled, int height);
 double awra_scrolled_vvalue(AwraWidget *scrolled);
 void awra_scrolled_set_vvalue(AwraWidget *scrolled, double value);
