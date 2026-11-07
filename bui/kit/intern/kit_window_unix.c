@@ -345,6 +345,13 @@ const char * BK_window_backend(void)
   return DISPATCH(window_backend)();
 }
 
+/* kit_settings.c: 1 Wayland, 2 X11 */
+int bk_unix_backend(void);
+int bk_unix_backend(void)
+{
+  return backend();
+}
+
 int bk_window_wake_ready(void)
 {
   return DISPATCH(window_wake_ready)();

@@ -4,6 +4,7 @@
 
 #include "awra-private.h"
 #include "a11y.h"
+#include <stdio.h>
 
 bool awra_inherited_style(const AwraWidget *w, AwraRGBA *r_color, int *r_weight)
 {
@@ -948,15 +949,8 @@ static void image_draw(AwraWidget *w, AwraDraw *d)
         awra_paint_rbox(d, hb, hb.w * 0.5f, &halo, 0, NULL);
       }
     }
-    if (awra_icon_mask(x->icon, s)) {
-      awra_paint_icon(d, x->icon, ix, iy, s, &c);
-    }
-    else {
-      const BuiPixmap *pm = awra_icon_pixmap(x->icon, s);
-      if (pm) {
-        BUI_raster_image(d->r, ix, iy, (float)pm->w, (float)pm->h, pm, NULL, d->opacity, 0);
-      }
-    }
+    /* the theme's icon: a symbolic one tinted, a full-colour one as it is */
+    awra_paint_icon(d, x->icon, ix, iy, s, &c);
     return;
   }
   if (x->tex) {
@@ -1048,6 +1042,28 @@ void awra_image_set_icon_name(AwraWidget *w, const char *icon)
   awra_set_str(&x->icon, icon && icon[0] ? icon : NULL);
   awra_widget_queue_resize(w);
   awra_invalidate(w);
+}
+
+void awra_image_set_from_icon_names(AwraWidget *w, const char *const *names, int n)
+{
+  /* the names '\n'-separated: the icon theme takes them as a GThemedIcon */
+  size_t total = 1;
+  for (int i = 0; names && i < n; i++) {
+    total += names[i] ? strlen(names[i]) + 1 : 0;
+  }
+  char *spec = (char *)malloc(total);
+  if (!spec) {
+    return;
+  }
+  char *p = spec;
+  for (int i = 0; names && i < n; i++) {
+    if (names[i] && names[i][0] && !strchr(names[i], '\n')) {
+      p += sprintf(p, "%s%s", p == spec ? "" : "\n", names[i]);
+    }
+  }
+  *p = 0;
+  awra_image_set_icon_name(w, spec);
+  free(spec);
 }
 
 void awra_image_set_pixel_size(AwraWidget *w, int size)

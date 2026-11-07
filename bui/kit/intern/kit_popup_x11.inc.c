@@ -276,6 +276,7 @@ static void x11_xsettings_changed(void)
   }
   XSync(g_dpy, False);
   XSetErrorHandler(old);
+  bk_settings_changed(); /* the toolkit's other settings (the icon theme) */
 }
 
 /* 1 when `ev` was the settings daemon's */

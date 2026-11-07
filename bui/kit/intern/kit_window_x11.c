@@ -2499,4 +2499,16 @@ void BK_window_activate(BKWindow *win, const char *startup_id)
   free(own);
 }
 #  include "kit_popup_x11.inc.c"
+
+/* BUI-Awra: a string XSETTINGS value (Net/IconThemeName...): 1 when the
+ * settings daemon has it (kit_settings.c). */
+int bkx11_xsettings_string(const char *name, char *out, size_t cap);
+int bkx11_xsettings_string(const char *name, char *out, size_t cap)
+{
+  int unused = 0;
+  if (!name || !out || cap == 0 || !open_display()) {
+    return 0;
+  }
+  return xsettings_get(name, &unused, out, cap) == 2;
+}
 #endif /* BUI_WINDOW_X11 */

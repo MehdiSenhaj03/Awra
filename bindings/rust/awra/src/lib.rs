@@ -35,6 +35,8 @@ mod files;
 pub use files::{DragPreview, TransitionBin};
 mod dnd;
 mod transfer;
+mod icontheme;
+pub use icontheme::{IconLookupFlags, IconPaintable, IconTheme, IconThemeDisplay, IconThemeHandlerId};
 pub mod gdk;
 pub mod gio;
 pub mod glib;
