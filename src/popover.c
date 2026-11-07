@@ -2179,8 +2179,9 @@ typedef struct PaletteData {
   AwraCommand *commands;
   int n;
   char **strings;
-  AwraWidget *popover, *entry, *list, *empty, *window, *header;
-  AwraWidget *column; /* the popover's, which holds the palette while open */
+  AwraWidget *popover, *entry, *list, *empty, *window, *header; /* popover: its window */
+  AwraWidget *column; /* (unused) */
+  bool had_focus;
   char *title;
   int current; /* index in commands of the Enter target */
 } PaletteData;
@@ -2376,12 +2377,72 @@ void awra_command_palette_set_query(AwraWidget *w, const char *query)
 
 /* Closed, the palette leaves its popover's column: the palette holds the
  * popover, so the popover must not hold it back. */
-static void palette_hidden(AwraWidget *pop, const AwraArgs *a, void *data)
+/* Awra 1's palette is an AwraWindow of its own, transient for the window
+ * it serves, not modal, 560 x 460, not resizable, Floating material: the
+ * window manager places it (a dialog over its parent). It closes when it
+ * loses the focus it had (deferred: a command may close it itself). */
+/* hidden, it lets the palette go (the window holds it only while it shows:
+ * no cycle with the palette, which holds its window) */
+static void palette_unref(void *data);
+
+static bool palette_release_idle(void *data)
 {
   AwraWidget *w = (AwraWidget *)data;
   PaletteData *p = pd(w);
-  if (p && p->column && w->parent == p->column) {
-    awra_container_remove(p->column, w);
+  if (p && p->popover && !awra_widget_visible(p->popover) && awra_window_child(p->popover) == w) {
+    awra_window_set_child(p->popover, NULL);
+  }
+  return false;
+}
+
+static void palette_hide(AwraWidget *w)
+{
+  PaletteData *p = pd(w);
+  if (p && p->popover) {
+    awra_window_hide(p->popover);
+    /* after the event that closed it (its entry may be emitting) */
+    awra_widget_ref(w);
+    awra_timeout_add(0, palette_release_idle, w, palette_unref);
+  }
+}
+
+static bool palette_close_idle(void *data)
+{
+  AwraWidget *w = (AwraWidget *)data;
+  PaletteData *p = pd(w);
+  if (p && p->popover && !awra_window_is_active(p->popover)) {
+    palette_hide(w);
+  }
+  return false;
+}
+
+static void palette_close_request(AwraWidget *win, const AwraArgs *a, void *data)
+{
+  if (a->handled) {
+    *a->handled = true;
+  }
+  palette_hide((AwraWidget *)data);
+}
+
+static void palette_unref(void *data)
+{
+  awra_widget_unref((AwraWidget *)data);
+}
+
+static void palette_state(AwraWidget *win, const AwraArgs *a, void *data)
+{
+  AwraWidget *w = (AwraWidget *)data;
+  PaletteData *p = pd(w);
+  if (!p) {
+    return;
+  }
+  if (a->index & AWRA_WINDOW_STATE_ACTIVE) {
+    p->had_focus = true;
+  }
+  else if (p->had_focus && !(a->index & AWRA_WINDOW_STATE_HIDDEN)) {
+    p->had_focus = false;
+    awra_widget_ref(w);
+    awra_timeout_add(0, palette_close_idle, w, palette_unref);
   }
 }
 
@@ -2389,43 +2450,31 @@ void awra_command_palette_present(AwraWidget *w, AwraWidget *window)
 {
   PaletteData *p = pd(w);
   if (!p->popover) {
-    p->popover = awra_popover_new();
-    awra_popover_set_centered_internal(p->popover, true);
-    /* the palette window: default header ("Commands" + close), 560 x 460 */
-    AwraWidget *col = awra_box_new(AWRA_ORIENTATION_VERTICAL, 0);
-    AwraWidget *h = awra_header_new();
-    awra_header_set_title(h, p->title ? p->title : "Commands");
-    p->header = h;
-    /* Awra 1's palette is an AwraWindow (.awra-command-palette, not
-     * .awra-dialog): the full 74 px header, with only its close button */
-    awra_header_set_close_only(h);
-    awra_header_set_drag_enabled(h, false);
-    awra_box_append(col, h);
-    awra_widget_unref(h); /* held by the column (and p->header, borrowed) */
-    awra_widget_set_size_request(col, 560, 460);
-    awra_popover_set_child(p->popover, col);
-    awra_widget_unref(col);
-    p->column = col;
-    awra_signal_connect(p->popover, AWRA_SIGNAL_HIDE, palette_hidden, w, NULL);
+    p->popover = awra_window_new(p->title ? p->title : "Commands", 560, 460);
+    awra_window_set_resizable(p->popover, false);
+    awra_window_set_keep_rounded_corners(p->popover, true);
+    awra_window_set_floating_internal(p->popover, true);
+    /* .awra-command-palette: the full header, with only its close button */
+    p->header = awra_window_titlebar(p->popover);
+    awra_header_set_close_only(p->header);
+    awra_signal_connect(p->popover, AWRA_SIGNAL_STATE, palette_state, w, NULL);
+    awra_signal_connect(p->popover, AWRA_SIGNAL_CLOSE_REQUEST, palette_close_request, w, NULL);
   }
-  if (!w->parent) {
-    awra_box_append(p->column, w);
+  if (awra_window_child(p->popover) != w) {
+    awra_window_set_child(p->popover, w);
   }
   p->window = window;
+  p->had_focus = false;
   awra_entry_set_text(p->entry, "");
   palette_fill(w);
-  AwraWidget *anchor = awra_window_child(window) ? awra_window_child(window) : window;
-  awra_popover_set_anchor(p->popover, anchor);
-  awra_popover_popup(p->popover);
-  awra_set_focus(window, p->entry, false);
+  awra_window_set_transient_for(p->popover, window);
+  awra_window_present(p->popover);
+  awra_window_set_focus(p->popover, p->entry);
 }
 
 void awra_command_palette_close(AwraWidget *w)
 {
-  PaletteData *p = pd(w);
-  if (p->popover) {
-    awra_popover_popdown(p->popover);
-  }
+  palette_hide(w);
 }
 
 /* ======================================================================= */
