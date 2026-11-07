@@ -525,6 +525,7 @@ struct BKContext {
   int npopups;
   /* tooltip */
   BKNode *tip_node;
+  const BKNode *tip_hover; /* BUI-Awra: the hovered node the tooltip waits under (compared only) */
   int tip_x, tip_y, tip_serial, tip_shown;
   BKRect tip_rect;
   /* drag-toggle */
