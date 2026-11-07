@@ -58,6 +58,10 @@ void awra_invoke(void (*fn)(void *data), void *data);
  * callback returns false to stop. */
 unsigned awra_timeout_add(unsigned ms, bool (*fn)(void *data), void *data,
                           AwraDestroyNotify destroy);
+/* g_timeout_add_seconds: a coarse timer, due on the second at a mark the
+ * session's coarse timers share (up to 3/4 s off the exact time). */
+unsigned awra_timeout_add_seconds(unsigned seconds, bool (*fn)(void *data), void *data,
+                                  AwraDestroyNotify destroy);
 unsigned awra_idle_add(bool (*fn)(void *data), void *data, AwraDestroyNotify destroy);
 void awra_source_remove(unsigned id);
 /* The window backend in use: "wayland", "x11", "win32". */
@@ -344,6 +348,11 @@ void awra_widget_get_size_request(const AwraWidget *widget, int *width, int *hei
 void awra_widget_measure(AwraWidget *widget, AwraOrientation orientation, int for_size,
                          int *minimum, int *natural);
 void awra_widget_set_tooltip(AwraWidget *widget, const char *text);
+/* The geometry (logical px, the screen's coordinates) of the monitor the
+ * widget's window is mostly on (gdk_monitor_get_geometry of
+ * gdk_display_get_monitor_at_surface); false when the system doesn't say
+ * (no window yet, Wayland). Any pointer may be NULL. */
+bool awra_widget_get_monitor_geometry(AwraWidget *widget, int *x, int *y, int *width, int *height);
 void awra_widget_set_typography(AwraWidget *widget, AwraTypography typography);
 void awra_widget_set_opacity(AwraWidget *widget, double opacity);
 double awra_widget_opacity(AwraWidget *widget);
@@ -365,6 +374,10 @@ void awra_widget_add_class(AwraWidget *widget, const char *name);
  * while it waits). */
 void awra_widget_remove_class(AwraWidget *widget, const char *name);
 bool awra_widget_has_class(const AwraWidget *widget, const char *name);
+/* Style transitions in `widget` and its children (the "suggested" role's
+ * icon glow) jump to the state its classes give now: a recycled list cell
+ * whose classes changed with the item it shows, not for that item. */
+void awra_widget_finish_transitions(AwraWidget *widget);
 /* Sizes after layout, in logical pixels (0 before the first layout). */
 int awra_widget_width(const AwraWidget *widget);
 int awra_widget_height(const AwraWidget *widget);
@@ -684,6 +697,11 @@ void awra_menu_button_set_icon_name(AwraWidget *button, const char *icon_name);
 void awra_menu_button_set_label(AwraWidget *button, const char *label);
 void awra_menu_button_set_popover(AwraWidget *button, AwraWidget *popover);
 AwraWidget *awra_menu_button_popover(AwraWidget *button);
+/* GtkMenuButton's create-popup function: called each time before the popup
+ * shows, to set it (awra_menu_button_set_popover) as things are now. */
+typedef void (*AwraMenuButtonCreatePopupFunc)(AwraWidget *button, void *user_data);
+void awra_menu_button_set_create_popup_func(AwraWidget *button, AwraMenuButtonCreatePopupFunc func,
+                                            void *user_data, AwraDestroyNotify destroy);
 void awra_menu_button_set_appearance(AwraWidget *button, AwraButtonAppearance appearance);
 /* A menu built from items: label NULL = separator. */
 typedef struct AwraMenuItem {
@@ -1350,6 +1368,10 @@ bool awra_collection_view_column_visible(AwraWidget *view, int column);
 void awra_collection_view_set_column_width(AwraWidget *view, int column, int width);
 int awra_collection_view_column_width(AwraWidget *view, int column);
 void awra_collection_view_set_sort_column(AwraWidget *view, int column, bool descending);
+/* The sorted column's arrow (GTK's sort-indicator: GTK's own theme draws
+ * pan-up/pan-down, desktop themes without that rule draw none and leave
+ * no room for it). Visible by default. */
+void awra_collection_view_set_sort_indicator_visible(AwraWidget *view, bool visible);
 void awra_collection_view_set_show_header(AwraWidget *view, bool show);
 int awra_collection_view_header_height(AwraWidget *view);
 /* The rubberband's look: the accent (else the focus colour) at these
@@ -1376,6 +1398,12 @@ int awra_collection_view_cursor(AwraWidget *view);
 void awra_collection_view_set_cursor(AwraWidget *view, int index);
 void awra_collection_view_scroll_to(AwraWidget *view, int index);
 double awra_collection_view_vvalue(AwraWidget *view);
+/* GtkListView's anchor: the item that keeps its place when the items are
+ * reordered (the item at the point of the view the scroll position says,
+ * its top or its bottom edge `end` at `align` of the view's height); -1
+ * when empty. Read it before a reorder, set it after. */
+int awra_collection_view_get_anchor(AwraWidget *view, double *align, bool *end);
+void awra_collection_view_set_anchor(AwraWidget *view, int index, double align, bool end);
 void awra_collection_view_set_vvalue(AwraWidget *view, double value);
 /* An item shown as a drop destination (-1: none). */
 void awra_collection_view_set_drop_index(AwraWidget *view, int index);
@@ -1413,6 +1441,12 @@ int awra_path_bar_item_at(AwraWidget *bar, double x, double y);
 void awra_path_bar_set_drop_item(AwraWidget *bar, int index);
 /* Menus driven from elsewhere (a field's suggestions): the highlighted row. */
 void awra_menu_popover_set_highlighted(AwraWidget *popover, int index);
+/* A list of choices that follows a text field (Awra 1's path bar
+ * suggestions): rows of plain words, no gaps, `width` logical px wide in
+ * all (210 at least); activating row i calls `handler` with args->index = i.
+ * awra_menu_popover_set_highlighted lights a row. */
+AwraWidget *awra_choice_popover_new(const char *const *labels, int n, int width,
+                                    AwraHandler handler, void *data);
 
 /* ----------------------------------------------------------------------- */
 /* Tab bar: the strip of Awra 1's AwraTabView (workspace tabs). Signals:
@@ -1684,6 +1718,11 @@ void awra_metadata_group_set_title(AwraWidget *group, const char *title);
 /* Appends a row of a label and a value; returns it (borrowed). */
 AwraWidget *awra_metadata_group_append(AwraWidget *group, const char *label, const char *value);
 AwraWidget *awra_metric_row_new(const char *label, const char *value);
+/* A metric row's label, value (also its tooltip, as Awra 1) and icon
+ * (NULL or "" hides it). */
+void awra_metric_row_set_label(AwraWidget *row, const char *label);
+void awra_metric_row_set_value(AwraWidget *row, const char *value);
+void awra_metric_row_set_icon_name(AwraWidget *row, const char *icon_name);
 
 /* An error state: the empty state's layout with the error icon. */
 AwraWidget *awra_error_state_new(const char *title, const char *description);

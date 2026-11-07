@@ -155,6 +155,12 @@ bool bk_popup_surfaced(const BKContext *ctx, int slot)
   return ctx && ctx->pops && slot >= 0 && slot < BK_POPUP_SLOTS && ctx->pops[slot].surfaced;
 }
 
+bool bk_window_monitor(BKContext *ctx, BKRect *r_geometry)
+{
+  const BKPopupHost *h = ctx ? ctx->popup_host : NULL;
+  return h && h->monitor && h->monitor(h->data, r_geometry);
+}
+
 void bk_popup_host_set(BKContext *ctx, const BKPopupHost *host)
 {
   ctx->popup_host = host;

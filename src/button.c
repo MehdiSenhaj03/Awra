@@ -194,7 +194,11 @@ static AwraRGBA lerp_rgba(AwraRGBA a, AwraRGBA b, float t)
 void awra_paint_button_bg(AwraDraw *d, AwraBox b, float radius, const AwraButtonColors *c,
                           float press_t, bool focus_ring)
 {
-  /* transform: scale(.96) around the center while pressed */
+  /* transform: scale(.96) around the center while pressed (the whole
+   * widget when core.c draws it scaled) */
+  if (awra_press_group_depth > 0) {
+    press_t = 0.0f;
+  }
   if (press_t > 0.0f) {
     const float s = 1.0f - 0.04f * press_t;
     const float nw = b.w * s, nh = b.h * s;
@@ -628,7 +632,7 @@ static void current_colors(AwraWidget *w, AwraButtonColors *c)
     c->bg.a = 0;
     c->rim.a = 0;
   }
-  if (x->accent_fg && sens) {
+  if ((x->accent_fg || toast_action_button(w)) && sens) {
     c->fg = awra_tokens()->accent_content;
   }
 }
@@ -685,11 +689,11 @@ static void button_draw(AwraWidget *w, AwraDraw *d)
   const int text_w = BK_MIN(tw, BK_MAX(0, avail - icon - gap));
   const int total = icon + gap + text_w;
   /* GtkLabel / GtkImage place by floor (gtk_label_get_layout_location) */
-  float cx = (float)w->x + floorf((w->w - total) * 0.5f);
+  float cx = (float)w->x + awra_halfpx(w->w - total);
   /* the icon starts the button's box (at the right, right to left) */
   if (icon) {
     awra_paint_icon(d, x->icon, awra_mirror_x(w, cx, (float)icon),
-                    (float)w->y + floorf((w->h - icon) * 0.5f), icon,
+                    (float)w->y + awra_halfpx(w->h - icon), icon,
                     x->has_icon_color ? &x->icon_color : &c.fg);
     cx += icon + gap;
   }
@@ -698,7 +702,7 @@ static void button_draw(AwraWidget *w, AwraDraw *d)
       awra_text_layout_size(x->layout, text_w, NULL, &th);
     }
     awra_text_layout_draw(x->layout, d, awra_mirror_x(w, cx, (float)text_w),
-                          (float)w->y + floorf((w->h - th) * 0.5f), text_w < tw ? text_w : -1,
+                          (float)w->y + awra_halfpx(w->h - th), text_w < tw ? text_w : -1,
                           &c.fg);
   }
 }

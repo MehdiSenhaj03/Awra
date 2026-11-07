@@ -57,9 +57,13 @@ static void tabs_allocate(AwraWidget *w)
 
 static AwraBox pill_box(AwraWidget *w, int i, int left)
 {
+  /* .awra-tab-pill margin 0 2px, then the separator (2 px margin, 1 px);
+   * the last tab's pill has no margin after it and no separator */
   const int ph = awra_px(30);
+  const bool last = i >= TX(w)->n - 1;
+  const int after = last ? 0 : awra_px(2) + awra_px(2) + awra_px(1);
   return (AwraBox){(float)(left + awra_px(2)), (float)(w->y + (w->h - ph) / 2),
-                   (float)(TX(w)->tab_w - awra_px(2) - awra_px(3)), (float)ph};
+                   (float)(TX(w)->tab_w - awra_px(2) - after), (float)ph};
 }
 
 static int tab_left(AwraWidget *w, int i)
@@ -146,10 +150,17 @@ static void tabs_draw(AwraWidget *w, AwraDraw *d)
       float cx = pill.x + awra_px(20);
       const float right = pill.x + pill.w - awra_px(20);
       if (tab->icon) {
-        const int s = awra_px(16);
+        /* Awra 1's tab: a 22 px image (TAB_PAGE_ICON_SIZE), 6 px before the
+         * title (the content box's spacing), in the tab's colour (only the
+         * title takes the active tabs' accent) */
+        const int s = awra_px(22);
+        AwraRGBA ic = fg;
+        if (sel && x->active) {
+          ic = awra_with_alpha(t->foreground, t->foreground.a * 0.92f);
+        }
         awra_paint_icon(d, tab->icon, mirror_in(w, pill, cx, (float)s), pill.y + floorf((pill.h - s) * 0.5f),
-                        s, &fg);
-        cx += s + awra_px(10);
+                        s, &ic);
+        cx += s + awra_px(6);
       }
       AwraFont f = awra_font_for(AWRA_TYPOGRAPHY_BODY);
       AwraTextLayout *l = awra_text_layout_new();
@@ -169,7 +180,7 @@ static void tabs_draw(AwraWidget *w, AwraDraw *d)
         ox = tx + avail - fminf(ceilf(lw), (float)avail) - lx0;
       }
       bk_clip_push((int)tx, (int)pill.y, avail, (int)pill.h);
-      awra_text_layout_draw(l, d, ox, pill.y + floorf((pill.h - th) * 0.5f + 0.5f), avail, &fg);
+      awra_text_layout_draw(l, d, ox, pill.y + floorf((pill.h - th) * 0.5f), avail, &fg); /* GtkLabel: floored */
       bk_clip_pop();
       awra_text_layout_free(l);
       if (sel || hov) {
@@ -182,7 +193,8 @@ static void tabs_draw(AwraWidget *w, AwraDraw *d)
           cc = t->foreground;
         }
         const int s = awra_px(16);
-        awra_paint_icon(d, "window-close-symbolic", cb.x + (cb.w - s) * 0.5f, cb.y + (cb.h - s) * 0.5f, s,
+        /* Awra 1's tab close button: its own awra-close-symbolic */
+        awra_paint_icon(d, "awra-close-symbolic", cb.x + floorf((cb.w - s) * 0.5f), cb.y + floorf((cb.h - s) * 0.5f), s,
                         &cc);
       }
     }

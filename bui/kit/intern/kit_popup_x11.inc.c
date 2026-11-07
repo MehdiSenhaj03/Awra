@@ -302,6 +302,8 @@ static int x11_xsettings_event(XEvent *ev)
   return 0;
 }
 
+static int x11_pop_monitor(void *data, BKRect *r_geometry);
+
 static void x11_popups_init(BKWindow *win)
 {
   win->pophost.data = win;
@@ -309,10 +311,15 @@ static void x11_popups_init(BKWindow *win)
   win->pophost.corner_radius = 0;
   win->pophost.place = x11_pop_place;
   win->pophost.close = x11_pop_close;
+  win->pophost.monitor = x11_pop_monitor;
   win->pophost.cursor_size = x11_cursor_size(win);
-  if (win->depth == 32) { /* override-redirect windows with alpha: as its own */
-    bk_popup_host_set(win->ctx, &win->pophost);
+  /* override-redirect windows with the window's visual, as GDK makes them:
+   * with alpha under a compositor; without one opaque, no shadow (GDK
+   * shadows a popup only when the display is composited) */
+  if (win->depth != 32) {
+    win->pophost.flags |= BK_POPHOST_OPAQUE;
   }
+  bk_popup_host_set(win->ctx, &win->pophost);
 }
 
 static void root_origin(BKWindow *win, int *r_x, int *r_y)
@@ -353,7 +360,10 @@ static int rect_overlap_area(const BKRect *a, const BKRect *b)
  * (gdk_x11_monitor_get_workarea): the monitor's geometry, less the panels
  * the window manager reserves (_GTK_WORKAREAS_Dn per monitor, else
  * _NET_WORKAREA). */
-static BKRect x11_workarea(const BKRect *r)
+/* The monitor (XRandR's, else the screen) `r` overlaps most, in root
+ * coordinates (gdk_display_get_monitor_at_surface); *r_primary: whether
+ * _NET_WORKAREA describes it. */
+static BKRect x11_monitor(const BKRect *r, bool *r_primary)
 {
   const int screen = DefaultScreen(g_dpy);
   BKRect mon = bk_rect(0, 0, DisplayWidth(g_dpy, screen), DisplayHeight(g_dpy, screen));
@@ -391,6 +401,14 @@ static BKRect x11_workarea(const BKRect *r)
       p_XRRFreeMonitors(m);
     }
   }
+  *r_primary = primary;
+  return mon;
+}
+
+static BKRect x11_workarea(const BKRect *r)
+{
+  bool primary = true;
+  const BKRect mon = x11_monitor(r, &primary);
   int nd = 0;
   long *desk = root_longs("_NET_CURRENT_DESKTOP", &nd);
   const long d = desk && nd > 0 ? desk[0] : 0;
@@ -515,6 +533,21 @@ static void pop_destroy(XPop *p)
   }
   BUI_raster_free(p->raster);
   memset(p, 0, sizeof(*p));
+}
+
+/* BKPopupHost.monitor: the monitor the window is mostly on */
+static int x11_pop_monitor(void *data, BKRect *r_geometry)
+{
+  BKWindow *win = (BKWindow *)data;
+  if (!win->xid) {
+    return 0;
+  }
+  int rx = 0, ry = 0;
+  root_origin(win, &rx, &ry);
+  bool primary;
+  const BKRect r = bk_rect(rx, ry, BK_MAX(1, win->w), BK_MAX(1, win->h));
+  *r_geometry = x11_monitor(&r, &primary);
+  return 1;
 }
 
 static int x11_pop_place(void *data, int slot, const BKPopupLayout *l, int w, int h, int grab,

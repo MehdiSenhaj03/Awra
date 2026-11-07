@@ -8,6 +8,8 @@
 #include "kit_loop.h"
 
 #include <stdio.h>
+#include <stdlib.h>
+#include <time.h>
 
 #ifdef _WIN32
 #  ifndef WIN32_LEAN_AND_MEAN
@@ -253,6 +255,52 @@ unsigned awra_timeout_add(unsigned ms, bool (*fn)(void *data), void *data,
   g_sources = s;
   s->timer = BK_loop_timer((int)ms, source_fire, s);
   return s->id;
+}
+
+/* g_timeout_add_seconds: due on the second, at a per-session mark (the
+ * hash of the session bus's address, else the host's name), so that a
+ * session's coarse timers wake together: between 3/4 s early and 3/4 s
+ * late. Then every `seconds` (not re-aligned). */
+unsigned awra_timeout_add_seconds(unsigned seconds, bool (*fn)(void *data), void *data,
+                                  AwraDestroyNotify destroy)
+{
+  static long long perturb = -1;
+  if (perturb < 0) {
+    const char *a = getenv("DBUS_SESSION_BUS_ADDRESS");
+    if (!a) {
+      a = getenv("HOSTNAME");
+    }
+    perturb = 0;
+    if (a) {
+      unsigned h = 5381; /* g_str_hash */
+      for (const signed char *p = (const signed char *)a; *p; p++) {
+        h = (h << 5) + h + (unsigned)*p;
+      }
+      perturb = llabs((long long)(int)h) % 1000000;
+    }
+  }
+  long long now;
+#ifdef _WIN32
+  now = (long long)(bk_time() * 1e6);
+#else
+  struct timespec ts;
+  clock_gettime(CLOCK_MONOTONIC, &ts); /* g_get_monotonic_time */
+  now = (long long)ts.tv_sec * 1000000 + ts.tv_nsec / 1000;
+#endif
+  long long due = now + (long long)seconds * 1000000 - perturb;
+  const long long rem = due % 1000000;
+  if (rem >= 1000000 / 4) {
+    due += 1000000;
+  }
+  due = due - rem + perturb;
+  const long long first = due > now ? (due - now + 999) / 1000 : 0;
+  const unsigned id = awra_timeout_add((unsigned)first, fn, data, destroy);
+  for (Source *s = g_sources; s; s = s->next) {
+    if (s->id == id) {
+      s->ms = seconds * 1000; /* its repeats */
+    }
+  }
+  return id;
 }
 
 unsigned awra_idle_add(bool (*fn)(void *data), void *data, AwraDestroyNotify destroy)
@@ -1386,6 +1434,29 @@ void awra_widget_set_size_request(AwraWidget *w, int width, int height)
   awra_widget_queue_resize(w);
 }
 
+bool awra_widget_get_monitor_geometry(AwraWidget *w, int *x, int *y, int *width, int *height)
+{
+  BKContext *ctx = w ? bk_ctx(w) : NULL;
+  BKRect r;
+  if (!ctx || !bk_window_monitor(ctx, &r)) {
+    return false;
+  }
+  const float s = awra_scale();
+  if (x) {
+    *x = (int)floorf(r.xmin / s);
+  }
+  if (y) {
+    *y = (int)floorf(r.ymin / s);
+  }
+  if (width) {
+    *width = (int)floorf(bk_rw(&r) / s);
+  }
+  if (height) {
+    *height = (int)floorf(bk_rh(&r) / s);
+  }
+  return true;
+}
+
 void awra_widget_set_tooltip(AwraWidget *w, const char *text)
 {
   if (!w) {
@@ -2108,7 +2179,7 @@ static void align_span(int align, int natural, int *pos, int *size)
     case AWRA_ALIGN_CENTER:
     case AWRA_ALIGN_BASELINE:
       if (*size > natural) {
-        *pos += (*size - natural) / 2;
+        *pos += (int)awra_halfpx((float)(*size - natural)); /* GTK halves application pixels */
         *size = natural;
       }
       break;
@@ -2224,6 +2295,14 @@ void awra_bk_arrange(BKNode *n)
 static AwraDraw g_draw;
 void awra_paint_drop_active(AwraDraw *d, AwraWidget *w); /* dnd.c */
 
+/* the widgets awra.css scales while pressed */
+static bool press_scales(AwraWidget *n)
+{
+  const char *t = AWRA_CLASS_OF(n)->type;
+  return t && awra_sensitive(n) &&
+         (!strcmp(t, "AwraButton") || !strcmp(t, "AwraMenuButton") || !strcmp(t, "AwraNavigationItem"));
+}
+
 void awra_bk_draw_tree(BKNode *n)
 {
   if (!(n->flags & NF_VISIBLE)) {
@@ -2276,6 +2355,14 @@ void awra_bk_draw_tree(BKNode *n)
     else if (dropping) {
       awra_paint_rbox(&g_draw, awra_box_of(n), awra_pxf(8), &awra_tokens()->selection, 0, NULL);
     }
+    /* awra.css: .awra-button:active:not(:disabled), .awra-menu-button:active,
+     * .awra-navigation-item:active { transform: scale(.96) } */
+    AwraGroup press_group;
+    bool pressed_scaled = false;
+    if (a->press_t > 0.0f && !awra_style_reduced_motion() && press_scales(n)) {
+      pressed_scaled = awra_scale_group_begin(&g_draw, awra_box_inset(awra_box_of(n), -awra_pxf(6)),
+                                              1.0f - 0.04f * a->press_t, &press_group);
+    }
     const bool saved_rtl = g_draw.rtl;
     const float saved_sx = awra_shift_x, saved_sy = awra_shift_y;
     awra_shift_x += a->shift_x;
@@ -2304,6 +2391,9 @@ void awra_bk_draw_tree(BKNode *n)
     g_draw.rtl = saved_rtl;
     awra_shift_x = saved_sx;
     awra_shift_y = saved_sy;
+    if (pressed_scaled) {
+      awra_scale_group_end(&g_draw, &press_group);
+    }
     if (dropping) {
       const AwraBox b = awra_box_inset(awra_box_of(n), awra_pxf(1));
       awra_paint_rbox(&g_draw, b, awra_pxf(7), NULL, awra_pxf(2), &awra_tokens()->focus_ring);
@@ -2575,9 +2665,14 @@ bool awra_pressed(const AwraWidget *w)
   return awra_is_widget(w) && awra_aux(w)->pressed && awra_aux(w)->hovered;
 }
 
+bool awra_window_shows_focus_internal(AwraWidget *win);
+
 bool awra_focus_visible(const AwraWidget *w)
 {
-  return awra_is_widget(w) && awra_aux(w)->focus_visible;
+  /* GTK gives the focus widget its focus states only while its window is
+   * active (gtk_widget_set_has_focus with is_active) */
+  return awra_is_widget(w) && awra_aux(w)->focus_visible &&
+         awra_window_shows_focus_internal(awra_window_of((AwraWidget *)w));
 }
 
 float awra_hover_t(const AwraWidget *w)

@@ -389,6 +389,7 @@ extern "C" {
     pub fn awra_pump() -> c_int;
     pub fn awra_invoke(fn_: Option<unsafe extern "C" fn(*mut c_void)>, data: *mut c_void);
     pub fn awra_timeout_add(ms: c_uint, fn_: Option<unsafe extern "C" fn(*mut c_void) -> bool>, data: *mut c_void, destroy: Option<unsafe extern "C" fn(*mut c_void)>) -> c_uint;
+    pub fn awra_timeout_add_seconds(seconds: c_uint, fn_: Option<unsafe extern "C" fn(*mut c_void) -> bool>, data: *mut c_void, destroy: Option<unsafe extern "C" fn(*mut c_void)>) -> c_uint;
     pub fn awra_idle_add(fn_: Option<unsafe extern "C" fn(*mut c_void) -> bool>, data: *mut c_void, destroy: Option<unsafe extern "C" fn(*mut c_void)>) -> c_uint;
     pub fn awra_source_remove(id: c_uint);
     pub fn awra_backend() -> *const c_char;
@@ -434,6 +435,7 @@ extern "C" {
     pub fn awra_widget_get_size_request(widget: *const AwraWidget, width: *mut c_int, height: *mut c_int);
     pub fn awra_widget_measure(widget: *mut AwraWidget, orientation: c_int, for_size: c_int, minimum: *mut c_int, natural: *mut c_int);
     pub fn awra_widget_set_tooltip(widget: *mut AwraWidget, text: *const c_char);
+    pub fn awra_widget_get_monitor_geometry(widget: *mut AwraWidget, x: *mut c_int, y: *mut c_int, width: *mut c_int, height: *mut c_int) -> bool;
     pub fn awra_widget_set_typography(widget: *mut AwraWidget, typography: c_int);
     pub fn awra_widget_set_opacity(widget: *mut AwraWidget, opacity: f64);
     pub fn awra_widget_opacity(widget: *mut AwraWidget) -> f64;
@@ -447,6 +449,7 @@ extern "C" {
     pub fn awra_widget_add_class(widget: *mut AwraWidget, name: *const c_char);
     pub fn awra_widget_remove_class(widget: *mut AwraWidget, name: *const c_char);
     pub fn awra_widget_has_class(widget: *const AwraWidget, name: *const c_char) -> bool;
+    pub fn awra_widget_finish_transitions(widget: *mut AwraWidget);
     pub fn awra_widget_width(widget: *const AwraWidget) -> c_int;
     pub fn awra_widget_height(widget: *const AwraWidget) -> c_int;
     pub fn awra_widget_position(widget: *const AwraWidget, x: *mut f64, y: *mut f64) -> bool;
@@ -650,6 +653,7 @@ extern "C" {
     pub fn awra_menu_button_set_label(button: *mut AwraWidget, label: *const c_char);
     pub fn awra_menu_button_set_popover(button: *mut AwraWidget, popover: *mut AwraWidget);
     pub fn awra_menu_button_popover(button: *mut AwraWidget) -> *mut AwraWidget;
+    pub fn awra_menu_button_set_create_popup_func(button: *mut AwraWidget, func: Option<unsafe extern "C" fn(*mut AwraWidget, *mut c_void)>, user_data: *mut c_void, destroy: Option<unsafe extern "C" fn(*mut c_void)>);
     pub fn awra_menu_button_set_appearance(button: *mut AwraWidget, appearance: c_int);
     pub fn awra_menu_button_set_menu(button: *mut AwraWidget, items: *const AwraMenuItem, n: c_int);
     pub fn awra_entry_new() -> *mut AwraWidget;
@@ -1037,6 +1041,7 @@ extern "C" {
     pub fn awra_collection_view_set_column_width(view: *mut AwraWidget, column: c_int, width: c_int);
     pub fn awra_collection_view_column_width(view: *mut AwraWidget, column: c_int) -> c_int;
     pub fn awra_collection_view_set_sort_column(view: *mut AwraWidget, column: c_int, descending: bool);
+    pub fn awra_collection_view_set_sort_indicator_visible(view: *mut AwraWidget, visible: bool);
     pub fn awra_collection_view_set_show_header(view: *mut AwraWidget, show: bool);
     pub fn awra_collection_view_header_height(view: *mut AwraWidget) -> c_int;
     pub fn awra_collection_view_set_band_style(view: *mut AwraWidget, accent: bool, fill_alpha: f64, border_alpha: f64, radius: c_int, fade: bool);
@@ -1054,6 +1059,8 @@ extern "C" {
     pub fn awra_collection_view_set_cursor(view: *mut AwraWidget, index: c_int);
     pub fn awra_collection_view_scroll_to(view: *mut AwraWidget, index: c_int);
     pub fn awra_collection_view_vvalue(view: *mut AwraWidget) -> f64;
+    pub fn awra_collection_view_get_anchor(view: *mut AwraWidget, align: *mut f64, end: *mut bool) -> c_int;
+    pub fn awra_collection_view_set_anchor(view: *mut AwraWidget, index: c_int, align: f64, end: bool);
     pub fn awra_collection_view_set_vvalue(view: *mut AwraWidget, value: f64);
     pub fn awra_collection_view_set_drop_index(view: *mut AwraWidget, index: c_int);
     pub fn awra_collection_view_grid_columns(view: *mut AwraWidget) -> c_int;
@@ -1074,6 +1081,7 @@ extern "C" {
     pub fn awra_path_bar_item_at(bar: *mut AwraWidget, x: f64, y: f64) -> c_int;
     pub fn awra_path_bar_set_drop_item(bar: *mut AwraWidget, index: c_int);
     pub fn awra_menu_popover_set_highlighted(popover: *mut AwraWidget, index: c_int);
+    pub fn awra_choice_popover_new(labels: *const *const c_char, n: c_int, width: c_int, handler: Option<unsafe extern "C" fn(*mut AwraWidget, *const AwraArgs, *mut c_void)>, data: *mut c_void) -> *mut AwraWidget;
     pub fn awra_tab_bar_new() -> *mut AwraWidget;
     pub fn awra_tab_bar_insert(bar: *mut AwraWidget, position: c_int, title: *const c_char, icon_name: *const c_char) -> c_int;
     pub fn awra_tab_bar_remove(bar: *mut AwraWidget, index: c_int);
@@ -1203,6 +1211,9 @@ extern "C" {
     pub fn awra_metadata_group_set_title(group: *mut AwraWidget, title: *const c_char);
     pub fn awra_metadata_group_append(group: *mut AwraWidget, label: *const c_char, value: *const c_char) -> *mut AwraWidget;
     pub fn awra_metric_row_new(label: *const c_char, value: *const c_char) -> *mut AwraWidget;
+    pub fn awra_metric_row_set_label(row: *mut AwraWidget, label: *const c_char);
+    pub fn awra_metric_row_set_value(row: *mut AwraWidget, value: *const c_char);
+    pub fn awra_metric_row_set_icon_name(row: *mut AwraWidget, icon_name: *const c_char);
     pub fn awra_error_state_new(title: *const c_char, description: *const c_char) -> *mut AwraWidget;
     pub fn awra_rail_new() -> *mut AwraWidget;
     pub fn awra_rail_append(rail: *mut AwraWidget, entry: *mut AwraWidget);

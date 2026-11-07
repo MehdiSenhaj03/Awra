@@ -177,7 +177,7 @@ static void path_draw(AwraWidget *w, AwraDraw *d)
     AwraFont f = crumb_font(current);
     AwraRGBA fg = i == x->drop ? t->accent_content :
                   (current || (i == x->hover && awra_hovered(w))) ? t->foreground : t->muted;
-    const float base = w->y + floorf((w->h - awra_font_line_height(&f)) * 0.5f + 0.5f) + awra_font_ascent(&f);
+    const float base = w->y + floorf((w->h - ceilf(awra_font_line_height(&f))) * 0.5f) + awra_font_ascent(&f);
     const float tw = awra_text_width(&f, c->label, (int)strlen(c->label));
     const float tx = awra_mirror_x(w, cx + floorf((c->w - tw) * 0.5f), tw);
     awra_draw_text(d, &f, tx, base, c->label, (int)strlen(c->label), &fg);
@@ -600,20 +600,17 @@ void awra_path_bar_set_suggestions(AwraWidget *w, const char *const *titles,
   if (n <= 0 || !x->editing) {
     return;
   }
+  /* Awra 1 shows the first eight (MAX_VISIBLE_SUGGESTIONS) */
+  n = BK_MIN(n, 8);
   x->values = (char **)calloc((size_t)n, sizeof(char *));
-  AwraMenuItem *items = (AwraMenuItem *)calloc((size_t)n, sizeof(AwraMenuItem));
   for (int i = 0; i < n; i++) {
     x->values[i] = awra_strdup(values[i]);
-    items[i].label = titles[i];
-    items[i].icon_name = "folder-symbolic";
-    items[i].check = -1;
-    items[i].sensitive = true;
-    items[i].handler = suggestion_activated;
-    items[i].data = w;
   }
   x->nsugg = n;
-  x->popover = awra_menu_popover_new(items, n);
-  free(items);
+  /* as wide as the field's content box (gtk_widget_get_width: its border,
+   * 1, and padding, 6 and 3, inside) */
+  const int content = (int)(w->w / awra_scale()) - 2 - 9;
+  x->popover = awra_choice_popover_new(titles, n, content, suggestion_activated, w);
   awra_popover_set_anchor(x->popover, w);
   awra_widget_set_halign(x->popover, AWRA_ALIGN_START); /* Awra 1: GTK_POS_BOTTOM, start */
   /* Awra 1: not autohide (an autohiding popover would take the keyboard

@@ -254,7 +254,7 @@ static void switch_draw(AwraWidget *w, AwraDraw *d)
   SwitchExt *x = SWX(w);
   const AwraTokens *t = awra_tokens();
   const int bw = awra_px(48), bh = awra_px(28);
-  AwraBox b = {(float)w->x, (float)w->y + floorf((w->h - bh) * 0.5f), (float)bw, (float)bh};
+  AwraBox b = {(float)w->x, (float)w->y + awra_halfpx(w->h - bh), (float)bw, (float)bh};
   b = awra_mirror_box(w, b);
   const float saved = d->opacity;
   if (!awra_sensitive(w)) {
@@ -455,8 +455,8 @@ static void slider_draw(AwraWidget *w, AwraDraw *d)
   /* marks take a strip after the trough */
   const int mk = x->nmarks ? awra_px(8) : 0;
   const int vh = slider_value_height(w);
-  AwraBox trough = horiz ? (AwraBox){(float)w->x, vh ? (float)(w->y + w->h) - th : (float)w->y + floorf((w->h - mk - th) * 0.5f), (float)w->w, th} :
-                           (AwraBox){(float)w->x + floorf((w->w - mk - th) * 0.5f), (float)w->y, th, (float)w->h};
+  AwraBox trough = horiz ? (AwraBox){(float)w->x, vh ? (float)(w->y + w->h) - th : (float)w->y + awra_halfpx(w->h - mk - th), (float)w->w, th} :
+                           (AwraBox){(float)w->x + awra_halfpx(w->w - mk - th), (float)w->y, th, (float)w->h};
   for (int i = 0; i < x->nmarks; i++) {
     const double f = x->max > x->min ? (x->marks[i] - x->min) / (x->max - x->min) : 0;
     const float len = (horiz ? trough.w : trough.h) - th;
@@ -472,7 +472,7 @@ static void slider_draw(AwraWidget *w, AwraDraw *d)
     awra_paint_inset_shadow(d, trough, th * 0.5f, 0, awra_pxf(1), 0, awra_pxf(2), &sh);
   }
   const float len = horiz ? trough.w : trough.h;
-  const float mpos = floorf((len - th) * frac); /* the slider's margin box (6 px) */
+  const float mpos = awra_floorpx((len - th) * frac); /* the slider's margin box (6 px) */
   const AwraRGBA hl = x->muted ? t->disabled : t->accent;
   if (horiz) {
     /* right to left, a horizontal scale runs from the right (GtkRange's
@@ -947,7 +947,7 @@ static void prog_draw(AwraWidget *w, AwraDraw *d)
   const bool meter = awra_widget_has_class(w, "usage-meter");
   const float h = awra_pxf(prog_height(w));
   const float radius = meter ? awra_pxf(2) : h * 0.5f;
-  AwraBox b = {(float)w->x, (float)w->y + floorf((w->h - h) * 0.5f), (float)w->w, h};
+  AwraBox b = {(float)w->x, (float)w->y + awra_halfpx(w->h - h), (float)w->w, h};
   /* the node and its trough both paint the track */
   AwraRGBA track = t->control_track;
   track.a = 1.0f - (1.0f - track.a) * (1.0f - track.a);

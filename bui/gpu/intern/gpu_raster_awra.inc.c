@@ -461,8 +461,10 @@ void BUI_raster_image_rounded_ex(BuiRaster *r,
   r->cy0 = saved[1];
   r->cx1 = saved[2];
   r->cy1 = saved[3];
-  /* the corner regions: the image sampled as the bands sample it (GSK: the
-   * texture under a rounded clip), weighted by the rounded coverage */
+  /* every pixel the bands did not draw: the corners, and the partial
+   * pixels along the straight edges (a box at fractional coordinates),
+   * sampled as the bands sample the image (GSK: the texture under a
+   * rounded clip), weighted by the rounded coverage */
   const float sx = src ? clampf(src[0], 0.0f, (float)img->w) : 0.0f;
   const float sy = src ? clampf(src[1], 0.0f, (float)img->h) : 0.0f;
   const float sw = src ? clampf(src[2], 0.0f, (float)img->w - sx) : (float)img->w;
@@ -470,46 +472,38 @@ void BUI_raster_image_rounded_ex(BuiRaster *r,
   if (!(sw > 0.0f) || !(sh > 0.0f)) {
     return;
   }
+  int ox0, oy0, ox1, oy1;
+  if (!clip_box(r, x, y, x + w, y + h, &ox0, &oy0, &ox1, &oy1)) {
+    return;
+  }
   ImgSampler smp;
   sampler_init(&smp, img, x, y, w, h, sx, sy, sw, sh, flags);
-  const struct {
-    float x0, y0, x1, y1;
-  } corners[4] = {{x, y, x + rl, y + rt},
-                  {x + w - rr, y, x + w, y + rt},
-                  {x + w - rr, y + h - rb, x + w, y + h},
-                  {x, y + h - rb, x + rl, y + h}};
-  int done_y0 = 0;
-  (void)done_y0;
-  for (int c = 0; c < 4; c++) {
-    int cx0, cy0, cx1, cy1;
-    if (!clip_box(r, corners[c].x0, corners[c].y0, corners[c].x1, corners[c].y1, &cx0, &cy0,
-                  &cx1, &cy1))
-    {
-      continue;
-    }
-    /* the bands above own whole pixels strictly inside them; corners own
-     * the rest (including partial pixels along the band edges) */
-    for (int py = cy0; py < cy1; py++) {
-      uint32_t *row = RASTER_ROW(r, py);
-      const float fy = (float)py + 0.5f;
-      for (int px = cx0; px < cx1; px++) {
-        const float fx = (float)px + 0.5f;
-        /* skip pixels a band drew */
-        int drawn = 0;
-        for (int i = 0; i < 3 && !drawn; i++) {
-          drawn = px >= (int)ceilf(bands[i].x0) && px < (int)floorf(bands[i].x1) &&
-                  py >= (int)ceilf(bands[i].y0) && py < (int)floorf(bands[i].y1);
-        }
-        if (drawn) {
-          continue;
-        }
-        const float cov = clampf(0.5f - sd_rbox(fx, fy, x, y, x + w, y + h, rad), 0.0f, 1.0f);
-        if (cov <= 0.0f) {
-          continue;
-        }
-        const uint32_t ga = (uint32_t)(clampf(alpha * cov, 0.0f, 1.0f) * 256.0f + 0.5f);
-        put_image_px(row + px, sampler_at(&smp, fx, fy), ga);
+  const int mx0 = (int)ceilf(bands[0].x0), mx1 = (int)floorf(bands[0].x1);
+  const int my0 = (int)ceilf(bands[0].y0), my1 = (int)floorf(bands[0].y1);
+  for (int py = oy0; py < oy1; py++) {
+    uint32_t *row = RASTER_ROW(r, py);
+    const float fy = (float)py + 0.5f;
+    const bool middle = py >= my0 && py < my1 && mx1 > mx0;
+    for (int px = ox0; px < ox1; px++) {
+      if (middle && px >= mx0 && px < mx1) {
+        px = mx1 - 1; /* the band drew the inside of this row */
+        continue;
       }
+      const float fx = (float)px + 0.5f;
+      int drawn = 0;
+      for (int i = 1; i < 3 && !drawn; i++) {
+        drawn = px >= (int)ceilf(bands[i].x0) && px < (int)floorf(bands[i].x1) &&
+                py >= (int)ceilf(bands[i].y0) && py < (int)floorf(bands[i].y1);
+      }
+      if (drawn) {
+        continue;
+      }
+      const float cov = clampf(0.5f - sd_rbox(fx, fy, x, y, x + w, y + h, rad), 0.0f, 1.0f);
+      if (cov <= 0.0f) {
+        continue;
+      }
+      const uint32_t ga = (uint32_t)(clampf(alpha * cov, 0.0f, 1.0f) * 256.0f + 0.5f);
+      put_image_px(row + px, sampler_at(&smp, fx, fy), ga);
     }
   }
 }

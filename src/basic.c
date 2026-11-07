@@ -146,6 +146,20 @@ static float char_width(AwraWidget *w)
 {
   AwraFont f = label_font(w);
   static const char sample[] = "The quick brown fox jumps over the lazy dog.";
+  const float sc = awra_scale();
+  if (sc > 1.0f && sc == floorf(sc)) {
+    /* the font's metrics stay on whole application pixels at a whole
+     * scale factor (measured against GTK: a 4-character time label is as
+     * wide at scale 2 as at scale 1) */
+    float sum = 0.0f, dw = 0.0f;
+    for (int i = 0; i < (int)sizeof(sample) - 1; i++) {
+      sum += roundf(awra_text_width(&f, sample + i, 1) / sc);
+    }
+    for (char d = '0'; d <= '9'; d++) {
+      dw = fmaxf(dw, roundf(awra_text_width(&f, &d, 1) / sc));
+    }
+    return fmaxf(sum / (float)(sizeof(sample) - 1), dw) * sc;
+  }
   const float cw = awra_text_width(&f, sample, (int)sizeof(sample) - 1) / (float)(sizeof(sample) - 1);
   float dw = 0.0f;
   for (char d = '0'; d <= '9'; d++) {
@@ -183,18 +197,18 @@ static void label_measure(AwraWidget *w, int o, int for_size, int *r_min, int *r
     int nt = awra_text_layout_natural_width(x->layout);
     const float cw = (x->width_chars > 0 || x->max_width_chars > 0) ? char_width(w) : 0;
     if (x->width_chars > 0) {
-      mn = BK_MAX(mn, (int)ceilf(cw * x->width_chars));
+      mn = BK_MAX(mn, awra_ceilpx(cw * x->width_chars));
     }
     if (x->wrap != AWRA_WRAP_NONE && for_size >= 0) {
       /* width for a height: GTK's get_width_for_height (natural wrap
        * inherited, no ellipsis: minimum = natural) */
-      const int lo = x->width_chars > 0 ? (int)ceilf(cw * x->width_chars) : 0;
+      const int lo = x->width_chars > 0 ? awra_ceilpx(cw * x->width_chars) : 0;
       const int w4h = label_width_for_height(x->layout, for_size, lo, BK_MAX(lo, nt));
       *r_min = *r_nat = w4h;
       return;
     }
     if (x->max_width_chars > 0 && (x->wrap != AWRA_WRAP_NONE || x->ellipsize)) {
-      const int limit = (int)ceilf(cw * BK_MAX(x->width_chars, x->max_width_chars));
+      const int limit = awra_ceilpx(cw * BK_MAX(x->width_chars, x->max_width_chars));
       if (x->wrap != AWRA_WRAP_NONE && nt > limit) {
         /* the widest line laid out at that width (GtkLabel's natural) */
         awra_text_layout_size(x->layout, limit, &nt, NULL);
@@ -216,7 +230,7 @@ static void label_measure(AwraWidget *w, int o, int for_size, int *r_min, int *r
     int nw = awra_text_layout_natural_width(x->layout);
     if (x->max_width_chars > 0) {
       const float cw = char_width(w);
-      nw = BK_MIN(nw, (int)ceilf(cw * BK_MAX(x->width_chars, x->max_width_chars)));
+      nw = BK_MIN(nw, awra_ceilpx(cw * BK_MAX(x->width_chars, x->max_width_chars)));
     }
     int hn;
     awra_text_layout_size(x->layout, nw, NULL, &hn);
@@ -288,13 +302,16 @@ static void label_origin(AwraWidget *w, float *r_x, float *r_y, int *r_width)
   float lx0 = 0.0f, lw = (float)tw;
   if (fit) {
     awra_text_layout_logical(x->layout, w->w, &lx0, &lw);
-    lw = fminf(ceilf(lw), (float)w->w);
+    /* pango_layout_get_pixel_extents: inclusive, in application pixels */
+    const float x0 = awra_floorpx(lx0);
+    lw = fminf((float)awra_ceilpx(lx0 + lw) - x0, (float)w->w);
+    lx0 = x0;
   }
   /* right to left, xalign counts from the right (gtk_label_get_layout_location) */
   const float xalign = awra_widget_rtl(w) ? 1.0f - x->xalign : x->xalign;
   /* gtk_label_get_layout_location: floor, not rounded */
-  *r_x = (float)w->x + floorf((w->w - lw) * xalign - lx0);
-  *r_y = (float)w->y + floorf((w->h - th) * x->yalign);
+  *r_x = (float)w->x + awra_floorpx((w->w - lw) * xalign - lx0);
+  *r_y = (float)w->y + awra_floorpx((w->h - th) * x->yalign);
   *r_width = fit ? w->w : -1;
 }
 
@@ -838,6 +855,7 @@ typedef struct ImageExt {
   AwraRGBA color;
   AwraTexture *tex; /* shared pixels (textures) */
   bool no_shrink;
+  bool shown; /* drawn once (a style change then transitions) */
 } ImageExt;
 
 #define IX(w) AWRA_EXT(w, ImageExt)
@@ -956,18 +974,18 @@ static void image_draw(AwraWidget *w, AwraDraw *d)
     if (!awra_sensitive(w)) {
       c.a *= 0.5f;
     }
-    const float ix = w->x + floorf((w->w - s) * 0.5f), iy = w->y + floorf((w->h - s) * 0.5f);
-    if (awra_widget_has_class(w, "glow")) {
-      /* "glow": the icon lit by a soft halo of the accent (an item worth pointing at) */
-      static const float rings[3][2] = {{0.42f, 0.07f}, {0.30f, 0.10f}, {0.18f, 0.14f}};
-      for (int i = 0; i < 3; i++) {
-        AwraRGBA halo = awra_tokens()->accent;
-        halo.a = rings[i][1];
-        const float grow = s * rings[i][0];
-        AwraBox hb = {ix - grow, iy - grow, s + 2 * grow, s + 2 * grow};
-        awra_paint_rbox(d, hb, hb.w * 0.5f, &halo, 0, NULL);
+    const float ix = w->x + awra_halfpx(w->w - s), iy = w->y + awra_halfpx(w->h - s);
+    if (awra_icon_glow_wanted(w)) {
+      const AwraIconMask *m = awra_icon_mask(x->icon, s);
+      const BuiPixmap *pm = m ? NULL : awra_icon_pixmap(x->icon, s);
+      if (m) {
+        awra_icon_glow_draw(w, d, m->a, NULL, m->w, m->h, ix, iy, !x->shown);
+      }
+      else if (pm && pm->format == BUI_PIXMAP_ARGB) {
+        awra_icon_glow_draw(w, d, NULL, pm->px, pm->w, pm->h, ix, iy, !x->shown);
       }
     }
+    x->shown = true;
     /* the theme's icon: a symbolic one tinted, a full-colour one as it is */
     awra_paint_icon(d, x->icon, ix, iy, s, &c);
     return;
@@ -1048,6 +1066,11 @@ static AwraClass image_class = {
     .measure = image_measure,
     .draw = image_draw,
 };
+
+bool awra_widget_is_image_internal(const AwraWidget *w)
+{
+  return w && awra_is_widget((BKNode *)w) && AWRA_CLASS_OF(w) == &image_class;
+}
 
 AwraWidget *awra_image_new(void)
 {
@@ -1157,25 +1180,14 @@ void awra_image_set_bytes(AwraWidget *w, const void *data, size_t len)
 
 void awra_image_set_rgba(AwraWidget *w, const uint8_t *rgba, int width, int height, int stride)
 {
-  ImageExt *x = IX(w);
-  picture_reset(w);
-  free(x->path);
-  x->path = NULL;
-  free(x->bytes);
-  x->bytes = NULL;
-  BKImBuf *ib = BK_imbuf_from_rgba(rgba, width, height, stride);
-  if (!ib) {
+  /* a texture of its own: drawn smaller, it is averaged down (texture.c) as
+   * GSK's mipmaps would, not sampled */
+  AwraTexture *t = awra_texture_new_rgba(rgba, width, height, stride);
+  if (!t) {
     return;
   }
-  x->argb = (uint32_t *)malloc(sizeof(uint32_t) * (size_t)width * height);
-  if (x->argb) {
-    memcpy(x->argb, BK_imbuf_pixels(ib, 0), sizeof(uint32_t) * (size_t)width * height);
-  }
-  BK_imbuf_free(ib);
-  x->iw = x->dw = width;
-  x->ih = x->dh = height;
-  awra_widget_queue_resize(w);
-  awra_invalidate(w);
+  awra_image_set_texture(w, t);
+  awra_texture_unref(t);
 }
 
 void awra_image_set_corner_radius(AwraWidget *w, double r)

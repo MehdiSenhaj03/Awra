@@ -87,7 +87,8 @@ struct AwraClass {
   int (*release)(AwraWidget *w, BKEvent *e);
   int (*drag)(AwraWidget *w, BKEvent *e);
   int (*motion)(AwraWidget *w, BKEvent *e);
-  int (*key)(AwraWidget *w, BKEvent *e);
+  int (*key)(AwraWidget *w, BKEvent *e); /* 1 handled; 2 handled, the focus stayed on the
+                                          * same child (no ring for a navigation key) */
   int (*scroll)(AwraWidget *w, BKEvent *e);
   void (*activate)(AwraWidget *w); /* Return / Space / mnemonic */
   int (*cursor)(AwraWidget *w, int x, int y); /* BK_CURSOR_* or -1 */
@@ -515,6 +516,13 @@ void awra_paint_icon(AwraDraw *d, const char *name, float x, float y, int size,
                      const AwraRGBA *color);
 /* Full-color icons (non-symbolic SVG / PNG) as a BuiPixmap; NULL: none. */
 const BuiPixmap *awra_icon_pixmap(const char *name, int size);
+/* glow.c: the "suggested" role's icon shadow (Awra 1's -gtk-icon-shadow on
+ * `.awra-role-suggested image`), under an icon of alpha `a8` or `argb`
+ * (sw x sh device px) drawn at ix, iy; `fresh`: the image's first draw. */
+bool awra_icon_glow_wanted(const AwraWidget *w);
+bool awra_widget_is_image_internal(const AwraWidget *w); /* basic.c */
+void awra_icon_glow_draw(AwraWidget *w, AwraDraw *d, const uint8_t *a8, const uint32_t *argb, int sw, int sh,
+                         float ix, float iy, bool fresh);
 
 /* ----------------------------------------------------------------------- */
 /* Signals, state, animation (core.c) */
@@ -686,6 +694,11 @@ typedef struct AwraGroup {
 } AwraGroup;
 bool awra_group_begin(AwraDraw *d, AwraBox b, float alpha, AwraGroup *g);
 void awra_group_end(AwraDraw *d, AwraGroup *g);
+/* A subtree drawn scaled about its box's centre (a pressed button's
+ * transform: scale(.96)); awra_press_group_depth > 0 meanwhile. */
+bool awra_scale_group_begin(AwraDraw *d, AwraBox b, float scale, AwraGroup *g);
+void awra_scale_group_end(AwraDraw *d, AwraGroup *g);
+extern int awra_press_group_depth;
 
 /* A dashed border as GTK strokes `border: <width>px dashed` round a box
  * with corner `radius` (dash.c). */
@@ -698,3 +711,38 @@ bool awra_is_scrolled(const AwraWidget *w);
 /* A widget's subtree drawn shifted by a fraction of a pixel, as GTK
  * allocates a child with a fractional translation (core.c). */
 void awra_widget_set_draw_shift(AwraWidget *w, float dx, float dy);
+
+/* Half of a length, rounded down in application pixels as GTK computes
+ * centring (floor(v / 2) at scale 1; at a whole scale factor s, s times
+ * the halved application pixels, so things land where GTK puts them). */
+static inline float awra_halfpx(float v)
+{
+  const float s = awra_scale();
+  if (s > 1.0f && s == floorf(s)) {
+    return floorf(v / s * 0.5f + 1e-4f) * s;
+  }
+  return floorf(v * 0.5f);
+}
+/* floor() in application pixels (GTK lays out and rounds there), returned
+ * in raster pixels: at a whole scale factor, a multiple of it. */
+static inline float awra_floorpx(float v)
+{
+  const float s = awra_scale();
+  if (s > 1.0f && s == floorf(s)) {
+    return floorf(v / s + 1e-4f) * s;
+  }
+  return floorf(v);
+}
+/* ceil() in application pixels, returned in raster pixels. */
+static inline int awra_ceilpx(float v)
+{
+  const float s = awra_scale();
+  if (s > 1.0f && s == floorf(s)) {
+    return (int)(ceilf(v / s - 1e-3f) * s);
+  }
+  return (int)ceilf(v);
+}
+
+/* A material's outline and rim highlight only (paint.c). */
+void awra_paint_material_edges(AwraDraw *d, AwraBox b, const AwraResolvedMaterial *m, float radius,
+                               int corner_mask, int edge_mask);

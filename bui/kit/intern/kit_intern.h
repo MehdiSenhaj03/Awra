@@ -528,6 +528,7 @@ struct BKContext {
   int npopups;
   /* tooltip */
   BKNode *tip_node;
+  const BKNode *tip_hover; /* BUI-Awra: the hovered node the tooltip waits under (compared only) */
   int tip_x, tip_y, tip_serial, tip_shown;
   BKRect tip_rect;
   /* drag-toggle */
@@ -735,6 +736,9 @@ typedef struct BKPopupState {
 enum {
   BK_POPHOST_NATIVE_FRAME = 1 << 0, /* the system rounds and shadows popups (DWM):
                                      * draw `corner_radius` corners, no shadow */
+  BK_POPHOST_OPAQUE = 1 << 1,       /* surfaces without alpha (X11 without a
+                                     * compositor, as GDK: no shadow margin,
+                                     * what is clear outside the corners black) */
 };
 typedef struct BKPopupHost {
   void *data;
@@ -755,6 +759,9 @@ typedef struct BKPopupHost {
   /* The slot's native window (HWND, X11 Window, wl_surface), NULL none:
    * accessibility exposes popups as windows of their own. Optional. */
   void *(*handle)(void *data, int slot);
+  /* BUI-Awra: the geometry (screen px) of the monitor the window is mostly
+   * on (gdk_display_get_monitor_at_surface); 0 unknown. Optional. */
+  int (*monitor)(void *data, BKRect *r_geometry);
 } BKPopupHost;
 
 /* GDK's gdk_surface_layout_popup_helper: the box (shadow excluded) for a
@@ -772,6 +779,8 @@ bool bk_popup_surfaced(const BKContext *ctx, int slot);
  * the system closed a popup (grab dismissed, deactivation, a click outside
  * the application): it and the popups above it close. */
 void bk_popup_host_set(BKContext *ctx, const BKPopupHost *host);
+/* The geometry (screen px) of the monitor the window is on; false unknown. */
+bool bk_window_monitor(BKContext *ctx, BKRect *r_geometry);
 void bk_popup_configured(BKContext *ctx, int slot, BKRect rect);
 void bk_popup_dismissed(BKContext *ctx, int slot);
 /* Damage `r` of whatever tree `n` is in (its popup's surface or the

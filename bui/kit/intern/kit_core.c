@@ -2542,13 +2542,35 @@ void bk_tooltip_hide(BKContext *ctx)
   hide_tooltip(ctx);
 }
 
+/* BUI-Awra: the deepest node under the point, interactive or not */
+static BKNode *deepest_at(BKNode *n, int x, int y)
+{
+  for (int i = n->nkids - 1; i >= 0; i--) {
+    BKNode *k = n->kids[i];
+    if (NODE_VISIBLE(k) && bk_contains(k, x, y)) {
+      return deepest_at(k, x, y);
+    }
+  }
+  return n;
+}
+
 static void arm_tooltip(BKContext *ctx, BKNode *target, int x, int y)
 {
   ctx->tip_serial++;
-  if (!target || !target->desc || !target->desc[0] || !ctx->host.schedule) {
+  if (!target || !ctx->host.schedule) {
     return;
   }
-  ctx->tip_node = target;
+  /* BUI-Awra: GTK's tooltips: the deepest widget under the pointer, or the
+   * nearest of its ancestors with a tooltip (a list's cell under its view) */
+  BKNode *owner = deepest_at(target, x, y);
+  while (owner && !(owner->desc && owner->desc[0])) {
+    owner = owner->parent;
+  }
+  if (!owner) {
+    return;
+  }
+  ctx->tip_node = owner;
+  ctx->tip_hover = target;
   ctx->tip_x = x;
   ctx->tip_y = y;
   ctx->host.schedule(ctx->host.data, TOOLTIP_DELAY_MS, ctx->tip_serial);
@@ -2560,7 +2582,7 @@ void BK_timer(BKContext *ctx, int timer)
     bk_custom_timer(ctx);
     return;
   }
-  if (timer == ctx->tip_serial && ctx->tip_node && ctx->hover == ctx->tip_node && !ctx->grab &&
+  if (timer == ctx->tip_serial && ctx->tip_node && ctx->hover == ctx->tip_hover && !ctx->grab &&
       !ctx->tip_shown)
   {
     ctx->tip_shown = 1;

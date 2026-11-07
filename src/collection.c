@@ -11,7 +11,7 @@
  * control-hover, selection in selection with a 1 px inner focus line; list
  * rows are radius 4 with selection and cap-hover, cells padded 5 x 10, and
  * column headers are transparent buttons (4 10 8 padding, 24 px min,
- * .86em weight 500, muted) with GTK's sort indicator.
+ * .86em of .86em, weight 500, muted) with GTK's sort indicator.
  *
  * Interaction is GTK's list grammar: click selects, Ctrl toggles, Shift
  * extends, double click / Return activates, arrows move the cursor; a press
@@ -57,6 +57,7 @@ typedef struct CollExt {
   int ncols;
   int sort_col;
   bool sort_desc;
+  bool sort_hidden; /* no arrow (a GTK theme without a sort-indicator rule) */
   bool show_header;
   int item_w, item_h; /* grid content size, logical */
   int row_h;          /* list row height, logical */
@@ -96,9 +97,13 @@ typedef struct CollExt {
   int resize_col, resize_w0;
   int header_hover;
   /* scroll indicator */
-  float bar_t;
-  double bar_until;
-  unsigned fade_timer;
+  /* the overlay indicator as GtkScrolledWindow's: its opacity bar_t
+   * fading (1 s, ease-out cubic) from bar_from to bar_to since bar_start,
+   * the last scroll, a check every 500 ms that hides it 2 s after */
+  float bar_t, bar_from, bar_to;
+  double bar_start, bar_scrolled;
+  bool bar_over;
+  unsigned fade_timer, conceal_timer;
   AwraTextLayout **titles;
 } CollExt;
 
@@ -116,8 +121,10 @@ static int list_row_h(const CollExt *x)
 
 static AwraFont header_font(void)
 {
+  /* awra.css sets font-size: .86em on both the header and its buttons:
+   * the titles inherit both, .86 x .86 of the body */
   AwraFont f = awra_font_for(AWRA_TYPOGRAPHY_BODY);
-  f.size *= 0.86f;
+  f.size *= 0.86f * 0.86f;
   f.weight = 500;
   return f;
 }
@@ -137,7 +144,7 @@ static int title_width(CollExt *x, int c)
   AwraFont f = header_font();
   const char *t = x->cols[c].title ? x->cols[c].title : "";
   return (int)ceilf(awra_text_width(&f, t, (int)strlen(t))) + awra_px(2 * CELL_PAD_X) +
-         (c == x->sort_col ? awra_px(16 + 6) : 0);
+         (c == x->sort_col && !x->sort_hidden ? awra_px(16 + 6) : 0);
 }
 
 static void compute_columns(AwraWidget *w)
@@ -188,7 +195,9 @@ static void compute_geometry(AwraWidget *w)
     int cols = min_w > 0 ? w->w / min_w : 1;
     cols = BK_CLAMP(cols, 1, x->max_cols > 0 ? x->max_cols : 7);
     x->grid_cols = cols;
-    x->col_w = (double)w->w / cols;
+    /* GtkGridView: (width + spacing) / n_columns - spacing in whole
+     * application pixels (an int division), the rest left at the end */
+    x->col_w = floor((double)w->w / awra_scale() / cols) * awra_scale();
     x->tile_h = awra_px(x->item_h + 2 * (TILE_PAD + TILE_MARGIN));
     const int rows = (x->n + cols - 1) / cols;
     x->content_h = rows * x->tile_h;
@@ -488,6 +497,14 @@ static void coll_allocate(AwraWidget *w)
 /* ----------------------------------------------------------------------- */
 /* Painting */
 
+/* GtkListBase's focus: its focused row; before there is one, its first
+ * row (GTK 4.22 rings it, and moving the cursor onto it keeps the focus
+ * where it is) */
+static int focus_row(const CollExt *x)
+{
+  return x->cursor >= 0 ? x->cursor : x->n > 0 ? (x->nvis > 0 ? x->first : 0) : -1;
+}
+
 static void paint_item_bg(AwraWidget *w, AwraDraw *d, int i)
 {
   CollExt *x = CX(w);
@@ -513,7 +530,7 @@ static void paint_item_bg(AwraWidget *w, AwraDraw *d, int i)
   if (drop) {
     awra_paint_rbox(d, b, awra_pxf(8), NULL, awra_pxf(2), &t->focus_ring);
   }
-  if (i == x->cursor && awra_focus_visible(w)) {
+  if (i == focus_row(x) && awra_focus_visible(w)) {
     awra_paint_rbox(d, b, radius, NULL, awra_pxf(2), &t->focus_ring);
   }
 }
@@ -549,10 +566,12 @@ static void coll_draw(AwraWidget *w, AwraDraw *d)
       const bool rtl = awra_widget_rtl(w);
       /* the title starts the header (at its right, right to left), the sort arrow after it */
       const float tx = rtl ? hb.x + hb.w - awra_px(CELL_PAD_X) - tw : hb.x + awra_px(CELL_PAD_X);
-      const float base = w->y + pt + floorf((inner - lh) * 0.5f + 0.5f) + asc;
+      /* GtkLabel: floor ((height - logical.height) * yalign), the logical
+       * height in whole pixels (pango_layout_get_pixel_extents) */
+      const float base = w->y + pt + floorf((inner - ceilf(lh)) * 0.5f) + asc;
       bk_clip_push((int)hb.x, (int)hb.y, (int)hb.w, (int)hb.h);
       awra_draw_text(d, &f, tx, base, title, (int)strlen(title), &color);
-      if (c == x->sort_col) {
+      if (c == x->sort_col && !x->sort_hidden) {
         const int s = awra_px(16);
         awra_paint_icon(d, x->sort_desc ? "pan-down-symbolic" : "pan-up-symbolic",
                         rtl ? tx - awra_px(6) - s : tx + tw + awra_px(6), w->y + pt + floorf((inner - s) * 0.5f),
@@ -587,53 +606,111 @@ static void coll_draw_over(AwraWidget *w, AwraDraw *d)
     }
     bk_clip_pop();
   }
-  /* the overlay indicator, as in a scrolled window */
+  /* the overlay indicator, as GTK draws a scrolled window's: GtkRange's
+   * whole-pixel slider (trough less its 2 + 2 px margins, at least 40 px),
+   * 5 px wide with a 1 px edge of the foreground at .4 (as measured on
+   * GTK 4.22 under Awra 1), the inside nearly clear */
   if (x->content_h > x->view_h && x->bar_t > 0.0f) {
-    const float track = (float)x->view_h;
-    float len = track * (float)x->view_h / (float)x->content_h;
-    len = fmaxf(len, awra_pxf(18));
-    const float pos = (float)(x->vvalue / (x->content_h - x->view_h)) * (track - len);
-    AwraRGBA c = t->control_thumb;
-    c.a *= x->bar_t;
+    const float trough = (float)x->view_h - awra_pxf(4);
+    float len = roundf(trough * (float)x->view_h / (float)x->content_h);
+    len = fminf(fmaxf(len, awra_pxf(40)), trough);
+    const float pos = floorf((float)(x->vvalue / (x->content_h - x->view_h)) * (trough - len));
+    /* GTK's default theme: its own foreground, white in the dark variant */
+    const float ink = awra_style_is_dark() ? 1.0f : 0.0f;
+    AwraRGBA edge = {ink, ink, ink, 1.0f}, inside = edge;
+    edge.a *= 0.4f * x->bar_t;
+    inside.a *= 0.027f * x->bar_t;
     const float bw = awra_pxf(5);
-    awra_paint_rbox(d, awra_mirror_box(w, (AwraBox){w->x + w->w - awra_pxf(6), w->y + x->header_h + pos, bw, len}),
-                    bw * 0.5f, &c, 0, NULL);
+    awra_paint_rbox(d, awra_mirror_box(w, (AwraBox){w->x + w->w - bw, w->y + x->header_h + pos, bw, len}),
+                    bw * 0.5f, &inside, awra_pxf(1), &edge);
   }
 }
 
 /* ----------------------------------------------------------------------- */
 /* Scrolling */
 
+static void bar_dirty(AwraWidget *w)
+{
+  BKContext *ctx = bk_ctx(w);
+  if (ctx) {
+    bk_node_dirty(w, bk_rect((int)awra_mirror_x(w, (float)(w->x + w->w - awra_px(16)), (float)awra_px(16)), w->y,
+                             awra_px(16), w->h));
+  }
+}
+
+static bool conceal_tick(void *data);
+
 static bool fade_tick(void *data)
 {
   AwraWidget *w = (AwraWidget *)data;
   CollExt *x = CX(w);
-  const double now = awra_now_ms();
-  if (now < x->bar_until || x->press_scrollbar) {
-    return true;
+  const double t = fmin(1.0, (awra_now_ms() - x->bar_start) / 1000.0);
+  const double e = 1.0 - pow(1.0 - t, 3.0); /* gtk_progress_tracker_get_ease_out_cubic */
+  x->bar_t = (float)(x->bar_from + (x->bar_to - x->bar_from) * e);
+  /* indicator_set_fade: visible, it checks every 500 ms from this frame on */
+  if (x->bar_t > 0.0f && !x->conceal_timer) {
+    x->conceal_timer = awra_timeout_add(500, conceal_tick, w, NULL);
   }
-  const float t = (float)(1.0 - (now - x->bar_until) / 1000.0);
-  x->bar_t = t > 0 ? t : 0;
-  BKContext *ctx = bk_ctx(w);
-  if (ctx) {
-    bk_node_dirty(w, bk_rect((int)awra_mirror_x(w, (float)(w->x + w->w - awra_px(8)), (float)awra_px(8)), w->y,
-                             awra_px(8), w->h));
-  }
-  if (x->bar_t <= 0.0f) {
+  bar_dirty(w);
+  if (t >= 1.0) {
     x->fade_timer = 0;
     return false;
   }
   return true;
 }
 
+static void bar_fade(AwraWidget *w, float target);
+
+static bool conceal_tick(void *data)
+{
+  AwraWidget *w = (AwraWidget *)data;
+  CollExt *x = CX(w);
+  /* maybe_hide_indicator */
+  if (awra_now_ms() - x->bar_scrolled >= 2000.0 && !x->bar_over && !x->press_scrollbar) {
+    bar_fade(w, 0.0f);
+  }
+  if (x->bar_t <= 0.0f && x->bar_to <= 0.0f) {
+    x->conceal_timer = 0;
+    return false;
+  }
+  return true;
+}
+
+/* indicator_start_fade */
+static void bar_fade(AwraWidget *w, float target)
+{
+  CollExt *x = CX(w);
+  if (x->bar_to == target) {
+    return;
+  }
+  x->bar_to = target;
+  if (target != 0.0f) {
+    x->bar_scrolled = awra_now_ms();
+  }
+  if (awra_style_reduced_motion()) {
+    x->bar_t = target;
+    if (target > 0.0f && !x->conceal_timer) {
+      x->conceal_timer = awra_timeout_add(500, conceal_tick, w, NULL);
+    }
+    bar_dirty(w);
+    return;
+  }
+  x->bar_from = x->bar_t;
+  x->bar_start = awra_now_ms();
+  if (!x->fade_timer) {
+    x->fade_timer = awra_timeout_add(16, fade_tick, w, NULL);
+  }
+}
+
+/* the value changed (indicator_value_changed) */
 static void show_bar(AwraWidget *w)
 {
   CollExt *x = CX(w);
-  x->bar_t = 1.0f;
-  x->bar_until = awra_now_ms() + 2000.0;
-  if (!x->fade_timer) {
-    x->fade_timer = awra_timeout_add(33, fade_tick, w, NULL);
+  if (x->content_h <= x->view_h) {
+    return;
   }
+  x->bar_scrolled = awra_now_ms();
+  bar_fade(w, 1.0f);
 }
 
 static void scroll_to_value(AwraWidget *w, double v)
@@ -1076,8 +1153,11 @@ static int coll_motion(AwraWidget *w, BKEvent *e)
     x->header_hover = hc;
     awra_invalidate(w);
   }
-  if (x->content_h > x->view_h && e->x >= w->x + w->w - awra_px(16)) {
-    show_bar(w);
+  /* GtkScrolledWindow: any motion fades the indicator in; near it, it
+   * stays (indicator_set_over) */
+  if (x->content_h > x->view_h) {
+    x->bar_over = awra_mirror_px(w, e->x) >= w->x + w->w - awra_px(16) && e->y >= w->y + x->header_h;
+    bar_fade(w, 1.0f);
   }
   return 0;
 }
@@ -1096,6 +1176,7 @@ static void coll_leave(AwraWidget *w, const AwraArgs *a, void *data)
   CollExt *x = CX(w);
   (void)a;
   (void)data;
+  x->bar_over = false;
   if (x->hover >= 0 || x->header_hover >= 0) {
     x->hover = -1;
     x->header_hover = -1;
@@ -1154,9 +1235,10 @@ static int coll_key(AwraWidget *w, BKEvent *e)
   if (to == -2) {
     return 0;
   }
-  awra_aux(w)->focus_visible = 1;
+  const int was = focus_row(x);
   move_cursor(w, to, mods);
-  return 1;
+  /* 2: the focus stayed on its row (no ring shown for it, as GTK) */
+  return x->cursor != was ? 1 : 2;
 }
 
 static void coll_finalize(AwraWidget *w)
@@ -1184,6 +1266,9 @@ static void coll_finalize(AwraWidget *w)
   free(x->band_initial);
   if (x->fade_timer) {
     awra_source_remove(x->fade_timer);
+  }
+  if (x->conceal_timer) {
+    awra_source_remove(x->conceal_timer);
   }
   if (x->edge_timer) {
     awra_source_remove(x->edge_timer);
@@ -1588,6 +1673,17 @@ void awra_collection_view_set_sort_column(AwraWidget *w, int column, bool descen
   awra_invalidate(w);
 }
 
+void awra_collection_view_set_sort_indicator_visible(AwraWidget *w, bool visible)
+{
+  CollExt *x = CX(w);
+  if (x->sort_hidden == !visible) {
+    return;
+  }
+  x->sort_hidden = !visible;
+  awra_widget_queue_resize(w);
+  awra_invalidate(w);
+}
+
 void awra_collection_view_set_show_header(AwraWidget *w, bool show)
 {
   CX(w)->show_header = show;
@@ -1744,6 +1840,62 @@ void awra_collection_view_scroll_to(AwraWidget *w, int index)
   reveal_index(w, index);
 }
 
+/* GtkListBase's anchor (gtk_list_base_adjustment_value_changed_cb): the
+ * item at the point of the view the scroll position says (the top when at
+ * the top, the bottom at the bottom, in proportion between), and which of
+ * its edges keeps its place there */
+int awra_collection_view_get_anchor(AwraWidget *w, double *r_align, bool *r_end)
+{
+  CollExt *x = CX(w);
+  *r_align = 0.0;
+  *r_end = false;
+  if (x->n <= 0 || x->tile_h <= 0 || x->view_h <= 0) {
+    return -1;
+  }
+  const int per_row = x->layout == AWRA_COLLECTION_GRID ? BK_MAX(1, x->grid_cols) : 1;
+  const double total = BK_MAX(x->content_h, x->view_h), page = x->view_h, value = x->vvalue;
+  const double align = total == page ? 0.5 : value / (total - page);
+  double along = value + floor(align * page + 0.5);
+  along = fmin(fmax(along, 0.0), total - 1.0);
+  const int row = BK_MIN((int)(along / x->tile_h), (x->n - 1) / per_row);
+  const double top = (double)row * x->tile_h, bottom = top + x->tile_h;
+  bool end;
+  if (top < value && bottom <= value + page) {
+    end = true;
+  }
+  else if (top >= value && bottom > value + page) {
+    end = false;
+  }
+  else {
+    end = top + x->tile_h / 2 > along;
+  }
+  *r_end = end;
+  *r_align = ((end ? bottom : top) - value) / page;
+  return row * per_row;
+}
+
+void awra_collection_view_set_anchor(AwraWidget *w, int index, double align, bool end)
+{
+  CollExt *x = CX(w);
+  if (x->tile_h <= 0 || x->view_h <= 0) {
+    compute_geometry(w);
+  }
+  if (index < 0 || index >= x->n || x->tile_h <= 0) {
+    return;
+  }
+  const int per_row = x->layout == AWRA_COLLECTION_GRID ? BK_MAX(1, x->grid_cols) : 1;
+  const double top = (double)(index / per_row) * x->tile_h;
+  const double v = (end ? top + x->tile_h : top) - align * x->view_h;
+  const double maxv = BK_MAX(0, x->content_h - x->view_h);
+  const double nv = v < 0 ? 0 : v > maxv ? maxv : v;
+  if (nv != x->vvalue) {
+    x->vvalue = nv;
+    show_bar(w);
+  }
+  awra_queue_allocate(w);
+  awra_invalidate(w);
+}
+
 double awra_collection_view_vvalue(AwraWidget *w)
 {
   return CX(w)->vvalue / awra_scale();
@@ -1752,7 +1904,11 @@ double awra_collection_view_vvalue(AwraWidget *w)
 void awra_collection_view_set_vvalue(AwraWidget *w, double value)
 {
   CollExt *x = CX(w);
-  x->vvalue = value * awra_scale();
+  const double v = value * awra_scale();
+  if (v != x->vvalue) {
+    x->vvalue = v;
+    show_bar(w);
+  }
   awra_queue_allocate(w);
   awra_invalidate(w);
 }

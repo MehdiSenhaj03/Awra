@@ -327,8 +327,8 @@ static void pop_place(BKNode *n, int win_w, int win_h)
   BKPopupLayout l;
   pop_layout(w, nw, nh, win_w, win_h, &l);
   BKContext *pctx = bk_ctx(w);
-  if (pctx && pctx->popup_host && (pctx->popup_host->flags & BK_POPHOST_NATIVE_FRAME)) {
-    memset(l.shadow, 0, sizeof(l.shadow)); /* the system shadows it */
+  if (pctx && pctx->popup_host && (pctx->popup_host->flags & (BK_POPHOST_NATIVE_FRAME | BK_POPHOST_OPAQUE))) {
+    memset(l.shadow, 0, sizeof(l.shadow)); /* the system shadows it, or nothing can */
   }
   {
     AwraResolvedMaterial m;
@@ -577,6 +577,13 @@ static void popup_with(AwraWidget *w, AwraWidget *owner)
   awra_invalidate(owner); /* a menu button shows itself open (.awra-open) */
   x->unfold = awra_style_reduced_motion() ? 1.0f : 0.0f;
   bk_open_popup(ctx, w, owner, NULL);
+  if (x->menu && x->child && awra_widget_is(x->child, "AwraScrolledWindow")) {
+    /* Awra 1's menus (rebuild_menu): at most the monitor's height less 64
+     * (120 at least), 600 when it is unknown */
+    int mh = 0;
+    awra_scrolled_set_max_content_height(
+        x->child, awra_widget_get_monitor_geometry(owner, NULL, NULL, NULL, &mh) ? BK_MAX(120, mh - 64) : 600);
+  }
   awra_map_tree(w, true);
   awra_widget_queue_resize(w);
   ctx->layout_dirty = true;
@@ -746,7 +753,8 @@ typedef struct RowExt {
   void *data;
   int index;
   AwraWidget *popover; /* closed on activation (dropdowns; menus find theirs) */
-  int kind;            /* 0 menu row, 1 dropdown row, 2 command row, 3 submenu row */
+  int kind;            /* 0 menu row, 1 dropdown row, 2 command row, 3 submenu row,
+                        * 4 choice row (a field's suggestions) */
   bool selected;       /* dropdown: the current item; palette: the Enter target */
   AwraWidget *submenu; /* kind 3: the menu it opens (owned) */
 } RowExt;
@@ -786,7 +794,8 @@ static void row_metrics(AwraWidget *w, int *px, int *py, int *min_h, int *gap, f
       *gap = awra_px(17);
       *radius = awra_pxf(9);
       break;
-    default:
+    default: /* menu rows; choice rows are Awra 1's plain buttons of class
+              * .awra-menu-item (the same box) holding a label */
       *px = awra_px(9);
       *py = awra_px(5);
       *min_h = awra_px(22);
@@ -802,7 +811,7 @@ static void row_measure(AwraWidget *w, int o, int f, int *r_min, int *r_nat)
   float rad;
   row_metrics(w, &px, &py, &mh, &gap, &rad);
   AwraFont font = row_font();
-  if (x->kind == 2) {
+  if (x->kind == 2 || x->kind == 4) {
     font.weight = 400;
   }
   if (o == AWRA_ORIENTATION_VERTICAL) {
@@ -818,7 +827,8 @@ static void row_measure(AwraWidget *w, int o, int f, int *r_min, int *r_nat)
     af.size *= x->kind == 2 ? 0.92f : 0.86f;
     wv += awra_text_width(&af, x->accel, -1) + gap + (x->kind == 0 ? awra_px(18) : 0);
   }
-  if (x->check >= 0 || x->kind == 1) {
+  /* Awra 1's check is visible (and takes room) only while active */
+  if (x->check == 1 || x->kind == 1) {
     wv += awra_px(x->kind == 1 ? 8 : 14) + gap;
   }
   if (x->kind == 3) {
@@ -835,9 +845,10 @@ static void row_draw(AwraWidget *w, AwraDraw *d)
   int px, py, mh, gap;
   float rad;
   row_metrics(w, &px, &py, &mh, &gap, &rad);
-  const bool hot = awra_hovered(w) || awra_focus_visible(w);
+  /* an insensitive widget takes no pointer in GTK: no hover */
+  const bool hot = (awra_hovered(w) || awra_focus_visible(w)) && awra_sensitive(w);
   AwraRGBA bg = {0, 0, 0, 0};
-  if (x->kind == 0) {
+  if (x->kind == 0 || x->kind == 4) {
     bg = (hot || x->selected) ? t->selection : bg;
   }
   else if (x->kind == 3) { /* .awra-open too */
@@ -854,7 +865,14 @@ static void row_draw(AwraWidget *w, AwraDraw *d)
   awra_paint_rbox(d, b, rad, &bg, 0, NULL);
   const bool sens = awra_sensitive(w);
   AwraRGBA fg = x->destructive ? t->danger : t->foreground;
-  if (!sens) {
+  if (x->kind == 4 && x->selected) { /* .awra-path-bar-suggestion-highlighted */
+    fg = t->accent_content;
+  }
+  /* Awra 1's menu items keep their colours when their action is off
+   * (.awra-menu-item and its label, icon and accelerator set them at the
+   * application's priority, over the theme's :disabled): only other rows dim */
+  const bool menu_item = x->kind == 0 || x->kind == 3;
+  if (!sens && !menu_item) {
     fg = t->disabled;
   }
   float cx = (float)(w->x + px);
@@ -862,10 +880,10 @@ static void row_draw(AwraWidget *w, AwraDraw *d)
   if (x->icon) {
     const int s = awra_px(16);
     AwraRGBA ic = t->muted;
-    if (!sens) {
+    if (!sens && !menu_item) {
       ic.a *= 0.5f;
     }
-    awra_paint_icon(d, x->icon, awra_mirror_x(w, cx, (float)s), floorf(cy - s * 0.5f + 0.5f), s, &ic);
+    awra_paint_icon(d, x->icon, awra_mirror_x(w, cx, (float)s), floorf(cy - s * 0.5f), s, &ic);
     cx += s + gap;
   }
   /* laid out left to right, mirrored right to left (GtkModelButton: the
@@ -890,12 +908,10 @@ static void row_draw(AwraWidget *w, AwraDraw *d)
                       &t->accent_content);
     right -= awra_pxf(8) + gap;
   }
-  if (x->check >= 0) {
-    if (x->check == 1) {
-      const int s = awra_px(14);
-      awra_paint_icon(d, "object-select-symbolic", awra_mirror_x(w, right - s, (float)s),
-                      floorf(cy - s * 0.5f + 0.5f), s, &t->accent_content);
-    }
+  if (x->check == 1) { /* hidden, and taking no room, while off */
+    const int s = awra_px(14);
+    awra_paint_icon(d, "object-select-symbolic", awra_mirror_x(w, right - s, (float)s),
+                    floorf(cy - s * 0.5f), s, &t->accent_content);
     right -= awra_px(14) + gap;
   }
   if (x->accel) {
@@ -910,14 +926,14 @@ static void row_draw(AwraWidget *w, AwraDraw *d)
     right -= aw + gap;
   }
   AwraFont f = row_font();
-  if (x->kind == 2) {
+  if (x->kind == 2 || x->kind == 4) {
     f.weight = 400;
   }
   AwraTextLayout *l = awra_text_layout_new();
   awra_text_layout_set_font(l, &f);
   awra_text_layout_set_base_dir(l, awra_widget_rtl(w));
   awra_text_layout_set_text(l, x->label ? x->label : "", false);
-  awra_text_layout_set_wrap(l, AWRA_WRAP_NONE, AWRA_ELLIPSIZE_END, 1);
+  awra_text_layout_set_wrap(l, AWRA_WRAP_NONE, x->kind == 4 ? AWRA_ELLIPSIZE_MIDDLE : AWRA_ELLIPSIZE_END, 1);
   int tw, th;
   const int avail = (int)(right - cx);
   awra_text_layout_size(l, avail, &tw, &th);
@@ -927,9 +943,7 @@ static void row_draw(AwraWidget *w, AwraDraw *d)
     awra_text_layout_logical(l, avail, &lx0, &lw);
     lx = awra_mirror_x(w, cx, (float)avail) + avail - fminf(ceilf(lw), (float)avail) - lx0;
   }
-  /* gtk_label_get_layout_location: floor ((height - logical.height) * 0.5)
-   * in the content box */
-  awra_text_layout_draw(l, d, lx, b.y + py + floorf((b.h - 2 * py - th) * 0.5f), avail, &fg);
+  awra_text_layout_draw(l, d, lx, b.y + awra_halfpx(b.h - th), avail, &fg);
   awra_text_layout_free(l);
 }
 
@@ -1020,6 +1034,9 @@ static void row_a11y(AwraWidget *w, AwraA11yInfo *info)
   else if (x->kind == 1) {
     info->role = AWRA_ACCESSIBLE_ROLE_MENU_ITEM_RADIO;
     awra_a11y_set_state(info, AWRA_ACCESSIBLE_STATE_CHECKED, x->selected);
+  }
+  else if (x->kind == 4) { /* a plain button */
+    info->role = AWRA_ACCESSIBLE_ROLE_BUTTON;
   }
   else if (x->kind == 3) {
     /* a submenu row: GtkPopoverMenu's item with a submenu */
@@ -1374,7 +1391,7 @@ static AwraWidget *menu_build(const AwraMenuItem *items, int from, int to)
   AwraWidget *scroll = awra_scrolled_new();
   awra_scrolled_set_policy(scroll, AWRA_POLICY_NEVER, AWRA_POLICY_AUTOMATIC);
   awra_scrolled_set_propagate_natural(scroll, true, true);
-  awra_scrolled_set_max_content_height(scroll, 600);
+  awra_scrolled_set_max_content_height(scroll, 600); /* until it opens: popup_with */
   awra_scrolled_set_child(scroll, box);
   awra_widget_unref(box);
   awra_popover_set_child(pop, scroll);
@@ -1385,6 +1402,30 @@ static AwraWidget *menu_build(const AwraMenuItem *items, int from, int to)
 AwraWidget *awra_menu_popover_new(const AwraMenuItem *items, int n)
 {
   return menu_build(items, 0, n);
+}
+
+AwraWidget *awra_choice_popover_new(const char *const *labels, int n, int width,
+                                    AwraHandler handler, void *data)
+{
+  /* Awra 1's path bar suggestions: a .awra-menu box (padding 7, no
+   * spacing) of plain buttons, the box as wide as the field's content */
+  AwraWidget *pop = awra_popover_new();
+  awra_popover_set_padding_internal(pop, 7, false);
+  AwraWidget *box = awra_box_new(AWRA_ORIENTATION_VERTICAL, 0);
+  for (int i = 0; i < n; i++) {
+    AwraWidget *r = row_new(4, labels[i] ? labels[i] : "", NULL, NULL, -1);
+    RX(r)->handler = handler;
+    RX(r)->data = data;
+    RX(r)->index = i;
+    awra_box_append(box, r);
+    awra_widget_unref(r);
+  }
+  /* the .awra-menu box's size request covers its padding (the popover's
+   * here); its min-width, 210, only its content */
+  awra_widget_set_size_request(box, BK_MAX(width - 14, 210), -1);
+  awra_popover_set_child(pop, box);
+  awra_widget_unref(box);
+  return pop;
 }
 
 void awra_popover_set_menu(AwraWidget *popover, const AwraMenuItem *items, int n)
@@ -1445,6 +1486,10 @@ typedef struct MenuBtnData {
   AwraWidget *popover;
   AwraWidget *label;
   AwraWidget *chevron;
+  /* gtk_menu_button_set_create_popup_func: makes the popup each time */
+  AwraMenuButtonCreatePopupFunc create;
+  void *create_data;
+  AwraDestroyNotify create_destroy;
 } MenuBtnData;
 
 extern AwraClass awra_button_class;
@@ -1530,11 +1575,18 @@ bool awra_menu_button_open(const AwraWidget *b)
 static void mb_clicked(AwraWidget *b, const AwraArgs *a, void *data)
 {
   MenuBtnData *m = mb(b);
-  if (!m || !m->popover) {
+  if (!m) {
     return;
   }
-  if (awra_popover_visible(m->popover)) {
+  if (m->popover && awra_popover_visible(m->popover)) {
     awra_popover_popdown(m->popover);
+    return;
+  }
+  /* GtkMenuButton: the function sets the popup before each showing */
+  if (m->create) {
+    m->create(b, m->create_data);
+  }
+  if (!m->popover) {
     return;
   }
   popover_set_owner(m->popover, b);
@@ -1544,6 +1596,9 @@ static void mb_clicked(AwraWidget *b, const AwraArgs *a, void *data)
 static void mb_free(void *p)
 {
   MenuBtnData *m = (MenuBtnData *)p;
+  if (m->create_destroy) {
+    m->create_destroy(m->create_data);
+  }
   if (m->popover) {
     if (POPX(m->popover)->anchor_weak) {
       POPX(m->popover)->anchor = NULL; /* the button goes */
@@ -1562,6 +1617,24 @@ AwraWidget *awra_menu_button_new(void)
   awra_button_set_icon_name(b, "open-menu-symbolic");
   awra_widget_isolate_expand(b);
   return b;
+}
+
+void awra_menu_button_set_create_popup_func(AwraWidget *b, AwraMenuButtonCreatePopupFunc func, void *data,
+                                            AwraDestroyNotify destroy)
+{
+  MenuBtnData *m = mb(b);
+  if (!m) {
+    if (destroy) {
+      destroy(data);
+    }
+    return;
+  }
+  if (m->create_destroy) {
+    m->create_destroy(m->create_data);
+  }
+  m->create = func;
+  m->create_data = data;
+  m->create_destroy = destroy;
 }
 
 void awra_menu_button_set_icon_name(AwraWidget *b, const char *icon)
@@ -1904,7 +1977,10 @@ static void toast_allocate(AwraWidget *w)
     const float slide = *(float *)awra_widget_get_data(t->surface, "awra-slide");
     const int inset = awra_px(x->bottom_inset >= 0 ? x->bottom_inset : 24);
     const int y = w->y + w->h - inset - nh + (int)((1.0f - slide) * (nh + inset));
-    awra_allocate(t->surface, w->x + (w->w - nw) / 2, y, nw, nh);
+    /* GtkOverlay's centring: width / 2 - child width / 2, in application
+     * pixels */
+    const int sc = BK_MAX(1, (int)awra_scale());
+    awra_allocate(t->surface, w->x + sc * ((w->w / sc) / 2 - (nw / sc) / 2), y, nw, nh);
   }
 }
 
@@ -2178,8 +2254,9 @@ typedef struct PaletteData {
   AwraCommand *commands;
   int n;
   char **strings;
-  AwraWidget *popover, *entry, *list, *empty, *window, *header;
-  AwraWidget *column; /* the popover's, which holds the palette while open */
+  AwraWidget *popover, *entry, *list, *empty, *window, *header; /* popover: its window */
+  AwraWidget *column; /* (unused) */
+  bool had_focus;
   char *title;
   int current; /* index in commands of the Enter target */
 } PaletteData;
@@ -2375,12 +2452,72 @@ void awra_command_palette_set_query(AwraWidget *w, const char *query)
 
 /* Closed, the palette leaves its popover's column: the palette holds the
  * popover, so the popover must not hold it back. */
-static void palette_hidden(AwraWidget *pop, const AwraArgs *a, void *data)
+/* Awra 1's palette is an AwraWindow of its own, transient for the window
+ * it serves, not modal, 560 x 460, not resizable, Floating material: the
+ * window manager places it (a dialog over its parent). It closes when it
+ * loses the focus it had (deferred: a command may close it itself). */
+/* hidden, it lets the palette go (the window holds it only while it shows:
+ * no cycle with the palette, which holds its window) */
+static void palette_unref(void *data);
+
+static bool palette_release_idle(void *data)
 {
   AwraWidget *w = (AwraWidget *)data;
   PaletteData *p = pd(w);
-  if (p && p->column && w->parent == p->column) {
-    awra_container_remove(p->column, w);
+  if (p && p->popover && !awra_widget_visible(p->popover) && awra_window_child(p->popover) == w) {
+    awra_window_set_child(p->popover, NULL);
+  }
+  return false;
+}
+
+static void palette_hide(AwraWidget *w)
+{
+  PaletteData *p = pd(w);
+  if (p && p->popover) {
+    awra_window_hide(p->popover);
+    /* after the event that closed it (its entry may be emitting) */
+    awra_widget_ref(w);
+    awra_timeout_add(0, palette_release_idle, w, palette_unref);
+  }
+}
+
+static bool palette_close_idle(void *data)
+{
+  AwraWidget *w = (AwraWidget *)data;
+  PaletteData *p = pd(w);
+  if (p && p->popover && !awra_window_is_active(p->popover)) {
+    palette_hide(w);
+  }
+  return false;
+}
+
+static void palette_close_request(AwraWidget *win, const AwraArgs *a, void *data)
+{
+  if (a->handled) {
+    *a->handled = true;
+  }
+  palette_hide((AwraWidget *)data);
+}
+
+static void palette_unref(void *data)
+{
+  awra_widget_unref((AwraWidget *)data);
+}
+
+static void palette_state(AwraWidget *win, const AwraArgs *a, void *data)
+{
+  AwraWidget *w = (AwraWidget *)data;
+  PaletteData *p = pd(w);
+  if (!p) {
+    return;
+  }
+  if (a->index & AWRA_WINDOW_STATE_ACTIVE) {
+    p->had_focus = true;
+  }
+  else if (p->had_focus && !(a->index & AWRA_WINDOW_STATE_HIDDEN)) {
+    p->had_focus = false;
+    awra_widget_ref(w);
+    awra_timeout_add(0, palette_close_idle, w, palette_unref);
   }
 }
 
@@ -2388,43 +2525,31 @@ void awra_command_palette_present(AwraWidget *w, AwraWidget *window)
 {
   PaletteData *p = pd(w);
   if (!p->popover) {
-    p->popover = awra_popover_new();
-    awra_popover_set_centered_internal(p->popover, true);
-    /* the palette window: default header ("Commands" + close), 560 x 460 */
-    AwraWidget *col = awra_box_new(AWRA_ORIENTATION_VERTICAL, 0);
-    AwraWidget *h = awra_header_new();
-    awra_header_set_title(h, p->title ? p->title : "Commands");
-    p->header = h;
-    /* Awra 1's palette is an AwraWindow (.awra-command-palette, not
-     * .awra-dialog): the full 74 px header, with only its close button */
-    awra_header_set_close_only(h);
-    awra_header_set_drag_enabled(h, false);
-    awra_box_append(col, h);
-    awra_widget_unref(h); /* held by the column (and p->header, borrowed) */
-    awra_widget_set_size_request(col, 560, 460);
-    awra_popover_set_child(p->popover, col);
-    awra_widget_unref(col);
-    p->column = col;
-    awra_signal_connect(p->popover, AWRA_SIGNAL_HIDE, palette_hidden, w, NULL);
+    p->popover = awra_window_new(p->title ? p->title : "Commands", 560, 460);
+    awra_window_set_resizable(p->popover, false);
+    awra_window_set_keep_rounded_corners(p->popover, true);
+    awra_window_set_floating_internal(p->popover, true);
+    /* .awra-command-palette: the full header, with only its close button */
+    p->header = awra_window_titlebar(p->popover);
+    awra_header_set_close_only(p->header);
+    awra_signal_connect(p->popover, AWRA_SIGNAL_STATE, palette_state, w, NULL);
+    awra_signal_connect(p->popover, AWRA_SIGNAL_CLOSE_REQUEST, palette_close_request, w, NULL);
   }
-  if (!w->parent) {
-    awra_box_append(p->column, w);
+  if (awra_window_child(p->popover) != w) {
+    awra_window_set_child(p->popover, w);
   }
   p->window = window;
+  p->had_focus = false;
   awra_entry_set_text(p->entry, "");
   palette_fill(w);
-  AwraWidget *anchor = awra_window_child(window) ? awra_window_child(window) : window;
-  awra_popover_set_anchor(p->popover, anchor);
-  awra_popover_popup(p->popover);
-  awra_set_focus(window, p->entry, false);
+  awra_window_set_transient_for(p->popover, window);
+  awra_window_present(p->popover);
+  awra_window_set_focus(p->popover, p->entry);
 }
 
 void awra_command_palette_close(AwraWidget *w)
 {
-  PaletteData *p = pd(w);
-  if (p->popover) {
-    awra_popover_popdown(p->popover);
-  }
+  palette_hide(w);
 }
 
 /* ======================================================================= */

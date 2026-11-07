@@ -96,6 +96,10 @@ Text follows what GTK did for Awra 1:
   after NFD, Delete a grapheme; selections are painted as each GTK widget
   paints them (labels and text views: each run's range and the line ends
   where the selection continues; entries: one box around a bidi range);
+- tabs advance to Pango's default stops (shape_tab without a tab array):
+  every eight spaces of the layout's font, the next stop at least a space
+  past where the line has got to; each tab is a run of its own, in line
+  breaking, measuring and drawing alike;
 - ellipsizing is Pango's: the gap grows span by span from the mode's
   centre over the shaped clusters in logical order, the ellipsis takes the
   font at the gap and the lowest level it hides and fills the width, and
@@ -139,6 +143,13 @@ may flip, slide or shrink — GtkPopover's `create_popup_layout`, GTK's
   placed against the monitor's work area; DWM rounds, shadows and blurs it
   as Awra 1's popovers there; it closes when its window is deactivated.
 
+Without a compositor (an X11 visual without alpha) popups are opaque and
+unshadowed, as GDK makes them. Hosts also tell the monitor a window is on
+(`BKPopupHost.monitor`, `awra_widget_get_monitor_geometry`, as
+gdk_display_get_monitor_at_surface): Awra 1's menus scroll only past its
+height less 64 px. Tooltips belong to the deepest widget under the
+pointer or its nearest ancestor with one, as GTK asks them.
+
 Popups keep window coordinates, so hit testing, focus, menus' keys and the
 accessibility tree are unchanged; each draws into its own buffer with
 `BUI_raster_set_origin` and has its own damage (a hover in a menu repaints
@@ -146,6 +157,19 @@ that menu's row and nothing of the window). Hosts route a popup's input
 back in window coordinates, and leaving the window for one of its popups
 is no leave. Offscreen windows (tests, `awra-shot`) draw popups inside the
 window, constrained by it; `BUI_POPUP_SURFACES=0` does it everywhere.
+
+## Focus
+
+The ring follows GtkWindow's focus-visible rules: a key press remembers
+the focus (none while the ring shows) and its release shows the ring when
+the focus is another; Alt alone shows it; it goes about three seconds
+later (`awra_timeout_add_seconds`, g_timeout_add_seconds's timing). The
+application's capture handlers and shortcuts run before this tracking, as
+GTK's controller, added first, runs last: a press they take is not seen,
+so its release shows the ring. Widgets that stand for many GTK children
+(a collection's rows) say when a key kept the focus on the same child
+(their key handler returns 2): a collection without a cursor has its first
+row focused, as GtkListBase gives its first child the focus.
 
 ## Data transfer
 
