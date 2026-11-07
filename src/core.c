@@ -4,6 +4,7 @@
  * SPDX-License-Identifier: GPL-3.0-or-later */
 
 #include "awra-private.h"
+#include "a11y.h"
 #include "kit_loop.h"
 
 #include <stdio.h>
@@ -121,6 +122,7 @@ void awra_init(const char *app_id)
   g_inited = true;
   mutex_init(&g_invoke_lock);
   BK_set_ref_hooks(ref_retain, ref_release);
+  BK_text_init_images(); /* colour emoji */
   /* reduced motion turns the kit's own animations off too */
   awra_style_init();
   BK_window_supported(); /* opens the display: the backend is known */
@@ -271,27 +273,146 @@ void awra_source_remove(unsigned id)
 /* ======================================================================= */
 /* Style classes */
 
-static const char *g_class_names[64] = {
+static const char *g_class_builtin[] = {
     "accent",  "muted",       "flat",     "circular", "dim-label",   "numeric",
     "success", "warning",     "error",    "pill",     "compact",     "card",
     "heading", "caption",     "destructive-action", "suggested-action", "osd"};
-static int g_class_count = AWRA_CB_BUILTIN_COUNT;
+/* every class name ever used, interned for the process (the number is the
+ * class's bit while it is under 64); a hash finds them */
+static const char **g_class_names;
+static int g_class_count, g_class_cap;
+static int *g_class_hash; /* open addressing: class number + 1, 0 empty */
+static int g_class_hash_cap;
+
+static unsigned class_hash(const char *s)
+{
+  unsigned h = 2166136261u;
+  for (; *s; s++) {
+    h = (h ^ (unsigned char)*s) * 16777619u;
+  }
+  return h;
+}
+
+static bool class_intern(const char *name)
+{
+  if (g_class_count == 0xFFFF) {
+    return false; /* uint16_t numbers in widgets */
+  }
+  if (g_class_count == g_class_cap) {
+    const int cap = g_class_cap ? g_class_cap * 2 : 64;
+    const char **n = (const char **)realloc(g_class_names, sizeof(char *) * (size_t)cap);
+    if (!n) {
+      return false;
+    }
+    g_class_names = n;
+    g_class_cap = cap;
+  }
+  if ((g_class_count + 1) * 2 > g_class_hash_cap) {
+    const int cap = g_class_hash_cap ? g_class_hash_cap * 2 : 128;
+    int *h = (int *)calloc((size_t)cap, sizeof(int));
+    if (!h) {
+      return false;
+    }
+    for (int i = 0; i < g_class_count; i++) {
+      unsigned k = class_hash(g_class_names[i]) & (unsigned)(cap - 1);
+      while (h[k]) {
+        k = (k + 1) & (unsigned)(cap - 1);
+      }
+      h[k] = i + 1;
+    }
+    free(g_class_hash);
+    g_class_hash = h;
+    g_class_hash_cap = cap;
+  }
+  g_class_names[g_class_count] = name;
+  unsigned k = class_hash(name) & (unsigned)(g_class_hash_cap - 1);
+  while (g_class_hash[k]) {
+    k = (k + 1) & (unsigned)(g_class_hash_cap - 1);
+  }
+  g_class_hash[k] = ++g_class_count;
+  return true;
+}
 
 int awra_class_bit(const char *name)
 {
   if (!name) {
     return -1;
   }
-  for (int i = 0; i < g_class_count; i++) {
-    if (strcmp(g_class_names[i], name) == 0) {
-      return i;
+  if (!g_class_count) {
+    for (int i = 0; i < AWRA_CB_BUILTIN_COUNT; i++) {
+      class_intern(g_class_builtin[i]);
     }
   }
-  if (g_class_count == 64) {
+  if (g_class_hash_cap) {
+    unsigned k = class_hash(name) & (unsigned)(g_class_hash_cap - 1);
+    for (; g_class_hash[k]; k = (k + 1) & (unsigned)(g_class_hash_cap - 1)) {
+      if (strcmp(g_class_names[g_class_hash[k] - 1], name) == 0) {
+        return g_class_hash[k] - 1;
+      }
+    }
+  }
+  char *copy = awra_strdup(name);
+  if (!copy || !class_intern(copy)) {
+    free(copy);
     return -1;
   }
-  g_class_names[g_class_count] = awra_strdup(name);
-  return g_class_count++;
+  return g_class_count - 1;
+}
+
+bool awra_has_xclass(const AwraWidget *w, int bit)
+{
+  const uint16_t *x = awra_aux(w)->xclasses;
+  if (!x || bit < 64) {
+    return false;
+  }
+  int lo = 1, hi = x[0];
+  while (lo <= hi) {
+    const int mid = (lo + hi) / 2;
+    if (x[mid] == bit) {
+      return true;
+    }
+    if (x[mid] < bit) {
+      lo = mid + 1;
+    }
+    else {
+      hi = mid - 1;
+    }
+  }
+  return false;
+}
+
+/* Sets (on) or clears a class past the 64 bits. Returns whether it changed. */
+static bool xclass_set(AwraAux *a, int bit, bool on)
+{
+  uint16_t *x = a->xclasses;
+  const int n = x ? x[0] : 0;
+  int at = 1;
+  while (at <= n && x[at] < bit) {
+    at++;
+  }
+  const bool has = at <= n && x[at] == bit;
+  if (has == on) {
+    return false;
+  }
+  if (on) {
+    uint16_t *nx = (uint16_t *)realloc(x, sizeof(uint16_t) * (size_t)(n + 2));
+    if (!nx) {
+      return false;
+    }
+    memmove(nx + at + 1, nx + at, sizeof(uint16_t) * (size_t)(n + 1 - at));
+    nx[at] = (uint16_t)bit;
+    nx[0] = (uint16_t)(n + 1);
+    a->xclasses = nx;
+  }
+  else if (n == 1) {
+    free(x);
+    a->xclasses = NULL;
+  }
+  else {
+    memmove(x + at, x + at + 1, sizeof(uint16_t) * (size_t)(n - at));
+    x[0] = (uint16_t)(n - 1);
+  }
+  return true;
 }
 
 /* ======================================================================= */
@@ -304,6 +425,7 @@ bool awra_is_widget(const BKNode *n)
 
 static void aux_free(void *p)
 {
+  free(((AwraAux *)p)->xclasses);
   free(p);
 }
 
@@ -408,6 +530,7 @@ static void widget_dispose(AwraWidget *w)
   awra_emit_simple(w, AWRA_SIGNAL_DESTROY);
   if (w->parent) {
     BKNode *p = w->parent;
+    awra_a11y_child_changed(p, w, false);
     /* the parent's reference is the one going: detach without releasing */
     for (int i = 0; i < p->nkids; i++) {
       if (p->kids[i] == w) {
@@ -458,6 +581,9 @@ void awra_bk_free(BKNode *n)
   a->data = NULL;
   free(a->name);
   a->name = NULL;
+  if (a->a11y) {
+    awra_a11y_free(n);
+  }
 }
 
 void awra_bk_finish_edit(BKNode *n, bool confirm)
@@ -484,6 +610,7 @@ void awra_child_insert(AwraWidget *parent, AwraWidget *child, int index)
       set_mapped_tree(child, true);
     }
   }
+  awra_a11y_child_changed(parent, child, true);
 }
 
 void awra_child_remove(AwraWidget *parent, AwraWidget *child)
@@ -496,6 +623,7 @@ void awra_child_remove(AwraWidget *parent, AwraWidget *child)
     bk_invalidate(child);
     bk_forget(ctx, child);
   }
+  awra_a11y_child_changed(parent, child, false);
   if (awra_is_widget(child)) {
     set_mapped_tree(child, false);
   }
@@ -843,6 +971,7 @@ BKContext *awra_ctx(const AwraWidget *w)
 
 void awra_invalidate(AwraWidget *w)
 {
+  awra_a11y_dirty(w);
   if (w && w->w > 0 && bk_ctx(w)) {
     bk_invalidate(w);
   }
@@ -872,6 +1001,7 @@ void awra_widget_queue_resize(AwraWidget *w)
   if (!w) {
     return;
   }
+  awra_a11y_dirty(w);
   cache_clear_up(w);
   BKContext *ctx = bk_ctx(w);
   if (ctx) {
@@ -904,6 +1034,9 @@ static void set_mapped_tree(AwraWidget *w, bool mapped)
   if ((bool)a->mapped == now) {
     return;
   }
+  if (!now && (AWRA_CLASS_OF(w)->flags & AWRA_CLASS_POPUP) && w->parent) {
+    awra_a11y_child_changed(w->parent, w, false); /* a popover closes */
+  }
   a->mapped = now;
   if (AWRA_CLASS_OF(w)->map) {
     AWRA_CLASS_OF(w)->map(w, now);
@@ -911,6 +1044,10 @@ static void set_mapped_tree(AwraWidget *w, bool mapped)
   awra_emit_simple(w, now ? AWRA_SIGNAL_MAP : AWRA_SIGNAL_UNMAP);
   for (int i = 0; i < w->nkids; i++) {
     set_mapped_tree(w->kids[i], now);
+  }
+  awra_a11y_dirty(w);
+  if (now && (AWRA_CLASS_OF(w)->flags & AWRA_CLASS_POPUP) && w->parent) {
+    awra_a11y_child_changed(w->parent, w, true); /* a popover opens */
   }
 }
 
@@ -926,6 +1063,9 @@ static void set_effective_visible(AwraWidget *w, bool visible)
     return;
   }
   if (!visible) {
+    if (w->parent) {
+      awra_a11y_child_changed(w->parent, w, false);
+    }
     awra_invalidate(w);
     BKContext *ctx = bk_ctx(w);
     if (ctx) {
@@ -937,6 +1077,9 @@ static void set_effective_visible(AwraWidget *w, bool visible)
     w->flags |= NF_VISIBLE;
     if (awra_is_widget(w)) {
       awra_aux(w)->needs_allocate = 1;
+    }
+    if (w->parent) {
+      awra_a11y_child_changed(w->parent, w, true);
     }
   }
   if (w->parent && awra_is_widget(w->parent)) {
@@ -1009,6 +1152,9 @@ void awra_widget_set_sensitive(AwraWidget *w, bool sensitive)
     }
   }
   awra_invalidate(w);
+  if (awra_a11y_on) {
+    awra_a11y_dirty_tree(w); /* descendants are disabled with it */
+  }
 }
 
 bool awra_widget_sensitive(const AwraWidget *w)
@@ -1175,6 +1321,7 @@ void awra_widget_set_tooltip(AwraWidget *w, const char *text)
     return;
   }
   bk_set_text(&w->desc, text && text[0] ? text : NULL);
+  awra_a11y_dirty(w);
 }
 
 void awra_widget_set_typography(AwraWidget *w, AwraTypography t)
@@ -1262,10 +1409,18 @@ void awra_widget_add_class(AwraWidget *w, const char *name)
 {
   AUX_OR_RETURN(w);
   const int bit = awra_class_bit(name);
-  if (bit < 0 || (a->classes & (1ull << bit))) {
+  if (bit < 0) {
     return;
   }
-  a->classes |= 1ull << bit;
+  if (bit < 64) {
+    if (a->classes & (1ull << bit)) {
+      return;
+    }
+    a->classes |= 1ull << bit;
+  }
+  else if (!xclass_set(a, bit, true)) {
+    return;
+  }
   if (AWRA_CLASS_OF(w)->style_changed) {
     AWRA_CLASS_OF(w)->style_changed(w);
   }
@@ -1277,10 +1432,18 @@ void awra_widget_remove_class(AwraWidget *w, const char *name)
 {
   AUX_OR_RETURN(w);
   const int bit = awra_class_bit(name);
-  if (bit < 0 || !(a->classes & (1ull << bit))) {
+  if (bit < 0) {
     return;
   }
-  a->classes &= ~(1ull << bit);
+  if (bit < 64) {
+    if (!(a->classes & (1ull << bit))) {
+      return;
+    }
+    a->classes &= ~(1ull << bit);
+  }
+  else if (!xclass_set(a, bit, false)) {
+    return;
+  }
   if (AWRA_CLASS_OF(w)->style_changed) {
     AWRA_CLASS_OF(w)->style_changed(w);
   }

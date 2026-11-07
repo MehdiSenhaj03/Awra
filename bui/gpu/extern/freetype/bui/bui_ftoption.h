@@ -273,7 +273,10 @@ FT_BEGIN_HEADER
    *   options set by those programs have precedence, overwriting the value
    *   here with the configured one.
    */
-/* #define FT_CONFIG_OPTION_USE_PNG */
+/* BUI: colour bitmap glyphs (CBDT / sbix emoji) decode their PNGs with the
+ * decoder BUI_text_set_png_decoder registers (src/sfnt/pngshim.c), not libpng */
+#define FT_CONFIG_OPTION_USE_PNG
+#define BUI_FT_PNG_HOOK
 
 
   /**************************************************************************

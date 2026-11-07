@@ -22,6 +22,7 @@
  * SPDX-License-Identifier: GPL-3.0-or-later */
 
 #include "awra-private.h"
+#include "a11y.h"
 
 #include <stdio.h>
 
@@ -1132,7 +1133,84 @@ static void coll_finalize(AwraWidget *w)
   }
 }
 
+/* GtkGridView / GtkColumnView: a grid whose bound cells are its cells
+ * (only the items on screen, as GTK's), selected with their item, the
+ * cursor's focused while the view has the focus */
+static void coll_a11y(AwraWidget *w, AwraA11yInfo *info)
+{
+  CollExt *x = CX(w);
+  info->role = AWRA_ACCESSIBLE_ROLE_GRID;
+  info->selection = true;
+  info->flags |= AWRA_A11Y_MULTISELECTABLE;
+  (void)x;
+}
+
+/* the item a bound cell shows (-1: none) */
+static int cell_index(CollExt *x, AwraWidget *child, int *r_col)
+{
+  for (int k = 0; k < x->nvis; k++) {
+    for (int c = 0; c < (x->ncols > 0 ? x->ncols : 1); c++) {
+      if (x->vis[k].cells && x->vis[k].cells[c] == child) {
+        *r_col = c;
+        return x->vis[k].index;
+      }
+    }
+  }
+  return -1;
+}
+
+static void coll_a11y_child(AwraWidget *w, AwraWidget *child, AwraA11yInfo *info)
+{
+  CollExt *x = CX(w);
+  int col = 0;
+  const int i = cell_index(x, child, &col);
+  if (i < 0) {
+    return;
+  }
+  info->role = AWRA_ACCESSIBLE_ROLE_GRID_CELL;
+  awra_a11y_set_state(info, AWRA_ACCESSIBLE_STATE_SELECTED, i < x->sel_cap && x->sel[i]);
+  info->flags |= AWRA_A11Y_FOCUSABLE;
+  info->action = "activate";
+  AwraWidget *win = awra_window_of(w);
+  if (i == x->cursor && col == 0 && win && awra_window_focus(win) == w) {
+    info->flags |= AWRA_A11Y_FOCUSED;
+  }
+}
+
+static bool coll_a11y_child_do(AwraWidget *w, AwraWidget *child, int verb, double value)
+{
+  CollExt *x = CX(w);
+  int col = 0;
+  const int i = cell_index(x, child, &col);
+  if (i < 0 || !awra_sensitive(w)) {
+    return false;
+  }
+  switch (verb) {
+    case AWRA_A11Y_DO_SELECT:
+      awra_collection_view_set_selected(w, i, true);
+      return true;
+    case AWRA_A11Y_DO_DESELECT:
+      awra_collection_view_set_selected(w, i, false);
+      return true;
+    case AWRA_A11Y_DO_ACTIVATE:
+      awra_emit_index(w, AWRA_SIGNAL_ACTIVATE, i);
+      return true;
+    case AWRA_A11Y_DO_FOCUS:
+      awra_collection_view_set_cursor(w, i);
+      awra_widget_grab_focus(w);
+      return true;
+    case AWRA_A11Y_DO_SCROLL_TO:
+      awra_collection_view_scroll_to(w, i);
+      return true;
+    default:
+      return false;
+  }
+}
+
 static AwraClass coll_class = {
+    .a11y = coll_a11y,
+    .a11y_child = coll_a11y_child,
+    .a11y_child_do = coll_a11y_child_do,
     .bk = AWRA_BK("AwraCollectionView", CLS_INTERACTIVE),
     .type = "AwraCollectionView",
     .flags = AWRA_CLASS_CONTAINER | AWRA_CLASS_CLIP | AWRA_CLASS_FOCUSABLE | AWRA_CLASS_EXPAND_ISOLATED,

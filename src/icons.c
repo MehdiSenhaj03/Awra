@@ -255,3 +255,11 @@ const BuiPixmap *awra_icon_pixmap(const char *name, int size)
   BK_imbuf_free(ib);
   return c->argb ? &c->pm : NULL;
 }
+
+/* An icon's SVG source (registered or built in), NULL when there is none:
+ * full-colour application icons rasterized at the sizes windows need. */
+const char *awra_icon_svg_source(const char *name)
+{
+  size_t len;
+  return name ? find_svg(name, &len) : NULL;
+}

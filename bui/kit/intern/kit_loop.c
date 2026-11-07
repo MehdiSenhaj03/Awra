@@ -99,3 +99,68 @@ int bk_loop_run_due(void)
   }
   return ran;
 }
+
+/* -- watched file descriptors ------------------------------------------------ */
+
+typedef struct LoopFd {
+  int fd;
+  void (*fn)(int fd, void *data);
+  void *data;
+} LoopFd;
+
+static LoopFd g_fds[8];
+static int g_nfds = 0;
+
+int BK_loop_watch_fd(int fd, void (*fn)(int fd, void *data), void *data)
+{
+  if (fd < 0 || !fn) {
+    return 0;
+  }
+  for (int i = 0; i < g_nfds; i++) {
+    if (g_fds[i].fd == fd) {
+      g_fds[i].fn = fn;
+      g_fds[i].data = data;
+      return 1;
+    }
+  }
+  if (g_nfds == (int)(sizeof(g_fds) / sizeof(g_fds[0]))) {
+    return 0;
+  }
+  g_fds[g_nfds].fd = fd;
+  g_fds[g_nfds].fn = fn;
+  g_fds[g_nfds].data = data;
+  g_nfds++;
+  bk_loop_wake_host(); /* the host's wait starts watching it */
+  return 1;
+}
+
+void BK_loop_unwatch_fd(int fd)
+{
+  for (int i = 0; i < g_nfds; i++) {
+    if (g_fds[i].fd == fd) {
+      g_fds[i] = g_fds[--g_nfds];
+      return;
+    }
+  }
+}
+
+int bk_loop_fd_count(void)
+{
+  return g_nfds;
+}
+
+int bk_loop_fd(int index)
+{
+  return index >= 0 && index < g_nfds ? g_fds[index].fd : -1;
+}
+
+void bk_loop_fd_ready(int fd)
+{
+  for (int i = 0; i < g_nfds; i++) {
+    if (g_fds[i].fd == fd) {
+      LoopFd f = g_fds[i];
+      f.fn(f.fd, f.data); /* may unwatch it */
+      return;
+    }
+  }
+}

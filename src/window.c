@@ -7,6 +7,7 @@
  * SPDX-License-Identifier: GPL-3.0-or-later */
 
 #include "awra-private.h"
+#include "a11y.h"
 
 #include <ctype.h>
 #include <stdio.h>
@@ -50,6 +51,12 @@ typedef struct WinExt {
   uint64_t frames, pixels;
   int blur_rect[5];
   bool overlay_titlebar;
+  /* GTK's focus-visible: the window shows its focus ring after keyboard
+   * use (a key that moved the focus or a cursor, Alt), hides it on a
+   * pointer press and 3 s after the last key */
+  bool focus_visible, key_tracked;
+  AwraWidget *key_press_focus; /* compared only, not held */
+  unsigned focus_visible_timer;
   /* passive floating widgets (awra_window_add_overlay) */
   AwraWidget *overlays[8];
   double ov_x[8], ov_y[8];
@@ -60,6 +67,8 @@ typedef struct WinExt {
 
 static AwraWidget **g_windows;
 static int g_nwindows;
+
+static void set_focus_visible(AwraWidget *win, bool visible);
 
 static void window_init(AwraWidget *w)
 {
@@ -74,6 +83,10 @@ static void window_init(AwraWidget *w)
 static void window_finalize(AwraWidget *w)
 {
   WinExt *x = WEXT(w);
+  if (x->focus_visible_timer) {
+    awra_source_remove(x->focus_visible_timer);
+    x->focus_visible_timer = 0;
+  }
   for (Shortcut *s = x->shortcuts; s;) {
     Shortcut *n = s->next;
     if (s->destroy) {
@@ -452,8 +465,8 @@ static void pointer_hook(BKContext *ctx, int kind, int x, int y, int mods)
   if (!win) {
     return;
   }
-  WinExt *wx = WEXT(win);
   if (kind == BK_EV_MOTION || kind == BK_EV_LEAVE) {
+    awra_drag_icon_pointer(win, x, y, kind == BK_EV_LEAVE); /* transfer.c */
     update_hover(win, x, y, kind == BK_EV_LEAVE);
     return;
   }
@@ -469,11 +482,9 @@ static void pointer_hook(BKContext *ctx, int kind, int x, int y, int mods)
   }
   if (kind == BK_EV_PRESS && !(mods & (BK_BUTTON2 | BK_BUTTON3))) {
     update_hover(win, x, y, false);
-    /* a press on nothing focusable keeps the focus (GTK), but hides its ring */
-    if (wx->focus && awra_is_widget(wx->focus)) {
-      awra_aux(wx->focus)->focus_visible = 0;
-      awra_invalidate(wx->focus);
-    }
+    /* a press on nothing focusable keeps the focus (GTK), but hides its
+     * ring: rings show on keyboard use only */
+    set_focus_visible(win, false);
     return;
   }
   if (!(mods & (BK_BUTTON2 | BK_BUTTON3))) {
@@ -682,13 +693,50 @@ AwraWidget *awra_focus_of(AwraWidget *win)
   return win ? WEXT(win)->focus : NULL;
 }
 
+static bool focus_visible_expired(void *data)
+{
+  AwraWidget *win = (AwraWidget *)data;
+  WEXT(win)->focus_visible_timer = 0;
+  set_focus_visible(win, false);
+  return false;
+}
+
+/* gtk_window_set_focus_visible: the focus widget's ring follows; a timer
+ * hides it 3 s later (re-armed by each keyboard use) */
+static void set_focus_visible(AwraWidget *win, bool visible)
+{
+  WinExt *x = WEXT(win);
+  if (x->focus_visible_timer) {
+    awra_source_remove(x->focus_visible_timer);
+    x->focus_visible_timer = 0;
+  }
+  if (visible && !x->offscreen) {
+    x->focus_visible_timer = awra_timeout_add(3000, focus_visible_expired, win, NULL);
+  }
+  x->focus_visible = visible;
+  AwraWidget *f = x->focus;
+  if (f && awra_is_widget(f) && (bool)awra_aux(f)->focus_visible != visible) {
+    awra_aux(f)->focus_visible = visible;
+    awra_invalidate(f);
+  }
+}
+
+/* a widget moved its own cursor from the keyboard (lists, tabs) */
+void awra_window_keyboard_moved(AwraWidget *w);
+void awra_window_keyboard_moved(AwraWidget *w)
+{
+  AwraWidget *win = awra_window_of(w);
+  if (win) {
+    set_focus_visible(win, true);
+  }
+}
+
 void awra_set_focus(AwraWidget *win, AwraWidget *w, bool keyboard)
 {
   WinExt *x = WEXT(win);
   if (x->focus == w) {
-    if (w && awra_is_widget(w) && awra_aux(w)->focus_visible != keyboard) {
-      awra_aux(w)->focus_visible = keyboard;
-      awra_invalidate(w);
+    if (keyboard) {
+      set_focus_visible(win, true);
     }
     return;
   }
@@ -705,11 +753,67 @@ void awra_set_focus(AwraWidget *win, AwraWidget *w, bool keyboard)
   }
   if (w) {
     awra_widget_ref(w);
-    awra_aux(w)->focus_visible = keyboard;
+    awra_aux(w)->focus_visible = x->focus_visible;
     awra_invalidate(w);
     awra_emit_text(w, AWRA_SIGNAL_NOTIFY, "has-focus");
   }
+  if (keyboard) {
+    set_focus_visible(win, true);
+  }
   awra_emit_text(win, AWRA_SIGNAL_NOTIFY, "focus");
+}
+
+static bool is_modifier(const char *keysym)
+{
+  static const char *const mods[] = {"Shift_L", "Shift_R", "Control_L", "Control_R", "Alt_L",
+                                     "Alt_R", "Super_L", "Super_R", "Meta_L", "Meta_R",
+                                     "ISO_Level3_Shift", "Caps_Lock", "Num_Lock", "Hyper_L",
+                                     "Hyper_R"};
+  for (size_t i = 0; i < sizeof(mods) / sizeof(mods[0]); i++) {
+    if (bk_keysym_is(keysym, mods[i])) {
+      return true;
+    }
+  }
+  return false;
+}
+
+static bool is_navigation(const char *keysym)
+{
+  static const char *const keys[] = {"Up", "Down", "Left", "Right", "Home", "End", "Page_Up",
+                                     "Page_Down", "KP_Up", "KP_Down", "KP_Left", "KP_Right",
+                                     "Tab", "ISO_Left_Tab"};
+  for (size_t i = 0; i < sizeof(keys) / sizeof(keys[0]); i++) {
+    if (bk_keysym_is(keysym, keys[i])) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/* _gtk_window_update_focus_visible: a key press remembers the focus; its
+ * release shows the ring if the focus moved (or it showed already); Alt
+ * alone shows it */
+static void key_focus_visible(AwraWidget *win, bool press, const char *keysym, int mods)
+{
+  WinExt *x = WEXT(win);
+  if (press) {
+    x->key_tracked = !x->focus_visible;
+    x->key_press_focus = x->focus;
+    if ((bk_keysym_is(keysym, "Alt_L") || bk_keysym_is(keysym, "Alt_R")) &&
+        !(mods & (BK_CTRL | BK_SHIFT)))
+    {
+      set_focus_visible(win, true);
+    }
+    return;
+  }
+  if (is_modifier(keysym) && !x->focus_visible) {
+    return;
+  }
+  if (!x->key_tracked || x->focus != x->key_press_focus) {
+    set_focus_visible(win, true);
+  }
+  x->key_tracked = false;
+  x->key_press_focus = NULL;
 }
 
 static void move_focus(AwraWidget *win, int dir)
@@ -839,6 +943,7 @@ static int key_hook(BKContext *ctx, int press, const char *text, const char *key
   e.x = ctx->pointer_x;
   e.y = ctx->pointer_y;
   awra_widget_ref(win);
+  key_focus_visible(win, press != 0, keysym, mods);
   int handled = 0;
   const AwraSignal sig = press ? AWRA_SIGNAL_KEY_PRESSED : AWRA_SIGNAL_KEY_RELEASED;
   const char *code = awra_key_code_name(BK_last_key_code());
@@ -871,6 +976,9 @@ static int key_hook(BKContext *ctx, int press, const char *text, const char *key
     }
     if (press && n != win && AWRA_CLASS_OF(n)->key && AWRA_CLASS_OF(n)->key(n, &e)) {
       handled = 1;
+      if (is_navigation(keysym)) {
+        set_focus_visible(win, true); /* a cursor moved inside the widget */
+      }
     }
   }
   if (!handled && press) {
@@ -955,6 +1063,10 @@ static void on_state(void *data, BKWindow *bkw, int state)
     x->scale = s;
     awra_window_style_changed_all(); /* every measurement is in raster px */
   }
+  if ((old_state ^ x->state) & AWRA_WINDOW_STATE_ACTIVE) {
+    awra_a11y_window_changed(w, (x->state & AWRA_WINDOW_STATE_ACTIVE) ? AWRA_A11Y_WINDOW_ACTIVATE
+                                                                       : AWRA_A11Y_WINDOW_DEACTIVATE);
+  }
   if (old_state != x->state || old_blur != x->blur_state) {
     awra_aux(w)->needs_allocate = 1;
     memset(x->blur_rect, 0, sizeof(x->blur_rect));
@@ -1008,8 +1120,13 @@ static AwraWidget *window_create(const char *title, int width, int height, bool 
   g_windows[g_nwindows++] = w;
   AwraWidget *header = awra_header_new_default(w);
   awra_window_set_titlebar(w, header);
-  awra_widget_unref(header);
+  awra_widget_unref(header); /* the window holds it */
   return w;
+}
+
+BKWindow *awra_window_bkw(AwraWidget *w)
+{
+  return awra_widget_is(w, "AwraWindow") ? WEXT(w)->bkw : NULL;
 }
 
 AwraWidget *awra_window_new(const char *title, int width, int height)
@@ -1042,6 +1159,7 @@ static void ensure_native(AwraWidget *w)
   }
   BK_window_wm(x->bkw, "dark", awra_style_is_dark() ? 1.0 : 0.0, 0.0);
   x->scale = BK_window_scale(x->bkw);
+  awra_window_identity_native(w); /* identity.c: its icon */
   x->blur_state = BK_window_blur_available(x->bkw);
   if (x->blur_state == 1) {
     x->state |= AWRA_WINDOW_STATE_BLUR;
@@ -1087,11 +1205,16 @@ void awra_window_present(AwraWidget *w)
       awra_timeout_add((unsigned)atoi(dump) * 1000, dump_later, w, NULL);
     }
     awra_map_tree(w, true);
+    awra_a11y_window_changed(w, AWRA_A11Y_WINDOW_CREATE);
   }
   x->state &= ~AWRA_WINDOW_STATE_HIDDEN;
+  if (!x->offscreen) {
+    awra_a11y_platform_start(); /* assistive technologies may look (on demand) */
+  }
   if (x->bkw) {
     BK_window_show(x->bkw);
     BK_window_wm(x->bkw, "focus", 0, 0);
+    awra_window_identity_present(w); /* identity.c: activation (startup id) */
   }
 }
 
@@ -1103,6 +1226,7 @@ void awra_window_hide(AwraWidget *w)
   }
   x->state |= AWRA_WINDOW_STATE_HIDDEN;
   if (x->presented) {
+    awra_a11y_window_changed(w, AWRA_A11Y_WINDOW_DESTROY);
     x->presented = false;
     awra_map_tree(w, false);
   }
@@ -1135,6 +1259,9 @@ static void window_destroy(AwraWidget *w)
     return;
   }
   x->closed = true;
+  if (x->presented) {
+    awra_a11y_window_changed(w, AWRA_A11Y_WINDOW_DESTROY);
+  }
   awra_map_tree(w, false);
   for (int i = 0; i < x->npath; i++) {
     awra_widget_unref(x->path[i]);
@@ -1162,6 +1289,7 @@ void awra_window_set_title(AwraWidget *w, const char *title)
   if (x->bkw) {
     BK_window_set_title(x->bkw, x->title);
   }
+  awra_a11y_dirty(w);
   if (x->titlebar && awra_widget_is(x->titlebar, "AwraHeader") &&
       awra_widget_get_data(x->titlebar, "awra-default-header"))
   {
@@ -1378,6 +1506,25 @@ void *awra_window_native_handle(AwraWidget *w)
 {
   WinExt *x = WEXT(w);
   return x->bkw ? BK_window_handle(x->bkw) : NULL;
+}
+
+/* the window's top-left on the screen, logical px (false: unknown, as on
+ * Wayland) */
+bool awra_window_screen_origin(AwraWidget *w, double *x, double *y);
+bool awra_window_screen_origin(AwraWidget *w, double *x, double *y)
+{
+  *x = *y = 0.0;
+  if (!awra_widget_is(w, "AwraWindow") || !WEXT(w)->bkw) {
+    return false;
+  }
+  double a, b;
+  if (!BK_window_wm_get(WEXT(w)->bkw, "pos", &a, &b)) {
+    return false;
+  }
+  const double s = WEXT(w)->scale > 0 ? WEXT(w)->scale : 1.0;
+  *x = a / s;
+  *y = b / s;
+  return true;
 }
 
 int awra_window_count(void)

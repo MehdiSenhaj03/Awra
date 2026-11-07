@@ -129,6 +129,9 @@ typedef struct BKHost {
 /* Reference hooks for host objects attached to nodes/items/callbacks
  * (Python INCREF/DECREF). Optional. */
 void BK_set_ref_hooks(void (*retain)(void *ref), void (*release)(void *ref));
+/* BUI-Awra: colour emoji (PNG glyphs of CBDT / sbix fonts) through the
+ * kit's image decoders; call once before drawing text. */
+void BK_text_init_images(void);
 
 /* -- global look ------------------------------------------------------------ */
 void BK_set_scale(float scale); /* Blender's resolution scale (1 = 20 px widgets) */
@@ -717,6 +720,14 @@ void BK_window_hide(BKWindow *win);                      /* unmapped, kept (BK_w
 /* Loop timers that belong to no window (one-shot, ms); ids > 0. */
 int BK_loop_timer(int ms, void (*fn)(void *data), void *data);
 void BK_loop_cancel_timer(int id);
+/* BUI-Awra: calls fn(fd, data) on the loop's thread when fd is readable
+ * (Linux hosts; a socket of a D-Bus connection). One watch per fd. */
+int BK_loop_watch_fd(int fd, void (*fn)(int fd, void *data), void *data);
+void BK_loop_unwatch_fd(int fd);
+/* BUI-Awra (Win32): a hook for WM_GETOBJECT (accessibility providers) and
+ * WM_DESTROY; it sets *r_handled to answer the message. */
+void BK_window_set_getobject_hook(intptr_t (*hook)(void *hwnd, unsigned msg, uintptr_t wp,
+                                                   intptr_t lp, BKContext *ctx, int *r_handled));
 /* Physical keys: the evdev number of the key behind the last BK_key /
  * BK_key_release (Linux numbering; Win32 maps its scan codes), and the
  * character a key types in the current layout (unshifted, letters upper
@@ -730,6 +741,51 @@ int BK_drop(BKContext *ctx, int kind, int x, int y, const char *uris);
 const char *BK_key_label(int evdev);
 /* The backend in use: "wayland", "x11", "win32", "cocoa" or "none". */
 const char *BK_window_backend(void);
+
+/* -- BUI-Awra: data transfer: the clipboard in any format, drags out --------- */
+/* Data under a MIME type: "text/plain;charset=utf-8", "text/uri-list",
+ * "image/png", or any other. */
+typedef struct BKClipItem {
+  const char *mime;
+  const void *data;
+  size_t len;
+} BKClipItem;
+/* Puts `items` (copied) on the clipboard; other applications see each type,
+ * text also under the plain-text names they look for (text/plain,
+ * UTF8_STRING, CF_UNICODETEXT), file lists as files (CF_HDROP), PNG images
+ * as images (CF_DIB on Windows). 0 when the platform can't. */
+int BK_window_clipboard_set(BKWindow *win, const BKClipItem *items, int n);
+/* The types the clipboard holds now: malloc'd, '\n'-separated MIME types,
+ * NULL when it holds nothing. */
+char *BK_window_clipboard_formats(BKWindow *win);
+/* The clipboard's data of type `mime`: malloc'd (a NUL past *r_len), NULL
+ * when it has none. */
+void *BK_window_clipboard_read(BKWindow *win, const char *mime, size_t *r_len);
+/* A drag out of the application: the system's drag carrying `items`
+ * (copied), started from the button press the pointer holds now, its image
+ * `icon` (premultiplied 0xAARRGGBB, icon_w x icon_h; NULL none) held at
+ * hot_x, hot_y. `actions`: BK_DRAG_COPY | BK_DRAG_MOVE. done(user, action)
+ * is called once when it ends (BK_DRAG_NONE: cancelled or refused). Returns
+ * 0 (done is not called) when no drag can start (no button held). */
+enum { BK_DRAG_NONE = 0, BK_DRAG_COPY = 1, BK_DRAG_MOVE = 2 };
+typedef void (*BKDragDoneFn)(void *user, int action);
+int BK_window_drag_start(BKWindow *win, const BKClipItem *items, int n, const uint32_t *icon,
+                         int icon_w, int icon_h, int hot_x, int hot_y, int actions,
+                         BKDragDoneFn done, void *user);
+/* The pointer's press is over (a system drag took it): no grab, no drag. */
+void BK_pointer_cancel(BKContext *ctx);
+
+/* -- BUI-Awra: window identity ------------------------------------------- */
+/* The window's icon: its icon theme name (Wayland's xdg-toplevel-icon) and
+ * square images of a few sizes (premultiplied 0xAARRGGBB, sizes[i] pixels a
+ * side; X11's _NET_WM_ICON, Windows' WM_SETICON). n = 0 and no name: none. */
+void BK_window_set_icon(BKWindow *win, const char *name, const uint32_t *const *pixels,
+                        const int *sizes, int n);
+/* Brings the window forward, with a startup notification ID (X11) or an
+ * activation token (Wayland's xdg-activation) when given, else the one the
+ * application was started with (DESKTOP_STARTUP_ID / XDG_ACTIVATION_TOKEN,
+ * used once), else a token asked for with the last input. */
+void BK_window_activate(BKWindow *win, const char *startup_id);
 
 /* One of Blender's widgets drawn straight into a raster, outside any BKContext: the same
  * drawing (interface_widgets.cc port, theme, Inter text) the kit's own nodes use. For

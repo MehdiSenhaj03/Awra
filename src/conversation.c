@@ -7,6 +7,7 @@
  * SPDX-License-Identifier: GPL-3.0-or-later */
 
 #include "awra-private.h"
+#include "a11y.h"
 
 #include <stdio.h>
 
@@ -138,7 +139,25 @@ static int pill_release(AwraWidget *w, BKEvent *e)
   return 1;
 }
 
+/* a pill: a button when clickable (the jump pill), else a status */
+static void pill_a11y(AwraWidget *w, AwraA11yInfo *info)
+{
+  info->role = PLX(w)->clickable ? AWRA_ACCESSIBLE_ROLE_BUTTON : AWRA_ACCESSIBLE_ROLE_STATUS;
+  info->action = PLX(w)->clickable ? "click" : NULL;
+}
+
+static bool pill_a11y_do(AwraWidget *w, int item, int verb, double value)
+{
+  if (item < 0 && verb == AWRA_A11Y_DO_ACTIVATE && PLX(w)->clickable && awra_sensitive(w)) {
+    awra_emit_simple(w, AWRA_SIGNAL_CLICKED);
+    return true;
+  }
+  return false;
+}
+
 static AwraClass pill_class = {
+    .a11y = pill_a11y,
+    .a11y_do = pill_a11y_do,
     .bk = AWRA_BK("AwraConversationPill", 0),
     .type = "AwraConversationPill",
     .flags = AWRA_CLASS_CONTAINER | AWRA_CLASS_HOVER,

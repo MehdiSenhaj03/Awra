@@ -6,6 +6,7 @@
  * SPDX-License-Identifier: GPL-3.0-or-later */
 
 #include "awra-private.h"
+#include "a11y.h"
 
 #include <stdio.h>
 
@@ -782,7 +783,64 @@ static int edit_drag_notify(AwraWidget *w, BKEvent *e)
   return r;
 }
 
+/* GtkEntry, GtkSearchEntry, GtkSpinButton, GtkTextView, GtkPasswordEntry:
+ * their text (none for hidden passwords), caret and selection */
+static void edit_a11y(AwraWidget *w, AwraA11yInfo *info)
+{
+  EditExt *x = EX(w);
+  const char *t = x->te->text ? x->te->text : "";
+  info->role = x->spin ? AWRA_ACCESSIBLE_ROLE_SPIN_BUTTON :
+               x->search ? AWRA_ACCESSIBLE_ROLE_SEARCH_BOX : AWRA_ACCESSIBLE_ROLE_TEXT_BOX;
+  info->text = t;
+  info->placeholder = x->placeholder;
+  info->action = "activate";
+  if (x->multiline) {
+    info->flags |= AWRA_A11Y_MULTI_LINE;
+  }
+  if (!x->editable) {
+    info->flags |= AWRA_A11Y_READ_ONLY;
+  }
+  if (!x->visibility) {
+    info->flags |= AWRA_A11Y_PASSWORD;
+  }
+  int a = x->te->caret, b = x->te->anchor;
+  info->caret = awra_utf8_chars(t, a);
+  if (b >= 0 && b != a) {
+    info->sel_start = awra_utf8_chars(t, a < b ? a : b);
+    info->sel_end = awra_utf8_chars(t, a < b ? b : a);
+  }
+  if (x->spin) {
+    info->has_value = true;
+    info->value = x->value;
+    info->min = x->min;
+    info->max = x->max;
+    info->step = x->step;
+  }
+}
+
+static bool edit_a11y_do(AwraWidget *w, int item, int verb, double value)
+{
+  EditExt *x = EX(w);
+  if (item >= 0 || !awra_sensitive(w)) {
+    return false;
+  }
+  if (verb == AWRA_A11Y_DO_SET_VALUE && x->spin) {
+    awra_spin_button_set_value(w, value);
+    return true;
+  }
+  if (verb == AWRA_A11Y_DO_ACTIVATE) {
+    awra_widget_grab_focus(w);
+    if (!x->multiline) {
+      awra_emit_index(w, AWRA_SIGNAL_ACTIVATE, 0);
+    }
+    return true;
+  }
+  return false;
+}
+
 static AwraClass entry_class = {
+    .a11y = edit_a11y,
+    .a11y_do = edit_a11y_do,
     .bk = AWRA_BK("AwraEntry", CLS_INTERACTIVE),
     .type = "AwraEntry",
     .flags = AWRA_CLASS_TEXT_INPUT | AWRA_CLASS_FOCUSABLE | AWRA_CLASS_EXPAND_ISOLATED,
@@ -1320,7 +1378,18 @@ static void capture_focus_lost(BKNode *n, bool confirm)
   capture_set_listening(n, false);
 }
 
+/* Awra 1's AwraShortcutCapture: a button showing the shortcut, pressed
+ * while it listens */
+static void capture_a11y(AwraWidget *w, AwraA11yInfo *info)
+{
+  CaptureExt *x = CPX(w);
+  const char *status = capture_status(w);
+  info->label = status && status[0] ? status : x->accel;
+  awra_a11y_set_state(info, AWRA_ACCESSIBLE_STATE_PRESSED, x->listening);
+}
+
 static AwraClass capture_class = {
+    .a11y = capture_a11y,
     .bk = AWRA_BK("AwraShortcutCapture", CLS_INTERACTIVE),
     .type = "AwraShortcutCapture",
     .flags = AWRA_CLASS_HOVER | AWRA_CLASS_FOCUSABLE | AWRA_CLASS_ACTIVATABLE | AWRA_CLASS_EXPAND_ISOLATED,

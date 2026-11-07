@@ -280,6 +280,7 @@ pub const BUTTON_SECONDARY: u32 = 3;
 
 pub use crate::compat::{MemoryFormat, Paintable, Texture};
 pub use crate::compat3::{ContentProvider, Drag};
+pub use crate::transfer::{ContentFormats, TextureType};
 
 /// GdkScrollUnit.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

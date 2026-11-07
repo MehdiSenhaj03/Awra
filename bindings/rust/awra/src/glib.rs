@@ -428,3 +428,6 @@ impl Priority {
 }
 pub use crate::compat2::Type;
 pub use crate::compat3::{ToValue, Value};
+
+/// glib::Error (transfers report their failures with it).
+pub use crate::transfer::Error;
