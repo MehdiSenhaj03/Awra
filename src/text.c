@@ -285,6 +285,7 @@ struct AwraTextLayout {
   bool dir_back;   /* a paragraph without a strong character takes the next one's
                     * direction when none before it has one (GtkTextView) */
   float wf;        /* the widest line, unrounded */
+  bool has_tabs;   /* the text holds a tab: each is a run of its own, to the next stop */
 };
 
 #define OBJECT_CHAR "\xEF\xBF\xBC"
@@ -293,6 +294,28 @@ static bool is_object(const AwraTextLayout *l, int i)
 {
   return l->object_size > 0.0f && i + 3 <= l->len && (unsigned char)l->text[i] == 0xEF &&
          (unsigned char)l->text[i + 1] == 0xBF && (unsigned char)l->text[i + 2] == 0xBC;
+}
+
+static bool is_tab(const AwraTextLayout *l, int i)
+{
+  return l->has_tabs && i >= 0 && i < l->len && l->text[i] == '\t';
+}
+
+/* Pango's default tab stops (shape_tab): every eight spaces of the
+ * layout's font, the next one at least a space past `x` (raster px from
+ * the line's start); the tab's advance */
+static float tab_advance(const AwraTextLayout *l, float x)
+{
+  const float tab = awra_text_width(&l->font, "        ", 8);
+  if (tab <= 0.0f) {
+    return 0.0f;
+  }
+  const float space = tab / 8.0f;
+  float pos = tab * floorf((x + space) / tab);
+  while (pos < x + space - 0.001f) {
+    pos += tab;
+  }
+  return pos - x;
 }
 
 AwraTextLayout *awra_text_layout_new(void)
@@ -336,6 +359,7 @@ static void dirty(AwraTextLayout *l)
 static void dirty_text(AwraTextLayout *l)
 {
   dirty(l);
+  l->has_tabs = l->text && strchr(l->text, '\t') != NULL;
   l->bidi_done = false;
   free(l->breaks);
   l->breaks = NULL;
@@ -983,6 +1007,15 @@ static int prev_cursor(AwraTextLayout *l, int i)
 static int segment_end(const AwraTextLayout *l, int i, int limit)
 {
   int end = limit;
+  if (l->has_tabs) {
+    if (is_tab(l, i)) {
+      return BK_MIN(limit, i + 1); /* a tab is a run of its own */
+    }
+    const char *t = memchr(l->text + i, '\t', (size_t)(limit - i));
+    if (t) {
+      end = (int)(t - l->text);
+    }
+  }
   if (l->object_size > 0.0f) {
     if (is_object(l, i)) {
       return BK_MIN(limit, i + 3); /* an object is a run of its own */
@@ -1050,6 +1083,11 @@ static float range_width(const AwraTextLayout *l, int a, int b, int hyph)
   float w = 0.0f;
   while (a < b) {
     const int e = segment_end(l, a, b);
+    if (is_tab(l, a)) { /* `a` starts the line */
+      w += tab_advance(l, w);
+      a = e;
+      continue;
+    }
     const int sp = span_at(l, a);
     AwraFont f = span_font(l, sp);
     w += seg_width(l, &f, a, e, e == b ? hyph : 0);
@@ -1082,9 +1120,19 @@ static void add_run(AwraTextLayout *l, int a, int b, int hyph)
     r->level = (uint8_t)level_at(l, a);
     r->shp_start = a;
     r->shp_end = e;
-    r->hyph = (uint8_t)(e == b && !is_object(l, a) ? hyph : 0);
+    r->hyph = (uint8_t)(e == b && !is_object(l, a) && !is_tab(l, a) ? hyph : 0);
     AwraFont f = span_font(l, r->span);
-    r->w = seg_width(l, &f, a, e, r->hyph);
+    if (is_tab(l, a)) {
+      /* to the next stop from where the line has got to */
+      float x = 0.0f;
+      for (int k = l->n_lines ? l->lines[l->n_lines - 1].first_run : 0; k < l->n_runs - 1; k++) {
+        x += l->runs[k].w;
+      }
+      r->w = tab_advance(l, x);
+    }
+    else {
+      r->w = seg_width(l, &f, a, e, r->hyph);
+    }
     a = e;
   }
 }
@@ -1141,7 +1189,7 @@ static void finish_line(AwraTextLayout *l, Line *ln)
   int first = -1, last = -1;
   for (int v = 0; v < n; v++) {
     const Run *q = &r[order[v]];
-    if (!q->zero && q->start >= 0 && !is_object(l, q->start)) {
+    if (!q->zero && q->start >= 0 && !is_object(l, q->start) && !is_tab(l, q->start)) {
       first = first < 0 ? order[v] : first;
       last = order[v];
     }
@@ -1619,7 +1667,7 @@ static int line_break(AwraTextLayout *l, Para *P, int a, int lim, float W)
     float acc = 0.0f; /* the log widths of [a, k) */
     for (int k = a, prev = a; k <= lim; prev = k, k += k < lim ? utf8_len((unsigned char)l->text[k]) : 1) {
       if (k > a) {
-        acc += lw ? lw[prev - P->start] : 0.0f;
+        acc += is_tab(l, prev) ? tab_advance(l, acc) : lw ? lw[prev - P->start] : 0.0f;
       }
       if (k == a || !(k == lim || !br || (br[k] & mode))) {
         continue;
@@ -1697,7 +1745,7 @@ static void layout(AwraTextLayout *l, int width)
         if (wrap && P.lw) {
           float acc = 0.0f;
           for (int k = a; k < lim && acc <= W + P.safe; k++) {
-            acc += P.lw[k - P.start];
+            acc += is_tab(l, k) ? tab_advance(l, acc) : P.lw[k - P.start];
           }
           fits = acc <= W + P.safe;
         }
@@ -1898,7 +1946,7 @@ void awra_text_layout_draw(AwraTextLayout *l, AwraDraw *d, float x, float y, int
           c.a *= s->alpha;
         }
       }
-      if ((r->start >= 0 && is_object(l, r->start)) || r->zero) {
+      if ((r->start >= 0 && (is_object(l, r->start) || is_tab(l, r->start))) || r->zero) {
         continue;
       }
       if (r->start < 0) {
@@ -1947,7 +1995,7 @@ static float run_index_x(AwraTextLayout *l, const Run *r, int index, bool traili
   if (r->zero) {
     return r->x;
   }
-  if (r->start < 0 || is_object(l, r->start)) {
+  if (r->start < 0 || is_object(l, r->start) || is_tab(l, r->start)) {
     const float frac = trailing ? 1.0f : 0.0f;
     return (r->level & 1) ? r->x + r->w * (1.0f - frac) : r->x + r->w * frac;
   }
