@@ -251,6 +251,52 @@ static void check_ellipsize(bool arabic)
   awra_text_layout_free(l);
 }
 
+/* An entry, keys through the widget: Left and Right move visually (the
+ * walks Pango makes over "abc שלום def"), a selection collapses to its
+ * visual side, Backspace takes a mark alone */
+static void entry_key(AwraWidget *win, const char *keysym)
+{
+  BK_key(awra_ctx(win), "", keysym, 0);
+}
+
+static void check_entry(bool hebrew, bool arabic)
+{
+  if (!hebrew) {
+    return;
+  }
+  AwraWidget *win = awra_window_new_offscreen("Bidi", 320, 120, 1.0);
+  AwraWidget *e = awra_entry_new();
+  awra_window_set_child(win, e);
+  awra_entry_set_text(e, "abc " HE_SHALOM " def");
+  awra_window_render_offscreen(win, false);
+  awra_widget_grab_focus(e);
+  static const int right[] = {1, 2, 3, 4, 7, 6, 5, 8, 9, 10, 11, 12};
+  static const int left[] = {11, 10, 9, 8, 5, 6, 7, 4, 3, 2, 1, 0};
+  awra_editable_set_cursor(e, 0);
+  for (int i = 0; i < 12; i++) {
+    entry_key(win, "Right");
+    CHECK(awra_editable_cursor(e) == right[i], "Right %d: %d, Pango %d", i, awra_editable_cursor(e), right[i]);
+  }
+  awra_editable_set_cursor(e, 12);
+  for (int i = 0; i < 12; i++) {
+    entry_key(win, "Left");
+    CHECK(awra_editable_cursor(e) == left[i], "Left %d: %d, Pango %d", i, awra_editable_cursor(e), left[i]);
+  }
+  awra_editable_select(e, 2, 7);
+  entry_key(win, "Left");
+  CHECK(awra_editable_cursor(e) == 2, "selection collapsed left to %d", awra_editable_cursor(e));
+  awra_editable_select(e, 2, 7);
+  entry_key(win, "Right");
+  CHECK(awra_editable_cursor(e) == 7, "selection collapsed right to %d", awra_editable_cursor(e));
+  if (arabic) {
+    awra_entry_set_text(e, AR_BEH AR_KASRA);
+    awra_editable_set_cursor(e, 2);
+    entry_key(win, "BackSpace");
+    CHECK(strcmp(awra_entry_text(e), AR_BEH) == 0, "entry backspace kept %s", awra_entry_text(e));
+  }
+  awra_widget_destroy(win);
+}
+
 int main(void)
 {
   awra_init("org.awra.TestBidi");
@@ -269,6 +315,7 @@ int main(void)
   check_layout(arabic, hebrew);
   check_line_height();
   check_ellipsize(arabic);
+  check_entry(hebrew, arabic);
   if (failures) {
     fprintf(stderr, "%d failure(s)\n", failures);
     return 1;
