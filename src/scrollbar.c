@@ -24,6 +24,9 @@
 
 #include "awra-private.h"
 
+#include <stdio.h>
+#include <stdlib.h>
+
 #include <math.h>
 
 #define FADE_MS 1000.0   /* INDICATOR_FADE_OUT_DURATION */
@@ -271,7 +274,10 @@ static void bar_draw(AwraWidget *w, AwraDraw *d)
                      g.slider.h - 2 * g.inset};
   /* border-radius 10, the box's (the visible part keeps what is left) */
   const float r = fminf(awra_pxf(10.0f) - g.inset, fminf(s.w, s.h) * 0.5f);
-  awra_paint_rbox(d, s, fmaxf(r, 0.0f), &fill, 0, NULL);
+  /* background-clip: padding-box: the indicator's fill inside its 1 px
+   * border, not under it */
+  const float rimw = awra_pxf(1.0f) * (1.0f - q);
+  awra_paint_rbox(d, awra_box_inset(s, rimw), fmaxf(r - rimw, 0.0f), &fill, 0, NULL);
   if (q < 1.0f) {
     const AwraRGBA rim = awra_with_alpha(contrast, 0.4f * (1.0f - q));
     awra_paint_rbox(d, s, fmaxf(r, 0.0f), NULL, awra_pxf(1.0f), &rim);
