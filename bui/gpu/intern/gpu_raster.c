@@ -89,9 +89,11 @@ static inline Paint paint_from(const float c[4])
  * for the cost of the old RGB-only blend (two lanes either way). */
 static inline uint32_t blend(uint32_t d, uint32_t s, uint32_t f)
 {
+  /* BUI-Awra: rounded to the nearest level, as a GPU's blend (GSK): 6 %
+   * white over #252525 is #323232, not #313131 */
   const uint32_t nf = 256 - f;
-  const uint32_t rb = (((s & 0xFF00FFu) * f + (d & 0xFF00FFu) * nf) >> 8) & 0xFF00FFu;
-  const uint32_t ag = (((s >> 8) & 0xFF00FFu) * f + ((d >> 8) & 0xFF00FFu) * nf) & 0xFF00FF00u;
+  const uint32_t rb = (((s & 0xFF00FFu) * f + (d & 0xFF00FFu) * nf + 0x800080u) >> 8) & 0xFF00FFu;
+  const uint32_t ag = (((s >> 8) & 0xFF00FFu) * f + ((d >> 8) & 0xFF00FFu) * nf + 0x800080u) & 0xFF00FF00u;
   return rb | ag;
 }
 

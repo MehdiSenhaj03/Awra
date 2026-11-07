@@ -879,11 +879,9 @@ static void row_draw(AwraWidget *w, AwraDraw *d)
     const float ccx = right - awra_pxf(8), ccy = cy;
     const AwraRGBA *c = &t->muted;
     const float k = rtl ? -1.0f : 1.0f, ox = rtl ? mx0 - ccx : ccx; /* points mirrored */
-    awra_paint_line(d, ox - k * 1.5f * s, ccy - 3 * s, ox + k * 1.8f * s, ccy, lw, c);
-    awra_paint_line(d, ox + k * 1.8f * s, ccy, ox - k * 1.5f * s, ccy + 3 * s, lw, c);
-    awra_paint_circle(d, ox - k * 1.5f * s, ccy - 3 * s, lw * 0.5f, c);
-    awra_paint_circle(d, ox - k * 1.5f * s, ccy + 3 * s, lw * 0.5f, c);
-    awra_paint_circle(d, ox + k * 1.8f * s, ccy, lw * 0.5f, c);
+    const float p[3][2] = {{ox - k * 1.5f * s, ccy - 3 * s}, {ox + k * 1.8f * s, ccy},
+                           {ox - k * 1.5f * s, ccy + 3 * s}};
+    awra_paint_polyline(d, p, 3, lw, c);
     right -= awra_px(16) + gap;
   }
   if (x->kind == 1 && x->selected) {
@@ -1463,17 +1461,15 @@ static void chev_draw(AwraWidget *w, AwraDraw *d)
   const float cx = w->x + w->w * 0.5f, cy = w->y + w->h * 0.5f, s = awra_scale();
   const AwraRGBA *c = &awra_tokens()->muted;
   const float lw = 1.7f * s;
+  /* Awra 1's chevron_draw_cb: one cairo stroke, round caps and join */
   if (AWRA_EXT(w, ChevExt)->right) {
-    awra_paint_line(d, cx - 1.5f * s, cy - 3 * s, cx + 1.8f * s, cy, lw, c);
-    awra_paint_line(d, cx + 1.8f * s, cy, cx - 1.5f * s, cy + 3 * s, lw, c);
+    const float p[3][2] = {{cx - 1.5f * s, cy - 3 * s}, {cx + 1.8f * s, cy}, {cx - 1.5f * s, cy + 3 * s}};
+    awra_paint_polyline(d, p, 3, lw, c);
   }
   else {
-    awra_paint_line(d, cx - 3 * s, cy - 1.5f * s, cx, cy + 1.8f * s, lw, c);
-    awra_paint_line(d, cx, cy + 1.8f * s, cx + 3 * s, cy - 1.5f * s, lw, c);
+    const float p[3][2] = {{cx - 3 * s, cy - 1.5f * s}, {cx, cy + 1.8f * s}, {cx + 3 * s, cy - 1.5f * s}};
+    awra_paint_polyline(d, p, 3, lw, c);
   }
-  /* round caps */
-  awra_paint_circle(d, cx - 3 * s, cy - 1.5f * s, lw * 0.5f, c);
-  awra_paint_circle(d, cx + 3 * s, cy - 1.5f * s, lw * 0.5f, c);
 }
 
 static AwraClass chev_class = {
@@ -2490,6 +2486,25 @@ static DialogData *dlg(AwraWidget *w)
   return (DialogData *)awra_widget_get_data(w, "awra-dialog");
 }
 
+/* Awra 1's AwraDialog: Escape (captured, so a search entry can't keep it)
+ * closes the dialog as its close button does, answering the close
+ * response; an open popover keeps its own Escape. */
+static void dialog_escape(AwraWidget *win, const AwraArgs *a, void *data)
+{
+  (void)data;
+  if (!a->keysym || strcmp(a->keysym, "Escape") != 0 || a->mods) {
+    return;
+  }
+  BKContext *ctx = awra_ctx(win);
+  if (ctx && ctx->npopups > 0) {
+    return;
+  }
+  if (a->handled) {
+    *a->handled = true;
+  }
+  awra_window_close_request(win);
+}
+
 AwraWidget *awra_dialog_new(const char *title)
 {
   AwraWidget *win = awra_window_new(title, 440, -1);
@@ -2500,6 +2515,7 @@ AwraWidget *awra_dialog_new(const char *title)
   awra_window_set_modal(win, true); /* Awra 1's AwraDialog is modal */
   awra_window_set_keep_rounded_corners(win, true);
   awra_window_set_floating_internal(win, true);
+  awra_signal_connect(win, AWRA_SIGNAL_KEY_CAPTURE, dialog_escape, NULL, NULL);
   AwraWidget *h = awra_window_titlebar(win);
   awra_header_set_dialog(h, true);
   d->body = awra_box_new(AWRA_ORIENTATION_VERTICAL, 0);
@@ -2688,9 +2704,9 @@ static void tip_draw(BKContext *ctx, const char *text, const BKRect *rect)
 {
   AwraDraw d = {bk_draw.r, 1.0f};
   AwraBox b = {(float)rect->xmin, (float)rect->ymin, (float)bk_rw(rect), (float)bk_rh(rect)};
-  /* tooltip.background { background-color: @awra_floating; color: white }:
-   * translucent on its own surface (the compositor shows what is under it;
-   * without one, black), white text in both themes */
+  /* GtkTooltip's own surface, @awra_floating (60 % in the dark) composited
+   * over what is under it: drawn over the window's content, it blends the
+   * same */
   const AwraRGBA bg = awra_tokens()->material_tint[AWRA_MATERIAL_FLOATING];
   awra_paint_rbox(&d, b, awra_pxf(8), &bg, 0, NULL);
   AwraTextLayout *l = awra_text_layout_new();
@@ -2699,6 +2715,7 @@ static void tip_draw(BKContext *ctx, const char *text, const BKRect *rect)
   awra_text_layout_set_base_dir(l, awra_widget_rtl(NULL));
   awra_text_layout_set_text(l, text, false);
   awra_text_layout_set_wrap(l, AWRA_WRAP_WORD, AWRA_ELLIPSIZE_NONE, -1);
+  /* awra.css: tooltip.background { color: white } in both themes */
   const AwraRGBA fg = awra_rgba(1, 1, 1, 1);
   awra_text_layout_draw(l, &d, b.x + awra_px(10), b.y + awra_px(6), (int)b.w - awra_px(20), &fg);
   awra_text_layout_free(l);

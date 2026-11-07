@@ -24,6 +24,9 @@
 #include "kit_intern.h"
 #include "raster-shift.h"
 
+/* style.c: GTK's theme variant (the desktop's scheme), not the Awra appearance */
+bool awra_style_gtk_dark(void);
+
 /* ----------------------------------------------------------------------- */
 /* Classes */
 
@@ -367,6 +370,8 @@ void awra_paint_shadow(AwraDraw *d, AwraBox b, float radius, float dx, float dy,
 void awra_paint_rect(AwraDraw *d, AwraBox b, const AwraRGBA *color);
 void awra_paint_focus_ring(AwraDraw *d, AwraBox b, float radius);
 void awra_paint_circle(AwraDraw *d, float cx, float cy, float r, const AwraRGBA *fill);
+void awra_paint_polyline(AwraDraw *d, const float (*pts)[2], int n, float width,
+                         const AwraRGBA *color);
 void awra_paint_line(AwraDraw *d, float x0, float y0, float x1, float y1, float width,
                      const AwraRGBA *color);
 
@@ -389,6 +394,8 @@ void awra_material_resolve(AwraMaterial material, int role, AwraElevation elevat
 /* Paints a resolved material in box b (corner mask: TL 1 TR 2 BR 4 BL 8). */
 void awra_paint_material(AwraDraw *d, AwraBox b, const AwraResolvedMaterial *m, float radius,
                          int corner_mask, int edge_mask, AwraElevation elevation);
+void awra_paint_material_edges(AwraDraw *d, AwraBox b, const AwraResolvedMaterial *m, float radius,
+                               int corner_mask, int edge_mask);
 enum { AWRA_ROLE_GENERIC = 0, AWRA_ROLE_WINDOW, AWRA_ROLE_SIDEBAR, AWRA_ROLE_CONTENT,
        AWRA_ROLE_POPOVER, AWRA_ROLE_TOOLTIP };
 

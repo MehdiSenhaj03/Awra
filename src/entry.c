@@ -32,6 +32,7 @@ typedef struct EditExt {
   /* spin */
   double min, max, step, value;
   int digits;
+  int width_chars; /* spin buttons: the text's width in chars (Awra 1's) */
   int spin_hot; /* -1 none, 0 down, 1 up */
   bool dragging;
   char masked[1]; /* (unused) */
@@ -236,11 +237,16 @@ static void edit_measure(AwraWidget *w, int o, int for_size, int *r_min, int *r_
   layout_sync(w);
   if (o == AWRA_ORIENTATION_HORIZONTAL) {
     if (x->spin) {
+      /* GtkText with width-chars: char_pixels (the larger of Pango's
+       * approximate char and digit widths, rounded up) times the chars */
       AwraFont f = edit_font(w);
-      char buf[64];
-      snprintf(buf, sizeof(buf), "%.*f", x->digits, x->max);
-      const int tw = (int)ceilf(awra_text_width(&f, buf, -1));
-      *r_min = *r_nat = l + r + BK_MAX(tw, awra_px(16));
+      static const char sample[] = "The quick brown fox jumps over the lazy dog.";
+      float cw = awra_text_width(&f, sample, (int)sizeof(sample) - 1) / (float)(sizeof(sample) - 1);
+      for (char d = '0'; d <= '9'; d++) {
+        cw = fmaxf(cw, awra_text_width(&f, &d, 1));
+      }
+      const int tw = (int)ceilf(cw) * x->width_chars;
+      *r_min = *r_nat = l + r + tw;
       return;
     }
     *r_min = l + r + (inline_edit(w) ? 0 : awra_px(64));
@@ -434,7 +440,9 @@ static void edit_draw(AwraWidget *w, AwraDraw *d)
   }
   if (x->search && x->te->len > 0) {
     const int s = awra_px(16);
-    const float ix = awra_mirror_x(w, b.x + b.w - awra_pxf(1) - awra_pxf(8) - s, (float)s);
+    /* GtkSearchEntry's clear image: 20 px wide inside the 9 px padding, its
+     * icon at its start (as the search icon at the other end) */
+    const float ix = awra_mirror_x(w, b.x + b.w - awra_pxf(9) - awra_pxf(20), (float)s);
     awra_paint_icon(d, "edit-clear-symbolic", ix, b.y + floorf((b.h - s) * 0.5f + 0.5f), s,
                     &t->muted);
   }
@@ -469,7 +477,7 @@ static void edit_draw(AwraWidget *w, AwraDraw *d)
   int tw, th;
   const int lw = x->multiline ? (int)a.w : -1;
   awra_text_layout_size(x->layout, lw, &tw, &th);
-  const float ty = x->multiline ? a.y - x->scroll_y : a.y + floorf((a.h - th) * 0.5f + 0.5f);
+  const float ty = x->multiline ? a.y - x->scroll_y : a.y + (float)(int)((a.h - th) * 0.5f); /* GtkText: truncated */
   const float tx = text_x(w, a);
   if (x->te->len == 0) {
     if (x->placeholder && !(x->spin)) {
@@ -735,7 +743,7 @@ static int edit_index_at(AwraWidget *w, int px, int py)
   int tw, th;
   const int lw = x->multiline ? (int)a.w : -1;
   awra_text_layout_size(x->layout, lw, &tw, &th);
-  const float ty = x->multiline ? a.y - x->scroll_y : a.y + floorf((a.h - th) * 0.5f + 0.5f);
+  const float ty = x->multiline ? a.y - x->scroll_y : a.y + (float)(int)((a.h - th) * 0.5f); /* GtkText: truncated */
   return real_index(w, awra_text_layout_pos_to_index(x->layout, lw, px - text_x(w, a), py - ty));
 }
 
@@ -746,7 +754,7 @@ static bool in_peek_icon(AwraWidget *w, int px)
 
 static bool in_clear_icon(AwraWidget *w, int px)
 {
-  return EX(w)->search && EX(w)->te->len > 0 && awra_mirror_px(w, px) > w->x + w->w - awra_px(8 + 16 + 4);
+  return EX(w)->search && EX(w)->te->len > 0 && awra_mirror_px(w, px) >= w->x + w->w - awra_px(9 + 20);
 }
 
 static int spin_button_at(AwraWidget *w, int px, int py)
@@ -992,7 +1000,7 @@ static bool edit_a11y_layout(AwraWidget *w, AwraTextLayout **r_layout, float *r_
   awra_text_layout_size(x->layout, lw, &tw, &th);
   *r_layout = x->layout;
   *r_x = text_x(w, a);
-  *r_y = x->multiline ? a.y - x->scroll_y : a.y + floorf((a.h - th) * 0.5f + 0.5f);
+  *r_y = x->multiline ? a.y - x->scroll_y : a.y + (float)(int)((a.h - th) * 0.5f); /* GtkText: truncated */
   *r_width = lw;
   return true;
 }
@@ -1258,6 +1266,13 @@ AwraWidget *awra_spin_button_new(double min, double max, double step)
   x->step = step;
   x->value = min;
   x->digits = step > 0 && step < 1 ? (step < 0.1 ? 2 : 1) : 0;
+  /* Awra 1's fit_width_to_range, at construction while its GtkSpinButton
+   * still shows no decimals: the widest of the bounds as integers, 2 at
+   * least (decimals set later don't widen it) */
+  char lo[64], hi[64];
+  snprintf(lo, sizeof(lo), "%.0f", min);
+  snprintf(hi, sizeof(hi), "%.0f", max);
+  x->width_chars = BK_MAX(2, (int)BK_MAX(strlen(lo), strlen(hi)));
   awra_widget_set_data(w, "awra-type", (void *)"AwraSpinButton", NULL);
   spin_show(w);
   return w;

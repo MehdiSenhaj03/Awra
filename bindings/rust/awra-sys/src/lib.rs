@@ -566,6 +566,7 @@ extern "C" {
     pub fn awra_scrolled_set_child(scrolled: *mut AwraWidget, child: *mut AwraWidget);
     pub fn awra_scrolled_child(scrolled: *mut AwraWidget) -> *mut AwraWidget;
     pub fn awra_scrolled_set_policy(scrolled: *mut AwraWidget, horizontal: c_int, vertical: c_int);
+    pub fn awra_scrolled_set_whole_steps(scrolled: *mut AwraWidget, whole: bool);
     pub fn awra_scrolled_set_propagate_natural(scrolled: *mut AwraWidget, width: bool, height: bool);
     pub fn awra_scrolled_set_max_content_height(scrolled: *mut AwraWidget, height: c_int);
     pub fn awra_scrolled_set_min_content_width(scrolled: *mut AwraWidget, width: c_int);
@@ -961,6 +962,7 @@ extern "C" {
     pub fn awra_video_view_present(view: *mut AwraWidget, frame: *mut c_void);
     pub fn awra_video_view_release(view: *mut AwraWidget, frame: *mut c_void);
     pub fn awra_video_view_clear(view: *mut AwraWidget);
+    pub fn awra_video_view_set_matrix(view: *mut AwraWidget, matrix: c_int);
     pub fn awra_video_view_has_frame(view: *mut AwraWidget) -> bool;
     pub fn awra_video_view_frame_size(view: *mut AwraWidget, r_width: *mut c_int, r_height: *mut c_int, r_aspect: *mut f64);
     pub fn awra_video_view_set_content_fit(view: *mut AwraWidget, fit: c_int);
@@ -1371,6 +1373,13 @@ extern "C" {
     pub fn awra_window_set_drag_action(window: *mut AwraWidget, action: c_int);
     pub fn awra_widget_drop_active(widget: *mut AwraWidget) -> bool;
     pub fn awra_entry_new_gtk() -> *mut AwraWidget;
+    pub fn awra_tile_grid_new() -> *mut AwraWidget;
+    pub fn awra_tile_grid_append(grid: *mut AwraWidget, child: *mut AwraWidget);
+    pub fn awra_tile_grid_insert(grid: *mut AwraWidget, child: *mut AwraWidget, position: c_int);
+    pub fn awra_tile_grid_set_columns(grid: *mut AwraWidget, min_columns: c_int, max_columns: c_int);
+    pub fn awra_tile_grid_set_spacing(grid: *mut AwraWidget, row_spacing: c_int, column_spacing: c_int);
+    pub fn awra_tile_grid_set_natural_rows(grid: *mut AwraWidget, natural: bool);
+    pub fn awra_tile_grid_columns(grid: *mut AwraWidget) -> c_int;
     pub fn awra_icon_theme_get_theme_name() -> *mut c_char;
     pub fn awra_icon_theme_set_theme_name(theme_name: *const c_char);
     pub fn awra_icon_theme_get_search_path() -> *mut c_char;

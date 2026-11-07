@@ -557,6 +557,10 @@ AwraWidget *awra_scrolled_new(void);
 void awra_scrolled_set_child(AwraWidget *scrolled, AwraWidget *child);
 AwraWidget *awra_scrolled_child(AwraWidget *scrolled);
 void awra_scrolled_set_policy(AwraWidget *scrolled, AwraPolicy horizontal, AwraPolicy vertical);
+/* Scrolls as GtkListView / GtkGridView do: a wheel step lands on a whole
+ * (logical) px, truncated (GtkListBase's adjustments); on by itself over
+ * a tile grid. */
+void awra_scrolled_set_whole_steps(AwraWidget *scrolled, bool whole);
 void awra_scrolled_set_propagate_natural(AwraWidget *scrolled, bool width, bool height);
 void awra_scrolled_set_max_content_height(AwraWidget *scrolled, int height);
 /* GtkScrolledWindow's min-/max-content-width (logical px, 0 none): the
@@ -1215,6 +1219,9 @@ void awra_video_view_present(AwraWidget *view, void *frame);
 void awra_video_view_release(AwraWidget *view, void *frame);
 /* UI thread */
 void awra_video_view_clear(AwraWidget *view); /* no frame: the background */
+/* Any thread, before configure: NV12's matrix, 601 or 709 (BT.601 /
+ * BT.709, limited range), 0 (the default): BT.709 above 576 rows. */
+void awra_video_view_set_matrix(AwraWidget *view, int matrix);
 bool awra_video_view_has_frame(AwraWidget *view);
 /* The frame shown: pixels and display aspect ratio (0 without a frame). */
 void awra_video_view_frame_size(AwraWidget *view, int *r_width, int *r_height, double *r_aspect);
@@ -2215,6 +2222,26 @@ bool awra_widget_drop_active(AwraWidget *widget);
  * not Awra's well. Everything else is awra_entry_*. */
 AwraWidget *awra_entry_new_gtk(void);
 
+
+
+/* ----------------------------------------------------------------------- */
+/* Tile grid */
+
+/* Children laid out as GtkGridView lays out its items, without
+ * virtualization: columns as wide as the widest child's minimum allows,
+ * min_columns to max_columns of them (GtkGridView's 1 and 7 by default),
+ * (width + spacing) / n - spacing px each at ceil'd positions, rows as
+ * tall as their tallest child's minimum height for that width
+ * (GTK_SCROLL_MINIMUM) or, with natural rows, its natural height. */
+AwraWidget *awra_tile_grid_new(void);
+void awra_tile_grid_append(AwraWidget *grid, AwraWidget *child);
+void awra_tile_grid_insert(AwraWidget *grid, AwraWidget *child, int position);
+void awra_tile_grid_set_columns(AwraWidget *grid, int min_columns, int max_columns);
+/* logical px (GtkListBase's border-spacing) */
+void awra_tile_grid_set_spacing(AwraWidget *grid, int row_spacing, int column_spacing);
+void awra_tile_grid_set_natural_rows(AwraWidget *grid, bool natural);
+/* The columns for the grid's current width. */
+int awra_tile_grid_columns(AwraWidget *grid);
 
 /* ----------------------------------------------------------------------- */
 /* Icon themes (GtkIconTheme, GThemedIcon) */
