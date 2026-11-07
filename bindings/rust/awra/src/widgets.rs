@@ -902,6 +902,16 @@ fn menu_items(menu: &Menu, keep: &mut Vec<std::ffi::CString>, dispatch: *mut c_v
                 it.check = -3;
                 acts.push((None, None));
             }
+            FlatEntry::Submenu(d) => {
+                it.label = push_str(Some(d.label.as_deref().unwrap_or("")), keep);
+                it.icon_name = push_str(d.icon.as_deref(), keep);
+                it.check = ffi::AWRA_MENU_ITEM_SUBMENU;
+                acts.push((None, None));
+            }
+            FlatEntry::SubmenuEnd => {
+                it.check = ffi::AWRA_MENU_ITEM_SUBMENU_END;
+                acts.push((None, None));
+            }
             FlatEntry::Item(d, _) => {
                 // GTK greys an item whose action doesn't exist or is off,
                 // and checks one whose action's state is true

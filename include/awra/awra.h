@@ -649,6 +649,16 @@ typedef struct AwraMenuItem {
   void *data;
 } AwraMenuItem;
 void awra_menu_button_set_menu(AwraWidget *button, const AwraMenuItem *items, int n);
+/* Submenus: an item whose check is AWRA_MENU_ITEM_SUBMENU is a row (its
+ * label and icon, a chevron) opening the items after it, up to the
+ * matching AWRA_MENU_ITEM_SUBMENU_END item, as a menu beside it (Awra 1's
+ * nested menu popovers). Submenus nest. A submenu opens on click, Return,
+ * Right or when the pointer rests on its row; Left and Escape close it.
+ * Handlers get args->index = the item's index in the whole array. */
+typedef enum {
+  AWRA_MENU_ITEM_SUBMENU_END = -5,
+  AWRA_MENU_ITEM_SUBMENU = -4,
+} AwraMenuItemKind;
 
 /* ----------------------------------------------------------------------- */
 /* Inputs */
