@@ -30,6 +30,7 @@ void BK_set_scale(float scale)
    * font rendering with hinted metrics there), free placement on dense
    * displays */
   BUI_text_set_hint_metrics(bk_scale_fac <= 1.0f);
+  BUI_text_set_layout_scale(bk_scale_fac);
 }
 float BK_scale(void)
 {

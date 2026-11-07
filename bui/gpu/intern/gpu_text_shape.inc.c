@@ -448,7 +448,7 @@ static int fb_color(FbList *l, int k)
 
 static int face_has(int face, uint32_t cp);
 
-static int fb_covers(FbList *l, int k, uint32_t cp)
+static int fb_covers_exact(FbList *l, int k, uint32_t cp)
 {
 #  if !defined(_WIN32) && !defined(__APPLE__) && !defined(__EMSCRIPTEN__)
   if (l->set) {
@@ -457,6 +457,19 @@ static int fb_covers(FbList *l, int k, uint32_t cp)
 #  endif
   const int f = fb_face(l, k);
   return f >= 0 && face_has(f, cp);
+}
+
+/* Pango's coverage (pango_fc_coverage_real_get): a character a font lacks
+ * is covered when its canonical decomposition is (HarfBuzz decomposes it
+ * when shaping: Ÿ as Y and a combining diaeresis). */
+static int fb_covers(FbList *l, int k, uint32_t cp)
+{
+  if (fb_covers_exact(l, k, cp)) {
+    return 1;
+  }
+  hb_codepoint_t a, b;
+  return cp >= 0xC0 && hb_unicode_decompose(text_uf(), cp, &a, &b) && fb_covers(l, k, a) &&
+         (b == 0 || fb_covers(l, k, b));
 }
 
 /* Remembered answers of fb_find: (list, cp, colour) -> candidate. */
@@ -524,12 +537,18 @@ static hb_font_t *slot_hb(FontSlot *s)
     return NULL;
   }
   hb_font_t *font = hb_font_create(face);
-  /* the size in whole Pango units (1/1024 px), as Pango rounds it (get_scaled_size) */
-  const int scale = (int)(s->size * 1024.0f + 0.5f);
+  /* the size in whole Pango units (1/1024 px), as Pango rounds it
+   * (get_scaled_size), at the logical size Pango lays text out at */
+  const int scale = (int)(s->size / s->lscale * 1024.0f + 0.5f);
   hb_font_set_scale(font, scale, scale);
   hb_font_set_ptem(font, (float)s->px64 / 64.0f * 0.75f);
-  if (s->synth & BUI_FONT_ITALIC) {
-    hb_font_set_synthetic_slant(font, 0.2f);
+  if (s->xform || (s->synth & BUI_FONT_ITALIC)) {
+    /* Pango's: the slant ratio of the font matrix (pango_matrix_get_slant_ratio
+     * of fontconfig's, y flipped): 0.2 / 1.04 for 90-synthetic.conf's */
+    const float xx = s->xform ? s->mat[0] : 1.0f, xy = s->xform ? s->mat[1] : 0.2f;
+    const float yx = s->xform ? s->mat[2] : 0.0f, yy = s->xform ? s->mat[3] : 1.0f;
+    const float d = xy * xy + yy * yy;
+    hb_font_set_synthetic_slant(font, d > 0.0f ? (xy * xx + yy * yx) / d : 0.0f);
   }
 #  if TEXT_FT
   if (f->mm) {
@@ -594,6 +613,17 @@ static int face_glyph(int face, uint32_t cp)
 static int face_has(int face, uint32_t cp)
 {
   return face_glyph(face, cp) != 0;
+}
+
+/* face_has, with Pango's decompositions (fb_covers) */
+static int face_covers(int face, uint32_t cp)
+{
+  if (face_has(face, cp)) {
+    return 1;
+  }
+  hb_codepoint_t a, b;
+  return cp >= 0xC0 && hb_unicode_decompose(text_uf(), cp, &a, &b) && face_covers(face, a) &&
+         (b == 0 || face_covers(face, b));
 }
 
 /* One glyph of a run, in visual order. */
@@ -825,7 +855,7 @@ static void text_shape_item(WRun *w, int slot, const uint32_t *cp, int npre, int
   unsigned int ng = 0;
   const hb_glyph_info_t *info = hb_buffer_get_glyph_infos(buf, &ng);
   const hb_glyph_position_t *pos = hb_buffer_get_glyph_positions(buf, NULL);
-  const float k = 1.0f / 1024.0f;
+  const float k = s->lscale / 1024.0f; /* Pango units -> device pixels */
   const int item = w->nit - 1;
   const int g0 = w->n;
   const float pen0 = *pen;
@@ -836,10 +866,8 @@ static void text_shape_item(WRun *w, int slot, const uint32_t *cp, int npre, int
     if (!g) {
       break;
     }
+    /* Pango 1.58 takes HarfBuzz's advances as they are, synthetic bold too */
     float adv = (float)pos[i].x_advance * k;
-    if (adv != 0.0f) {
-      adv += s->embolden;
-    }
     if (g_hint_metrics) {
       adv = floorf(adv + 0.5f); /* PANGO_UNITS_ROUND of the width */
     }
@@ -1038,7 +1066,7 @@ static int text_chars(int slot, const uint32_t *cp, int n, int npre, int npost, 
       }
     }
 #  endif
-    if (face_has(face0, cp[k])) {
+    if (face_covers(face0, cp[k])) {
       c->slot = (int16_t)slot;
       c->pos = 0;
       continue;
@@ -1141,7 +1169,7 @@ static void text_align_baselines(WRun *w)
   for (int i = 0; i < w->nit; i++) {
     WItem *it = &w->it[i];
     if (i != first) {
-      it->dy = (float)(text_item_baseline(it, tag) - base) / 1024.0f;
+      it->dy = (float)(text_item_baseline(it, tag) - base) * (g_fonts[it->slot].lscale / 1024.0f);
       moved |= it->dy != 0.0f;
     }
   }

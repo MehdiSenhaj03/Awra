@@ -37,16 +37,17 @@ if(BUI_TEXT_GDI)
   target_compile_definitions(bui_gpu PRIVATE BUI_TEXT_GDI=1)
 endif()
 # FreeType (extern/freetype, 2.13.3 as Blender uses): loads, hints and renders
-# glyphs the way Blender's BLF does (light hinting, the variable Inter at the
-# text's optical size, gamma 1.43). Compiled into bui_gpu itself
+# glyphs as GTK 4 does through cairo-ft (BUI-Awra: the fontconfig pattern's
+# and the desktop's hinting, synthetic bold with ftsynth.c). Compiled into bui_gpu itself
 # (BUI_TEXT_FREETYPE, features.json).
 if(BUI_TEXT_FREETYPE AND NOT BUI_TEXT_GDI)
   set(FT ${CMAKE_CURRENT_SOURCE_DIR}/extern/freetype)
   set(FT_SRC
     ${FT}/src/base/ftsystem.c ${FT}/src/base/ftinit.c ${FT}/src/base/ftdebug.c
     ${FT}/src/base/ftbase.c ${FT}/src/base/ftmm.c ${FT}/src/base/ftbitmap.c ${FT}/src/base/ftbbox.c
+    ${FT}/src/base/ftsynth.c
     ${FT}/src/truetype/truetype.c ${FT}/src/sfnt/sfnt.c ${FT}/src/autofit/autofit.c
-    ${FT}/src/smooth/smooth.c ${FT}/src/psnames/psnames.c ${FT}/src/cff/cff.c
+    ${FT}/src/smooth/smooth.c ${FT}/src/raster/raster.c ${FT}/src/psnames/psnames.c ${FT}/src/cff/cff.c
     ${FT}/src/psaux/psaux.c ${FT}/src/pshinter/pshinter.c
   )
   target_sources(bui_gpu PRIVATE ${FT_SRC})

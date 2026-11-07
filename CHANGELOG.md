@@ -6,6 +6,22 @@
 
 Awra 2: the same look, without GTK.
 
+- Glyphs as GTK 4.22 draws them: FreeType's load flags as cairo-ft sets
+  them from the face's fontconfig pattern and the desktop's font options
+  (XSETTINGS or Xft resources on X11, the settings portal on Wayland,
+  hintfull on Windows; slight at scale 2 and up, as GTK's automatic font
+  rendering), synthetic bold as cairo-ft emboldens (advances as Pango
+  leaves them), GSK's quarter-pixel phases of absolute positions and its
+  glyph images cut to Pango's ink box, overlapping glyphs and coverage
+  blended as GSK blends them, text shaped at the logical size at scale 2.
+  Synthetic oblique as fontconfig's matrix slants FreeType's hinted
+  outlines, quarter-pixel rows with the desktop's hinting off, FreeType's
+  monochrome rasterizer without antialiasing. The settings daemon's
+  changes are followed live on X11, as GDK follows them.
+  Against GTK 4.22 labels (DejaVu Sans, Inter, IPAGothic, 9-24 px, regular,
+  bold and italic, scale 1 and 2, light and dark) every pixel is within one
+  level. BUI: `BUI_text_set_font_options`, `BUI_text_set_layout_scale`.
+
 - Text as PangoLayout lays it out, completed: line breaking (UAX #14 with
   Pango's tailorings, libthai's Thai words, hyphens at soft hyphens,
   `AWRA_WRAP_WORD_CHAR`, GtkLabel's minimum width), runs shaped with the
