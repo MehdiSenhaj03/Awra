@@ -88,11 +88,6 @@ struct AwraClass {
                                           * same child (no ring for a navigation key) */
   int (*scroll)(AwraWidget *w, BKEvent *e);
   void (*activate)(AwraWidget *w); /* Return / Space / mnemonic */
-  /* the window's focus chain (its first focus at show, Tab, a focused
-   * widget gone) gave it the focus: gtk_widget_child_focus, which puts a
-   * list's focus on its first row where gtk_widget_grab_focus leaves it
-   * on the list. Optional. */
-  void (*focus_child)(AwraWidget *w);
   int (*cursor)(AwraWidget *w, int x, int y); /* BK_CURSOR_* or -1 */
   /* generic properties */
   bool (*set_string)(AwraWidget *w, const char *name, const char *value);
