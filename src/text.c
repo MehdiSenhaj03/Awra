@@ -167,7 +167,7 @@ static void draw_text_x(AwraDraw *d, const AwraFont *f, int xflags, float x, flo
     return;
   }
   BUI_raster_set_font(d->r, f->family, font_flags(f) | xflags);
-  BUI_raster_text(d->r, x, baseline, s, len, f->size, c);
+  SR_text(d->r, x, baseline, s, len, f->size, c);
 }
 
 /* the glyphs of bytes [from, to) of the run `s` shaped whole (in the
@@ -182,7 +182,7 @@ static void draw_text_part_x(AwraDraw *d, const AwraFont *f, int xflags, float x
     return;
   }
   BUI_raster_set_font(d->r, f->family, font_flags(f) | xflags);
-  BUI_raster_text_part(d->r, x, baseline, s, len, from, to, f->size, c);
+  SR_text_part(d->r, x, baseline, s, len, from, to, f->size, c);
 }
 
 void awra_draw_text(AwraDraw *d, const AwraFont *f, float x, float baseline, const char *s,

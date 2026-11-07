@@ -125,6 +125,6 @@ void awra_paint_dashed_rbox(AwraDraw *d, AwraBox b, float radius, float width, c
       pts[np][0] = in[k][0];
       pts[np++][1] = in[k][1];
     }
-    BUI_raster_polygon(d->r, (const float(*)[2])pts, np, c);
+    SR_polygon(d->r, (const float(*)[2])pts, np, c);
   }
 }

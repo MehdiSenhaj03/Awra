@@ -133,7 +133,7 @@ static void pop_draw(AwraWidget *w, AwraDraw *d)
       }
     }
     x->corners_saved = n <= x->corners_cap &&
-                       BUI_raster_corners_save(d->r, b.x, b.y, b.w, b.h, r4, x->corners);
+                       SR_corners_save(d->r, b.x, b.y, b.w, b.h, r4, x->corners);
   }
   /* its outline and rim: once, over the content (pop_draw_over) */
   awra_paint_material(d, awra_box_of(w), &m, radius, 15, 0, elevation);
@@ -158,7 +158,7 @@ static void pop_draw_over(AwraWidget *w, AwraDraw *d)
   if (x->corners_saved) {
     const AwraBox b = awra_box_of(w);
     const float cr = awra_pxf(CONTENTS_RADIUS), c4[4] = {cr, cr, cr, cr};
-    BUI_raster_corners_clip(d->r, b.x, b.y, b.w, b.h, c4, x->corners);
+    SR_corners_clip(d->r, b.x, b.y, b.w, b.h, c4, x->corners);
     x->corners_saved = false;
   }
 }
@@ -2126,7 +2126,8 @@ unsigned awra_toast_overlay_show_with_action_full(AwraWidget *w, const char *tit
     AwraWidget *b = awra_button_new_with_label(action);
     awra_button_set_appearance(b, AWRA_BUTTON_GHOST);
     awra_widget_set_valign(b, AWRA_ALIGN_CENTER);
-    awra_widget_add_class(b, "accent");
+    awra_widget_add_class(b, "toast-action");
+    awra_button_set_accent_fg_internal(b, true); /* color: @awra_accent_content */
     awra_widget_set_data(b, "awra-toast-id", (void *)(uintptr_t)t->id, NULL);
     awra_signal_connect(b, AWRA_SIGNAL_CLICKED, toast_action, w, NULL);
     awra_box_append(box, b);

@@ -22,6 +22,7 @@
 
 #include "awra/awra.h"
 #include "kit_intern.h"
+#include "raster-shift.h"
 
 /* ----------------------------------------------------------------------- */
 /* Classes */
@@ -188,6 +189,9 @@ typedef struct AwraAux {
   unsigned user_hidden : 1, child_hidden : 1, overflow_hidden : 1;
   unsigned char typography;
   float opacity;
+  /* GTK's fractional child transform (raster px): the subtree draws this
+   * much further right and down (an AwraPage's column centred at x.5) */
+  float shift_x, shift_y;
   /* measurement cache: [orientation] for one for_size each */
   int cache_for[2], cache_min[2], cache_nat[2];
   unsigned cache_valid : 2;
@@ -669,3 +673,7 @@ void awra_paint_dashed_rbox(AwraDraw *d, AwraBox b, float radius, float width, c
  * indicator shows, as GtkScrolledWindow's captured motion does). */
 bool awra_is_scrolled(const AwraWidget *w);
 void awra_scrolled_pointer_moved(AwraWidget *w);
+
+/* A widget's subtree drawn shifted by a fraction of a pixel, as GTK
+ * allocates a child with a fractional translation (core.c). */
+void awra_widget_set_draw_shift(AwraWidget *w, float dx, float dy);

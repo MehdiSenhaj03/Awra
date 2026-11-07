@@ -330,6 +330,8 @@ static int eff_look(const AwraWidget *w)
 }
 
 /* padding (logical) and radius per variant (spec B §1.1) */
+static bool toast_action_button(const AwraWidget *w);
+
 static void geometry(const AwraWidget *w, float *pad_x, float *pad_y, float *min_w, float *min_h,
                      float *radius)
 {
@@ -421,6 +423,21 @@ static void geometry(const AwraWidget *w, float *pad_x, float *pad_y, float *min
     *pad_y = 3;
     *min_h = 20;
   }
+  if (toast_action_button(w)) { /* min-height: 20px; padding: 5px 12px */
+    *pad_x = 12;
+    *pad_y = 5;
+    *min_h = 20;
+  }
+}
+
+/* a toast's action (awra.css .awra-button.awra-toast-action) */
+static bool toast_action_button(const AwraWidget *w)
+{
+  static int bit = -2;
+  if (bit == -2) {
+    bit = awra_class_bit("toast-action");
+  }
+  return bit >= 0 && awra_has_class_bit(w, bit);
 }
 
 static AwraFont button_font(AwraWidget *w)
@@ -428,6 +445,9 @@ static AwraFont button_font(AwraWidget *w)
   AwraFont f = awra_font_for(awra_widget_typography(w));
   if (BX(w)->look == AWRA_LOOK_PRIMARY) {
     f.weight = 640;
+  }
+  if (toast_action_button(w)) {
+    f.weight = 700;
   }
   return f;
 }

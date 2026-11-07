@@ -1585,8 +1585,8 @@ static void scroll_draw(AwraWidget *w, AwraDraw *d)
     x->fade_cap = need;
   }
   /* top rows first, the bottom rows after them */
-  x->fade_h[0] = top && BUI_raster_read(d->r, w->x, w->y, w->w, top, x->fade_under) ? top : 0;
-  x->fade_h[1] = bottom && BUI_raster_read(d->r, w->x, w->y + w->h - bottom, w->w, bottom,
+  x->fade_h[0] = top && SR_read(d->r, w->x, w->y, w->w, top, x->fade_under) ? top : 0;
+  x->fade_h[1] = bottom && SR_read(d->r, w->x, w->y + w->h - bottom, w->w, bottom,
                                            x->fade_under + (size_t)w->w * top) ?
                      bottom :
                      0;
@@ -1597,10 +1597,10 @@ static void scroll_fade(AwraWidget *w, AwraDraw *d)
 {
   ScrollExt *x = SX(w);
   if (x->fade_h[0] > 0) {
-    BUI_raster_fade(d->r, w->x, w->y, w->w, x->fade_h[0], x->fade_under, 0.0f, 1.0f);
+    SR_fade(d->r, w->x, w->y, w->w, x->fade_h[0], x->fade_under, 0.0f, 1.0f);
   }
   if (x->fade_h[1] > 0) {
-    BUI_raster_fade(d->r, w->x, w->y + w->h - x->fade_h[1], w->w, x->fade_h[1],
+    SR_fade(d->r, w->x, w->y + w->h - x->fade_h[1], w->w, x->fade_h[1],
                     x->fade_under + (size_t)w->w * x->fade_skip, 1.0f, 0.0f);
   }
   x->fade_h[0] = x->fade_h[1] = 0;

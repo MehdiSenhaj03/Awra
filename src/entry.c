@@ -517,8 +517,22 @@ static void edit_draw(AwraWidget *w, AwraDraw *d)
       }
     }
     awra_text_layout_draw(x->layout, d, tx, ty, lw, &fg);
+    if (gtk && !x->multiline && x->te->anchor >= 0 && x->te->anchor != x->te->caret && focus) {
+      /* entry > text > selection:focus-within { color: #eeeeec / #2e3436 } */
+      float ax, ay, ah, bx, by, bh;
+      awra_text_layout_index_to_pos(x->layout, -1, shown_index(w, BK_MIN(x->te->anchor, x->te->caret)), &ax, &ay, &ah);
+      awra_text_layout_index_to_pos(x->layout, -1, shown_index(w, BK_MAX(x->te->anchor, x->te->caret)), &bx, &by, &bh);
+      const AwraRGBA sc = t->dark ? (AwraRGBA){0xee / 255.0f, 0xee / 255.0f, 0xec / 255.0f, 1} :
+                                    (AwraRGBA){0x2e / 255.0f, 0x34 / 255.0f, 0x36 / 255.0f, 1};
+      const float x0 = fminf(ax, bx), x1 = fmaxf(ax, bx);
+      bk_clip_push((int)floorf(tx + x0), (int)b.y, (int)(ceilf(tx + x1) - floorf(tx + x0)), (int)b.h);
+      awra_text_layout_draw(x->layout, d, tx, ty, lw, &sc);
+      bk_clip_pop();
+    }
   }
-  if (focus && x->caret_on && x->editable) {
+  /* GtkText draws its cursor only without a selection */
+  const bool selecting = x->te->anchor >= 0 && x->te->anchor != x->te->caret;
+  if (focus && x->caret_on && x->editable && !selecting) {
     float cx, cy, ch;
     awra_text_layout_index_to_pos(x->layout, lw, shown_index(w, x->te->caret), &cx, &cy, &ch);
     awra_paint_rect(d, (AwraBox){floorf(tx + cx), ty + cy, awra_pxf(1), ch},

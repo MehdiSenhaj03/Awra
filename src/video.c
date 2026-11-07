@@ -219,7 +219,7 @@ static void vv_draw(AwraWidget *w, AwraDraw *d)
   if (clip) {
     bk_clip_push(w->x, w->y, w->w, w->h);
   }
-  BUI_raster_image(d->r, fx, fy, fw, fh, &pm, NULL, d->opacity, 0);
+  SR_image(d->r, fx, fy, fw, fh, &pm, NULL, d->opacity, 0);
   if (clip) {
     bk_clip_pop();
   }
@@ -704,7 +704,7 @@ bool awra_backdrop_paint(AwraWidget *source, AwraDraw *d, AwraBox b, const float
   const float kx = (float)x->tw / source->w, ky = (float)x->th / source->h;
   const float src[4] = {(x0 - source->x) * kx, (y0 - source->y) * ky, (x1 - x0) * kx, (y1 - y0) * ky};
   const BuiPixmap pm = {x->thumb, x->tw, x->th, 0, BUI_PIXMAP_ARGB, 0};
-  BUI_raster_image_rounded(d->r, x0, y0, x1 - x0, y1 - y0, &pm, src, d->opacity, radii);
+  SR_image_rounded(d->r, x0, y0, x1 - x0, y1 - y0, &pm, src, d->opacity, radii);
   return true;
 }
 

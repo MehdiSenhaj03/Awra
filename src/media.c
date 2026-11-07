@@ -119,10 +119,10 @@ static void cap_draw(AwraWidget *w, AwraDraw *d)
 {
   CapExt *x = KX(w);
   const AwraTokens *t = awra_tokens();
-  const float saved = d->opacity;
-  if (x->dimmed) {
-    d->opacity *= 0.38f;
-  }
+  /* a dimmed key fades as one layer (gtk_snapshot_push_opacity .38), its
+   * focus ring (3 px out) included */
+  AwraGroup group;
+  awra_group_begin(d, awra_box_inset(awra_box_of(w), -awra_pxf(12)), x->dimmed ? 0.38f : 1.0f, &group);
   AwraBox b = awra_box_of(w);
   const float r = fminf(awra_pxf(7), fminf(b.w, b.h) * 0.22f);
   const bool hover = awra_hovered(w) && !x->dimmed; /* dimmed keys don't hover */
@@ -172,10 +172,10 @@ static void cap_draw(AwraWidget *w, AwraDraw *d)
     uint32_t under[512];
     const AwraBox band = {b.x, b.y + b.h - awra_pxf(3), b.w, awra_pxf(3)};
     if (BUI_raster_corners_size(b.w, b.h, bottom) <= 512 &&
-        BUI_raster_corners_save(d->r, b.x, b.y, b.w, b.h, bottom, under))
+        SR_corners_save(d->r, b.x, b.y, b.w, b.h, bottom, under))
     {
       awra_paint_rect(d, band, &x->edge);
-      BUI_raster_corners_clip(d->r, b.x, b.y, b.w, b.h, bottom, under);
+      SR_corners_clip(d->r, b.x, b.y, b.w, b.h, bottom, under);
     }
     else {
       const float w4[4] = {0, 0, awra_pxf(3), 0};
@@ -266,7 +266,7 @@ static void cap_draw(AwraWidget *w, AwraDraw *d)
     AwraBox o = awra_box_inset(awra_box_of(w), -awra_pxf(3));
     awra_paint_rbox(d, o, r + awra_pxf(3), NULL, awra_pxf(2), &t->focus_ring);
   }
-  d->opacity = saved;
+  awra_group_end(d, &group);
 }
 
 static void depth_anim(AwraWidget *w, double t, void *data)

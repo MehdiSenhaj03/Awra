@@ -26,7 +26,7 @@ bool awra_group_begin(AwraDraw *d, AwraBox b, float alpha, AwraGroup *g)
   if (g->w > 0 && g->h > 0) {
     g->saved = (uint32_t *)malloc(sizeof(uint32_t) * (size_t)g->w * (size_t)g->h);
   }
-  if (g->saved && BUI_raster_read(d->r, g->x, g->y, g->w, g->h, g->saved)) {
+  if (g->saved && SR_read(d->r, g->x, g->y, g->w, g->h, g->saved)) {
     return true;
   }
   free(g->saved);
@@ -38,7 +38,7 @@ bool awra_group_begin(AwraDraw *d, AwraBox b, float alpha, AwraGroup *g)
 void awra_group_end(AwraDraw *d, AwraGroup *g)
 {
   if (g->saved) {
-    BUI_raster_fade(d->r, g->x, g->y, g->w, g->h, g->saved, g->alpha, g->alpha);
+    SR_fade(d->r, g->x, g->y, g->w, g->h, g->saved, g->alpha, g->alpha);
     free(g->saved);
     g->saved = NULL;
   }

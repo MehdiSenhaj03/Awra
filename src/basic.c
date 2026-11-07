@@ -988,7 +988,7 @@ static void image_draw(AwraWidget *w, AwraDraw *d)
   }
   const float r = awra_pxf(x->radius);
   const float radii[4] = {r, r, r, r};
-  BUI_raster_image_rounded(d->r, bx, by, bw, bh, &pm, NULL, d->opacity, radii);
+  SR_image_rounded(d->r, bx, by, bw, bh, &pm, NULL, d->opacity, radii);
   if (x->fit == 2) {
     bk_clip_pop();
   }

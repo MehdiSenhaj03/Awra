@@ -20,7 +20,7 @@ void awra_paint_rect(AwraDraw *d, AwraBox b, const AwraRGBA *color)
   }
   float c[4];
   col(d, color, c);
-  BUI_raster_fill_rect(d->r, b.x, b.y, b.w, b.h, c);
+  SR_fill_rect(d->r, b.x, b.y, b.w, b.h, c);
 }
 
 void awra_paint_rbox4(AwraDraw *d, AwraBox b, const float radii[4], const AwraRGBA *fill,
@@ -33,7 +33,7 @@ void awra_paint_rbox4(AwraDraw *d, AwraBox b, const float radii[4], const AwraRG
   if (border) {
     col(d, border, o);
   }
-  BUI_raster_rbox(d->r, b.x, b.y, b.w, b.h, radii, fill ? f : NULL, widths,
+  SR_rbox(d->r, b.x, b.y, b.w, b.h, radii, fill ? f : NULL, widths,
                   border ? o : NULL);
 }
 
@@ -55,7 +55,7 @@ void awra_paint_inset_shadow(AwraDraw *d, AwraBox b, float radius, float dx, flo
   float c[4];
   col(d, color, c);
   const float r4[4] = {radius, radius, radius, radius};
-  BUI_raster_box_shadow_inset(d->r, b.x, b.y, b.w, b.h, r4, dx, dy, spread, blur, c);
+  SR_box_shadow_inset(d->r, b.x, b.y, b.w, b.h, r4, dx, dy, spread, blur, c);
 }
 
 void awra_paint_shadow(AwraDraw *d, AwraBox b, float radius, float dx, float dy, float spread,
@@ -67,7 +67,7 @@ void awra_paint_shadow(AwraDraw *d, AwraBox b, float radius, float dx, float dy,
   float c[4];
   col(d, color, c);
   const float r4[4] = {radius, radius, radius, radius};
-  BUI_raster_box_shadow(d->r, b.x, b.y, b.w, b.h, r4, dx, dy, spread, blur, c, clip_out);
+  SR_box_shadow(d->r, b.x, b.y, b.w, b.h, r4, dx, dy, spread, blur, c, clip_out);
 }
 
 void awra_paint_circle(AwraDraw *d, float cx, float cy, float r, const AwraRGBA *fill)
@@ -77,7 +77,7 @@ void awra_paint_circle(AwraDraw *d, float cx, float cy, float r, const AwraRGBA 
   }
   float c[4];
   col(d, fill, c);
-  BUI_raster_circle(d->r, cx, cy, r, 0.0f, c);
+  SR_circle(d->r, cx, cy, r, 0.0f, c);
 }
 
 void awra_paint_line(AwraDraw *d, float x0, float y0, float x1, float y1, float width,
@@ -88,7 +88,7 @@ void awra_paint_line(AwraDraw *d, float x0, float y0, float x1, float y1, float 
   }
   float c[4];
   col(d, color, c);
-  BUI_raster_line(d->r, x0, y0, x1, y1, width, c);
+  SR_line(d->r, x0, y0, x1, y1, width, c);
 }
 
 /* Keyboard focus: a 2px accent ring just outside the widget's shape
@@ -235,7 +235,7 @@ static void paint_grain(AwraDraw *d, AwraBox b, const float radii[4], float opac
     for (float x = b.x; x < b.x + b.w; x += 96) {
       const float w = fminf(96, b.x + b.w - x), h = fminf(96, b.y + b.h - y);
       const float src[4] = {0, 0, w, h};
-      BUI_raster_image_rounded(d->r, x, y, w, h, &pm, src, opacity * d->opacity, radii);
+      SR_image_rounded(d->r, x, y, w, h, &pm, src, opacity * d->opacity, radii);
     }
   }
 }
@@ -263,7 +263,7 @@ void awra_paint_material(AwraDraw *d, AwraBox b, const AwraResolvedMaterial *m, 
     const float blur = elevation == AWRA_ELEVATION_RAISED ? 8.0f :
                        elevation == AWRA_ELEVATION_FLOATING ? 20.0f : 32.0f;
     float c[4] = {m->shadow.r, m->shadow.g, m->shadow.b, m->shadow.a * d->opacity};
-    BUI_raster_box_shadow(d->r, b.x, b.y, b.w, b.h, radii, 0, awra_pxf(off), 0, awra_pxf(blur),
+    SR_box_shadow(d->r, b.x, b.y, b.w, b.h, radii, 0, awra_pxf(off), 0, awra_pxf(blur),
                           c, 1);
   }
   /* fill */

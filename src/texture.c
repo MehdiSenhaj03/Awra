@@ -358,9 +358,9 @@ void awra_paint_texture(AwraDraw *d, const AwraTexture *t, AwraBox b, float radi
   BuiPixmap pm = awra_texture_pixmap(t);
   if (radius > 0.0f) {
     const float radii[4] = {radius, radius, radius, radius};
-    BUI_raster_image_rounded(d->r, bx, by, bw, bh, &pm, src, d->opacity, radii);
+    SR_image_rounded(d->r, bx, by, bw, bh, &pm, src, d->opacity, radii);
   }
   else {
-    BUI_raster_image(d->r, bx, by, bw, bh, &pm, src, d->opacity, 0);
+    SR_image(d->r, bx, by, bw, bh, &pm, src, d->opacity, 0);
   }
 }
