@@ -648,3 +648,24 @@ struct BuiRaster *awra_window_raster(AwraWidget *window);
 /* PNG writing (png.c), premultiplied ARGB in */
 bool awra_write_png(const char *path, const uint32_t *argb, int w, int h);
 const char *awra_key_code_name(int evdev);
+
+/* Group opacity (group.c): between begin and end, what is drawn inside `b`
+ * fades to `alpha` as one layer (GTK's CSS opacity), not primitive by
+ * primitive. Each primitive takes the opacity instead where the raster
+ * cannot read back. */
+typedef struct AwraGroup {
+  int x, y, w, h;
+  uint32_t *saved;
+  float alpha, opacity;
+} AwraGroup;
+bool awra_group_begin(AwraDraw *d, AwraBox b, float alpha, AwraGroup *g);
+void awra_group_end(AwraDraw *d, AwraGroup *g);
+
+/* A dashed border as GTK strokes `border: <width>px dashed` round a box
+ * with corner `radius` (dash.c). */
+void awra_paint_dashed_rbox(AwraDraw *d, AwraBox b, float radius, float width, const AwraRGBA *color);
+
+/* Scrolled windows (containers.c): the pointer moved over one (its overlay
+ * indicator shows, as GtkScrolledWindow's captured motion does). */
+bool awra_is_scrolled(const AwraWidget *w);
+void awra_scrolled_pointer_moved(AwraWidget *w);

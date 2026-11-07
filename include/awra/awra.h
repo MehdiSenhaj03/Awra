@@ -2198,6 +2198,15 @@ enum { AWRA_DRAG_ACTION_NONE = 0, AWRA_DRAG_ACTION_COPY = 1, AWRA_DRAG_ACTION_MO
 void awra_window_set_drag_action(AwraWidget *window, int action);
 bool awra_widget_drop_active(AwraWidget *widget);
 
+/* ----------------------------------------------------------------------- */
+/* Plain GtkEntry */
+
+/* An entry as a GtkEntry that is not an AwraEntry looked in an Awra 1
+ * window: GTK 4's default theme draws it (32 px tall inside a 1 px
+ * border, padding 0 8 px, radius 5 px, its own colours and focus ring),
+ * not Awra's well. Everything else is awra_entry_*. */
+AwraWidget *awra_entry_new_gtk(void);
+
 
 #ifdef __cplusplus
 }

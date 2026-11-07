@@ -33,6 +33,7 @@ mod files;
 pub use files::{DragPreview, TransitionBin};
 mod dnd;
 mod transfer;
+mod gtk_look;
 pub mod gdk;
 pub mod gio;
 pub mod glib;

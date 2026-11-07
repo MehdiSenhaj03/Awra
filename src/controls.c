@@ -438,10 +438,10 @@ static void slider_draw(AwraWidget *w, AwraDraw *d)
 {
   SliderExt *x = SLX(w);
   const AwraTokens *t = awra_tokens();
-  const float saved = d->opacity;
-  if (!awra_sensitive(w)) {
-    d->opacity *= 0.58f;
-  }
+  /* .awra-slider:disabled { opacity: .58 }: the slider fades as one layer
+   * (its thumb hides the highlight under it), with the thumb's shadow */
+  AwraGroup group;
+  awra_group_begin(d, awra_box_inset(awra_box_of(w), -awra_pxf(10)), awra_sensitive(w) ? 1.0f : 0.58f, &group);
   const bool horiz = x->orientation == AWRA_ORIENTATION_HORIZONTAL;
   const float th = awra_pxf(6);
   const float frac = (float)slider_frac(w);
@@ -483,7 +483,9 @@ static void slider_draw(AwraWidget *w, AwraDraw *d)
                           (AwraBox){trough.x + th * 0.5f - ts * 0.5f, cxy - ts * 0.5f, ts, ts};
   const AwraRGBA shadow = {0, 0, 0, 0.30f}, edge = {0, 0, 0, 0.12f};
   awra_paint_shadow(d, thumb, ts * 0.5f, 0, awra_pxf(2), 0, awra_pxf(6), &shadow, true);
-  awra_paint_rbox(d, thumb, ts * 0.5f, &t->control_thumb, awra_pxf(1), &edge);
+  /* background-clip: padding-box: the 1 px border rings the thumb's fill */
+  awra_paint_rbox(d, awra_box_inset(thumb, awra_pxf(1)), ts * 0.5f - awra_pxf(1), &t->control_thumb, 0, NULL);
+  awra_paint_rbox(d, thumb, ts * 0.5f, NULL, awra_pxf(1), &edge);
   if (vh) {
     /* scale > value { color: alpha(currentColor, .55) }, centered on the
      * thumb and kept inside the slider */
@@ -496,7 +498,7 @@ static void slider_draw(AwraWidget *w, AwraDraw *d)
     const AwraRGBA c = awra_with_alpha(t->foreground, 0.55f);
     awra_draw_text(d, &f, tx, (float)w->y + floorf(awra_font_ascent(&f) + 0.5f), buf, n, &c);
   }
-  d->opacity = saved;
+  awra_group_end(d, &group);
 }
 
 static void slider_set_value_internal(AwraWidget *w, double v, bool notify)

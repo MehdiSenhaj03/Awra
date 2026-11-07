@@ -2030,7 +2030,7 @@ void awra_navigation_item_set_suffix(AwraWidget *w, AwraWidget *suffix)
   }
   x->suffix = suffix;
   if (suffix) {
-    awra_widget_set_valign(suffix, AWRA_ALIGN_CENTER);
+    /* Awra 1 leaves its alignment alone: a badge fills the row's height */
     awra_widget_set_margin_start(suffix, 4);
     awra_box_append(x->box, suffix);
   }

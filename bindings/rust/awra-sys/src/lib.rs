@@ -1364,4 +1364,5 @@ extern "C" {
     pub fn awra_widget_set_drop_active(widget: *mut AwraWidget, active: bool);
     pub fn awra_window_set_drag_action(window: *mut AwraWidget, action: c_int);
     pub fn awra_widget_drop_active(widget: *mut AwraWidget) -> bool;
+    pub fn awra_entry_new_gtk() -> *mut AwraWidget;
 }

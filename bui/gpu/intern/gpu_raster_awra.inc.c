@@ -737,7 +737,7 @@ int BUI_raster_read(BuiRaster *r, int x, int y, int w, int h, uint32_t *dst)
     return 0;
   }
   for (int py = y0; py < y1; py++) {
-    memcpy(dst + (size_t)(py - y) * w + (x0 - x), r->pix + (size_t)py * r->w + x0,
+    memcpy(dst + (size_t)(py - y) * w + (x0 - x), RASTER_ROW(r, py) + x0,
            sizeof(uint32_t) * (size_t)(x1 - x0));
   }
   return 1;
@@ -764,7 +764,7 @@ void BUI_raster_fade(BuiRaster *r, int x, int y, int w, int h, const uint32_t *s
     if (a >= 256) {
       continue;
     }
-    uint32_t *row = r->pix + (size_t)py * r->w;
+    uint32_t *row = RASTER_ROW(r, py); /* origin-aware (popup buffers) */
     const uint32_t *under = saved + (size_t)(py - y) * w - x;
     for (int px = x0; px < x1; px++) {
       /* under + (content - under) * a, per channel */
@@ -871,7 +871,7 @@ void BUI_raster_corners_clip(BuiRaster *r, float x, float y, float w, float h, c
     corner_square(x, y, w, h, i, n, &cx, &cy);
     if (fade_box(r, cx, cy, n, n, &x0, &y0, &x1, &y1)) {
       for (int py = y0; py < y1; py++) {
-        uint32_t *row = r->pix + (size_t)py * r->w;
+        uint32_t *row = RASTER_ROW(r, py); /* origin-aware (popup buffers) */
         const uint32_t *under = saved + (size_t)(py - cy) * n - cx;
         for (int px = x0; px < x1; px++) {
           const float cov = clampf(0.5f - sd_rbox((float)px + 0.5f, (float)py + 0.5f, x, y, x + w, y + h, rad),

@@ -595,8 +595,21 @@ static void button_draw(AwraWidget *w, AwraDraw *d)
   AwraButtonColors c;
   current_colors(w, &c);
   const bool reduced = awra_style_reduced_motion();
-  awra_paint_button_bg(d, awra_box_of(w), awra_pxf(rad), &c, reduced ? 0.0f : awra_press_t(w),
-                       awra_focus_visible(w));
+  if (awra_widget_get_data(w, "awra-dropdown")) {
+    /* button.awra-dropdown-button: a 1 px transparent border, and
+     * .awra-button's background-clip: padding-box inside it */
+    const float bw = awra_pxf(1);
+    awra_paint_button_bg(d, awra_box_inset(awra_box_of(w), bw), awra_pxf(rad) - bw, &c,
+                         reduced ? 0.0f : awra_press_t(w), false);
+    if (awra_focus_visible(w)) {
+      AwraButtonColors ring = {0};
+      awra_paint_button_bg(d, awra_box_of(w), awra_pxf(rad), &ring, 0.0f, true);
+    }
+  }
+  else {
+    awra_paint_button_bg(d, awra_box_of(w), awra_pxf(rad), &c, reduced ? 0.0f : awra_press_t(w),
+                         awra_focus_visible(w));
+  }
   x->colors = c;
   if (x->child) {
     return; /* the child draws, with this button's color (child_style) */
