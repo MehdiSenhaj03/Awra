@@ -41,6 +41,7 @@ typedef struct WinExt {
   AwraWidget *path[MAX_PATH];
   int npath;
   AwraWidget *focus;
+  bool focus_moving; /* the focus is unmapped: it moves on idle */
   AwraWidget *pressed3; /* secondary-button press target */
   Shortcut *shortcuts;
   bool offscreen;
@@ -655,7 +656,13 @@ static bool focusable(const AwraWidget *n)
 
 static void collect_focusable(AwraWidget *n, AwraWidget **out, int *count, int max)
 {
-  if (!(n->flags & NF_VISIBLE) || *count >= max) {
+  static int leaving = -2;
+  if (leaving == -2) {
+    leaving = awra_class_bit("stack-leaving");
+  }
+  if (!(n->flags & NF_VISIBLE) || *count >= max ||
+      (leaving >= 0 && awra_is_widget(n) && awra_has_class_bit(n, leaving)))
+  {
     return;
   }
   if (focusable(n)) {
@@ -827,6 +834,70 @@ static void move_focus(AwraWidget *win, int dir)
   awra_set_focus(win, list[next], true);
 }
 
+/* The first focusable widget of `n`'s subtree, in tab order. */
+static AwraWidget *first_focusable(AwraWidget *n)
+{
+  AwraWidget *list[512];
+  int count = 0;
+  if (n) {
+    collect_focusable(n, list, &count, 512);
+  }
+  return count ? list[0] : NULL;
+}
+
+static void focus_move_unref(void *data)
+{
+  awra_widget_unref((AwraWidget *)data);
+}
+
+/* GtkWindow's move_focus: the focused widget went away; the focus goes to
+ * its nearest focusable ancestor, else to the first focusable widget of the
+ * content, then of the titlebar, keeping whether it shows as keyboard
+ * focus. */
+static bool focus_move(void *data)
+{
+  AwraWidget *win = (AwraWidget *)data;
+  WinExt *x = WEXT(win);
+  x->focus_moving = false;
+  AwraWidget *old = x->focus;
+  if (x->closed || !old || awra_widget_mapped(old)) {
+    return false;
+  }
+  if (awra_window_of(old) != win) {
+    /* taken out of the window (gtk_widget_unparent): no focus */
+    awra_set_focus(win, NULL, false);
+    return false;
+  }
+  AwraWidget *next = NULL;
+  for (AwraWidget *p = old->parent; p && !next; p = p->parent) {
+    if (awra_is_widget(p) && focusable(p)) {
+      next = p;
+    }
+  }
+  if (!next) {
+    next = first_focusable(x->child);
+  }
+  if (!next) {
+    next = first_focusable(x->titlebar);
+  }
+  awra_set_focus(win, next, false); /* shown as the window shows its focus */
+  return false;
+}
+
+void awra_window_focus_unmapped(AwraWidget *w); /* core.c */
+void awra_window_focus_unmapped(AwraWidget *w)
+{
+  for (int i = 0; i < g_nwindows; i++) {
+    AwraWidget *win = g_windows[i];
+    WinExt *x = WEXT(win);
+    if (x->focus == w && !x->focus_moving && !x->closed) {
+      x->focus_moving = true;
+      awra_widget_ref(win);
+      awra_idle_add(focus_move, win, focus_move_unref);
+    }
+  }
+}
+
 static int parse_accel(const char *accel, char *keysym, size_t size)
 {
   int mods = 0;
@@ -953,6 +1024,11 @@ static int key_hook(BKContext *ctx, int press, const char *text, const char *key
     return 0;
   }
   WinExt *x = WEXT(win);
+  /* a focus the key press took away moves before its release is weighed
+   * (key_focus_visible: a key that moved the focus shows it) */
+  if (!press && x->focus_moving) {
+    focus_move(win); /* its idle is then a no-op */
+  }
   AwraWidget *start = x->focus;
   /* a focus inside a closed popup (or gone) no longer counts */
   if (start && !awra_widget_mapped(start)) {
@@ -1162,11 +1238,37 @@ AwraWidget *awra_window_new_offscreen(const char *title, int width, int height, 
   return window_create(title, width, height, true, scale);
 }
 
+static void forget_measures(AwraWidget *n)
+{
+  if (awra_is_widget(n)) {
+    AwraAux *a = awra_aux(n);
+    a->cache_valid = 0;
+    a->expand_valid = 0;
+    a->mode_valid = 0;
+    a->needs_allocate = 1;
+  }
+  for (int i = 0; i < n->nkids; i++) {
+    forget_measures(n->kids[i]);
+  }
+}
+
 static void ensure_native(AwraWidget *w)
 {
   WinExt *x = WEXT(w);
   if (x->bkw || x->offscreen || x->closed) {
     return;
+  }
+  /* GtkWindow: the default size, but never under what the contents need
+   * (measured at the current scale: the window's own may differ, so the
+   * measures are forgotten once it is known) */
+  const bool measured = x->child || x->titlebar;
+  if (measured) {
+    const float s = awra_scale();
+    int mn = 0, nat = 0;
+    window_measure(w, AWRA_ORIENTATION_HORIZONTAL, -1, &mn, &nat);
+    x->default_w = BK_MAX(x->default_w, (int)ceilf(mn / s));
+    window_measure(w, AWRA_ORIENTATION_VERTICAL, (int)(x->default_w * s), &mn, &nat);
+    x->default_h = BK_MAX(x->default_h, (int)ceilf(mn / s));
   }
   x->bkw = BK_window_new_ex(x->ctx, x->title, x->default_w, x->default_h,
                             BK_WINDOW_TRANSPARENT | BK_WINDOW_UNDECORATED);
@@ -1182,6 +1284,9 @@ static void ensure_native(AwraWidget *w)
   }
   BK_window_wm(x->bkw, "dark", awra_style_is_dark() ? 1.0 : 0.0, 0.0);
   x->scale = BK_window_scale(x->bkw);
+  if (measured) {
+    forget_measures(w);
+  }
   awra_window_identity_native(w); /* identity.c: its icon */
   x->blur_state = BK_window_blur_available(x->bkw);
   if (x->blur_state == 1) {
@@ -1210,8 +1315,16 @@ static void dump_tree(AwraWidget *w, int depth)
 
 static bool dump_later(void *data)
 {
-  dump_tree((AwraWidget *)data, 0);
+  AwraWidget *w = (AwraWidget *)data;
+  if (!WEXT(w)->closed) {
+    dump_tree(w, 0);
+  }
   return false;
+}
+
+static void dump_unref(void *data)
+{
+  awra_widget_unref((AwraWidget *)data);
 }
 
 void awra_window_present(AwraWidget *w)
@@ -1225,9 +1338,25 @@ void awra_window_present(AwraWidget *w)
     x->presented = true;
     const char *dump = getenv("AWRA_DUMP_TREE");
     if (dump && atoi(dump) > 0) {
-      awra_timeout_add((unsigned)atoi(dump) * 1000, dump_later, w, NULL);
+      awra_timeout_add((unsigned)atoi(dump) * 1000, dump_later, awra_widget_ref(w), dump_unref);
     }
     awra_map_tree(w, true);
+    /* gtk_window_show: a window without focus moves it forward, to the
+     * first focusable widget of its content, then of its titlebar (not
+     * shown as keyboard focus) */
+    if (!x->focus) {
+      AwraWidget *list[512];
+      int n = 0;
+      if (x->child) {
+        collect_focusable(x->child, list, &n, 512);
+      }
+      if (!n && x->titlebar) {
+        collect_focusable(x->titlebar, list, &n, 512);
+      }
+      if (n) {
+        awra_set_focus(w, list[0], false);
+      }
+    }
     awra_a11y_window_changed(w, AWRA_A11Y_WINDOW_CREATE);
   }
   x->state &= ~AWRA_WINDOW_STATE_HIDDEN;
@@ -1275,6 +1404,12 @@ void awra_window_begin_move_internal(AwraWidget *w)
   }
 }
 
+static bool release_closed(void *data)
+{
+  awra_widget_unref((AwraWidget *)data);
+  return false;
+}
+
 static void window_destroy(AwraWidget *w)
 {
   WinExt *x = WEXT(w);
@@ -1302,7 +1437,9 @@ static void window_destroy(AwraWidget *w)
       break;
     }
   }
-  awra_widget_unref(w);
+  /* the list's reference goes once the event that closed the window is
+   * handled: a button of a dialog that closes it is still in its press */
+  awra_idle_add(release_closed, w, NULL);
 }
 
 void awra_window_set_title(AwraWidget *w, const char *title)

@@ -30,6 +30,7 @@ mod window;
 mod video;
 mod files;
 pub use files::{DragPreview, TransitionBin};
+mod dnd;
 mod transfer;
 pub mod gdk;
 pub mod gio;
