@@ -353,7 +353,7 @@ impl Display {
     }
 }
 
-pub struct Clipboard(Widget);
+pub struct Clipboard(pub(crate) Widget);
 
 impl Clipboard {
     /// The clipboard of any of the application's windows.

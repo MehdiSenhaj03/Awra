@@ -649,6 +649,16 @@ typedef struct AwraMenuItem {
   void *data;
 } AwraMenuItem;
 void awra_menu_button_set_menu(AwraWidget *button, const AwraMenuItem *items, int n);
+/* Submenus: an item whose check is AWRA_MENU_ITEM_SUBMENU is a row (its
+ * label and icon, a chevron) opening the items after it, up to the
+ * matching AWRA_MENU_ITEM_SUBMENU_END item, as a menu beside it (Awra 1's
+ * nested menu popovers). Submenus nest. A submenu opens on click, Return,
+ * Right or when the pointer rests on its row; Left and Escape close it.
+ * Handlers get args->index = the item's index in the whole array. */
+typedef enum {
+  AWRA_MENU_ITEM_SUBMENU_END = -5,
+  AWRA_MENU_ITEM_SUBMENU = -4,
+} AwraMenuItemKind;
 
 /* ----------------------------------------------------------------------- */
 /* Inputs */
@@ -1084,6 +1094,7 @@ void awra_keyboard_connect_layout_changed(void (*fn)(void *data), void *data);
 char *awra_clipboard_get_text(AwraWidget *widget);
 void awra_clipboard_set_text(AwraWidget *widget, const char *text);
 void awra_free(void *p);
+
 
 /* Opens a URI or file with the desktop's default handler. */
 bool awra_show_uri(const char *uri);
@@ -1771,6 +1782,238 @@ void awra_tag_entry_clear(AwraWidget *tags);
 int awra_tag_entry_n_tags(AwraWidget *tags);
 const char *awra_tag_entry_tag(AwraWidget *tags, int index);
 
+/* ----------------------------------------------------------------------- */
+/* Accessibility (GtkAccessible): every widget has a role from its class, a
+ * name and a description (GTK's naming rules: an explicit label, the
+ * labelled-by relation, its text or its children's for roles named from
+ * content, its tooltip), states and values that follow the widget.
+ * Assistive technologies see the tree through AT-SPI2 on Linux and UI
+ * Automation on Windows; nothing is built or kept while none listens.
+ * The enums are GTK's, value for value. */
+
+typedef enum {
+  AWRA_ACCESSIBLE_ROLE_ALERT, AWRA_ACCESSIBLE_ROLE_ALERT_DIALOG, AWRA_ACCESSIBLE_ROLE_BANNER,
+  AWRA_ACCESSIBLE_ROLE_BUTTON, AWRA_ACCESSIBLE_ROLE_CAPTION, AWRA_ACCESSIBLE_ROLE_CELL,
+  AWRA_ACCESSIBLE_ROLE_CHECKBOX, AWRA_ACCESSIBLE_ROLE_COLUMN_HEADER,
+  AWRA_ACCESSIBLE_ROLE_COMBO_BOX, AWRA_ACCESSIBLE_ROLE_COMMAND, AWRA_ACCESSIBLE_ROLE_COMPOSITE,
+  AWRA_ACCESSIBLE_ROLE_DIALOG, AWRA_ACCESSIBLE_ROLE_DOCUMENT, AWRA_ACCESSIBLE_ROLE_FEED,
+  AWRA_ACCESSIBLE_ROLE_FORM, AWRA_ACCESSIBLE_ROLE_GENERIC, AWRA_ACCESSIBLE_ROLE_GRID,
+  AWRA_ACCESSIBLE_ROLE_GRID_CELL, AWRA_ACCESSIBLE_ROLE_GROUP, AWRA_ACCESSIBLE_ROLE_HEADING,
+  AWRA_ACCESSIBLE_ROLE_IMG, AWRA_ACCESSIBLE_ROLE_INPUT, AWRA_ACCESSIBLE_ROLE_LABEL,
+  AWRA_ACCESSIBLE_ROLE_LANDMARK, AWRA_ACCESSIBLE_ROLE_LEGEND, AWRA_ACCESSIBLE_ROLE_LINK,
+  AWRA_ACCESSIBLE_ROLE_LIST, AWRA_ACCESSIBLE_ROLE_LIST_BOX, AWRA_ACCESSIBLE_ROLE_LIST_ITEM,
+  AWRA_ACCESSIBLE_ROLE_LOG, AWRA_ACCESSIBLE_ROLE_MAIN, AWRA_ACCESSIBLE_ROLE_MARQUEE,
+  AWRA_ACCESSIBLE_ROLE_MATH, AWRA_ACCESSIBLE_ROLE_METER, AWRA_ACCESSIBLE_ROLE_MENU,
+  AWRA_ACCESSIBLE_ROLE_MENU_BAR, AWRA_ACCESSIBLE_ROLE_MENU_ITEM,
+  AWRA_ACCESSIBLE_ROLE_MENU_ITEM_CHECKBOX, AWRA_ACCESSIBLE_ROLE_MENU_ITEM_RADIO,
+  AWRA_ACCESSIBLE_ROLE_NAVIGATION, AWRA_ACCESSIBLE_ROLE_NONE, AWRA_ACCESSIBLE_ROLE_NOTE,
+  AWRA_ACCESSIBLE_ROLE_OPTION, AWRA_ACCESSIBLE_ROLE_PRESENTATION,
+  AWRA_ACCESSIBLE_ROLE_PROGRESS_BAR, AWRA_ACCESSIBLE_ROLE_RADIO,
+  AWRA_ACCESSIBLE_ROLE_RADIO_GROUP, AWRA_ACCESSIBLE_ROLE_RANGE, AWRA_ACCESSIBLE_ROLE_REGION,
+  AWRA_ACCESSIBLE_ROLE_ROW, AWRA_ACCESSIBLE_ROLE_ROW_GROUP, AWRA_ACCESSIBLE_ROLE_ROW_HEADER,
+  AWRA_ACCESSIBLE_ROLE_SCROLLBAR, AWRA_ACCESSIBLE_ROLE_SEARCH, AWRA_ACCESSIBLE_ROLE_SEARCH_BOX,
+  AWRA_ACCESSIBLE_ROLE_SECTION, AWRA_ACCESSIBLE_ROLE_SECTION_HEAD, AWRA_ACCESSIBLE_ROLE_SELECT,
+  AWRA_ACCESSIBLE_ROLE_SEPARATOR, AWRA_ACCESSIBLE_ROLE_SLIDER, AWRA_ACCESSIBLE_ROLE_SPIN_BUTTON,
+  AWRA_ACCESSIBLE_ROLE_STATUS, AWRA_ACCESSIBLE_ROLE_STRUCTURE, AWRA_ACCESSIBLE_ROLE_SWITCH,
+  AWRA_ACCESSIBLE_ROLE_TAB, AWRA_ACCESSIBLE_ROLE_TABLE, AWRA_ACCESSIBLE_ROLE_TAB_LIST,
+  AWRA_ACCESSIBLE_ROLE_TAB_PANEL, AWRA_ACCESSIBLE_ROLE_TEXT_BOX, AWRA_ACCESSIBLE_ROLE_TIME,
+  AWRA_ACCESSIBLE_ROLE_TIMER, AWRA_ACCESSIBLE_ROLE_TOOLBAR, AWRA_ACCESSIBLE_ROLE_TOOLTIP,
+  AWRA_ACCESSIBLE_ROLE_TREE, AWRA_ACCESSIBLE_ROLE_TREE_GRID, AWRA_ACCESSIBLE_ROLE_TREE_ITEM,
+  AWRA_ACCESSIBLE_ROLE_WIDGET, AWRA_ACCESSIBLE_ROLE_WINDOW, AWRA_ACCESSIBLE_ROLE_TOGGLE_BUTTON,
+  AWRA_ACCESSIBLE_ROLE_APPLICATION, AWRA_ACCESSIBLE_ROLE_PARAGRAPH,
+  AWRA_ACCESSIBLE_ROLE_BLOCK_QUOTE, AWRA_ACCESSIBLE_ROLE_ARTICLE, AWRA_ACCESSIBLE_ROLE_COMMENT,
+  AWRA_ACCESSIBLE_ROLE_TERMINAL
+} AwraAccessibleRole;
+
+typedef enum {
+  AWRA_ACCESSIBLE_STATE_BUSY,     /* boolean */
+  AWRA_ACCESSIBLE_STATE_CHECKED,  /* AwraAccessibleTristate */
+  AWRA_ACCESSIBLE_STATE_DISABLED, /* boolean */
+  AWRA_ACCESSIBLE_STATE_EXPANDED, /* boolean (undefined: not expandable) */
+  AWRA_ACCESSIBLE_STATE_HIDDEN,   /* boolean */
+  AWRA_ACCESSIBLE_STATE_INVALID,  /* AwraAccessibleInvalidState */
+  AWRA_ACCESSIBLE_STATE_PRESSED,  /* AwraAccessibleTristate */
+  AWRA_ACCESSIBLE_STATE_SELECTED, /* boolean (undefined: not selectable) */
+  AWRA_ACCESSIBLE_STATE_VISITED   /* boolean */
+} AwraAccessibleState;
+
+typedef enum {
+  AWRA_ACCESSIBLE_PROPERTY_AUTOCOMPLETE,     /* number: none 0, inline, list, both */
+  AWRA_ACCESSIBLE_PROPERTY_DESCRIPTION,      /* string */
+  AWRA_ACCESSIBLE_PROPERTY_HAS_POPUP,        /* boolean */
+  AWRA_ACCESSIBLE_PROPERTY_KEY_SHORTCUTS,    /* string */
+  AWRA_ACCESSIBLE_PROPERTY_LABEL,            /* string */
+  AWRA_ACCESSIBLE_PROPERTY_LEVEL,            /* number */
+  AWRA_ACCESSIBLE_PROPERTY_MODAL,            /* boolean */
+  AWRA_ACCESSIBLE_PROPERTY_MULTI_LINE,       /* boolean */
+  AWRA_ACCESSIBLE_PROPERTY_MULTI_SELECTABLE, /* boolean */
+  AWRA_ACCESSIBLE_PROPERTY_ORIENTATION,      /* AwraOrientation */
+  AWRA_ACCESSIBLE_PROPERTY_PLACEHOLDER,      /* string */
+  AWRA_ACCESSIBLE_PROPERTY_READ_ONLY,        /* boolean */
+  AWRA_ACCESSIBLE_PROPERTY_REQUIRED,         /* boolean */
+  AWRA_ACCESSIBLE_PROPERTY_ROLE_DESCRIPTION, /* string */
+  AWRA_ACCESSIBLE_PROPERTY_SORT,             /* number: none 0, ascending, descending, other */
+  AWRA_ACCESSIBLE_PROPERTY_VALUE_MAX,        /* number */
+  AWRA_ACCESSIBLE_PROPERTY_VALUE_MIN,        /* number */
+  AWRA_ACCESSIBLE_PROPERTY_VALUE_NOW,        /* number */
+  AWRA_ACCESSIBLE_PROPERTY_VALUE_TEXT,       /* string */
+  AWRA_ACCESSIBLE_PROPERTY_HELP_TEXT         /* string */
+} AwraAccessibleProperty;
+
+typedef enum {
+  AWRA_ACCESSIBLE_RELATION_ACTIVE_DESCENDANT, /* widget */
+  AWRA_ACCESSIBLE_RELATION_COL_COUNT,         /* number */
+  AWRA_ACCESSIBLE_RELATION_COL_INDEX,         /* number */
+  AWRA_ACCESSIBLE_RELATION_COL_INDEX_TEXT,    /* string */
+  AWRA_ACCESSIBLE_RELATION_COL_SPAN,          /* number */
+  AWRA_ACCESSIBLE_RELATION_CONTROLS,          /* widgets */
+  AWRA_ACCESSIBLE_RELATION_DESCRIBED_BY,      /* widgets */
+  AWRA_ACCESSIBLE_RELATION_DETAILS,           /* widgets */
+  AWRA_ACCESSIBLE_RELATION_ERROR_MESSAGE,     /* widgets */
+  AWRA_ACCESSIBLE_RELATION_FLOW_TO,           /* widgets */
+  AWRA_ACCESSIBLE_RELATION_LABELLED_BY,       /* widgets */
+  AWRA_ACCESSIBLE_RELATION_OWNS,              /* widgets */
+  AWRA_ACCESSIBLE_RELATION_POS_IN_SET,        /* number */
+  AWRA_ACCESSIBLE_RELATION_ROW_COUNT,         /* number */
+  AWRA_ACCESSIBLE_RELATION_ROW_INDEX,         /* number */
+  AWRA_ACCESSIBLE_RELATION_ROW_INDEX_TEXT,    /* string */
+  AWRA_ACCESSIBLE_RELATION_ROW_SPAN,          /* number */
+  AWRA_ACCESSIBLE_RELATION_SET_SIZE,          /* number */
+  AWRA_ACCESSIBLE_RELATION_LABEL_FOR,         /* widgets */
+  AWRA_ACCESSIBLE_RELATION_DESCRIPTION_FOR,   /* widgets */
+  AWRA_ACCESSIBLE_RELATION_CONTROLLED_BY,     /* widgets */
+  AWRA_ACCESSIBLE_RELATION_DETAILS_FOR,       /* widgets */
+  AWRA_ACCESSIBLE_RELATION_ERROR_MESSAGE_FOR, /* widgets */
+  AWRA_ACCESSIBLE_RELATION_FLOW_FROM          /* widgets */
+} AwraAccessibleRelation;
+
+typedef enum {
+  AWRA_ACCESSIBLE_TRISTATE_FALSE, AWRA_ACCESSIBLE_TRISTATE_TRUE, AWRA_ACCESSIBLE_TRISTATE_MIXED
+} AwraAccessibleTristate;
+typedef enum {
+  AWRA_ACCESSIBLE_INVALID_FALSE, AWRA_ACCESSIBLE_INVALID_TRUE, AWRA_ACCESSIBLE_INVALID_GRAMMAR,
+  AWRA_ACCESSIBLE_INVALID_SPELLING
+} AwraAccessibleInvalidState;
+typedef enum {
+  AWRA_ACCESSIBLE_ANNOUNCEMENT_PRIORITY_LOW, AWRA_ACCESSIBLE_ANNOUNCEMENT_PRIORITY_MEDIUM,
+  AWRA_ACCESSIBLE_ANNOUNCEMENT_PRIORITY_HIGH
+} AwraAccessibleAnnouncementPriority;
+
+/* gtk_widget_class_set_accessible_role / the accessible-role property;
+ * the role in use (explicit, else the class's). */
+void awra_accessible_set_role(AwraWidget *widget, AwraAccessibleRole role);
+AwraAccessibleRole awra_accessible_get_role(AwraWidget *widget);
+/* gtk_accessible_update_property: strings, and numbers for numeric,
+ * boolean (0 / 1) and enumerated properties; reset: back to the widget's
+ * own value. */
+void awra_accessible_update_property_string(AwraWidget *widget, AwraAccessibleProperty property,
+                                            const char *value);
+void awra_accessible_update_property_number(AwraWidget *widget, AwraAccessibleProperty property,
+                                            double value);
+void awra_accessible_reset_property(AwraWidget *widget, AwraAccessibleProperty property);
+/* gtk_accessible_update_state: a boolean (0 / 1), an AwraAccessibleTristate
+ * or an AwraAccessibleInvalidState; it replaces what the widget says. */
+void awra_accessible_update_state(AwraWidget *widget, AwraAccessibleState state, int value);
+void awra_accessible_reset_state(AwraWidget *widget, AwraAccessibleState state);
+/* gtk_accessible_update_relation: widgets (weak: a target that goes is
+ * dropped from the relation), numbers or strings. */
+void awra_accessible_update_relation(AwraWidget *widget, AwraAccessibleRelation relation,
+                                     AwraWidget *const *targets, int n);
+void awra_accessible_update_relation_number(AwraWidget *widget, AwraAccessibleRelation relation,
+                                            int value);
+void awra_accessible_update_relation_string(AwraWidget *widget, AwraAccessibleRelation relation,
+                                            const char *value);
+void awra_accessible_reset_relation(AwraWidget *widget, AwraAccessibleRelation relation);
+/* What assistive technologies get: the name and description (malloc'd,
+ * awra_free), a state (-1 undefined, else its value). */
+char *awra_accessible_get_name(AwraWidget *widget);
+char *awra_accessible_get_description(AwraWidget *widget);
+int awra_accessible_get_state(AwraWidget *widget, AwraAccessibleState state);
+/* gtk_accessible_announce: a screen reader reads the message. */
+void awra_accessible_announce(AwraWidget *widget, const char *message,
+                              AwraAccessibleAnnouncementPriority priority);
+/* An assistive technology is connected (the tree is exposed). */
+bool awra_accessible_active(void);
+
+/* ----------------------------------------------------------------------- */
+/* Data transfer: the clipboard with images, files and any type
+ * (GdkClipboard), PNG encoding, widget snapshots, drags out to other
+ * applications. MIME types name the data ("image/png", "text/uri-list",
+ * "text/plain;charset=utf-8"...); every function takes any widget of the
+ * window (or NULL for the application's first window). */
+
+/* Puts n items (each type with its bytes, copied) on the clipboard. */
+bool awra_clipboard_set_data(AwraWidget *widget, const char *const *mimes,
+                             const void *const *data, const size_t *lengths, int n);
+/* An image, as PNG (Windows: also CF_DIBV5 / CF_DIB). */
+bool awra_clipboard_set_texture(AwraWidget *widget, const AwraTexture *texture);
+/* Files: text/uri-list, GNOME's copied-files list and the paths as text
+ * (Windows: CF_HDROP). */
+bool awra_clipboard_set_files(AwraWidget *widget, const char *const *paths, int n);
+/* The types on the clipboard: '\n'-separated (free with awra_free), NULL
+ * when it is empty. */
+char *awra_clipboard_formats(AwraWidget *widget);
+/* Whether the clipboard holds `mime` (a type ending in a star: any of that
+ * kind, "image/" and a star for any image). */
+bool awra_clipboard_has(AwraWidget *widget, const char *mime);
+/* The clipboard's data of a type (free with awra_free; a NUL past
+ * *length), NULL when it has none. */
+void *awra_clipboard_get_data(AwraWidget *widget, const char *mime, size_t *length);
+/* The clipboard's image (PNG, WebP, JPEG, GIF, SVG or a DIB), NULL none. */
+AwraTexture *awra_clipboard_get_texture(AwraWidget *widget);
+/* The clipboard's local files: '\n'-separated paths (awra_free), NULL none. */
+char *awra_clipboard_get_files(AwraWidget *widget);
+
+/* A texture as a PNG file / in memory (awra_free), straight RGBA. */
+bool awra_texture_save_png(const AwraTexture *texture, const char *path);
+void *awra_texture_save_png_bytes(const AwraTexture *texture, size_t *length);
+
+/* The widget as it is drawn now (GtkWidgetPaintable's current image), at
+ * the window's scale; NULL when it isn't shown. */
+AwraTexture *awra_widget_snapshot(AwraWidget *widget);
+/* The image a drag inside the window shows under the pointer (its point
+ * hot_x, hot_y under the pointer, texture pixels); NULL takes it away. */
+void awra_window_set_drag_icon(AwraWidget *window, AwraTexture *icon, int hot_x, int hot_y);
+
+/* Drags out of the application: the system's drag (Wayland, X11's XDND,
+ * Windows' OLE) carrying the items, started from the button press the
+ * pointer holds (call it while the button is down, e.g. when an
+ * in-application drag leaves the window). `icon` follows the pointer.
+ * done(source, args) gets args->index = the action the target took
+ * (AWRA_DRAG_NONE when cancelled or refused). False when no drag can start. */
+typedef enum {
+  AWRA_DRAG_NONE = 0,
+  AWRA_DRAG_COPY = 1,
+  AWRA_DRAG_MOVE = 2,
+} AwraDragAction;
+bool awra_drag_start(AwraWidget *source, const char *const *mimes, const void *const *data,
+                     const size_t *lengths, int n, AwraTexture *icon, int hot_x, int hot_y,
+                     int actions, AwraHandler done, void *user_data);
+/* GtkDragSource's images when it has none: a label of the text a drag
+ * carries, or an icon (size: logical px), at the window scale. */
+AwraTexture *awra_texture_new_for_text(const char *text);
+AwraTexture *awra_texture_new_for_icon(const char *icon_name, int size);
+/* Files: text/uri-list and the paths as text (Windows: CF_HDROP). */
+bool awra_drag_start_files(AwraWidget *source, const char *const *paths, int n,
+                           AwraTexture *icon, int hot_x, int hot_y, int actions,
+                           AwraHandler done, void *user_data);
+
+/* ----------------------------------------------------------------------- */
+/* Window identity (GtkWindow's icon and startup ID). */
+
+/* The window's icon by its theme name (an application ID as installed in
+ * hicolor, or an SVG registered with awra_icon_register_svg); NULL: the
+ * default one. X11 and Windows get its images, Wayland its name
+ * (xdg-toplevel-icon) or its images when no theme has it. */
+void awra_window_set_icon_name(AwraWidget *window, const char *name);
+const char *awra_window_icon_name(AwraWidget *window);
+/* The icon of windows that set none. */
+void awra_window_set_default_icon_name(const char *name);
+/* The startup notification ID (X11) or activation token (Wayland) the
+ * window is presented with, once (another instance hands it over): set on
+ * a window shown already, it brings that window forward now. Without one,
+ * the first window shown uses DESKTOP_STARTUP_ID / XDG_ACTIVATION_TOKEN. */
+void awra_window_set_startup_id(AwraWidget *window, const char *startup_id);
 
 /* ----------------------------------------------------------------------- */
 /* Drag and drop within the application */

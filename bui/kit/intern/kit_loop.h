@@ -11,3 +11,9 @@ int bk_loop_timeout_ms(int timeout_ms);
 int bk_loop_run_due(void);
 /* Implemented by the host in use: interrupts its wait (a timer was added). */
 void bk_loop_wake_host(void);
+
+/* Watched file descriptors (BK_loop_watch_fd): the host polls them with its
+ * own and calls bk_loop_fd_ready for each readable one. */
+int bk_loop_fd_count(void);
+int bk_loop_fd(int index);
+void bk_loop_fd_ready(int fd);

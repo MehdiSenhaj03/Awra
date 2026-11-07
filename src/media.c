@@ -4,6 +4,7 @@
  * SPDX-License-Identifier: GPL-3.0-or-later */
 
 #include "awra-private.h"
+#include "a11y.h"
 
 #include <stdio.h>
 
@@ -261,7 +262,38 @@ static void cap_map(AwraWidget *w, bool mapped)
   }
 }
 
+/* Awra 1's AwraKeyCap: a button named "label, secondary" (or its code),
+ * selected, dimmed keys disabled, pressed while it plays */
+static void cap_a11y(AwraWidget *w, AwraA11yInfo *info)
+{
+  CapExt *x = KX(w);
+  const char *label = x->label && x->label[0] ? x->label : x->code;
+  if (x->secondary && x->secondary[0] && label) {
+    snprintf(info->buf, sizeof(info->buf), "%s, %s", label, x->secondary);
+    info->label = info->buf;
+  }
+  else {
+    info->label = label;
+  }
+  awra_a11y_set_state(info, AWRA_ACCESSIBLE_STATE_SELECTED, x->selected);
+  if (x->dimmed) {
+    awra_a11y_set_state(info, AWRA_ACCESSIBLE_STATE_DISABLED, 1);
+  }
+  info->action = "click";
+}
+
+static bool cap_a11y_do(AwraWidget *w, int item, int verb, double value)
+{
+  if (item < 0 && verb == AWRA_A11Y_DO_ACTIVATE && awra_sensitive(w)) {
+    awra_emit_simple(w, AWRA_SIGNAL_CLICKED);
+    return true;
+  }
+  return false;
+}
+
 static AwraClass cap_class = {
+    .a11y = cap_a11y,
+    .a11y_do = cap_a11y_do,
     .bk = AWRA_BK("AwraKeyCap", CLS_INTERACTIVE),
     .type = "AwraKeyCap",
     .flags = AWRA_CLASS_HOVER | AWRA_CLASS_FOCUSABLE | AWRA_CLASS_EXPAND_ISOLATED,
@@ -599,7 +631,17 @@ static void kbd_finalize(AwraWidget *v)
   free(x->sel_cache);
 }
 
+static void kbd_a11y(AwraWidget *w, AwraA11yInfo *info)
+{
+  info->label = "Keyboard";
+  if (KBX(w)->mode == AWRA_SELECTION_MULTIPLE) {
+    info->flags |= AWRA_A11Y_MULTISELECTABLE;
+  }
+  info->selection = KBX(w)->mode != AWRA_SELECTION_NONE;
+}
+
 static AwraClass kbd_class = {
+    .a11y = kbd_a11y,
     .bk = AWRA_BK("AwraKeyboardView", 0),
     .type = "AwraKeyboardView",
     .flags = AWRA_CLASS_CONTAINER | AWRA_CLASS_EXPAND_ISOLATED,
@@ -1004,7 +1046,33 @@ static void wave_finalize(AwraWidget *w)
   free(WVX(w)->peaks);
 }
 
+/* the waveform: a slider over the sound's time (the playing position) */
+static void wave_a11y(AwraWidget *w, AwraA11yInfo *info)
+{
+  WaveExt *x = WVX(w);
+  info->has_value = true;
+  info->min = 0.0;
+  info->max = x->duration > 0 ? x->duration : 1.0;
+  info->value = x->position;
+  info->step = 1.0;
+  const int p = x->position > 0 ? (int)x->position : 0, d = x->duration > 0 ? (int)x->duration : 0;
+  snprintf(info->buf, sizeof(info->buf), "%d:%02d of %d:%02d", p / 60, p % 60, d / 60, d % 60);
+  info->value_text = info->buf;
+  info->flags |= AWRA_A11Y_HORIZONTAL;
+}
+
+static bool wave_a11y_do(AwraWidget *w, int item, int verb, double value)
+{
+  if (item < 0 && verb == AWRA_A11Y_DO_SET_VALUE && awra_sensitive(w)) {
+    awra_emit_value(w, AWRA_SIGNAL_SEEK, value);
+    return true;
+  }
+  return false;
+}
+
 static AwraClass wave_class = {
+    .a11y = wave_a11y,
+    .a11y_do = wave_a11y_do,
     .bk = AWRA_BK("AwraWaveformView", CLS_INTERACTIVE),
     .type = "AwraWaveformView",
     .flags = AWRA_CLASS_FOCUSABLE | AWRA_CLASS_EXPAND_ISOLATED,
@@ -1133,7 +1201,15 @@ static void media_draw(AwraWidget *w, AwraDraw *d)
   }
 }
 
+/* Awra 1's AwraMediaRow: a group named by its title */
+static void media_a11y(AwraWidget *w, AwraA11yInfo *info)
+{
+  const char *t = awra_label_text(MX(w)->title);
+  info->label = t && t[0] ? t : "Media";
+}
+
 static AwraClass media_class = {
+    .a11y = media_a11y,
     .bk = AWRA_BK("AwraMediaRow", 0),
     .type = "AwraMediaRow",
     .flags = AWRA_CLASS_CONTAINER | AWRA_CLASS_EXPAND_ISOLATED,
@@ -1149,6 +1225,16 @@ static void fmt_time(char *buf, size_t n, double s)
   snprintf(buf, n, "%d:%02d", t / 60, t % 60);
 }
 
+/* the seek slider reads "0:12 of 3:45" (Awra 1) */
+static void media_value_text(MediaExt *x)
+{
+  char a[16], b[16], vt[40];
+  fmt_time(a, sizeof(a), x->position);
+  fmt_time(b, sizeof(b), x->duration);
+  snprintf(vt, sizeof(vt), "%s of %s", a, b);
+  awra_accessible_update_property_string(x->seek, AWRA_ACCESSIBLE_PROPERTY_VALUE_TEXT, vt);
+}
+
 static void media_sync_times(AwraWidget *w)
 {
   MediaExt *x = MX(w);
@@ -1158,6 +1244,7 @@ static void media_sync_times(AwraWidget *w)
   awra_label_set_text(x->elapsed, a);
   awra_label_set_text(x->total, b);
   awra_slider_set_range(x->seek, 0, x->duration > 0 ? x->duration : 1);
+  media_value_text(x);
 }
 
 static void media_play(AwraWidget *b, const AwraArgs *a, void *data)
@@ -1225,6 +1312,8 @@ AwraWidget *awra_media_row_new(const char *title)
   awra_button_set_appearance(x->play, AWRA_BUTTON_TOOLBAR);
   x->stop = awra_button_new_from_icon_name("media-playback-stop-symbolic");
   awra_button_set_appearance(x->stop, AWRA_BUTTON_TOOLBAR);
+  awra_accessible_update_property_string(x->play, AWRA_ACCESSIBLE_PROPERTY_LABEL, "Play");
+  awra_accessible_update_property_string(x->stop, AWRA_ACCESSIBLE_PROPERTY_LABEL, "Stop");
   x->volume = awra_volume_control_new();
   awra_widget_set_size_request(x->volume, 120, -1);
   awra_widget_set_visible(x->volume, false);
@@ -1239,6 +1328,9 @@ AwraWidget *awra_media_row_new(const char *title)
   awra_widget_set_valign(x->seek, AWRA_ALIGN_CENTER);
   x->total = small_label();
   awra_label_set_xalign(x->total, 0.0f);
+  awra_accessible_update_property_string(x->seek, AWRA_ACCESSIBLE_PROPERTY_LABEL, "Seek");
+  awra_accessible_update_state(x->elapsed, AWRA_ACCESSIBLE_STATE_HIDDEN, 1);
+  awra_accessible_update_state(x->total, AWRA_ACCESSIBLE_STATE_HIDDEN, 1);
   awra_box_append(seekbox, x->elapsed);
   awra_box_append(seekbox, x->seek);
   awra_box_append(seekbox, x->total);
@@ -1317,6 +1409,7 @@ void awra_media_row_set_playing(AwraWidget *w, bool p)
   MediaExt *x = MX(w);
   x->playing = p;
   awra_button_set_icon_name(x->play, p ? "media-playback-pause-symbolic" : "media-playback-start-symbolic");
+  awra_accessible_update_property_string(x->play, AWRA_ACCESSIBLE_PROPERTY_LABEL, p ? "Pause" : "Play");
   awra_label_set_color(x->title, p ? NULL : &awra_tokens()->disabled);
   awra_widget_set_sensitive(x->seek, p && x->seekable);
 }
@@ -1337,6 +1430,7 @@ void awra_media_row_set_position(AwraWidget *w, double s)
   char a[16];
   fmt_time(a, sizeof(a), s);
   awra_label_set_text(x->elapsed, a);
+  media_value_text(x);
 }
 
 void awra_media_row_set_seekable(AwraWidget *w, bool s)
@@ -1462,7 +1556,20 @@ static void zone_paint_frame(AwraWidget *w, AwraDraw *d, AwraBox b)
   bk_clip_pop();
 }
 
+/* a drop zone: a group named by its title, described by its subtitle */
+static void zone_a11y(AwraWidget *w, AwraA11yInfo *info)
+{
+  ZoneExt *x = ZX(w);
+  if (awra_widget_visible(x->title)) {
+    info->label = awra_label_text(x->title);
+  }
+  if (awra_widget_visible(x->subtitle)) {
+    info->description = awra_label_text(x->subtitle);
+  }
+}
+
 static AwraClass zone_class = {
+    .a11y = zone_a11y,
     .bk = AWRA_BK("AwraDropZone", 0),
     .type = "AwraDropZone",
     .flags = AWRA_CLASS_CONTAINER | AWRA_CLASS_EXPAND_ISOLATED,

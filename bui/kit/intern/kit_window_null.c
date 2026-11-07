@@ -81,5 +81,29 @@ void BK_window_set_keep_alive(int on)
 {
   (void)on;
 }
+int BK_window_clipboard_set(BKWindow *win, const BKClipItem *items, int n)
+{
+  return 0;
+}
+char *BK_window_clipboard_formats(BKWindow *win)
+{
+  return NULL;
+}
+void *BK_window_clipboard_read(BKWindow *win, const char *mime, size_t *r_len)
+{
+  *r_len = 0;
+  return NULL;
+}
+int BK_window_drag_start(BKWindow *win, const BKClipItem *items, int n, const uint32_t *icon,
+                         int icon_w, int icon_h, int hot_x, int hot_y, int actions,
+                         BKDragDoneFn done, void *user)
+{
+  return 0;
+}
+void BK_window_set_icon(BKWindow *win, const char *name, const uint32_t *const *pixels,
+                        const int *sizes, int n)
+{
+}
+void BK_window_activate(BKWindow *win, const char *startup_id) {}
 
 #endif

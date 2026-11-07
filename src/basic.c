@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: GPL-3.0-or-later */
 
 #include "awra-private.h"
+#include "a11y.h"
 
 bool awra_inherited_style(const AwraWidget *w, AwraRGBA *r_color, int *r_weight)
 {
@@ -486,7 +487,29 @@ static int label_request_mode(AwraWidget *w)
   return LX(w)->wrap != AWRA_WRAP_NONE;
 }
 
+/* GtkLabel: its text is its name and its Text */
+static void label_a11y(AwraWidget *w, AwraA11yInfo *info)
+{
+  LabelExt *x = LX(w);
+  const char *t = awra_text_layout_text(x->layout);
+  info->label = t;
+  info->text = t;
+  if (x->selectable) {
+    const int a = x->sel_anchor < x->sel_cursor ? x->sel_anchor : x->sel_cursor;
+    const int b = x->sel_anchor < x->sel_cursor ? x->sel_cursor : x->sel_anchor;
+    info->caret = awra_utf8_chars(t, x->sel_cursor);
+    if (a != b) {
+      info->sel_start = awra_utf8_chars(t, a);
+      info->sel_end = awra_utf8_chars(t, b);
+    }
+  }
+  if (awra_text_layout_n_links(x->layout) > 0 && x->n_objects == 0) {
+    info->action = "activate";
+  }
+}
+
 static AwraClass label_class = {
+    .a11y = label_a11y,
     .request_mode = label_request_mode,
     .bk = AWRA_BK("AwraLabel", 0),
     .type = "AwraLabel",
@@ -890,7 +913,21 @@ static void image_draw(AwraWidget *w, AwraDraw *d)
   }
 }
 
+/* GtkImage: named only by the application; unnamed icons are decoration
+ * (Awra 1 hid the icons of its buttons and rows) */
+static void image_a11y(AwraWidget *w, AwraA11yInfo *info)
+{
+  AwraWidget *by[1];
+  const char *label = awra_a11y_property_string(w, AWRA_ACCESSIBLE_PROPERTY_LABEL);
+  if ((!label || !label[0]) && !w->desc &&
+      !awra_a11y_relation(w, AWRA_ACCESSIBLE_RELATION_LABELLED_BY, by, 1))
+  {
+    info->role = AWRA_ACCESSIBLE_ROLE_PRESENTATION;
+  }
+}
+
 static AwraClass image_class = {
+    .a11y = image_a11y,
     .bk = AWRA_BK("AwraImage", 0),
     .type = "AwraImage",
     .flags = AWRA_CLASS_EXPAND_ISOLATED,

@@ -5,6 +5,7 @@
  * SPDX-License-Identifier: GPL-3.0-or-later */
 
 #include "awra-private.h"
+#include "a11y.h"
 
 /* ======================================================================= */
 /* Looks */
@@ -658,7 +659,34 @@ static const char *button_get_string(AwraWidget *w, const char *name)
   return NULL;
 }
 
+void awra_popover_owner_a11y(AwraWidget *w, AwraA11yInfo *info); /* popover.c */
+
+/* GtkButton, GtkToggleButton (pressed), grouped toggles (radio buttons),
+ * GtkMenuButton and GtkDropDown (has-popup, expanded) */
+static void button_a11y(AwraWidget *w, AwraA11yInfo *info)
+{
+  ButtonExt *x = BX(w);
+  if (!x->child && x->label && x->label[0]) {
+    info->label = x->label;
+  }
+  if (x->toggle) {
+    if (x->group_next && x->group_next != w) {
+      info->role = AWRA_ACCESSIBLE_ROLE_RADIO;
+      awra_a11y_set_state(info, AWRA_ACCESSIBLE_STATE_CHECKED, x->active);
+    }
+    else {
+      info->role = AWRA_ACCESSIBLE_ROLE_TOGGLE_BUTTON;
+      awra_a11y_set_state(info, AWRA_ACCESSIBLE_STATE_PRESSED, x->active);
+    }
+  }
+  if (x->appearance == AWRA_BUTTON_PRIMARY) {
+    info->flags |= AWRA_A11Y_DEFAULT;
+  }
+  awra_popover_owner_a11y(w, info);
+}
+
 AwraClass awra_button_class = {
+    .a11y = button_a11y,
     .bk = AWRA_BK("AwraButton", CLS_INTERACTIVE),
     .type = "AwraButton",
     .flags = AWRA_CLASS_HOVER | AWRA_CLASS_FOCUSABLE | AWRA_CLASS_ACTIVATABLE,

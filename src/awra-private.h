@@ -41,6 +41,7 @@ enum {
 
 typedef struct AwraClass AwraClass;
 typedef struct AwraDraw AwraDraw;
+struct AwraA11yInfo; /* a11y.h */
 
 struct AwraClass {
   BKClass bk; /* first: node->cls points here */
@@ -85,6 +86,17 @@ struct AwraClass {
   /* GtkSizeRequestMode: 1 height-for-width, 0 constant size; NULL: from
    * the children (height-for-width when one is) */
   int (*request_mode)(AwraWidget *w);
+  /* accessibility (a11y.h): what an instance is (role variant, states,
+   * value, text) after the class's defaults; virtual children it draws
+   * (tabs, cells); the actions assistive technologies perform */
+  void (*a11y)(AwraWidget *w, struct AwraA11yInfo *info);
+  int (*a11y_items)(AwraWidget *w);
+  void (*a11y_item)(AwraWidget *w, int item, struct AwraA11yInfo *info, double rect[4]);
+  bool (*a11y_do)(AwraWidget *w, int item, int verb, double value);
+  /* a container describing its children (list cells: role, selected) and
+   * acting on them (select, activate) */
+  void (*a11y_child)(AwraWidget *w, AwraWidget *child, struct AwraA11yInfo *info);
+  bool (*a11y_child_do)(AwraWidget *w, AwraWidget *child, int verb, double value);
 };
 
 /* Declares the kit side of an Awra class: every hook goes to Awra's
@@ -162,13 +174,16 @@ typedef struct AwraAux {
   int alloc_w, alloc_h; /* last allocated size (resize signal) */
   /* state animations, 0..1 */
   float hover_t, press_t;
-  /* style classes, small fixed set of interned names */
+  /* style classes: interned names, the first 64 as bits, the others (rare)
+   * in a sorted array: [0] its length, then the class numbers */
   uint64_t classes;
+  uint16_t *xclasses;
   int cursor; /* BK_CURSOR_* + 1, 0 = class default */
   char *name;
   AwraHandlerEntry *handlers;
   unsigned long handler_mask; /* bit per signal with handlers */
   AwraDataEntry *data;
+  struct AwraA11y *a11y; /* accessibility attributes / exposure (a11y.c), NULL: none */
 } AwraAux;
 
 static inline AwraAux *awra_aux(const AwraWidget *w)
@@ -347,6 +362,9 @@ AwraTypography awra_widget_typography(const AwraWidget *w); /* inherited */
 /* Line metrics */
 float awra_font_ascent(const AwraFont *f);
 float awra_font_line_height(const AwraFont *f); /* Pango's logical line height */
+/* the ascent / descent of `s` in `f` and the fonts it falls back to (emoji, CJK...) */
+void awra_font_extents(const AwraFont *f, const char *s, int len, float *r_ascent,
+                       float *r_descent);
 float awra_text_width(const AwraFont *f, const char *s, int len);
 void awra_draw_text(AwraDraw *d, const AwraFont *f, float x, float baseline, const char *s,
                     int len, const AwraRGBA *color);
@@ -441,11 +459,22 @@ void awra_invalidate(AwraWidget *w);
 /* Keyboard focus */
 void awra_set_focus(AwraWidget *window, AwraWidget *w, bool keyboard);
 AwraWidget *awra_focus_of(AwraWidget *window);
+/* The native window behind a window (NULL offscreen) */
+BKWindow *awra_window_bkw(AwraWidget *window);
+/* transfer.c: a drag's image follows the pointer (window raster px) */
+void awra_drag_icon_pointer(AwraWidget *window, int x, int y, bool left);
+/* identity.c: the window's icon once it has a native window; activation */
+void awra_window_identity_native(AwraWidget *window);
+void awra_window_identity_present(AwraWidget *window);
 /* Style classes: interned bits */
 int awra_class_bit(const char *name);
+bool awra_has_xclass(const AwraWidget *w, int bit); /* classes past the 64 bits */
 static inline bool awra_has_class_bit(const AwraWidget *w, int bit)
 {
-  return bit >= 0 && (awra_aux(w)->classes & (1ull << bit)) != 0;
+  if (bit < 64) {
+    return bit >= 0 && (awra_aux(w)->classes & (1ull << bit)) != 0;
+  }
+  return awra_has_xclass(w, bit);
 }
 enum {
   AWRA_CB_ACCENT = 0, AWRA_CB_MUTED, AWRA_CB_FLAT, AWRA_CB_CIRCULAR, AWRA_CB_DIM,

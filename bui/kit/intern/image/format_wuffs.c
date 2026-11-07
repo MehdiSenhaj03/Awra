@@ -253,6 +253,58 @@ BKImBuf *imb_load_wuffs(const uint8_t *mem, size_t size, int want_w, int want_h)
   return ib;
 }
 
+#ifdef BUI_IMAGE_PNG
+/* Colour bitmap glyphs (CBDT / sbix emoji fonts) for the text engine
+ * (BUI_text_set_png_decoder): premultiplied BGRA rows of `pitch` bytes at
+ * `dst`, or only the size when `dst` is NULL. Straight into FreeType's
+ * glyph bitmap, no intermediate image. */
+int imb_png_decode_bgra(const unsigned char *png, unsigned long len, int *r_w, int *r_h,
+                        unsigned char *dst, int pitch)
+{
+  *r_w = *r_h = 0;
+  if (!png || !imb_is_a_png(png, (size_t)len)) {
+    return 0;
+  }
+  wuffs_base__io_buffer src;
+  wuffs_base__image_config ic;
+  wuffs_base__image_decoder *dec = open_image(png, (size_t)len, &src, &ic);
+  if (!dec) {
+    return 0;
+  }
+  const int w = (int)wuffs_base__pixel_config__width(&ic.pixcfg);
+  const int h = (int)wuffs_base__pixel_config__height(&ic.pixcfg);
+  *r_w = w;
+  *r_h = h;
+  if (!dst) {
+    MEM_freeN(dec);
+    return 1;
+  }
+  int ok = pitch >= w * 4;
+  const uint64_t wl = wuffs_base__image_decoder__workbuf_len(dec).max_incl;
+  uint8_t *work = ok && wl ? (uint8_t *)MEM_mallocN((size_t)wl, "wuffs work") : NULL;
+  ok = ok && (work || !wl);
+  if (ok) {
+    wuffs_base__pixel_config__set(&ic.pixcfg, WUFFS_BASE__PIXEL_FORMAT__BGRA_PREMUL,
+                                  WUFFS_BASE__PIXEL_SUBSAMPLING__NONE, (uint32_t)w, (uint32_t)h);
+    wuffs_base__pixel_buffer pb;
+    wuffs_base__frame_config fc;
+    ok = !wuffs_base__pixel_buffer__set_interleaved(
+              &pb, &ic.pixcfg,
+              wuffs_base__make_table_u8(dst, (size_t)w * 4, (size_t)h, (size_t)pitch),
+              wuffs_base__empty_slice_u8())
+              .repr &&
+         !wuffs_base__image_decoder__decode_frame_config(dec, &fc, &src).repr &&
+         !wuffs_base__image_decoder__decode_frame(dec, &pb, &src, WUFFS_BASE__PIXEL_BLEND__SRC,
+                                                  wuffs_base__make_slice_u8(work, (size_t)wl),
+                                                  NULL)
+              .repr;
+  }
+  MEM_freeN(work);
+  MEM_freeN(dec);
+  return ok;
+}
+#endif
+
 #ifdef BUI_IMAGE_GIF
 
 /* -------------------------------------------------------------------- */

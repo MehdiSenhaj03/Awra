@@ -35,6 +35,20 @@ float BK_scale(void)
 {
   return bk_scale_fac;
 }
+
+#ifdef BUI_IMAGE_PNG
+int imb_png_decode_bgra(const unsigned char *png, unsigned long len, int *r_w, int *r_h,
+                        unsigned char *dst, int pitch);
+#endif
+
+/* BUI-Awra: the text engine's colour bitmap glyphs (CBDT / sbix emoji
+ * fonts) decode their PNGs with the kit's decoder. */
+void BK_text_init_images(void)
+{
+#ifdef BUI_IMAGE_PNG
+  BUI_text_set_png_decoder(imb_png_decode_bgra);
+#endif
+}
 int BK_unit(void)
 {
   return bk_unit();

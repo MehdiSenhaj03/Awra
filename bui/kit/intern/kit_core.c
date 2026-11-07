@@ -2126,6 +2126,23 @@ int BK_drop(BKContext *ctx, int kind, int x, int y, const char *uris)
   return r;
 }
 
+/* BUI-Awra: a system drag took the pointer's press: the release never
+ * comes, so nothing stays grabbed or dragged. */
+void BK_pointer_cancel(BKContext *ctx)
+{
+  if (!ctx) {
+    return;
+  }
+  if (ctx->grab) {
+    bk_invalidate(ctx->grab);
+  }
+  ctx->grab = NULL;
+  ctx->dragging = false;
+  ctx->has_ungrab = false;
+  ctx->press_button = 0;
+  bk_ctx_request(ctx);
+}
+
 int BK_last_key_code(void)
 {
   return bk_last_key_code;
@@ -2282,6 +2299,9 @@ static void draw_region(BKContext *ctx, const BKRect *rect)
     bk_draw_tree(ctx->popups[i]);
   }
   draw_tooltip(ctx);
+  if (ctx->overlay_hook) { /* BUI-Awra: above everything (a drag's image) */
+    ctx->overlay_hook(ctx);
+  }
   bk_clip_reset(w, h);
   bk_image_pass_end();
 }

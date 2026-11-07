@@ -328,17 +328,6 @@ impl Paintable {
     }
 }
 
-/// A widget's picture now (GtkWidgetPaintable): Awra draws no drag
-/// images, so it shows nothing.
-pub struct WidgetPaintable;
-impl WidgetPaintable {
-    pub fn new(_w: Option<&impl IsWidget>) -> WidgetPaintable {
-        WidgetPaintable
-    }
-    pub fn current_image(&self) -> Paintable {
-        Paintable::new(None)
-    }
-}
 
 // ===========================================================================
 // Values, and drag and drop within the application
@@ -396,6 +385,10 @@ struct Dragging {
     over: Option<(Widget, crate::DropTarget, bool)>,
     /// Escape on the window cancels the drag (GTK).
     escape: Option<(Widget, crate::SignalHandlerId)>,
+    /// the image under the pointer (texture, hot spot in its pixels)
+    icon: Option<(Texture, i32, i32)>,
+    /// handed to the system's drag (the pointer left the window)
+    native: bool,
 }
 
 thread_local! {
@@ -413,6 +406,8 @@ struct SourceInner {
     end: RefCell<Vec<EndFn>>,
     widget: RefCell<Option<crate::WeakRef<Widget>>>,
     press: Cell<Option<(f64, f64)>>,
+    icon: RefCell<Option<(Paintable, i32, i32)>>,
+    actions: Cell<crate::DragAction>,
     /// A drag cancelled with Escape: its release clicks nothing.
     swallow_release: Cell<bool>,
 }
@@ -428,8 +423,16 @@ impl DragSource {
     pub fn new() -> DragSource {
         DragSource::default()
     }
-    pub fn set_actions(&self, _a: crate::DragAction) {}
-    pub fn set_icon(&self, _p: Option<&Paintable>, _x: i32, _y: i32) {}
+    /// What a drag out of the window offers (COPY when unset).
+    pub fn set_actions(&self, a: crate::DragAction) {
+        self.0.actions.set(a);
+    }
+    /// The drag's image, its point (x, y) under the pointer (logical px of
+    /// the paintable); without one, a label of the text or an icon, as
+    /// GtkDragSource shows.
+    pub fn set_icon(&self, p: Option<&Paintable>, x: i32, y: i32) {
+        *self.0.icon.borrow_mut() = p.map(|p| (p.clone(), x, y));
+    }
     pub fn widget(&self) -> Option<Widget> {
         self.0.widget.borrow().as_ref().and_then(|w| w.upgrade())
     }
@@ -448,6 +451,24 @@ impl DragSource {
     }
 }
 
+/// The drag left `over`'s destination.
+fn leave_target(over: Option<(Widget, crate::DropTarget, bool)>) {
+    if let Some((w, t, _)) = over {
+        w.set_drop_active(false);
+        t.leave();
+    }
+}
+
+/// What a drag leaves behind once it is over: the destination's state, the
+/// pointer, the Escape handler.
+fn release_state(d: &mut Dragging) {
+    leave_target(d.over.take());
+    d.widget.set_cursor_from_name(None);
+    if let Some((win, id)) = d.escape.take() {
+        win.disconnect(id);
+    }
+}
+
 /// The drop target nearest the point (window coordinates) under the pointer.
 fn target_at(source: &Widget, wx: f64, wy: f64) -> Option<(Widget, crate::DropTarget)> {
     let root = source.root_widget()?;
@@ -461,17 +482,84 @@ fn target_at(source: &Widget, wx: f64, wy: f64) -> Option<(Widget, crate::DropTa
     None
 }
 
-/// The drag left `over`'s destination.
-fn leave_target(over: Option<(Widget, crate::DropTarget, bool)>) {
-    if let Some((w, t, _)) = over {
-        w.set_drop_active(false);
-        t.leave();
+/// The drag's image: the icon set, else GtkDragSource's defaults (a label
+/// of text, an icon), hot spot in texture pixels.
+fn drag_icon(source: &DragSource, widget: &Widget, value: &Value) -> Option<(Texture, i32, i32)> {
+    let scale = widget.scale_factor().max(1);
+    if let Some((p, x, y)) = source.0.icon.borrow().clone() {
+        let t = p.texture()?;
+        // the paintable's logical point, in its texture's pixels
+        let (pw, ph) = (p.intrinsic_width().max(1), p.intrinsic_height().max(1));
+        let (kx, ky) = (t.width() as f64 / pw as f64, t.height() as f64 / ph as f64);
+        let (kx, ky) = if p.intrinsic_width() > 0 && (kx - 1.0).abs() > 1e-3 { (kx, ky) } else { (scale as f64, scale as f64) };
+        return Some((t, (x as f64 * kx) as i32, (y as f64 * ky) as i32));
     }
+    let t = if let Ok(text) = value.get::<String>() {
+        Texture::for_text(&text)
+    } else {
+        Texture::for_icon("text-x-generic-symbolic", 32)
+    }?;
+    Some((t, -2 * scale, -2 * scale))
+}
+
+/// The pointer left the window with a drag of text or files: the system's
+/// drag takes over (other applications can take it).
+fn hand_over(source: &Widget, wx: f64, wy: f64) -> bool {
+    let Some(root) = source.root() else { return false };
+    let root: Widget = root.upcast();
+    let (w, h) = (root.width() as f64, root.height() as f64);
+    if wx >= 0.0 && wy >= 0.0 && wx < w && wy < h {
+        return false;
+    }
+    let Some((value, src, icon)) =
+        DRAGGING.with(|d| d.borrow().as_ref().filter(|d| !d.native).map(|d| (d.value.clone(), d.source.clone(), d.icon.clone())))
+    else {
+        return false;
+    };
+    let (tex, hx, hy) = match &icon {
+        Some((t, x, y)) => (Some(t), *x, *y),
+        None => (None, 0, 0),
+    };
+    let actions = src.0.actions.get();
+    let done = {
+        let src = src.clone();
+        move |action: crate::DragAction| {
+            let d = DRAGGING.with(|d| d.borrow_mut().take());
+            if let Some(mut d) = d {
+                release_state(&mut d);
+            }
+            end_motion_controllers();
+            let ends: Vec<EndFn> = src.0.end.borrow().clone();
+            for e in ends {
+                e(&src, &Drag, action != crate::DragAction::empty());
+            }
+        }
+    };
+    let started = if let Ok(files) = value.get::<crate::FileList>() {
+        crate::transfer::drag_out_files(source, &files.0, tex, hx, hy, actions, done)
+    } else if let Ok(text) = value.get::<String>() {
+        crate::transfer::drag_out_data(source, &[("text/plain;charset=utf-8", text.as_bytes())], tex, hx, hy, actions, done)
+    } else {
+        false
+    };
+    if started {
+        DRAGGING.with(|d| {
+            if let Some(d) = d.borrow_mut().as_mut() {
+                d.native = true;
+                leave_target(d.over.take());
+                d.widget.set_cursor_from_name(None);
+            }
+        });
+    }
+    started
 }
 
 fn drag_motion(source: &Widget, x: f64, y: f64) {
     let Some((sx, sy)) = source.window_position() else { return };
     let (wx, wy) = (sx + x, sy + y);
+    if DRAGGING.with(|d| d.borrow().as_ref().is_some_and(|d| d.native)) || hand_over(source, wx, wy) {
+        return;
+    }
     let found = target_at(source, wx, wy);
     let old = DRAGGING.with(|d| d.borrow_mut().as_mut().and_then(|d| d.over.take()));
     if old.as_ref().is_some_and(|(ow, _, _)| found.as_ref().is_none_or(|(w, _)| w != ow)) {
@@ -494,9 +582,16 @@ fn drag_motion(source: &Widget, x: f64, y: f64) {
     });
 }
 
-/// Ends the drag in progress: dropped at (x, y) of `source`, or cancelled.
+/// Ends the drag in progress: dropped at (x, y) of its source, or
+/// cancelled (None).
 fn drag_end(drop_at: Option<(f64, f64)>) {
+    if drop_at.is_some() && DRAGGING.with(|d| d.borrow().as_ref().is_some_and(|d| d.native)) {
+        return; /* the system's drag ends it */
+    }
     let Some(mut d) = DRAGGING.with(|d| d.borrow_mut().take()) else { return };
+    if let Some(win) = d.widget.root() {
+        win.set_drag_icon(None, 0, 0);
+    }
     let mut dropped = false;
     let over = d.over.take();
     if let (Some((x, y)), Some((sx, sy))) = (drop_at, d.widget.window_position()) {
@@ -507,11 +602,8 @@ fn drag_end(drop_at: Option<(f64, f64)>) {
             }
         }
     }
-    leave_target(over);
-    d.widget.set_cursor_from_name(None);
-    if let Some((win, id)) = d.escape.take() {
-        win.disconnect(id);
-    }
+    d.over = over;
+    release_state(&mut d);
     end_motion_controllers();
     let ends: Vec<EndFn> = d.source.0.end.borrow().clone();
     for e in ends {
@@ -542,10 +634,14 @@ impl crate::widget::Controller for DragSource {
             let Some(content) = prepare.and_then(|p| p(&me, px, py)) else { return };
             // a drag already under way (another source) ends first
             drag_end(None);
+            let icon = drag_icon(&me, w, &content.0);
+            if let (Some(win), Some((t, hx, hy))) = (w.root(), icon.as_ref()) {
+                win.set_drag_icon(Some(t), *hx, *hy);
+            }
             let escape = w.root_widget().map(|win| {
                 let id = win.connect_raw(sig::KEY_CAPTURE, |_, a| {
                     if a.keysym().as_deref() == Some("Escape") {
-                        let source = DRAGGING.with(|d| d.borrow().as_ref().map(|d| d.source.clone()));
+                        let source = DRAGGING.with(|d| d.borrow().as_ref().filter(|d| !d.native).map(|d| d.source.clone()));
                         if let Some(s) = source {
                             s.0.swallow_release.set(true);
                             s.0.press.set(None);
@@ -557,8 +653,15 @@ impl crate::widget::Controller for DragSource {
                 (win, id)
             });
             DRAGGING.with(|d| {
-                *d.borrow_mut() =
-                    Some(Dragging { value: content.0, source: me.clone(), widget: w.clone(), over: None, escape })
+                *d.borrow_mut() = Some(Dragging {
+                    value: content.0,
+                    source: me.clone(),
+                    widget: w.clone(),
+                    over: None,
+                    escape,
+                    icon,
+                    native: false,
+                })
             });
             me.0.press.set(Some((px, py)));
             let begins: Vec<BeginFn> = me.0.begin.borrow().clone();
@@ -672,11 +775,8 @@ impl crate::Header {
 }
 
 impl crate::Window {
-    /// The desktop names the window's icon from the application id.
-    pub fn set_icon_name(&self, _name: Option<&str>) {}
     /// Awra shows focus rings for keyboard use only, by itself.
     pub fn set_focus_visible(&self, _v: bool) {}
-    pub fn set_startup_id(&self, _id: &str) {}
 }
 
 /// gtk-rs GtkWindowExt (for the calls that name it).
@@ -744,19 +844,6 @@ impl crate::VolumeControl {
     pub fn connect_muted_notify<F: Fn(&crate::VolumeControl) + 'static>(&self, f: F) -> SignalHandlerId {
         self.connect_typed::<crate::VolumeControl, _>(sig::TOGGLED, move |w, _| f(w))
     }
-}
-
-pub mod accessible {
-    //! GtkAccessible properties (Awra 2 has no accessibility tree yet).
-    pub enum Property<'a> {
-        Label(&'a str),
-        Description(&'a str),
-    }
-}
-
-impl Widget {
-    /// Accessible properties (no accessibility tree yet: kept nowhere).
-    pub fn update_property(&self, _props: &[accessible::Property]) {}
 }
 
 // ===========================================================================

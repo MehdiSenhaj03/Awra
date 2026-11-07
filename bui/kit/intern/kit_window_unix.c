@@ -53,6 +53,15 @@ float bkwl_window_scale(BKWindow *win);
 const char * bkwl_window_backend(void);
 int bkwl_window_wake_ready(void);
 void bkwl_loop_wake_host(void);
+int bkwl_window_clipboard_set(BKWindow *win, const BKClipItem *items, int n);
+char * bkwl_window_clipboard_formats(BKWindow *win);
+void * bkwl_window_clipboard_read(BKWindow *win, const char *mime, size_t *r_len);
+int bkwl_window_drag_start(BKWindow *win, const BKClipItem *items, int n, const uint32_t *icon,
+                         int icon_w, int icon_h, int hot_x, int hot_y, int actions,
+                         BKDragDoneFn done, void *user);
+void bkwl_window_set_icon(BKWindow *win, const char *name, const uint32_t *const *pixels,
+                        const int *sizes, int n);
+void bkwl_window_activate(BKWindow *win, const char *startup_id);
 #  endif
 #  ifdef BUI_WINDOW_X11
 int bkx11_window_supported(void);
@@ -96,6 +105,15 @@ float bkx11_window_scale(BKWindow *win);
 const char * bkx11_window_backend(void);
 int bkx11_window_wake_ready(void);
 void bkx11_loop_wake_host(void);
+int bkx11_window_clipboard_set(BKWindow *win, const BKClipItem *items, int n);
+char * bkx11_window_clipboard_formats(BKWindow *win);
+void * bkx11_window_clipboard_read(BKWindow *win, const char *mime, size_t *r_len);
+int bkx11_window_drag_start(BKWindow *win, const BKClipItem *items, int n, const uint32_t *icon,
+                         int icon_w, int icon_h, int hot_x, int hot_y, int actions,
+                         BKDragDoneFn done, void *user);
+void bkx11_window_set_icon(BKWindow *win, const char *name, const uint32_t *const *pixels,
+                        const int *sizes, int n);
+void bkx11_window_activate(BKWindow *win, const char *startup_id);
 #  endif
 
 /* 1 Wayland, 2 X11, 0 not chosen yet */
@@ -333,6 +351,40 @@ void bk_loop_wake_host(void)
   if (g_backend) {
     DISPATCH(loop_wake_host)();
   }
+}
+
+int BK_window_clipboard_set(BKWindow *win, const BKClipItem *items, int n)
+{
+  return DISPATCH(window_clipboard_set)(win, items, n);
+}
+
+char * BK_window_clipboard_formats(BKWindow *win)
+{
+  return DISPATCH(window_clipboard_formats)(win);
+}
+
+void * BK_window_clipboard_read(BKWindow *win, const char *mime, size_t *r_len)
+{
+  return DISPATCH(window_clipboard_read)(win, mime, r_len);
+}
+
+int BK_window_drag_start(BKWindow *win, const BKClipItem *items, int n, const uint32_t *icon,
+                         int icon_w, int icon_h, int hot_x, int hot_y, int actions,
+                         BKDragDoneFn done, void *user)
+{
+  return DISPATCH(window_drag_start)(win, items, n, icon, icon_w, icon_h, hot_x, hot_y, actions,
+                                     done, user);
+}
+
+void BK_window_set_icon(BKWindow *win, const char *name, const uint32_t *const *pixels,
+                        const int *sizes, int n)
+{
+  DISPATCH(window_set_icon)(win, name, pixels, sizes, n);
+}
+
+void BK_window_activate(BKWindow *win, const char *startup_id)
+{
+  DISPATCH(window_activate)(win, startup_id);
 }
 
 #endif

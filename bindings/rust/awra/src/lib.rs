@@ -16,6 +16,7 @@
 pub use awra_sys as ffi;
 
 pub mod object;
+pub mod accessible;
 mod compat;
 mod compat2;
 mod compat3;
@@ -28,6 +29,7 @@ mod collection;
 mod window;
 mod video;
 mod dnd;
+mod transfer;
 pub mod gdk;
 pub mod gio;
 pub mod glib;
@@ -40,6 +42,10 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 pub use enums::*;
+pub use accessible::{
+    AccessibleAnnouncementPriority, AccessibleAutocomplete, AccessibleInvalidState, AccessibleRole,
+    AccessibleSort, AccessibleTristate,
+};
 pub use gio::Application;
 pub use object::{IntoOptStr, IntoOptWidget, IsWidget, StaticType, WeakRef, Widget};
 pub use signal::{raw_args as signal_args, sig, Args, SignalHandlerId};
@@ -52,6 +58,7 @@ pub use compat2::*;
 pub use compat3::*;
 pub use pango::WrapMode;
 pub use content::*;
+pub use transfer::{drag_out_data, drag_out_files, widget_snapshot, ContentFormats, ContentType, TextureType, WidgetPaintable};
 pub use window::{accel_label, ApplicationWindow, Window};
 
 pub mod prelude {
