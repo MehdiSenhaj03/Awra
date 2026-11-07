@@ -924,6 +924,7 @@ AwraWidget *awra_badge_group_new(void)
   AwraWidget *w = awra_flow_box_new();
   awra_flow_box_set_selection_mode(w, AWRA_SELECTION_NONE);
   awra_flow_box_set_spacing(w, 6, 6);
+  awra_flow_box_set_child_padding(w, 0); /* awrabadgegroup flowboxchild: padding 0 */
   awra_widget_set_name(w, "AwraBadgeGroup");
   return w;
 }
