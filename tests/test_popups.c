@@ -293,6 +293,9 @@ int main(int argc, char **argv)
       {"Quit", NULL, NULL, -1, true, true, NULL, NULL},
   };
   awra_menu_button_set_menu(button, items, 3);
+  awra_widget_unref(hover); /* the tree holds them */
+  awra_widget_unref(button);
+  awra_widget_unref(box);
   frame();
   BKContext *ctx = awra_ctx(g_win);
   AwraWidget *menu = awra_menu_button_popover(button);
