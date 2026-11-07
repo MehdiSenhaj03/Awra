@@ -228,17 +228,13 @@ fn sync_bound_widgets(name: &str, enabled: bool) {
 // ---------------------------------------------------------------------------
 // Menus
 
-/// An icon by name (menus show it).
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ThemedIcon(String);
-impl ThemedIcon {
-    pub fn new(name: &str) -> ThemedIcon {
-        ThemedIcon(name.to_owned())
-    }
-    pub fn name(&self) -> &str {
-        &self.0
-    }
-}
+/// GThemedIcon and GIO's content types: in icontheme.rs.
+pub use crate::icontheme::{
+    content_type_can_be_executable, content_type_equals, content_type_for_file, content_type_from_mime_type,
+    content_type_get_description, content_type_get_generic_icon_name, content_type_get_icon,
+    content_type_get_mime_type, content_type_get_symbolic_icon, content_type_guess, content_type_is_a,
+    content_type_is_mime_type, content_type_is_unknown, ThemedIcon,
+};
 
 /// One entry of a menu.
 #[derive(Debug, Clone, Default)]
