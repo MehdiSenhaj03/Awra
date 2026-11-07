@@ -5,7 +5,7 @@ fn main() {
     let app = awra::Application::new("org.awra.Smoke");
     let window = awra::Window::offscreen("Smoke", 640, 400, 1.0);
     let column = awra::Box::new(awra::Orientation::Vertical, 8);
-    let label = awra::Label::new("Hello");
+    let label = awra::Label::new(Some("Hello"));
     let button = awra::Button::with_label("Click");
     button.set_action_name(Some("win.hello"));
     column.append(&label);

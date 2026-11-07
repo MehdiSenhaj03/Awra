@@ -1093,8 +1093,17 @@ macro_rules! entry_ops {
             pub fn set_max_length(&self, n: i32) {
                 unsafe { ffi::awra_entry_set_max_length(ptr!(self), n) }
             }
-            pub fn select_region(&self, _start: i32, _end: i32) {
-                unsafe { ffi::awra_entry_select_all(ptr!(self)) }
+            /// Selects characters [start, end) (end < 0: to the end), GTK's offsets.
+            pub fn select_region(&self, start: i32, end: i32) {
+                let text = self.text();
+                let byte = |chars: i32| -> i32 {
+                    if chars < 0 {
+                        -1
+                    } else {
+                        text.char_indices().nth(chars as usize).map_or(text.len() as i32, |(b, _)| b as i32)
+                    }
+                };
+                unsafe { ffi::awra_entry_select_region(ptr!(self), byte(start), byte(end)) }
             }
             pub fn select_all(&self) {
                 unsafe { ffi::awra_entry_select_all(ptr!(self)) }

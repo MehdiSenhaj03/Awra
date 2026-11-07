@@ -22,10 +22,4 @@ emblem-ok-symbolic process-stop-symbolic system-run-symbolic user-home-symbolic 
 network-wireless-symbolic camera-photo-symbolic image-x-generic-symbolic text-x-generic-symbolic
 applications-multimedia-symbolic list-drag-handle-symbolic mail-send-symbolic sidebar-show-symbolic
 document-properties-symbolic folder-download-symbolic insert-image-symbolic zoom-in-symbolic zoom-out-symbolic
-audio-card-symbolic
-media-view-subtitles-symbolic
-media-playlist-repeat-song-symbolic
-video-display-symbolic
-preferences-system-time-symbolic
-bookmark-new-symbolic
-folder-new-symbolic
+audio-card-symbolic media-view-subtitles-symbolic media-playlist-repeat-song-symbolic video-display-symbolic preferences-system-time-symbolic bookmark-new-symbolic folder-new-symbolic drive-harddisk-symbolic drive-removable-media-symbolic media-eject-symbolic user-desktop-symbolic folder-documents-symbolic folder-pictures-symbolic folder-videos-symbolic user-trash-full-symbolic tab-new-symbolic computer-symbolic utilities-terminal-symbolic edit-select-all-symbolic package-x-generic-symbolic folder-remote-symbolic x-office-document-symbolic view-dual-symbolic

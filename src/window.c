@@ -547,6 +547,18 @@ static char *uris_to_paths(const char *uris)
   return out;
 }
 
+/* drop-hover and files-dropped carry the pointer, relative to the target */
+static void emit_drop(AwraWidget *t, AwraSignal sig, bool active, int x, int y, const char *text)
+{
+  AwraArgs a = {0};
+  a.signal = sig;
+  a.active = active;
+  a.text = text;
+  a.x = (x - t->x) / awra_scale();
+  a.y = (y - t->y) / awra_scale();
+  awra_emit(t, &a);
+}
+
 static int drop_hook(BKContext *ctx, int kind, int x, int y, const char *uris)
 {
   AwraWidget *win = window_of_ctx(ctx);
@@ -560,10 +572,7 @@ static int drop_hook(BKContext *ctx, int kind, int x, int y, const char *uris)
       if (awra_widget_is(old, "AwraKeyboardView")) {
         awra_keyboard_view_drop(old, BK_DROP_LEAVE, x, y, NULL);
       }
-      awra_emit_active(old, AWRA_SIGNAL_DROP_HOVER, false);
-    }
-    if (t) {
-      awra_emit_active(t, AWRA_SIGNAL_DROP_HOVER, true);
+      emit_drop(old, AWRA_SIGNAL_DROP_HOVER, false, x, y, NULL);
     }
     awra_widget_set_data(win, "awra-drop-target", t, NULL);
   }
@@ -571,6 +580,9 @@ static int drop_hook(BKContext *ctx, int kind, int x, int y, const char *uris)
     return 0;
   }
   if (awra_widget_is(t, "AwraKeyboardView")) {
+    if (old != t) {
+      awra_emit_active(t, AWRA_SIGNAL_DROP_HOVER, true);
+    }
     char *paths = kind == BK_DROP_DROP && uris ? uris_to_paths(uris) : NULL;
     const bool ok = awra_keyboard_view_drop(t, kind, x, y, paths ? paths : "");
     free(paths);
@@ -583,9 +595,13 @@ static int drop_hook(BKContext *ctx, int kind, int x, int y, const char *uris)
   if (kind == BK_DROP_DROP && uris) {
     char *paths = uris_to_paths(uris);
     awra_widget_set_data(win, "awra-drop-target", NULL, NULL);
-    awra_emit_active(t, AWRA_SIGNAL_DROP_HOVER, false);
-    awra_emit_text(t, AWRA_SIGNAL_FILES_DROPPED, paths);
+    emit_drop(t, AWRA_SIGNAL_DROP_HOVER, false, x, y, NULL);
+    emit_drop(t, AWRA_SIGNAL_FILES_DROPPED, false, x, y, paths);
     free(paths);
+  }
+  else {
+    /* every move: a widget with places inside (rows, tiles) follows it */
+    emit_drop(t, AWRA_SIGNAL_DROP_HOVER, true, x, y, NULL);
   }
   return 1;
 }

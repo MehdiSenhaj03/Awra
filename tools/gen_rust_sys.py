@@ -20,6 +20,9 @@ CALLBACKS = {
     "AwraDestroyNotify": "Option<unsafe extern \"C\" fn(*mut c_void)>",
     "AwraFileCallback": "Option<unsafe extern \"C\" fn(*const c_char, *mut c_void)>",
     "AwraDrawFunc": "Option<unsafe extern \"C\" fn(*mut AwraWidget, *mut AwraCanvas, c_int, c_int, *mut c_void)>",
+    "AwraCollectionSetup": "Option<unsafe extern \"C\" fn(*mut AwraWidget, c_int, *mut c_void) -> *mut AwraWidget>",
+    "AwraCollectionBind": "Option<unsafe extern \"C\" fn(*mut AwraWidget, *mut AwraWidget, c_int, c_int, *mut c_void)>",
+    "AwraCollectionUnbind": "Option<unsafe extern \"C\" fn(*mut AwraWidget, *mut AwraWidget, c_int, c_int, *mut c_void)>",
 }
 
 def rtype(t):

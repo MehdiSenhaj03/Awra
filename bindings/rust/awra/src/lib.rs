@@ -20,6 +20,7 @@ mod signal;
 mod enums;
 mod widget;
 mod widgets;
+mod collection;
 mod window;
 mod video;
 pub mod gdk;
@@ -38,6 +39,7 @@ pub use signal::{raw_args as signal_args, sig, Args, SignalHandlerId};
 pub use widget::*;
 pub use widgets::*;
 pub use video::*;
+pub use collection::*;
 pub use window::{accel_label, ApplicationWindow, Window};
 
 pub mod prelude {

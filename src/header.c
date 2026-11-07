@@ -13,7 +13,7 @@ typedef struct HeaderExt {
   AwraWidget *start_box, *end_box, *center, *titles, *title, *subtitle;
   AwraWidget *controls;           /* box of window control buttons */
   AwraWidget *minimize, *maximize, *close;
-  bool show_controls, blend, drag, compact;
+  bool show_controls, blend, drag, compact, expand_center;
   bool dragging;
   int material;     /* when not blended (default Chrome) */
   int max_width;    /* logical, 0: none */
@@ -64,6 +64,9 @@ static void header_measure(AwraWidget *w, int o, int for_size, int *r_min, int *
       cnat = BK_MAX(cnat, awra_px(568));
       *r_nat = cnat + 2 * BK_MAX(snat, enat) + 2 * px;
     }
+    if (x->expand_center) {
+      *r_nat = snat + cnat + enat + 2 * px;
+    }
     if (x->max_width > 0) {
       /* Awra 1: the header spans max-width (centered) when there is room */
       *r_nat = BK_MAX(*r_min, awra_px(x->max_width));
@@ -100,8 +103,9 @@ static void header_allocate(AwraWidget *w)
   if (x->center) {
     const int gap_start = start_w, gap_end = W - end_w;
     const int gap = BK_MAX(0, gap_end - gap_start);
-    /* expand-center is off: the centre keeps its preferred span */
-    int cw = BK_MIN(cnat, gap);
+    /* expand-center: the centre takes the whole gap; otherwise it keeps
+     * its preferred span */
+    int cw = x->expand_center ? gap : BK_MIN(cnat, gap);
     cw = BK_MAX(cw, BK_MIN(cmin, gap));
     int cx = (W - cw) / 2;
     cx = BK_CLAMP(cx, gap_start, BK_MAX(gap_start, gap_end - cw));
@@ -345,6 +349,24 @@ void awra_header_set_drag_enabled(AwraWidget *w, bool drag);
 void awra_header_set_drag_enabled(AwraWidget *w, bool drag)
 {
   HX(w)->drag = drag;
+}
+
+void awra_header_set_expand_center(AwraWidget *w, bool expand)
+{
+  HX(w)->expand_center = expand;
+  awra_widget_queue_resize(w);
+}
+
+/* Toolbar buttons inside a compact header are compact too (awra.css
+ * awraheader.awra-compact .awra-toolbar-button: 5 x 8 padding, 22 px min). */
+bool awra_in_compact_header(const AwraWidget *w)
+{
+  for (const BKNode *p = w->parent; p; p = p->parent) {
+    if (awra_is_widget(p) && awra_widget_is(p, "AwraHeader")) {
+      return HX(p)->compact;
+    }
+  }
+  return false;
 }
 
 void awra_header_set_compact(AwraWidget *w, bool compact);
