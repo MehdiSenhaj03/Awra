@@ -540,8 +540,9 @@ static void update_hover(AwraWidget *win, int x, int y, bool leave)
   }
   memcpy(wx->path, np, sizeof(AwraWidget *) * (size_t)nn);
   wx->npath = nn;
-  /* motion to the widgets that listen, deepest first */
-  if (!leave) {
+  /* motion to the widgets that listen, deepest first (none under a modal
+   * window: only the hover follows the pointer there) */
+  if (!leave && !wx->ctx->blocked) {
     for (int k = nn - 1; k >= 0; k--) {
       AwraWidget *n = np[k];
       if (awra_has_handlers(n, AWRA_SIGNAL_MOTION) && !(wx->ctx->grab == n)) {

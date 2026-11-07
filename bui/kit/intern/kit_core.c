@@ -3651,6 +3651,10 @@ int BK_motion(BKContext *ctx, int x, int y, int mods)
     /* BUI-Awra: under a modal window GTK still moves :hover with the
      * pointer (crossings are handled before the grab is checked); motion
      * itself reaches no one */
+    if (ctx->pointer_hook) { /* the host's hover (motion reaches no one) */
+      ctx->pointer_hook(ctx, (x <= -50000 || y <= -50000) ? BK_EV_LEAVE : BK_EV_MOTION, x, y,
+                        mods);
+    }
     BKNode *under = (x <= -50000 || y <= -50000) ? NULL : hit_all(ctx, x, y);
     if (under != ctx->hover && !ctx->grab && !ctx->modal) {
       set_hover(ctx, under);
