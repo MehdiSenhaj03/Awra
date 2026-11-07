@@ -640,7 +640,13 @@ static bool focusable(const AwraWidget *n)
 
 static void collect_focusable(AwraWidget *n, AwraWidget **out, int *count, int max)
 {
-  if (!(n->flags & NF_VISIBLE) || *count >= max) {
+  static int leaving = -2;
+  if (leaving == -2) {
+    leaving = awra_class_bit("stack-leaving");
+  }
+  if (!(n->flags & NF_VISIBLE) || *count >= max ||
+      (leaving >= 0 && awra_is_widget(n) && awra_has_class_bit(n, leaving)))
+  {
     return;
   }
   if (focusable(n)) {
@@ -883,7 +889,10 @@ static int key_hook(BKContext *ctx, int press, const char *text, const char *key
   if (press) {
     x->key_press_focus = x->focus;
   }
-  else if (x->focus && x->focus != x->key_press_focus && awra_is_widget(x->focus) &&
+  else if (x->focus_moving) {
+    focus_move(win); /* the focus the key took away moves now (its idle is a no-op) */
+  }
+  if (!press && x->focus && x->focus != x->key_press_focus && awra_is_widget(x->focus) &&
            !awra_aux(x->focus)->focus_visible)
   {
     awra_aux(x->focus)->focus_visible = 1;
