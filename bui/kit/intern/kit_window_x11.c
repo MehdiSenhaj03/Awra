@@ -246,6 +246,10 @@ struct BKWindow {
   int root_x, root_y; /* the window's origin on the screen when popups were placed */
   int leave_pending;  /* the pointer left a surface: a leave unless it entered another */
   int mapped;         /* shown: the WM is asked for state changes */
+  /* BUI-Awra: focus as GDK tracks it (gdkdevicemanager-core-x11.c): active
+   * while it has the focus or, with the focus on PointerRoot (no window
+   * manager), the pointer */
+  int has_focus, has_focus_window, has_pointer_focus, has_pointer;
 };
 
 static Display *g_dpy = NULL;
@@ -596,6 +600,129 @@ static int mods_of(unsigned state)
   return m;
 }
 
+/* BUI-Awra: the window is active as GDK's toplevel is (HAS_FOCUS): with the
+ * keyboard focus or, with no window manager and the focus on PointerRoot,
+ * with the pointer (gdkdevicemanager-xi2.c, gdkeventsource.c). */
+static void x11_focus_update(BKWindow *win, int had)
+{
+  const int active = win->has_focus || win->has_pointer_focus;
+  if (active == had) {
+    return;
+  }
+  const int st = active ? (win->states | BK_WSTATE_ACTIVE) : (win->states & ~BK_WSTATE_ACTIVE);
+  if (st != win->states) {
+    win->states = st;
+    if (win->cb.on_state) {
+      win->cb.on_state(win->cb.data, win, win->states);
+    }
+  }
+}
+
+/* Whether a window manager runs: _NET_SUPPORTING_WM_CHECK names a window
+ * that names itself, checked again 15 s later at most, as GDK does. */
+static int x11_ignore_error(Display *dpy, XErrorEvent *e)
+{
+  (void)dpy;
+  (void)e;
+  return 0;
+}
+
+static int x11_wm_running(void)
+{
+  static int known = -1;
+  static double checked = -100.0;
+  const double now = now_ms() / 1000.0;
+  if (known >= 0 && now - checked < 15.0) {
+    return known;
+  }
+  checked = now;
+  known = 0;
+  Atom check = XInternAtom(g_dpy, "_NET_SUPPORTING_WM_CHECK", False);
+  Atom type;
+  int format;
+  unsigned long n, after;
+  unsigned char *data = NULL;
+  if (XGetWindowProperty(g_dpy, DefaultRootWindow(g_dpy), check, 0, 1, False, XA_WINDOW, &type,
+                         &format, &n, &after, &data) == Success &&
+      data && n == 1 && format == 32)
+  {
+    Window w = *(Window *)data;
+    unsigned char *self = NULL;
+    int (*old)(Display *, XErrorEvent *) = XSetErrorHandler(x11_ignore_error);
+    if (XGetWindowProperty(g_dpy, w, check, 0, 1, False, XA_WINDOW, &type, &format, &n, &after,
+                           &self) == Success &&
+        self && n == 1 && *(Window *)self == w)
+    {
+      known = 1;
+    }
+    XSync(g_dpy, False);
+    XSetErrorHandler(old);
+    if (self) {
+      XFree(self);
+    }
+  }
+  if (data) {
+    XFree(data);
+  }
+  return known;
+}
+
+static int x11_ungrab_mode(int mode)
+{
+  return mode != NotifyGrab && mode != NotifyUngrab;
+}
+
+/* gdk_x11_event_source_handle_focus_change */
+static void x11_focus_change(BKWindow *win, int detail, int mode, int focus_in)
+{
+  const int had = win->has_focus || win->has_pointer_focus;
+  switch (detail) {
+    case NotifyAncestor:
+    case NotifyVirtual:
+      /* from receiving keys by the pointer focus to by the focus window */
+      if (win->has_pointer && !x11_wm_running() && x11_ungrab_mode(mode)) {
+        win->has_pointer_focus = !focus_in;
+      }
+      /* fall through */
+    case NotifyNonlinear:
+    case NotifyNonlinearVirtual:
+      if (x11_ungrab_mode(mode)) {
+        win->has_focus_window = focus_in;
+      }
+      /* the focus moves to a grab window, as GDK pretends */
+      if (mode != NotifyWhileGrabbed) {
+        win->has_focus = focus_in;
+      }
+      break;
+    case NotifyPointer:
+      /* the pointer focus is ignored while a grab is in effect */
+      if (!x11_wm_running() && x11_ungrab_mode(mode)) {
+        win->has_pointer_focus = focus_in;
+      }
+      break;
+    default: /* NotifyInferior, NotifyPointerRoot, NotifyDetailNone */
+      break;
+  }
+  x11_focus_update(win, had);
+}
+
+/* handle_focus_change: without a window manager, a crossing with the focus
+ * on PointerRoot (or an ancestor) gives or takes the pointer focus, unless
+ * the window has the focus itself */
+static void x11_crossing_focus(BKWindow *win, const XCrossingEvent *c, int focus_in)
+{
+  if (c->detail == NotifyInferior || x11_wm_running()) {
+    return;
+  }
+  win->has_pointer = focus_in;
+  if (!c->focus || win->has_focus_window) {
+    return;
+  }
+  const int had = win->has_focus || win->has_pointer_focus;
+  win->has_pointer_focus = focus_in;
+  x11_focus_update(win, had);
+}
+
 static void handle_key(BKWindow *win, XKeyEvent *ke, int press)
 {
   bk_last_key_code = (int)ke->keycode - 8;
@@ -676,6 +803,7 @@ static void handle_event(XEvent *ev)
       {
         win->leave_pending = 1;
       }
+      x11_crossing_focus(win, &ev->xcrossing, 0);
       break;
     case ButtonPress: {
       const XButtonEvent *b = &ev->xbutton;
@@ -728,18 +856,13 @@ static void handle_event(XEvent *ev)
       }
       handle_key(win, &ev->xkey, ev->type == KeyPress);
       break;
-    case FocusIn:
-    case FocusOut: {
-      const int st = ev->type == FocusIn ? (win->states | BK_WSTATE_ACTIVE) :
-                                           (win->states & ~BK_WSTATE_ACTIVE);
-      if (st != win->states) {
-        win->states = st;
-        if (win->cb.on_state) {
-          win->cb.on_state(win->cb.data, win, win->states);
-        }
-      }
+    case EnterNotify:
+      x11_crossing_focus(win, &ev->xcrossing, ev->type == EnterNotify);
       break;
-    }
+    case FocusIn:
+    case FocusOut:
+      x11_focus_change(win, ev->xfocus.detail, ev->xfocus.mode, ev->type == FocusIn);
+      break;
     case ClientMessage:
       if ((Atom)ev->xclient.data.l[0] == a_delete) {
         if (!win->cb.on_close || win->cb.on_close(win->cb.data, win)) {
@@ -776,7 +899,7 @@ BKWindow *BK_window_new_ex(BKContext *ctx, const char *title, int width, int hei
   memset(&attr, 0, sizeof(attr));
   attr.background_pixel = BlackPixel(g_dpy, screen);
   attr.event_mask = ExposureMask | StructureNotifyMask | PointerMotionMask | ButtonPressMask |
-                    ButtonReleaseMask | KeyPressMask | KeyReleaseMask | LeaveWindowMask |
+                    ButtonReleaseMask | KeyPressMask | KeyReleaseMask | LeaveWindowMask | EnterWindowMask |
                     FocusChangeMask | PropertyChangeMask; /* PropertyNotify: INCR transfers */
   win->flags = flags;
   XVisualInfo vi;
