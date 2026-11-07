@@ -688,11 +688,94 @@ static hb_buffer_t *g_hb_buf = NULL;
 
 #  define TEXT_INVISIBLE 0x10FFFFu /* the glyph HarfBuzz gives default ignorables */
 
-/* Shapes characters [a, b) of `cp` (the run's text, the context) in slot
- * `slot` at bidi level `level`, script `script`, language `lang`, and
- * appends their glyphs (visual order) at pen `*pen`. */
-static void text_shape_item(WRun *w, int slot, const uint32_t *cp, const int *off, int n, int a, int b,
-                            int level, hb_script_t script, const char *lang, float *pen)
+/* What shaping an item takes besides its text (BuiTextContext): a hyphen
+ * after its last character (1) or in place of it (2), letter spacing in
+ * Pango units and the cursor positions it goes between (per character of
+ * the run; NULL without letter spacing). */
+typedef struct ShapeOpts {
+  int hyphen;
+  int ls;
+  const uint8_t *cursor;
+} ShapeOpts;
+
+/* pango_glyph_item_letter_space and shape_run's padding over the item's
+ * glyphs [g0, w->n) (visual order), characters [a, b) of the run: half the
+ * spacing before each cluster that starts a grapheme, half after. */
+static void text_letter_space(WRun *w, int g0, const int *ci, int a, int b, int rtl, const ShapeOpts *o)
+{
+  const int g1 = w->n;
+  if (g1 <= g0) {
+    return;
+  }
+  int sl = o->ls / 2;
+  if ((o->ls & 1023) == 0) {
+    sl = (sl + 512) & ~1023; /* hinting: PANGO_UNITS_ROUND */
+  }
+  const float L = (float)sl / 1024.0f, R = (float)(o->ls - sl) / 1024.0f;
+  const int nc = b - a;
+  WGlyph *g = w->g;
+  if (!rtl) {
+    for (int i = g0; i < g1;) {
+      int j = i;
+      while (j < g1 && ci[j - g0] == ci[i - g0]) {
+        j++;
+      }
+      const int start_char = ci[i - g0] - a, end_char = j < g1 ? ci[j - g0] - a : nc;
+      if (!o->cursor[ci[i - g0]]) {
+        if (g[i].adv == 0.0f) {
+          g[i].dx -= R;
+        }
+      }
+      else {
+        if (start_char > 0) {
+          g[i].adv += L;
+          g[i].dx += L;
+        }
+        if (end_char < nc) {
+          g[j - 1].adv += R;
+        }
+      }
+      i = j;
+    }
+  }
+  else {
+    for (int i = g1 - 1; i >= g0;) {
+      int j = i;
+      while (j >= g0 && ci[j - g0] == ci[i - g0]) {
+        j--;
+      }
+      const int start_char = ci[i - g0] - a, end_char = j >= g0 ? ci[j - g0] - a : nc;
+      if (!o->cursor[ci[i - g0]]) {
+        if (g[i].adv == 0.0f) {
+          g[i].dx += L;
+        }
+      }
+      else {
+        if (start_char > 0) {
+          g[i].adv += R;
+        }
+        if (end_char < nc) {
+          g[j + 1].dx += L;
+          g[j + 1].adv += L;
+        }
+      }
+      i = j;
+    }
+  }
+  /* shape_run: the item's own first and last half spaces */
+  g[g0].adv += L;
+  g[g0].dx += L;
+  g[g1 - 1].adv += R;
+}
+
+/* Shapes characters [a, b) of the run (indices into `cp`, its characters;
+ * cp[-npre .. n + npost) is valid: the paragraph's text around it, the
+ * context HarfBuzz joins and reorders across, as pango_hb_shape gives it)
+ * in slot `slot` at bidi level `level`, script `script`, language `lang`,
+ * and appends their glyphs (visual order) at pen `*pen`. */
+static void text_shape_item(WRun *w, int slot, const uint32_t *cp, int npre, int ncp, const int *off,
+                            int a, int b, int level, hb_script_t script, const char *lang, float *pen,
+                            const ShapeOpts *o)
 {
   FontSlot *s = &g_fonts[slot];
   hb_font_t *font = slot_hb(s);
@@ -710,17 +793,46 @@ static void text_shape_item(WRun *w, int slot, const uint32_t *cp, const int *of
   hb_buffer_set_cluster_level(buf, HB_BUFFER_CLUSTER_LEVEL_MONOTONE_CHARACTERS);
   hb_buffer_set_flags(buf, (hb_buffer_flags_t)(HB_BUFFER_FLAG_BOT | HB_BUFFER_FLAG_EOT));
   hb_buffer_set_invisible_glyph(buf, TEXT_INVISIBLE);
-  hb_buffer_add_codepoints(buf, cp, n, (unsigned int)a, b - a);
-  hb_shape(font, buf, NULL, 0);
+  const int bb = o->hyphen == 2 && b > a ? b - 1 : b; /* the hyphen replaces the last character */
+  hb_buffer_add_codepoints(buf, cp - npre, ncp, (unsigned int)(a + npre), bb - a);
+  if (o->hyphen && b > a) {
+    /* pango_hb_shape: a Unicode hyphen, else an ASCII one (hb_buffer_add
+     * drops the post-context) */
+    hb_codepoint_t gid;
+    const hb_codepoint_t hc = hb_font_get_nominal_glyph(font, 0x2010, &gid) ? 0x2010 :
+                              hb_font_get_nominal_glyph(font, '-', &gid)    ? '-' :
+                                                                              0;
+    if (hc) {
+      hb_buffer_add(buf, hc, (unsigned int)(b - 1 + npre));
+    }
+  }
+  /* letter spacing turns ligatures off (pango_analysis_collect_features) */
+  hb_feature_t feats[4];
+  unsigned nf = 0;
+  if (o->ls) {
+    static const char tags[4][5] = {"liga", "clig", "dlig", "hlig"};
+    for (int i = 0; i < 4; i++) {
+      feats[i].tag = HB_TAG(tags[i][0], tags[i][1], tags[i][2], tags[i][3]);
+      feats[i].value = 0;
+      feats[i].start = HB_FEATURE_GLOBAL_START;
+      feats[i].end = HB_FEATURE_GLOBAL_END;
+    }
+    nf = 4;
+  }
+  hb_shape(font, buf, nf ? feats : NULL, nf);
   unsigned int ng = 0;
   const hb_glyph_info_t *info = hb_buffer_get_glyph_infos(buf, &ng);
   const hb_glyph_position_t *pos = hb_buffer_get_glyph_positions(buf, NULL);
   const float k = 1.0f / 1024.0f;
   const int item = w->nit - 1;
+  const int g0 = w->n;
+  const float pen0 = *pen;
+  int cil[64];
+  int *ci = !o->ls ? NULL : ng <= 64 ? cil : (int *)malloc(sizeof(int) * ng);
   for (unsigned int i = 0; i < ng; i++) {
     WGlyph *g = wrun_push(w);
     if (!g) {
-      return;
+      break;
     }
     float adv = (float)pos[i].x_advance * k;
     if (adv != 0.0f) {
@@ -729,6 +841,7 @@ static void text_shape_item(WRun *w, int slot, const uint32_t *cp, const int *of
     if (g_hint_metrics) {
       adv = floorf(adv + 0.5f); /* PANGO_UNITS_ROUND of the width */
     }
+    const int c = (int)info[i].cluster - npre;
     g->glyph = (uint16_t)(info[i].codepoint == TEXT_INVISIBLE ? 0 : info[i].codepoint);
     g->slot = (uint8_t)slot;
     g->flags = (uint8_t)(((level & 1) ? WG_RTL : 0) | (info[i].codepoint == TEXT_INVISIBLE ? WG_HIDE : 0));
@@ -736,9 +849,24 @@ static void text_shape_item(WRun *w, int slot, const uint32_t *cp, const int *of
     g->adv = adv;
     g->dx = (float)pos[i].x_offset * k;
     g->dy = -(float)pos[i].y_offset * k;
-    g->cluster = off[info[i].cluster];
+    g->cluster = off[c];
     g->item = item;
+    if (ci) {
+      ci[i] = c;
+    }
     *pen += adv;
+  }
+  if (ci && o->cursor && w->n == g0 + (int)ng) {
+    text_letter_space(w, g0, ci, a, b, level & 1, o);
+    float x = pen0;
+    for (int i = g0; i < w->n; i++) {
+      w->g[i].x = x;
+      x += w->g[i].adv;
+    }
+    *pen = x;
+  }
+  if (ci != cil) {
+    free(ci);
   }
 }
 
@@ -784,12 +912,16 @@ typedef struct TextCh {
 } TextCh;
 
 #  define TEXT_CH_LOCAL 64
+/* the position of a character no font has: after every font of the list
+ * (Pango counts them all), so spaces before it move to a real font */
+#  define TEXT_POS_NONE 0x7FFF
 
 /* Each character's level, script, emoji segment and font (slot `slot` or
  * a fallback), as Pango's itemizer finds them: items are the stretches
  * where none changes. `types`: n bytes of scratch. `dir` as text_itemize's.
  * Returns 0 when out of memory. */
-static int text_chars(int slot, const uint32_t *cp, int n, int dir, TextCh *ch, unsigned char *types)
+static int text_chars(int slot, const uint32_t *cp, int n, int npre, int npost, int dir, TextCh *ch,
+                      unsigned char *types)
 {
   const FontSlot *s = &g_fonts[slot];
   const int face0 = s->face;
@@ -815,14 +947,18 @@ static int text_chars(int slot, const uint32_t *cp, int n, int dir, TextCh *ch, 
   }
   /* scripts */
   {
-    hb_script_t scl[TEXT_CH_LOCAL];
-    hb_script_t *sc = n <= TEXT_CH_LOCAL ? scl : (hb_script_t *)malloc(sizeof(hb_script_t) * (size_t)n);
+    /* resolved with the paragraph's text around the run too, as Pango's
+     * script iterator runs over the paragraph */
+    const int nall = npre + n + npost;
+    hb_script_t scl[TEXT_CH_LOCAL + 10];
+    hb_script_t *sc = nall <= TEXT_CH_LOCAL + 10 ? scl :
+                                                   (hb_script_t *)malloc(sizeof(hb_script_t) * (size_t)nall);
     if (!sc) {
       return 0;
     }
-    text_scripts(cp, n, sc);
+    text_scripts(cp - npre, nall, sc);
     for (int j = 0; j < n; j++) {
-      ch[j].script = sc[j];
+      ch[j].script = sc[npre + j];
     }
     if (sc != scl) {
       free(sc);
@@ -895,7 +1031,7 @@ static int text_chars(int slot, const uint32_t *cp, int n, int dir, TextCh *ch, 
         const int cand = fb_find(lang_list, cp[k], 0);
         const int fs = cand >= 0 ? slot_fallback(slot, fb_face(lang_list, cand)) : -1;
         c->slot = (int16_t)(fs >= 0 ? fs : slot);
-        c->pos = fs >= 0 ? cand : 0;
+        c->pos = fs >= 0 ? cand : cand < 0 ? TEXT_POS_NONE : 0;
         continue;
       }
     }
@@ -912,7 +1048,7 @@ static int text_chars(int slot, const uint32_t *cp, int n, int dir, TextCh *ch, 
     const int cand = text_list ? fb_find(text_list, cp[k], 0) : -1;
     const int fs = cand >= 0 ? slot_fallback(slot, fb_face(text_list, cand)) : -1;
     c->slot = (int16_t)(fs >= 0 ? fs : slot);
-    c->pos = fs >= 0 ? cand + 1 : 0;
+    c->pos = fs >= 0 ? cand + 1 : cand < 0 ? TEXT_POS_NONE : 0;
   }
   /* items, as Pango's itemize_state_add_character: spaces take the font of
    * the item they are in, or of the next character when an item starts
@@ -968,8 +1104,11 @@ static int text_chars(int slot, const uint32_t *cp, int n, int dir, TextCh *ch, 
 /* The glyphs of `utf8` in slot `slot` and its fallbacks, in visual order.
  * `dir`: 0 a paragraph of its own (direction from its first strong
  * character, left-to-right when none), 1 one left-to-right level, 2 one
- * right-to-left level. */
-static void text_itemize(int slot, const char *utf8, int len, int dir, WRun *w)
+ * right-to-left level. utf8[-pre .. len + post) is valid: the paragraph's
+ * text around the run (shaping and script context). `ls`, `hyphen`: as
+ * BuiTextContext gives them. */
+static void text_itemize(int slot, const char *utf8, int len, int dir, int pre, int post, int ls,
+                         int hyphen, WRun *w)
 {
   wrun_init(w);
   if (len <= 0) {
@@ -977,76 +1116,41 @@ static void text_itemize(int slot, const char *utf8, int len, int dir, WRun *w)
   }
   const FontSlot *s = &g_fonts[slot];
   const int face0 = s->face;
-  /* the common case: printable ASCII the font has, in a left-to-right run
-   * or paragraph: one item (Pango's itemizer finds nothing to split it:
-   * level 0, the Latin script, or Common without letters, no emoji, one
-   * font) */
-  if (dir != 2 && len <= 4096) {
-    int letters = 0, i = 0;
-    for (; i < len; i++) {
-      const unsigned char c = (unsigned char)utf8[i];
-      if (c < 0x20 || c >= 0x7F || !face_glyph(face0, c)) {
-        break;
-      }
-      letters |= (c | 0x20) >= 'a' && (c | 0x20) <= 'z';
-    }
-    if (i == len) {
-      uint32_t cps[256];
-      int offs[257];
-      uint32_t *cp = len <= 256 ? cps : (uint32_t *)malloc(sizeof(uint32_t) * (size_t)len);
-      int *off = len <= 256 ? offs : (int *)malloc(sizeof(int) * (size_t)(len + 1));
-      WItem *it = cp && off ? wrun_item(w) : NULL;
-      if (it) {
-        for (int k = 0; k < len; k++) {
-          cp[k] = (unsigned char)utf8[k];
-          off[k] = k;
-        }
-        off[len] = len;
-        it->start = 0;
-        it->end = len;
-        it->level = 0;
-        it->slot = (uint8_t)slot;
-        const hb_script_t script = letters ? HB_SCRIPT_LATIN : HB_SCRIPT_COMMON;
-        float pen = 0.0f;
-        text_shape_item(w, slot, cp, off, len, 0, len, 0, script, text_script_lang(script), &pen);
-        w->width = pen;
-      }
-      if (cp != cps) {
-        free(cp);
-      }
-      if (off != offs) {
-        free(off);
-      }
-      if (it) {
-        return;
-      }
-      wrun_free(w);
-      wrun_init(w);
-    }
-  }
-  /* characters: code points, their byte offsets, levels, scripts, emoji
-   * segments and fonts */
-  int n = 0;
+  /* characters: code points (with the context's), their byte offsets */
+  int n = 0, npre = 0, npost = 0;
   for (int k = 0; k < len; n++) {
     utf8_next(utf8, len, &k);
   }
+  for (int k = 0; k < pre; npre++) {
+    utf8_next(utf8 - pre, pre, &k);
+  }
+  for (int k = 0; k < post; npost++) {
+    utf8_next(utf8 + len, post, &k);
+  }
+  const int nall = npre + n + npost;
   enum { LOCAL = TEXT_CH_LOCAL };
   TextCh chl[LOCAL];
-  uint32_t cpl[LOCAL];
+  uint32_t cpl[LOCAL + 10];
   int offl[LOCAL + 1];
   unsigned char tl[LOCAL];
+  uint8_t curl[LOCAL + 1];
   TextCh *ch = chl;
-  uint32_t *cp = cpl;
+  uint32_t *cpa = cpl;
   int *off = offl;
   unsigned char *types = tl;
+  uint8_t *cur = NULL;
   if (n > LOCAL) {
     ch = (TextCh *)malloc(sizeof(TextCh) * (size_t)n);
-    cp = (uint32_t *)malloc(sizeof(uint32_t) * (size_t)n);
+    cpa = (uint32_t *)malloc(sizeof(uint32_t) * (size_t)nall);
     off = (int *)malloc(sizeof(int) * (size_t)(n + 1));
     types = (unsigned char *)malloc((size_t)n);
-    if (!ch || !cp || !off || !types) {
+    if (!ch || !cpa || !off || !types) {
       goto out;
     }
+  }
+  uint32_t *cp = cpa + npre;
+  for (int k = 0, j = 0; k < pre; j++) {
+    cpa[j] = (uint32_t)utf8_next(utf8 - pre, pre, &k);
   }
   for (int k = 0, j = 0; k < len; j++) {
     off[j] = k;
@@ -1056,7 +1160,63 @@ static void text_itemize(int slot, const char *utf8, int len, int dir, WRun *w)
     }
   }
   off[n] = len;
-  if (!text_chars(slot, cp, n, dir, ch, types)) {
+  for (int k = 0, j = n; k < post; j++) {
+    cp[j] = (uint32_t)utf8_next(utf8 + len, post, &k);
+  }
+  if (ls) {
+    /* the cursor positions letter spacing goes between, with the context */
+    BuiLogAttr lal[LOCAL + 11];
+    BuiLogAttr *la = nall + 1 <= LOCAL + 11 ? lal : (BuiLogAttr *)malloc(sizeof(BuiLogAttr) * (size_t)(nall + 1));
+    cur = n + 1 <= LOCAL + 1 ? curl : (uint8_t *)malloc((size_t)n + 1);
+    if (!la || !cur) {
+      if (la != lal) {
+        free(la);
+      }
+      goto out;
+    }
+    text_log_attrs(cpa, nall, la, NULL, NULL);
+    for (int j = 0; j <= n; j++) {
+      cur[j] = (uint8_t)la[npre + j].is_cursor_position;
+    }
+    if (la != lal) {
+      free(la);
+    }
+  }
+  const ShapeOpts opts = {hyphen, ls, cur};
+  const ShapeOpts plain = {0, ls, cur};
+  /* the common case: printable ASCII the font has, in a left-to-right run
+   * or paragraph: one item (Pango's itemizer finds nothing to split it:
+   * level 0, the Latin script, or Common without letters, no emoji, one
+   * font). With context, Common characters at the start may take the
+   * script before them: only when the run starts with a letter. */
+  if (dir != 2) {
+    int letters = 0, i = 0;
+    for (; i < n; i++) {
+      const uint32_t c = cp[i];
+      if (c < 0x20 || c >= 0x7F || !face_glyph(face0, c)) {
+        break;
+      }
+      letters |= (c | 0x20) >= 'a' && (c | 0x20) <= 'z';
+    }
+    const int c0 = (int)(cp[0] | 0x20);
+    const int ctx_ok = (npre == 0 || (c0 >= 'a' && c0 <= 'z')) && (letters || (npre == 0 && npost == 0));
+    if (i == n && ctx_ok) {
+      WItem *it = wrun_item(w);
+      if (it) {
+        it->start = 0;
+        it->end = len;
+        it->level = 0;
+        it->slot = (uint8_t)slot;
+        const hb_script_t script = letters ? HB_SCRIPT_LATIN : HB_SCRIPT_COMMON;
+        float pen = 0.0f;
+        text_shape_item(w, slot, cp, npre, nall, off, 0, n, 0, script, text_script_lang(script), &pen,
+                        &opts);
+        w->width = pen;
+      }
+      goto out;
+    }
+  }
+  if (!text_chars(slot, cp, n, npre, npost, dir, ch, types)) {
     goto out;
   }
   /* items in logical order, then shaped in visual order */
@@ -1097,8 +1257,10 @@ static void text_itemize(int slot, const char *utf8, int len, int dir, WRun *w)
       *slotted = item;
       slotted->start = off[item.start];
       slotted->end = off[item.end];
-      text_shape_item(w, item.slot, cp, off, n, item.start, item.end, item.level,
-                      ch[item.start].script, text_script_lang(ch[item.start].script), &pen);
+      /* the hyphen goes to the item the line breaks after */
+      text_shape_item(w, item.slot, cp, npre, nall, off, item.start, item.end, item.level,
+                      ch[item.start].script, text_script_lang(ch[item.start].script), &pen,
+                      item.end == n ? &opts : &plain);
     }
     /* keep the items in visual order (the shaped copies) */
     memmove(w->it, w->it + nit, sizeof(WItem) * (size_t)(w->nit - nit));
@@ -1115,8 +1277,11 @@ out:
   if (ch != chl) {
     free(ch);
   }
-  if (cp != cpl) {
-    free(cp);
+  if (cpa != cpl) {
+    free(cpa);
+  }
+  if (cur != curl) {
+    free(cur);
   }
   if (off != offl) {
     free(off);
@@ -1124,6 +1289,11 @@ out:
   if (types != tl) {
     free(types);
   }
+}
+
+static void text_itemize_run(const TextRun *e, WRun *w)
+{
+  text_itemize(e->font, e->text, e->len, e->dir, e->pre, e->post, e->ls, e->hyphen, w);
 }
 
 /* Pango's items of `cp` in slot `slot` for tailoring its breaks
@@ -1155,10 +1325,13 @@ static void text_font_items(int slot, const uint32_t *cp, int n, uint8_t **r_sta
     while (e < n && !text_para_delim(cp[e])) {
       e++;
     }
-    ok = text_chars(slot, cp + p, e - p, 0, ch, types);
+    ok = text_chars(slot, cp + p, e - p, 0, 0, 0, ch, types);
     for (int k = 0; ok && k < e - p; k++) {
       const TextCh *c = &ch[k], *b = &ch[k > 0 ? k - 1 : 0];
-      st[p + k] = (uint8_t)(k == 0 || c->slot != b->slot || c->level != b->level ||
+      /* a tab or a line separator is an item of its own (Pango's forced breaks) */
+      const int forced = cp[p + k] == '\t' || cp[p + k] == 0x2028 ||
+                         (k > 0 && (cp[p + k - 1] == '\t' || cp[p + k - 1] == 0x2028));
+      st[p + k] = (uint8_t)(k == 0 || forced || c->slot != b->slot || c->level != b->level ||
                             c->script != b->script || c->seg != b->seg);
       sc[p + k] = c->script;
     }

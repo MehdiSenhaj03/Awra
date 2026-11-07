@@ -290,6 +290,24 @@ int BUI_text_measure(
  * the run is shaped in that direction and never reordered. */
 #define BUI_TEXT_LTR (1 << 20)
 #define BUI_TEXT_RTL (1 << 21)
+/* The shaping context of the text calls that follow (measure, prepare,
+ * draw, carets, clusters, extents), until it is set again or cleared with
+ * NULL. Pango shapes each item of a paragraph with the paragraph around it
+ * as HarfBuzz context: a run inside an Arabic word keeps joining, given the
+ * text before and after it. `hyphen`: the run ends a line broken where
+ * Pango shows a hyphen (1: after its last character, 2: in place of it).
+ * `letter_spacing`: Pango units (1/1024 px), added between graphemes as
+ * pango_glyph_item_letter_space adds it (half before, half after each),
+ * with ligatures off; the run's width includes all of it. */
+typedef struct BuiTextContext {
+  const char *before; /* the text before the run (ends where the run starts) */
+  int before_len;
+  const char *after; /* the text after it */
+  int after_len;
+  int letter_spacing;
+  int hyphen;
+} BuiTextContext;
+void BUI_text_set_context(const BuiTextContext *ctx);
 /* The x (from the run's left edge, as BUI_raster_text draws it at x = 0)
  * of the leading (`trailing` 0) or trailing edge of the character at byte
  * `index`, as pango_glyph_string_index_to_x_full places it: ligatures and
