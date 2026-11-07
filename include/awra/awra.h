@@ -2280,6 +2280,11 @@ char *awra_themed_icon_names(const char *const *names, int n_names, bool use_def
  * (g_content_type_guess); *result_uncertain when it is a guess. awra_free. */
 char *awra_content_type_guess(const char *filename, const void *data, size_t data_size,
                               bool *result_uncertain);
+/* The type of a file on disk as GIO's local files give it
+ * (standard::content-type): inode/directory, inode/symlink for a broken
+ * link, application/x-zerosize, else its name, and its first bytes when the
+ * name is not enough unless `fast` (standard::fast-content-type). */
+char *awra_content_type_for_file(const char *path, bool fast);
 /* The names of g_content_type_get_icon / get_symbolic_icon's GThemedIcon,
  * '\n'-separated (awra_free): give them to awra_image_set_from_icon_names. */
 char *awra_content_type_get_icon_names(const char *type);

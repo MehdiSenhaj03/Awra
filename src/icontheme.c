@@ -2087,7 +2087,8 @@ char *awra_themed_icon_expand(const char *const *init, int n, bool fallbacks)
     }
     strv_add(&variants, variant);
   }
-  /* GLib prepends the variants: the last name's comes first */
+  /* the names, then their variants in the same order (GLib builds both
+   * lists backwards) */
   size_t total = 1;
   for (int i = 0; i < names.n; i++) {
     total += strlen(names.v[i]) + 1;
@@ -2101,7 +2102,7 @@ char *awra_themed_icon_expand(const char *const *init, int n, bool fallbacks)
     for (int i = 0; i < names.n; i++) {
       p += sprintf(p, "%s%s", p == out ? "" : "\n", names.v[i]);
     }
-    for (int i = variants.n - 1; i >= 0; i--) {
+    for (int i = 0; i < variants.n; i++) {
       p += sprintf(p, "%s%s", p == out ? "" : "\n", variants.v[i]);
     }
     *p = 0;
