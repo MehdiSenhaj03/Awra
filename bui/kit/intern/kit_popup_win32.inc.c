@@ -147,6 +147,15 @@ static LRESULT CALLBACK popup_proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
     case WM_MOUSEHWHEEL:
       /* screen coordinates: the window turns them into its own */
       return SendMessageW(win->hwnd, msg, wp, lp);
+    case WM_GETOBJECT: /* UI Automation: the popup is a window of its own */
+      if (g_getobject_hook) {
+        int handled = 0;
+        const intptr_t r = g_getobject_hook(hwnd, msg, (uintptr_t)wp, (intptr_t)lp, ctx, &handled);
+        if (handled) {
+          return (LRESULT)r;
+        }
+      }
+      break;
   }
   return DefWindowProcW(hwnd, msg, wp, lp);
 }
@@ -277,6 +286,10 @@ static int win32_pop_place(void *data, int slot, const BKPopupLayout *l, int w, 
 static void pop_destroy(WinPop *p)
 {
   if (p->hwnd) {
+    if (g_getobject_hook && p->win) { /* its providers let go */
+      int handled = 0;
+      g_getobject_hook(p->hwnd, WM_DESTROY, 0, 0, p->win->ctx, &handled);
+    }
     SetWindowLongPtrW(p->hwnd, GWLP_USERDATA, 0);
     if (GetCapture() == p->hwnd) {
       ReleaseCapture();

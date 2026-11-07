@@ -150,6 +150,22 @@ static const ISelectionItemProviderVtbl g_selitem_vtbl;
 static const ISelectionProviderVtbl g_selection_vtbl;
 static const IExpandCollapseProviderVtbl g_expand_vtbl;
 
+/* A popover open in a native window of its own (a menu's tool window):
+ * that window (UIA sees it as its own fragment root, as Windows' menus
+ * are), else NULL. */
+static HWND popup_hwnd(AwraWidget *w)
+{
+  BKContext *ctx = w ? bk_ctx(w) : NULL;
+  const int slot = ctx ? bk_popup_index(ctx, w) : -1;
+  if (slot < 0 || !bk_popup_surfaced(ctx, slot) || !ctx->popup_host || !ctx->popup_host->handle) {
+    return NULL;
+  }
+  return (HWND)ctx->popup_host->handle(ctx->popup_host->data, slot);
+}
+
+/* The native window a provider stands for (fragment roots), else NULL. */
+static HWND prov_hwnd(const struct Prov *p);
+
 static Prov *prov_alloc(AwraWidget *w, int item)
 {
   Prov *p = (Prov *)calloc(1, sizeof(Prov));
@@ -174,6 +190,14 @@ static Prov *prov_alloc(AwraWidget *w, int item)
     p->hwnd = (HWND)awra_window_native_handle(w); /* a fragment root */
   }
   return p;
+}
+
+static HWND prov_hwnd(const Prov *p)
+{
+  if (p->hwnd) {
+    return p->hwnd;
+  }
+  return p->item < 0 ? popup_hwnd(p->w) : NULL;
 }
 
 static ULONG prov_addref(Prov *p)
@@ -407,7 +431,7 @@ static HRESULT prov_qi(Prov *p, REFIID riid, void **out)
   else if (iid_is(riid, &g_iid_fragment)) {
     r = &p->fragment;
   }
-  else if (iid_is(riid, &g_iid_root) && p->hwnd) {
+  else if (iid_is(riid, &g_iid_root) && prov_hwnd(p)) {
     r = &p->root;
   }
   else if (!ok) {
@@ -595,7 +619,7 @@ static HRESULT STDMETHODCALLTYPE simple_property(IRawElementProviderSimple *This
       break;
     case UIA_IsControlElementPropertyId:
     case UIA_IsContentElementPropertyId:
-      v_bool(r, in.i.role != AWRA_ACCESSIBLE_ROLE_GENERIC || p->hwnd);
+      v_bool(r, in.i.role != AWRA_ACCESSIBLE_ROLE_GENERIC || prov_hwnd(p));
       break;
     case UIA_IsPasswordPropertyId:
       v_bool(r, (in.flat & AWRA_A11Y_PASSWORD) != 0);
@@ -631,8 +655,8 @@ static HRESULT STDMETHODCALLTYPE simple_property(IRawElementProviderSimple *This
       v_i4(r, (long)GetCurrentProcessId());
       break;
     case UIA_NativeWindowHandlePropertyId:
-      if (p->hwnd) {
-        v_i4(r, (long)(intptr_t)p->hwnd);
+      if (prov_hwnd(p)) {
+        v_i4(r, (long)(intptr_t)prov_hwnd(p));
       }
       break;
     default:
@@ -646,8 +670,9 @@ static HRESULT STDMETHODCALLTYPE simple_host(IRawElementProviderSimple *This,
 {
   Prov *p = PROV_OF(This, simple);
   *r = NULL;
-  if (p->hwnd && IsWindow(p->hwnd)) {
-    return U.HostProviderFromHwnd(p->hwnd, r);
+  HWND hwnd = prov_hwnd(p);
+  if (hwnd && IsWindow(hwnd)) {
+    return U.HostProviderFromHwnd(hwnd, r);
   }
   return S_OK;
 }
@@ -662,6 +687,12 @@ static const IRawElementProviderSimpleVtbl g_simple_vtbl = {
 
 static Prov *window_prov(AwraWidget *w)
 {
+  /* inside a popover with a window of its own: that one */
+  for (AwraWidget *a = w; a; a = awra_a11y_parent(a)) {
+    if (popup_hwnd(a)) {
+      return prov_get(a, -1);
+    }
+  }
   AwraWidget *win = awra_window_of(w);
   return win ? prov_get(win, -1) : NULL;
 }
@@ -674,10 +705,18 @@ static int kids_of(const Prov *p, AwraWidget ***out, int *nitems)
   if (p->item >= 0) {
     return 0;
   }
-  const int n = awra_a11y_children(p->w, NULL, 0);
+  int n = awra_a11y_children(p->w, NULL, 0);
   AwraWidget **v = n ? (AwraWidget **)malloc(sizeof(*v) * (size_t)n) : NULL;
   if (v) {
     awra_a11y_children(p->w, v, n);
+    /* popovers in windows of their own are fragment roots of their own */
+    int k = 0;
+    for (int i = 0; i < n; i++) {
+      if (!popup_hwnd(v[i])) {
+        v[k++] = v[i];
+      }
+    }
+    n = k;
   }
   *out = v;
   *nitems = awra_a11y_n_items(p->w);
@@ -701,7 +740,7 @@ static HRESULT STDMETHODCALLTYPE fragment_navigate(IRawElementProviderFragment *
   CHECK_ALIVE(p);
   Prov *found = NULL;
   if (dir == NavigateDirection_Parent) {
-    if (p->hwnd) {
+    if (prov_hwnd(p)) {
       return S_OK; /* the window's host is its parent */
     }
     if (p->item >= 0) {
@@ -719,26 +758,29 @@ static HRESULT STDMETHODCALLTYPE fragment_navigate(IRawElementProviderFragment *
     found = child_prov(p, kids, n, nitems, dir == NavigateDirection_FirstChild ? 0 : n + nitems - 1);
     free(kids);
   }
-  else if (!p->hwnd) {
-    /* siblings: through the parent's children */
+  else if (!prov_hwnd(p)) {
+    /* siblings: through the parent's children (popovers in windows of
+     * their own left out) */
     Prov parent_view = {0};
-    int index;
-    if (p->item >= 0) {
-      parent_view.w = p->w;
-      parent_view.item = -1;
-      index = awra_a11y_children(p->w, NULL, 0) + p->item;
-    }
-    else {
-      parent_view.w = awra_a11y_parent(p->w);
-      parent_view.item = -1;
-      index = parent_view.w ? awra_a11y_index_in_parent(p->w) : -1;
-    }
-    if (parent_view.w && index >= 0) {
+    parent_view.w = p->item >= 0 ? p->w : awra_a11y_parent(p->w);
+    parent_view.item = -1;
+    if (parent_view.w) {
       AwraWidget **kids;
       int nitems;
       const int n = kids_of(&parent_view, &kids, &nitems);
-      found = child_prov(&parent_view, kids, n, nitems,
-                         dir == NavigateDirection_NextSibling ? index + 1 : index - 1);
+      int index = -1;
+      if (p->item >= 0) {
+        index = n + p->item;
+      }
+      else {
+        for (int i = 0; i < n && index < 0; i++) {
+          index = kids[i] == p->w ? i : -1;
+        }
+      }
+      if (index >= 0) {
+        found = child_prov(&parent_view, kids, n, nitems,
+                           dir == NavigateDirection_NextSibling ? index + 1 : index - 1);
+      }
       free(kids);
     }
   }
@@ -754,7 +796,7 @@ static HRESULT STDMETHODCALLTYPE fragment_runtime_id(IRawElementProviderFragment
   Prov *p = PROV_OF(This, fragment);
   *r = NULL;
   CHECK_ALIVE(p);
-  if (p->hwnd) {
+  if (prov_hwnd(p)) {
     return S_OK; /* the host provider gives the window's */
   }
   SAFEARRAY *a = U.SafeArrayCreateVector(VT_I4, 0, 3);
@@ -792,7 +834,7 @@ static HRESULT STDMETHODCALLTYPE fragment_bounds(IRawElementProviderFragment *Th
   Prov *p = PROV_OF(This, fragment);
   memset(r, 0, sizeof(*r));
   CHECK_ALIVE(p);
-  if (p->hwnd) {
+  if (prov_hwnd(p)) {
     return S_OK; /* the host's */
   }
   Info in;
@@ -844,13 +886,26 @@ static HRESULT STDMETHODCALLTYPE root_from_point(IRawElementProviderFragmentRoot
   Prov *p = PROV_OF(This, root);
   *r = NULL;
   CHECK_ALIVE(p);
+  /* the tree's coordinates are its window's, popovers' too */
+  AwraWidget *win = awra_window_of(p->w);
+  HWND whwnd = win ? (HWND)awra_window_native_handle(win) : NULL;
   POINT pt = {(LONG)x, (LONG)y};
-  if (p->hwnd) {
-    ScreenToClient(p->hwnd, &pt);
+  if (whwnd) {
+    ScreenToClient(whwnd, &pt);
   }
   const double s = awra_scale();
-  AwraWidget *hit = awra_a11y_at_point(p->w, pt.x / s, pt.y / s);
+  AwraWidget *hit = win ? awra_a11y_at_point(win, pt.x / s, pt.y / s) : NULL;
   if (!hit) {
+    return S_OK;
+  }
+  /* only what belongs to this fragment root (a popup's window, or the
+   * window without its popups' windows) */
+  Prov *owner = window_prov(hit);
+  const bool mine = owner == p;
+  if (owner) {
+    prov_release(owner);
+  }
+  if (!mine) {
     return S_OK;
   }
   /* a virtual item under the point */
@@ -903,7 +958,18 @@ static HRESULT STDMETHODCALLTYPE root_focus(IRawElementProviderFragmentRoot *Thi
   Prov *p = PROV_OF(This, root);
   *r = NULL;
   CHECK_ALIVE(p);
-  Prov *f = focus_prov(p->w);
+  AwraWidget *win = awra_window_of(p->w);
+  Prov *f = win ? focus_prov(win) : NULL;
+  if (f) { /* the focus, if it is in this fragment root */
+    Prov *owner = window_prov(f->w);
+    if (owner != p) {
+      prov_release(f);
+      f = NULL;
+    }
+    if (owner) {
+      prov_release(owner);
+    }
+  }
   *r = f ? as_fragment(f) : NULL;
   return S_OK;
 }
@@ -1473,11 +1539,20 @@ static intptr_t getobject(void *hwnd_, unsigned msg, uintptr_t wp, intptr_t lp, 
   if (!awra_a11y_on) {
     awra_a11y_set_backend(&g_backend);
   }
-  Prov *p = prov_get(win, -1);
+  /* a popover's own window: it is that fragment root */
+  AwraWidget *popup = NULL;
+  for (int i = 0; ctx && i < ctx->npopups && !popup; i++) {
+    if (awra_is_widget(ctx->popups[i]) && popup_hwnd(ctx->popups[i]) == hwnd) {
+      popup = ctx->popups[i];
+    }
+  }
+  Prov *p = prov_get(popup ? popup : win, -1);
   if (!p) {
     return 0;
   }
-  p->hwnd = hwnd;
+  if (!popup) {
+    p->hwnd = hwnd;
+  }
   const LRESULT r = U.ReturnRawElementProvider(hwnd, (WPARAM)wp, (LPARAM)lp, as_simple(p));
   prov_release(p);
   *r_handled = 1;
