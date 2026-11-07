@@ -47,8 +47,9 @@ static void cap_measure(AwraWidget *w, int o, int f, int *mn, int *nt)
     }
     return;
   }
-  *mn = awra_px(20 * u);
-  *nt = awra_px(48 * u);
+  /* (int) ceil (KEY_UNIT_* * units), as Awra 1 measures */
+  *mn = awra_px((int)ceilf(20.0f * u - 1e-4f));
+  *nt = awra_px((int)ceilf(48.0f * u - 1e-4f));
 }
 
 static float cap_pulse(const CapExt *x)

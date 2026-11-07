@@ -36,6 +36,9 @@ typedef struct EditExt {
   bool dragging;
   char masked[1]; /* (unused) */
   int notified_caret, notified_anchor;
+  /* inner: no frame, inside another field's well (a tag entry): padding
+   * 0 inner_px, at least inner_h tall (logical) */
+  int inner_px, inner_h;
   /* bare: no frame (inside a composer); margins (logical), lines shown */
   bool bare;
   int bare_mx, bare_my, max_lines;
@@ -164,7 +167,8 @@ static void edit_pads(AwraWidget *w, int *l, int *r, int *t, int *b)
 {
   EditExt *x = EX(w);
   if (x->frameless) {
-    *t = *b = *l = *r = 0;
+    *t = *b = 0;
+    *l = *r = awra_px(x->inner_px);
     return;
   }
   if (inline_edit(w) && !x->multiline && !x->bare) {
@@ -247,6 +251,9 @@ static void edit_measure(AwraWidget *w, int o, int for_size, int *r_min, int *r_
   }
   if (!x->frameless && !inline_edit(w)) {
     th = BK_MAX(th, awra_px(22));
+  }
+  if (x->frameless && x->inner_h > 0) {
+    th = BK_MAX(th, awra_px(x->inner_h));
   }
   if (x->spin) {
     th = BK_MAX(th, awra_px(24));
@@ -1057,6 +1064,19 @@ void awra_entry_select_region(AwraWidget *w, int start, int end)
   x->te->anchor = start;
   x->te->caret = end;
   ensure_caret_visible(w);
+  awra_invalidate(w);
+}
+
+/* A field inside another's well (awra.css `awratagentry .awra-entry`: no
+ * frame, padding 0 pad_x, min-height min_h). */
+void awra_entry_set_inner_internal(AwraWidget *w, int pad_x, int min_h);
+void awra_entry_set_inner_internal(AwraWidget *w, int pad_x, int min_h)
+{
+  EditExt *x = EX(w);
+  x->frameless = true;
+  x->inner_px = pad_x;
+  x->inner_h = min_h;
+  awra_widget_queue_resize(w);
   awra_invalidate(w);
 }
 

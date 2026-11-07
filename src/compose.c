@@ -761,12 +761,15 @@ static void formrow_allocate(AwraWidget *w)
   awra_measure(x->label, AWRA_ORIENTATION_VERTICAL, lw, &tmp, &lh);
   const int fx = lw + awra_px(16);
   awra_measure(x->field, AWRA_ORIENTATION_VERTICAL, w->w - fx, &tmp, &fh);
-  /* the label sits on the control's first line */
+  /* Awra 1's label_offset: centred on the control's minimum height (with
+   * no width given), level with the first line of a tall one */
   int ch = 0;
-  if (x->control) {
-    awra_measure(x->control, AWRA_ORIENTATION_VERTICAL, w->w - fx, &tmp, &ch);
+  if (x->control && awra_child_visible(x->control)) {
+    awra_measure(x->control, AWRA_ORIENTATION_VERTICAL, -1, &ch, &tmp);
   }
-  int off = ch > 3 * lh ? awra_px(10) : (ch - lh) / 2;
+  int lmin;
+  awra_measure(x->label, AWRA_ORIENTATION_VERTICAL, lw, &lmin, &tmp);
+  int off = ch > 3 * lmin ? awra_px(10) : BK_MAX(0, (ch - lmin) / 2);
   off = BK_CLAMP(off, 0, BK_MAX(0, w->h - lh));
   awra_allocate(x->label, w->x, w->y + off, lw, lh);
   awra_allocate(x->field, w->x + fx, w->y, BK_MAX(0, w->w - fx), w->h);
@@ -857,6 +860,7 @@ void awra_form_row_set_control(AwraWidget *w, AwraWidget *control)
                          awra_widget_is(control, "AwraDropdown") ||
                          awra_widget_is(control, "AwraScrolledWindow") ||
                          awra_widget_is(control, "AwraTextView") ||
+                         awra_widget_is(control, "AwraTagEntry") ||
                          (name && (!strcmp(name, "AwraPasswordEntry") || !strcmp(name, "AwraTagEntry") ||
                                    !strcmp(name, "AwraTextArea")));
       if (fills) {

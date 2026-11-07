@@ -245,6 +245,8 @@ typedef struct ButtonExt {
   bool has_icon_color; /* a CSS rule colours the icon (`awrastatusbanner image`) */
   AwraRGBA icon_color;
   bool accent_fg; /* the content in @awra_accent_content (a playing media row's first button) */
+  bool tag;       /* a tag entry's tag (awra.css button.awra-tag) */
+  bool clear_border; /* a transparent 1 px border the background stays inside */
 } ButtonExt;
 
 #define BX(w) AWRA_EXT(w, ButtonExt)
@@ -524,11 +526,20 @@ static void role_colors(const AwraWidget *w, AwraLook look, bool hover, bool che
     quiet = awra_class_bit("quiet-destructive");
     danger_on = awra_class_bit("danger-when-on");
   }
+  const AwraTokens *t = awra_tokens();
+  const AwraRGBA none = {0, 0, 0, 0};
+  if (BX(w)->tag) {
+    /* awra.css `awratagentry button.awra-tag`: @awra_accent_soft,
+     * @awra_selection under the pointer, no shadow, in every state */
+    c->fg = t->foreground;
+    c->bg = hover ? t->selection : t->accent_soft;
+    c->rim = c->ring = none;
+    c->pressed_shadow = 0.0f;
+    return;
+  }
   if (!sens) {
     return;
   }
-  const AwraTokens *t = awra_tokens();
-  const AwraRGBA none = {0, 0, 0, 0};
   if (hover && quiet >= 0 && awra_has_class_bit(w, quiet) &&
       (look == AWRA_LOOK_GHOST || look == AWRA_LOOK_TOOLBAR))
   {
@@ -602,8 +613,24 @@ static void button_draw(AwraWidget *w, AwraDraw *d)
   AwraButtonColors c;
   current_colors(w, &c);
   const bool reduced = awra_style_reduced_motion();
-  awra_paint_button_bg(d, awra_box_of(w), awra_pxf(rad), &c, reduced ? 0.0f : awra_press_t(w),
-                       awra_focus_visible(w));
+  if (x->clear_border) {
+    /* a 1 px transparent border with background-clip: padding-box
+     * (button.awra-dropdown-button): the background and its insets inside
+     * it, the focus outline around the border box */
+    const AwraBox ob = awra_box_of(w);
+    const float bd = awra_pxf(1);
+    const AwraBox ib = {ob.x + bd, ob.y + bd, ob.w - 2 * bd, ob.h - 2 * bd};
+    awra_paint_button_bg(d, ib, awra_pxf(rad) - bd, &c, reduced ? 0.0f : awra_press_t(w), false);
+    if (awra_focus_visible(w)) {
+      const float fw = awra_pxf(3), off = awra_pxf(2);
+      const AwraBox o = {ob.x - off - fw, ob.y - off - fw, ob.w + 2 * (off + fw), ob.h + 2 * (off + fw)};
+      awra_paint_rbox(d, o, awra_pxf(rad) + off + fw, NULL, fw, &awra_tokens()->focus_ring);
+    }
+  }
+  else {
+    awra_paint_button_bg(d, awra_box_of(w), awra_pxf(rad), &c, reduced ? 0.0f : awra_press_t(w),
+                         awra_focus_visible(w));
+  }
   x->colors = c;
   if (x->child) {
     return; /* the child draws, with this button's color (child_style) */
@@ -977,9 +1004,26 @@ void awra_toggle_button_set_group(AwraWidget *w, AwraWidget *member)
   BX(member)->group_next = w;
 }
 
+/* A 1 px transparent border outside the background (background-clip:
+ * padding-box), counted in the padding given to set_padding_internal. */
+void awra_button_set_clear_border_internal(AwraWidget *w, bool on)
+{
+  BX(w)->clear_border = on;
+  awra_invalidate(w);
+}
+
 void awra_button_set_padding_internal(AwraWidget *w, int pad_x, int pad_y, int min_w)
 {
   awra_button_set_metrics_internal(w, pad_x, pad_y, min_w, -1);
+}
+
+/* A tag entry's tag: a pill, 3px 9px, at least 24 px tall, in the
+ * accent's soft tint (awra.css `awratagentry button.awra-tag`) */
+void awra_button_set_tag_internal(AwraWidget *w)
+{
+  BX(w)->tag = true;
+  awra_widget_add_class(w, "pill");
+  awra_button_set_metrics_internal(w, 9, 3, 0, 24);
 }
 
 /* A CSS rule's colour for the button's icon (NULL: the button's own) */

@@ -1727,8 +1727,11 @@ AwraWidget *awra_dropdown_new(const char *const *items, int n)
   awra_widget_unref(chevron); /* its parent holds it */
   awra_button_set_child(w, box);
   awra_widget_unref(box); /* its parent holds it */
-  /* awra.css: padding 5px 11px inside a 1 px transparent border: 34 px */
+  /* awra.css: padding 5px 11px inside a 1 px transparent border: 34 px;
+   * the background inside the border (.awra-button: background-clip
+   * padding-box): 32 px of it show */
   awra_button_set_padding_internal(w, 12, 6, 96);
+  awra_button_set_clear_border_internal(w, true);
   awra_signal_connect(w, AWRA_SIGNAL_CLICKED, drop_open, NULL, NULL);
   awra_dropdown_set_items(w, items, n);
   if (n > 0) {

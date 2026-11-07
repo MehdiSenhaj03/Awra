@@ -746,7 +746,7 @@ impl Default for PasswordEntry {
 
 awra_wrapper!(
     /// Words as chips and a field to add one (Awra 1's AwraTagEntry).
-    TagEntry, ["AwraBox"]
+    TagEntry, ["AwraTagEntry"]
 );
 impl TagEntry {
     pub fn new() -> TagEntry {

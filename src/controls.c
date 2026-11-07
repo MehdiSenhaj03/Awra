@@ -261,16 +261,18 @@ static void switch_draw(AwraWidget *w, AwraDraw *d)
     d->opacity *= 0.58f;
   }
   const bool on = x->active && awra_sensitive(w);
-  /* the color follows the state with a 110 ms transition, carried by pos */
-  awra_paint_rbox(d, b, bh * 0.5f, on ? &t->accent : &t->control_well, 0, NULL);
+  /* awra.css: the background inside a 1 px border (background-clip:
+   * padding-box), the border transparent or, on, white at 8%; the inset
+   * shadow (0 1px 2px rgba(0,0,0,.22)) inside the padding box, on or off */
+  const float bd = awra_pxf(1);
+  const AwraBox pb = {b.x + bd, b.y + bd, b.w - 2 * bd, b.h - 2 * bd};
+  awra_paint_rbox(d, pb, pb.h * 0.5f, on ? &t->accent : &t->control_well, 0, NULL);
   if (on) {
     const AwraRGBA edge = {1, 1, 1, 0.08f};
-    awra_paint_rbox(d, b, bh * 0.5f, NULL, awra_pxf(1), &edge);
+    awra_paint_rbox(d, b, bh * 0.5f, NULL, bd, &edge);
   }
-  else { /* inset 0 1px 2px rgba(0,0,0,.22) */
-    const AwraRGBA sh = {0, 0, 0, 0.22f};
-    awra_paint_inset_shadow(d, b, bh * 0.5f, 0, awra_pxf(1), 0, awra_pxf(2), &sh);
-  }
+  const AwraRGBA sh = {0, 0, 0, 0.22f};
+  awra_paint_inset_shadow(d, pb, pb.h * 0.5f, 0, awra_pxf(1), 0, awra_pxf(2), &sh);
   const float tw = awra_pxf(21), th = awra_pxf(22), inset = awra_pxf(3);
   AwraBox thumb = {b.x + inset + floorf(x->pos * tw + 0.5f), b.y + inset, tw, th};
   if (awra_widget_rtl(w)) { /* GtkSwitch's is_right_side: on is at the left */

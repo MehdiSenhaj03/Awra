@@ -609,9 +609,11 @@ static bool same_color(const AwraRGBA *a, const AwraRGBA *b)
  * chosen, the colour drawn smaller inside a ring of it */
 static void paint_dot(AwraDraw *d, float cx, float cy, const AwraRGBA *color, bool chosen)
 {
-  const AwraTokens *t = awra_tokens();
   const float half = awra_pxf(DOT) / 2, inset = awra_pxf(chosen ? 5 : 2);
-  const AwraRGBA edge = awra_with_alpha(t->foreground, 0.18f);
+  /* the dot's colour at 18%: the swatch is a plain GtkButton, which
+   * awra.css leaves to GTK's default theme, whose buttons' text is
+   * #2e3436 (light or dark Awra): a ring all but invisible on dark */
+  const AwraRGBA edge = {0x2e / 255.0f, 0x34 / 255.0f, 0x36 / 255.0f, 0.18f};
   awra_paint_circle(d, cx, cy, half - inset + awra_pxf(1), &edge);
   awra_paint_circle(d, cx, cy, half - inset, color);
   if (chosen) {
