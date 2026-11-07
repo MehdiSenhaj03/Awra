@@ -1247,6 +1247,12 @@ AwraWidget *awra_media_row_new(const char *title)
   awra_grid_attach(x->grid, x->ends, 2, 0, 1, 1);
   awra_grid_attach(x->grid, seekbox, 1, 1, 2, 1);
   awra_child_insert(w, x->grid, -1);
+  /* the containers hold their parts */
+  AwraWidget *held[] = {x->title, x->subtitle, x->play, x->stop, x->volume, x->elapsed, x->seek,
+                        x->total, x->tile, texts, x->ends, seekbox, x->grid};
+  for (size_t i = 0; i < sizeof(held) / sizeof(held[0]); i++) {
+    awra_widget_unref(held[i]);
+  }
   awra_signal_connect(x->play, AWRA_SIGNAL_CLICKED, media_play, w, NULL);
   awra_signal_connect(x->stop, AWRA_SIGNAL_CLICKED, media_stop, w, NULL);
   awra_signal_connect(x->volume, AWRA_SIGNAL_VALUE_CHANGED, media_volume, w, NULL);
@@ -1523,6 +1529,10 @@ AwraWidget *awra_drop_zone_new(void)
   awra_box_append(x->well, x->browse);
   awra_box_append(x->well, spacer);
   awra_child_insert(w, x->well, -1);
+  AwraWidget *held[] = {x->icon, x->title, x->subtitle, x->browse, spacer, x->well};
+  for (size_t i = 0; i < sizeof(held) / sizeof(held[0]); i++) {
+    awra_widget_unref(held[i]);
+  }
   awra_widget_set_accepts_file_drops(w, true);
   awra_signal_connect(w, AWRA_SIGNAL_DROP_HOVER, zone_hover, NULL, NULL);
   return w;

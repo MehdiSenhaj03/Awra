@@ -970,8 +970,12 @@ AwraWidget *awra_dropdown_new(const char *const *items, int n)
   awra_label_set_ellipsize(d->label, AWRA_ELLIPSIZE_END);
   awra_widget_set_hexpand(d->label, true);
   awra_box_append(box, d->label);
-  awra_box_append(box, awra_widget_new(&chev_class));
+  awra_widget_unref(d->label);
+  AwraWidget *chevron = awra_widget_new(&chev_class);
+  awra_box_append(box, chevron);
+  awra_widget_unref(chevron);
   awra_button_set_child(w, box);
+  awra_widget_unref(box);
   awra_button_set_padding_internal(w, 11, 5, 96);
   awra_signal_connect(w, AWRA_SIGNAL_CLICKED, drop_open, NULL, NULL);
   awra_dropdown_set_items(w, items, n);
@@ -1424,6 +1428,10 @@ AwraWidget *awra_command_palette_new(void)
   awra_widget_set_typography(p->empty, AWRA_TYPOGRAPHY_MUTED);
   awra_widget_set_visible(p->empty, false);
   awra_box_append(w, p->empty);
+  awra_widget_unref(p->entry);
+  awra_widget_unref(p->list);
+  awra_widget_unref(scroll);
+  awra_widget_unref(p->empty);
   return w;
 }
 
@@ -1541,6 +1549,8 @@ AwraWidget *awra_dialog_new(const char *title)
   awra_widget_set_visible(d->responses, false);
   awra_box_append(d->body, d->responses);
   awra_window_set_child(win, d->body);
+  awra_widget_unref(d->responses);
+  awra_widget_unref(d->body);
   return win;
 }
 

@@ -192,6 +192,7 @@ void awra_check_button_set_label(AwraWidget *w, const char *label)
     x->label = awra_label_new(label);
     awra_label_set_xalign(x->label, 0.0f);
     awra_child_insert(w, x->label, -1);
+    awra_widget_unref(x->label); /* the check button holds it */
   }
   else {
     awra_label_set_text(x->label, label);
@@ -637,6 +638,8 @@ AwraWidget *awra_volume_control_new(void)
   awra_widget_set_valign(x->slider, AWRA_ALIGN_CENTER);
   awra_box_append(w, x->button);
   awra_box_append(w, x->slider);
+  awra_widget_unref(x->button);
+  awra_widget_unref(x->slider);
   awra_signal_connect(x->slider, AWRA_SIGNAL_VALUE_CHANGED, volume_slider_changed, w, NULL);
   awra_signal_connect(x->button, AWRA_SIGNAL_CLICKED, volume_button_clicked, w, NULL);
   awra_slider_set_value(x->slider, 1.0);
@@ -716,6 +719,7 @@ AwraWidget *awra_segmented_control_new(void)
   x->box = awra_box_new(AWRA_ORIENTATION_HORIZONTAL, 0);
   x->selected = -1;
   awra_child_insert(w, x->box, -1);
+  awra_widget_unref(x->box);
   awra_widget_set_halign(w, AWRA_ALIGN_START);
   return w;
 }

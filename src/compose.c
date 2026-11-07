@@ -403,6 +403,10 @@ AwraWidget *awra_page_new(void)
   bin_set_child(col, box);
   awra_scrolled_set_child(scroll, col);
   bin_set_child(w, scroll);
+  /* each holds the one inside it */
+  awra_widget_unref(box);
+  awra_widget_unref(col);
+  awra_widget_unref(scroll);
   x->a = scroll;
   x->b = box;
   return w;
@@ -487,6 +491,11 @@ static AwraWidget *heading_new(const char *title, const char *subtitle, AwraTypo
   awra_box_append(h->titles, h->subtitle);
   awra_box_append(h->heading, h->titles);
   awra_box_append(root, h->heading);
+  /* the boxes hold their parts */
+  awra_widget_unref(h->title);
+  awra_widget_unref(h->subtitle);
+  awra_widget_unref(h->titles);
+  awra_widget_unref(h->heading);
   awra_widget_set_visible(h->title, title && title[0]);
   awra_widget_set_visible(h->subtitle, subtitle && subtitle[0]);
   awra_widget_set_visible(h->heading, (title && title[0]) || (subtitle && subtitle[0]));
@@ -508,6 +517,7 @@ static void heading_add_action(Heading *h, AwraWidget *action)
     h->actions = awra_box_new(AWRA_ORIENTATION_HORIZONTAL, 8);
     awra_widget_set_valign(h->actions, AWRA_ALIGN_START);
     awra_box_append(h->heading, h->actions);
+    awra_widget_unref(h->actions);
     awra_widget_set_valign(h->titles, AWRA_ALIGN_START);
     awra_widget_set_size_request(h->title, -1, 34);
   }
@@ -723,6 +733,10 @@ AwraWidget *awra_form_row_new(const char *title, const char *subtitle)
   x->has_help = subtitle && subtitle[0];
   awra_child_insert(w, x->label, -1);
   awra_child_insert(w, x->field, -1);
+  awra_widget_unref(x->help);
+  awra_widget_unref(x->error);
+  awra_widget_unref(x->label);
+  awra_widget_unref(x->field);
   return w;
 }
 
@@ -903,6 +917,11 @@ AwraWidget *awra_action_row_new(const char *title, const char *subtitle)
   awra_box_append(x->box, x->icon);
   awra_box_append(x->box, texts);
   awra_child_insert(w, x->box, -1);
+  awra_widget_unref(x->title);
+  awra_widget_unref(x->subtitle);
+  awra_widget_unref(x->icon);
+  awra_widget_unref(texts);
+  awra_widget_unref(x->box);
   return w;
 }
 
@@ -1034,6 +1053,7 @@ AwraWidget *awra_badge_new(const char *label, AwraBadgeAppearance a)
   awra_label_set_scale(l, 0.80);
   awra_label_set_weight(l, 800);
   bin_set_child(w, l);
+  awra_widget_unref(l);
   x->a = l;
   bin_pad(w, 4, 10, 4, 10);
   awra_widget_set_halign(w, AWRA_ALIGN_START);
@@ -1145,6 +1165,12 @@ AwraWidget *awra_status_banner_new(const char *title, const char *description,
   awra_signal_connect(x->d, AWRA_SIGNAL_CLICKED, banner_dismiss, w, NULL);
   awra_box_append(root, x->d);
   bin_set_child(w, root);
+  awra_widget_unref(x->a);
+  awra_widget_unref(x->b);
+  awra_widget_unref(x->c);
+  awra_widget_unref(copy);
+  awra_widget_unref(x->d);
+  awra_widget_unref(root);
   bin_pad(w, 12, 12, 12, 12);
   awra_widget_set_size_request(w, -1, 52);
   banner_style(w);
@@ -1223,6 +1249,11 @@ static AwraWidget *state_new(AwraWidget *icon, const char *title, const char *de
   awra_box_append(p->col, p->title);
   awra_box_append(p->col, p->desc);
   bin_set_child(w, p->col);
+  /* the column holds its parts, the state its column */
+  awra_widget_unref(icon);
+  awra_widget_unref(p->title);
+  awra_widget_unref(p->desc);
+  awra_widget_unref(p->col);
   awra_widget_isolate_expand(w);
   return w;
 }
@@ -1301,6 +1332,8 @@ AwraWidget *awra_sidebar_new(void)
   awra_widget_set_vexpand(list, true);
   awra_box_append(col, list);
   bin_set_child(w, col);
+  awra_widget_unref(list);
+  awra_widget_unref(col);
   x->a = list;
   x->b = col;
   awra_widget_set_name(w, "AwraSidebar");
