@@ -243,6 +243,9 @@ struct AwraTextLayout {
   int max_lines;
   AwraJustify justify;
   float line_factor;
+  float para_extra, wrap_extra; /* raster px above each paragraph's first line, and
+                                 * above its other lines (GtkTextView's pixels-above-lines
+                                 * and pixels-inside-wrap) */
   /* the layout for one width */
   int laid_width; /* -2: dirty */
   Line *lines;
@@ -732,6 +735,15 @@ void awra_text_layout_set_line_factor(AwraTextLayout *l, float factor)
   }
 }
 
+void awra_text_layout_set_line_extra(AwraTextLayout *l, float paragraph, float wrapped)
+{
+  if (l->para_extra != paragraph || l->wrap_extra != wrapped) {
+    l->para_extra = paragraph;
+    l->wrap_extra = wrapped;
+    dirty(l);
+  }
+}
+
 void awra_text_layout_set_wrap(AwraTextLayout *l, AwraWrap wrap, AwraEllipsize e, int max_lines)
 {
   if (l->wrap != wrap || l->ellipsize != e || l->max_lines != max_lines) {
@@ -1088,7 +1100,7 @@ static bool has_non_ascii(const char *s, int len)
   return false;
 }
 
-static void line_metrics(AwraTextLayout *l, Line *ln)
+static void line_metrics(AwraTextLayout *l, Line *ln, bool para_start)
 {
   /* Pango's logical extents of a line: the union of its runs' fonts (a run
    * drawn only with fallback fonts has theirs); an empty line has the
@@ -1135,6 +1147,11 @@ static void line_metrics(AwraTextLayout *l, Line *ln)
     const float nh = h * l->line_factor;
     asc += (nh - h) * 0.5f;
     h = nh;
+  }
+  const float extra = para_start ? l->para_extra : l->wrap_extra;
+  if (extra > 0.0f) {
+    asc += extra;
+    h += extra;
   }
   ln->ascent = asc;
   ln->height = h;
@@ -1429,6 +1446,7 @@ static void layout(AwraTextLayout *l, int width)
     const bool rtl = para_rtl(l, pos);
     int a = pos;
     do {
+      const bool para_start = a == pos;
       Line *ln = push_line(l);
       ln->start = a;
       ln->rtl = rtl;
@@ -1512,7 +1530,7 @@ static void layout(AwraTextLayout *l, int width)
       }
       ln = &l->lines[l->n_lines - 1];
       ln->end = a < para_end ? a : para_end;
-      line_metrics(l, ln);
+      line_metrics(l, ln, para_start);
       if (l->n_lines >= max_lines && (a < para_end || para_end < l->len)) {
         pos = l->len + 1;
         break;

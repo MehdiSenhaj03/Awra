@@ -28,6 +28,7 @@ typedef struct EditExt {
   double last_input;
   /* search */
   unsigned search_delay, search_timer;
+  bool escape_stops; /* Escape stops the search even with text (GtkSearchEntry's stop-search) */
   /* spin */
   double min, max, step, value;
   int digits;
@@ -501,7 +502,7 @@ static int edit_key(AwraWidget *w, BKEvent *e)
     return 1;
   }
   if (bk_keysym_is(e->keysym, "Escape")) {
-    if (x->search && x->te->len > 0) {
+    if (x->search && x->te->len > 0 && !x->escape_stops) {
       awra_entry_set_text(w, "");
       return 1;
     }
@@ -983,6 +984,11 @@ AwraWidget *awra_search_entry_new(void)
 void awra_search_entry_set_delay(AwraWidget *w, unsigned ms)
 {
   EX(w)->search_delay = ms;
+}
+
+void awra_search_entry_set_escape_stops(AwraWidget *w, bool stops)
+{
+  EX(w)->escape_stops = stops;
 }
 
 void awra_entry_set_quiet(AwraWidget *w, bool quiet);

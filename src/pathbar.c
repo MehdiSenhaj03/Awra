@@ -63,7 +63,11 @@ static void layout_crumbs(AwraWidget *w)
     AwraFont f = crumb_font(i == x->n - 1);
     const char *l = x->crumbs[i].label;
     x->crumbs[i].x = cx;
-    x->crumbs[i].w = (int)ceilf(awra_text_width(&f, l, (int)strlen(l))) + 2 * pad;
+    /* a compact header's buttons are at least 22 px wide inside (Awra 1's
+     * toolbar-button min-width): a short name sits in the middle */
+    const int text = (int)ceilf(awra_text_width(&f, l, (int)strlen(l)));
+    const int inner = awra_in_compact_header(w) ? BK_MAX(text, awra_px(22)) : text;
+    x->crumbs[i].w = inner + 2 * pad;
     cx += x->crumbs[i].w;
   }
 }
@@ -172,7 +176,9 @@ static void path_draw(AwraWidget *w, AwraDraw *d)
     AwraRGBA fg = i == x->drop ? t->accent_content :
                   (current || (i == x->hover && awra_hovered(w))) ? t->foreground : t->muted;
     const float base = w->y + floorf((w->h - awra_font_line_height(&f)) * 0.5f + 0.5f) + awra_font_ascent(&f);
-    awra_draw_text(d, &f, cx + crumb_pad(w), base, c->label, (int)strlen(c->label), &fg);
+    const float tw = awra_text_width(&f, c->label, (int)strlen(c->label));
+    const float tx = cx + floorf((c->w - tw) * 0.5f);
+    awra_draw_text(d, &f, tx, base, c->label, (int)strlen(c->label), &fg);
   }
   bk_clip_pop();
 }

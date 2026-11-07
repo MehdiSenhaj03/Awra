@@ -266,11 +266,45 @@ void awra_window_set_startup_id(AwraWidget *win, const char *startup_id)
   awra_widget_set_data(win, "awra-startup-id", startup_id ? awra_strdup(startup_id) : NULL, free);
 }
 
+/* "wayland:<handle>" or "x11:<hex window id>", as the desktop portal names
+ * the window of the application that asks */
+static void transient_apply(AwraWidget *win, BKWindow *bkw)
+{
+  const char *parent = (const char *)awra_widget_get_data(win, "awra-transient-for");
+  const char *colon = parent ? strchr(parent, ':') : NULL;
+  if (!parent) {
+    BK_window_set_transient_for_exported(bkw, NULL);
+    return;
+  }
+  const bool wayland = !strncmp(parent, "wayland:", 8);
+  const bool x11 = !strncmp(parent, "x11:", 4);
+  const char *backend = BK_window_backend();
+  /* a handle for the other windowing system means nothing here */
+  if (colon && ((wayland && backend && !strcmp(backend, "wayland")) || (x11 && backend && !strcmp(backend, "x11")))) {
+    BK_window_set_transient_for_exported(bkw, colon + 1);
+  }
+}
+
+void awra_window_set_transient_for_exported(AwraWidget *win, const char *parent)
+{
+  if (!awra_widget_is(win, "AwraWindow")) {
+    return;
+  }
+  awra_widget_set_data(win, "awra-transient-for", parent && parent[0] ? awra_strdup(parent) : NULL, free);
+  BKWindow *bkw = awra_window_bkw(win);
+  if (bkw) {
+    transient_apply(win, bkw);
+  }
+}
+
 void awra_window_identity_present(AwraWidget *win)
 {
   BKWindow *bkw = awra_window_bkw(win);
   if (!bkw) {
     return;
+  }
+  if (awra_widget_get_data(win, "awra-transient-for")) {
+    transient_apply(win, bkw);
   }
   const char *id = (const char *)awra_widget_get_data(win, "awra-startup-id");
   BK_window_activate(bkw, id);
