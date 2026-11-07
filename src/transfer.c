@@ -905,29 +905,18 @@ AwraTexture *awra_texture_new_for_text(const char *text)
   return t;
 }
 
+uint32_t *awra_icon_render_argb(const char *name, int px, const AwraRGBA *fg); /* icons.c */
+
 AwraTexture *awra_texture_new_for_icon(const char *icon_name, int size)
 {
   const int px = awra_px(size > 0 ? size : 32);
-  /* a full-colour icon as it is */
-  const BuiPixmap *pm = icon_name && !strstr(icon_name, "-symbolic") ? awra_icon_pixmap(icon_name, px) : NULL;
-  if (pm && pm->px && pm->format == BUI_PIXMAP_ARGB) {
-    return awra_texture_new_argb(pm->px, pm->w, pm->h);
-  }
-  const AwraIconMask *m = icon_name ? awra_icon_mask(icon_name, px) : NULL;
-  if (!m || !m->a) {
-    return NULL;
-  }
-  uint32_t *argb = (uint32_t *)malloc(sizeof(uint32_t) * (size_t)m->w * m->h);
+  /* the theme's icon: a full-colour one as it is, a symbolic one in the
+   * text colour */
+  uint32_t *argb = icon_name ? awra_icon_render_argb(icon_name, px, NULL) : NULL;
   if (!argb) {
     return NULL;
   }
-  const AwraRGBA c = awra_tokens()->foreground;
-  for (int i = 0; i < m->w * m->h; i++) {
-    const float a = c.a * (float)m->a[i] / 255.0f;
-    argb[i] = ((uint32_t)(a * 255.0f + 0.5f) << 24) | ((uint32_t)(c.r * a * 255.0f + 0.5f) << 16) |
-              ((uint32_t)(c.g * a * 255.0f + 0.5f) << 8) | (uint32_t)(c.b * a * 255.0f + 0.5f);
-  }
-  AwraTexture *t = awra_texture_new_argb(argb, m->w, m->h);
+  AwraTexture *t = awra_texture_new_argb(argb, px, px);
   free(argb);
   return t;
 }

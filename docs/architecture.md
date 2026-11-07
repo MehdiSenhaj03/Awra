@@ -87,7 +87,8 @@ Text follows what GTK did for Awra 1:
   base direction, labels and entries flip their xalign, scales and
   progress bars run from the right, switches are on at the left, menus,
   tabs, path bars, column headers and scrolled windows mirror, popovers
-  swap start and end, icons with -rtl variants are drawn mirrored;
+  swap start and end, icons are looked up with their -rtl names first, as
+  GtkIconTheme does (docs/icons.md);
 - editing is GTK's: the strong cursor (pango_layout_get_cursor_pos), Left
   and Right move visually (pango_layout_move_cursor_visually), clicks find
   graphemes as pango_layout_xy_to_index, Backspace deletes a grapheme or,

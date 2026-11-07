@@ -70,6 +70,7 @@ app.run();
 | `bindings/rust/` | `awra-sys`, `awra` |
 | `showcase/`, `tools/` | the showcase, `awra-shot`, generators (icons, Rust FFI) |
 | `docs/architecture.md` | how Awra 2 works |
+| `docs/icons.md` | icon themes and content types, as GTK and GIO have them |
 | `docs/awra1/` | Awra 1's documentation (the visual language reference) |
 
 ## License
@@ -77,4 +78,6 @@ app.run();
 Awra 2 is GPL-3.0-or-later (`LICENSES/GPL-3.0-or-later.txt`): it is built on
 BUI, which is derived from Blender and licensed GPL-2.0-or-later
 (`bui/LICENSE`, `bui/THIRD_PARTY_NOTICES.md`). Applications that link Awra 2
-are covered by the GPL when distributed. Awra 1 was LGPL-2.1-or-later.
+are covered by the GPL when distributed. Awra 1 was LGPL-2.1-or-later. The built-in icons (`src/icons-data.c`) are
+GTK's resource icons (LGPL-2.1-or-later) and Adwaita's symbolic icons
+(CC-BY-SA-3.0 / LGPL-3.0-or-later).

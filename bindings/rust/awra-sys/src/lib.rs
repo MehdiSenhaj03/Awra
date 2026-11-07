@@ -6,6 +6,7 @@ use std::os::raw::{c_char, c_int, c_uint, c_ulong, c_void};
 #[repr(C)] pub struct AwraWidget { _p: [u8; 0] }
 #[repr(C)] pub struct AwraCanvas { _p: [u8; 0] }
 #[repr(C)] pub struct AwraTexture { _p: [u8; 0] }
+#[repr(C)] pub struct AwraIconPaintable { _p: [u8; 0] }
 #[repr(C)] #[derive(Clone, Copy)] pub struct AwraEmoji { pub id: *const c_char, pub name: *const c_char, pub text: *const c_char, pub texture: *mut AwraTexture, pub keywords: *const c_char }
 #[repr(C)] #[derive(Clone, Copy, Debug, Default, PartialEq)] pub struct AwraRGBA { pub r: f32, pub g: f32, pub b: f32, pub a: f32 }
 #[repr(C)] #[derive(Clone, Copy)] pub struct AwraArgs { pub signal: c_int, pub active: bool, pub value: f64, pub index: c_int, pub text: *const c_char, pub x: f64, pub y: f64, pub dx: f64, pub dy: f64, pub button: c_int, pub n_press: c_int, pub mods: c_int, pub keysym: *const c_char, pub width: c_int, pub height: c_int, pub handled: *mut bool, pub code: *const c_char }
@@ -367,6 +368,10 @@ pub const AWRA_ACCESSIBLE_ANNOUNCEMENT_PRIORITY_HIGH: c_int = 2;
 pub const AWRA_DRAG_NONE: c_int = 0;
 pub const AWRA_DRAG_COPY: c_int = 1;
 pub const AWRA_DRAG_MOVE: c_int = 2;
+pub const AWRA_ICON_LOOKUP_NONE: c_int = 0;
+pub const AWRA_ICON_LOOKUP_FORCE_REGULAR: c_int = 1;
+pub const AWRA_ICON_LOOKUP_FORCE_SYMBOLIC: c_int = 2;
+pub const AWRA_ICON_LOOKUP_PRELOAD: c_int = 4;
 pub const AWRA_MOD_SHIFT: c_int = 1;
 pub const AWRA_MOD_CTRL: c_int = 2;
 pub const AWRA_MOD_ALT: c_int = 4;
@@ -606,6 +611,7 @@ extern "C" {
     pub fn awra_image_set_corner_radius(image: *mut AwraWidget, radius: f64);
     pub fn awra_image_set_content_fit(image: *mut AwraWidget, fit: c_int);
     pub fn awra_image_set_color(image: *mut AwraWidget, color: *const AwraRGBA);
+    pub fn awra_image_set_from_icon_names(image: *mut AwraWidget, names: *const *const c_char, n_names: c_int);
     pub fn awra_icon_register_svg(name: *const c_char, svg: *const c_char, length: usize) -> bool;
     pub fn awra_icon_exists(name: *const c_char) -> bool;
     pub fn awra_button_new() -> *mut AwraWidget;
@@ -1370,4 +1376,38 @@ extern "C" {
     pub fn awra_widget_set_drop_active(widget: *mut AwraWidget, active: bool);
     pub fn awra_window_set_drag_action(window: *mut AwraWidget, action: c_int);
     pub fn awra_widget_drop_active(widget: *mut AwraWidget) -> bool;
+    pub fn awra_icon_theme_get_theme_name() -> *mut c_char;
+    pub fn awra_icon_theme_set_theme_name(theme_name: *const c_char);
+    pub fn awra_icon_theme_get_search_path() -> *mut c_char;
+    pub fn awra_icon_theme_set_search_path(paths: *const *const c_char, n_paths: c_int);
+    pub fn awra_icon_theme_add_search_path(path: *const c_char);
+    pub fn awra_icon_theme_has_icon(icon_name: *const c_char) -> bool;
+    pub fn awra_icon_theme_has_names(names: *const *const c_char, n_names: c_int) -> bool;
+    pub fn awra_icon_theme_connect_changed(fn_: Option<unsafe extern "C" fn(*mut c_void)>, data: *mut c_void) -> c_ulong;
+    pub fn awra_icon_theme_disconnect(id: c_ulong);
+    pub fn awra_icon_theme_lookup_icon(icon_name: *const c_char, fallbacks: *const *const c_char, size: c_int, scale: c_int, direction: c_int, flags: c_int) -> *mut AwraIconPaintable;
+    pub fn awra_icon_theme_lookup_names(names: *const *const c_char, n_names: c_int, size: c_int, scale: c_int, direction: c_int, flags: c_int) -> *mut AwraIconPaintable;
+    pub fn awra_icon_paintable_new_for_file(path: *const c_char, size: c_int, scale: c_int) -> *mut AwraIconPaintable;
+    pub fn awra_icon_paintable_ref(icon: *mut AwraIconPaintable) -> *mut AwraIconPaintable;
+    pub fn awra_icon_paintable_unref(icon: *mut AwraIconPaintable);
+    pub fn awra_icon_paintable_get_file(icon: *const AwraIconPaintable) -> *const c_char;
+    pub fn awra_icon_paintable_get_icon_name(icon: *const AwraIconPaintable) -> *const c_char;
+    pub fn awra_icon_paintable_is_symbolic(icon: *const AwraIconPaintable) -> bool;
+    pub fn awra_icon_paintable_get_size(icon: *const AwraIconPaintable) -> c_int;
+    pub fn awra_icon_paintable_get_scale(icon: *const AwraIconPaintable) -> c_int;
+    pub fn awra_icon_paintable_render(icon: *mut AwraIconPaintable, color: *const AwraRGBA) -> *mut AwraTexture;
+    pub fn awra_themed_icon_names(names: *const *const c_char, n_names: c_int, use_default_fallbacks: bool) -> *mut c_char;
+    pub fn awra_content_type_guess(filename: *const c_char, data: *const c_void, data_size: usize, result_uncertain: *mut bool) -> *mut c_char;
+    pub fn awra_content_type_for_file(path: *const c_char, fast: bool) -> *mut c_char;
+    pub fn awra_content_type_get_icon_names(type_: *const c_char) -> *mut c_char;
+    pub fn awra_content_type_get_symbolic_icon_names(type_: *const c_char) -> *mut c_char;
+    pub fn awra_content_type_get_generic_icon_name(type_: *const c_char) -> *mut c_char;
+    pub fn awra_content_type_get_description(type_: *const c_char) -> *mut c_char;
+    pub fn awra_content_type_get_mime_type(type_: *const c_char) -> *mut c_char;
+    pub fn awra_content_type_from_mime_type(mime_type: *const c_char) -> *mut c_char;
+    pub fn awra_content_type_is_a(type_: *const c_char, supertype: *const c_char) -> bool;
+    pub fn awra_content_type_is_mime_type(type_: *const c_char, mime_type: *const c_char) -> bool;
+    pub fn awra_content_type_equals(type1: *const c_char, type2: *const c_char) -> bool;
+    pub fn awra_content_type_is_unknown(type_: *const c_char) -> bool;
+    pub fn awra_content_type_can_be_executable(type_: *const c_char) -> bool;
 }
