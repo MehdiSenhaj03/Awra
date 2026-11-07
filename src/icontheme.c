@@ -2127,6 +2127,20 @@ static bool is_path(const char *spec)
 
 static AwraIconFile *lookup_spec(const char *spec, int size, int scale, int dir, unsigned flags)
 {
+  /* GTK's and Awra's resource files by their URI (CSS url(), as Awra 1's
+   * check marks are) */
+  static const struct {
+    const char *prefix;
+    const AwraBuiltinSet *set;
+  } res[] = {{"resource:///org/gtk/libgtk/icons/", &awra_builtin_gtk},
+             {"resource:///org/awra/icons/", &awra_builtin_awra}};
+  for (size_t i = 0; i < sizeof(res) / sizeof(res[0]); i++) {
+    const size_t l = strlen(res[i].prefix);
+    if (!strncmp(spec, res[i].prefix, l)) {
+      const AwraBuiltinIcon *b = awra_builtin_find(res[i].set, spec + l);
+      return b ? file_get(NULL, b->data, b->len, spec + l, NULL) : NULL;
+    }
+  }
   if (is_path(spec)) {
     /* a file (gtk_icon_paintable_new_for_file) */
     const char *path = !strncmp(spec, "file://", 7) ? spec + 7 : spec;
@@ -2418,6 +2432,15 @@ const char *awra_icon_svg_source(const char *name)
   const AwraBuiltinIcon *b = awra_builtin_find(&awra_builtin_awra, file);
   if (!b) {
     b = awra_builtin_find(&awra_builtin_gtk, file);
+  }
+  /* Adwaita's, under their theme directories */
+  const size_t fl = strlen(file);
+  for (int i = 0; !b && i < awra_builtin_adwaita.count; i++) {
+    const char *p = awra_builtin_adwaita.icons[i].path;
+    const size_t pl = strlen(p);
+    if (pl > fl && p[pl - fl - 1] == '/' && !strcmp(p + pl - fl, file)) {
+      b = &awra_builtin_adwaita.icons[i];
+    }
   }
   return b ? (const char *)b->data : NULL;
 }
