@@ -2107,8 +2107,18 @@ static void loop_turn(int timeout_ms)
   if (render_ready()) {
     timeout = 0;
   }
-  struct pollfd fds[2] = {{wl_display_get_fd(g_dpy), POLLIN, 0}, {g_wake_pipe[0], POLLIN, 0}};
-  const int n = poll(fds, g_wake_pipe[0] >= 0 ? 2 : 1, timeout);
+  struct pollfd fds[10] = {{wl_display_get_fd(g_dpy), POLLIN, 0}, {g_wake_pipe[0], POLLIN, 0}};
+  /* watched descriptors (BK_loop_watch_fd) after the display and the wake pipe */
+  const int nextra = bk_loop_fd_count() < 8 ? bk_loop_fd_count() : 8;
+  for (int i = 0; i < nextra; i++) {
+    fds[2 + i].fd = bk_loop_fd(i);
+    fds[2 + i].events = POLLIN;
+    fds[2 + i].revents = 0;
+  }
+  if (g_wake_pipe[0] < 0) {
+    fds[1].fd = -1; /* poll skips negative descriptors */
+  }
+  const int n = poll(fds, (nfds_t)(2 + nextra), timeout);
   if (n > 0 && (fds[0].revents & POLLIN)) {
     wl_display_read_events(g_dpy);
   }
@@ -2132,6 +2142,11 @@ static void loop_turn(int timeout_ms)
     BK_image_poll();
     if (g_wake_cb) {
       g_wake_cb();
+    }
+  }
+  for (int i = 0; n > 0 && i < nextra; i++) {
+    if (fds[2 + i].revents & (POLLIN | POLLHUP | POLLERR)) {
+      bk_loop_fd_ready(fds[2 + i].fd);
     }
   }
   run_timers();

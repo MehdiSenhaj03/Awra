@@ -1061,16 +1061,30 @@ static void turn(double block_ms)
       FD_SET(g_wake_pipe[0], &set);
       maxfd = BK_MAX(maxfd, g_wake_pipe[0]);
     }
+    /* watched descriptors (BK_loop_watch_fd) */
+    int extra[8];
+    const int nextra = bk_loop_fd_count() < 8 ? bk_loop_fd_count() : 8;
+    for (int i = 0; i < nextra; i++) {
+      extra[i] = bk_loop_fd(i);
+      if (extra[i] >= 0 && extra[i] < FD_SETSIZE) {
+        FD_SET(extra[i], &set);
+        maxfd = BK_MAX(maxfd, extra[i]);
+      }
+    }
     struct timeval tv, *ptv = NULL;
     if (block_ms > 0.0) {
       tv.tv_sec = (long)(block_ms / 1000.0);
       tv.tv_usec = (long)(fmod(block_ms, 1000.0) * 1000.0);
       ptv = &tv;
     }
-    if (select(maxfd + 1, &set, NULL, NULL, ptv) > 0 && g_wake_pipe[0] >= 0 &&
-        FD_ISSET(g_wake_pipe[0], &set))
-    {
+    const int ready = select(maxfd + 1, &set, NULL, NULL, ptv);
+    if (ready > 0 && g_wake_pipe[0] >= 0 && FD_ISSET(g_wake_pipe[0], &set)) {
       drain_wake();
+    }
+    for (int i = 0; ready > 0 && i < nextra; i++) {
+      if (extra[i] >= 0 && extra[i] < FD_SETSIZE && FD_ISSET(extra[i], &set)) {
+        bk_loop_fd_ready(extra[i]);
+      }
     }
   }
   while (XPending(g_dpy)) {

@@ -717,6 +717,10 @@ void BK_window_hide(BKWindow *win);                      /* unmapped, kept (BK_w
 /* Loop timers that belong to no window (one-shot, ms); ids > 0. */
 int BK_loop_timer(int ms, void (*fn)(void *data), void *data);
 void BK_loop_cancel_timer(int id);
+/* BUI-Awra: calls fn(fd, data) on the loop's thread when fd is readable
+ * (Linux hosts; a socket of a D-Bus connection). One watch per fd. */
+int BK_loop_watch_fd(int fd, void (*fn)(int fd, void *data), void *data);
+void BK_loop_unwatch_fd(int fd);
 /* Physical keys: the evdev number of the key behind the last BK_key /
  * BK_key_release (Linux numbering; Win32 maps its scan codes), and the
  * character a key types in the current layout (unshifted, letters upper
