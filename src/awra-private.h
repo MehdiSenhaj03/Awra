@@ -507,6 +507,10 @@ typedef struct AwraIconMask {
 const AwraIconMask *awra_icon_mask(const char *name, int size);
 void awra_paint_icon(AwraDraw *d, const char *name, float x, float y, int size,
                      const AwraRGBA *color);
+/* The same at x, y as given, off the pixel grid included (where GSK draws
+ * an icon a widget placed at a fraction, as GtkIconHelper centres them) */
+void awra_paint_icon_at(AwraDraw *d, const char *name, float x, float y, int size,
+                        const AwraRGBA *color);
 /* Full-color icons (non-symbolic SVG / PNG) as a BuiPixmap; NULL: none. */
 const BuiPixmap *awra_icon_pixmap(const char *name, int size);
 /* glow.c: the "suggested" role's icon shadow (Awra 1's -gtk-icon-shadow on

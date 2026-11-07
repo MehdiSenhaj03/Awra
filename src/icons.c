@@ -1035,6 +1035,47 @@ static void draw_raster(AwraDraw *d, AwraIconRaster *r, int x, int y, const Awra
   }
 }
 
+/* Draws `r` with its top-left at fx, fy (raster px, the subtree's shift
+ * still to add). Off the pixel grid, GSK draws a symbolic icon's paths
+ * where they land (rasterized here at that quarter-pixel phase); a
+ * full-colour icon is its texture, rendered on whole pixels and filtered
+ * there (bilinear), as GTK draws the image it loaded. */
+static void draw_raster_at(AwraDraw *d, AwraIconRaster *r, float fx, float fy, const AwraRGBA *color)
+{
+  fx += awra_shift_x;
+  fy += awra_shift_y;
+  int gx = (int)floorf(fx), gy = (int)floorf(fy);
+  int qx = (int)floorf((fx - gx) * 4.0f + 0.5f), qy = (int)floorf((fy - gy) * 4.0f + 0.5f);
+  if (qx == 4) {
+    gx++;
+    qx = 0;
+  }
+  if (qy == 4) {
+    gy++;
+    qy = 0;
+  }
+  AwraIconRaster *p = r;
+  if (qx || qy) {
+    if (r->kind != RASTER_COLOR && r->file->is_svg) {
+      p = raster_get_phase(r->file, r->px, qx * 4 + qy);
+    }
+    else if (r->kind == RASTER_COLOR && r->argb) {
+      /* its texture, filtered at the fraction */
+      const BuiPixmap pm = {r->argb, r->px, r->px, r->key, BUI_PIXMAP_ARGB, 0};
+      BUI_raster_image(d->r, fx, fy, (float)r->px, (float)r->px, &pm, NULL, d->opacity, 0);
+      return;
+    }
+  }
+  if (!p) {
+    p = r;
+  }
+  const float sx = awra_shift_x, sy = awra_shift_y;
+  awra_shift_x = awra_shift_y = 0.0f; /* placed: drawn where it lands */
+  draw_raster(d, p, gx, gy, color);
+  awra_shift_x = sx;
+  awra_shift_y = sy;
+}
+
 void awra_paint_icon(AwraDraw *d, const char *name, float x, float y, int size, const AwraRGBA *color)
 {
   AwraIconRaster *r = raster_for(name, size, d->rtl);
@@ -1044,29 +1085,19 @@ void awra_paint_icon(AwraDraw *d, const char *name, float x, float y, int size, 
   const int ix = (int)floorf(x + 0.5f), iy = (int)floorf(y + 0.5f);
   if ((awra_shift_x != 0.0f || awra_shift_y != 0.0f) && r->kind != RASTER_COLOR && r->file->is_svg) {
     /* a symbolic icon off the pixel grid (a shifted subtree): GTK draws
-     * its paths there; rasterized at that quarter-pixel phase */
-    const float fx = ix + awra_shift_x, fy = iy + awra_shift_y;
-    int gx = (int)floorf(fx), gy = (int)floorf(fy);
-    int qx = (int)floorf((fx - gx) * 4.0f + 0.5f), qy = (int)floorf((fy - gy) * 4.0f + 0.5f);
-    if (qx == 4) {
-      gx++;
-      qx = 0;
-    }
-    if (qy == 4) {
-      gy++;
-      qy = 0;
-    }
-    AwraIconRaster *p = (qx || qy) ? raster_get_phase(r->file, r->px, qx * 4 + qy) : r;
-    if (p) {
-      const float sx = awra_shift_x, sy = awra_shift_y;
-      awra_shift_x = awra_shift_y = 0.0f; /* placed: drawn where it lands */
-      draw_raster(d, p, gx, gy, color);
-      awra_shift_x = sx;
-      awra_shift_y = sy;
-      return;
-    }
+     * its paths there */
+    draw_raster_at(d, r, (float)ix, (float)iy, color);
+    return;
   }
   draw_raster(d, r, ix, iy, color);
+}
+
+void awra_paint_icon_at(AwraDraw *d, const char *name, float x, float y, int size, const AwraRGBA *color)
+{
+  AwraIconRaster *r = raster_for(name, size, d->rtl);
+  if (r) {
+    draw_raster_at(d, r, x, y, color);
+  }
 }
 
 /* What the theme has for `name` at `size` raster px: a symbolic icon's
