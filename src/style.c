@@ -592,6 +592,15 @@ void awra_style_init(void)
 
 static void style_changed(void);
 
+/* GTK's own theme variant (its Default theme's dark one or not): the
+ * desktop's colour scheme as GTK reads it, whatever the application's
+ * Awra appearance (Awra 1 never asked GTK for its dark variant) */
+bool awra_style_gtk_dark(void)
+{
+  awra_style_init();
+  return S.system_dark;
+}
+
 /* portal.c: org.freedesktop.appearance color-scheme (GTK's
  * gtk-interface-color-scheme): 1 dark, 2 light, 0 no preference */
 void awra_style_set_portal_scheme(int scheme);

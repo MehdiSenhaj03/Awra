@@ -1705,7 +1705,8 @@ static void scroll_draw_over(AwraWidget *w, AwraDraw *d)
     len = fminf(len, range);
     const float pos = (float)(x->vvalue / (x->content_h - w->h)) * (range - len);
     const AwraBox sb = awra_mirror_box(w, (AwraBox){w->x + w->w - sw, w->y + m + floorf(pos + 0.5f), sw, roundf(len)});
-    const bool dark = awra_tokens()->dark;
+    /* the GTK theme's variant: the desktop's scheme, not the appearance */
+    const bool dark = awra_style_gtk_dark();
     AwraRGBA fill = dark ? (AwraRGBA){238 / 255.0f, 238 / 255.0f, 236 / 255.0f, 0.4f} :
                            (AwraRGBA){46 / 255.0f, 52 / 255.0f, 54 / 255.0f, 0.4f};
     AwraRGBA rim = dark ? (AwraRGBA){0, 0, 0, 0.4f} : (AwraRGBA){1, 1, 1, 0.4f};

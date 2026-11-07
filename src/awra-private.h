@@ -24,6 +24,9 @@
 #include "kit_intern.h"
 #include "raster-shift.h"
 
+/* style.c: GTK's theme variant (the desktop's scheme), not the Awra appearance */
+bool awra_style_gtk_dark(void);
+
 /* ----------------------------------------------------------------------- */
 /* Classes */
 
