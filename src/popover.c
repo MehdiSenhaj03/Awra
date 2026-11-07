@@ -111,7 +111,8 @@ static void pop_draw(AwraWidget *w, AwraDraw *d)
   float radius;
   AwraElevation elevation;
   pop_material(w, &m, &radius, &elevation);
-  awra_paint_material(d, awra_box_of(w), &m, radius, 15, AWRA_EDGE_ALL, elevation);
+  /* the outline and rim: once, above the content (pop_draw_over) */
+  awra_paint_material(d, awra_box_of(w), &m, radius, 15, 0, elevation);
 }
 
 static void pop_draw_over(AwraWidget *w, AwraDraw *d)
@@ -124,7 +125,9 @@ static void pop_draw_over(AwraWidget *w, AwraDraw *d)
   pop_material(w, &m, &r, &elevation);
   const float r4[4] = {r, r, r, r};
   const float bw = awra_pxf(m.border_width), hw = awra_pxf(m.highlight_width);
-  const float b4[4] = {bw, bw, bw, bw}, h4[4] = {hw, 0, 0, hw};
+  /* the rim on the top and start edges (the right one right to left) */
+  const float b4[4] = {bw, bw, bw, bw};
+  const float h4[4] = {hw, d->rtl ? hw : 0, 0, d->rtl ? 0 : hw};
   awra_paint_rbox4(d, awra_box_of(w), r4, NULL, b4, &m.border);
   awra_paint_rbox4(d, awra_box_of(w), r4, NULL, h4, &m.highlight);
 }
@@ -848,7 +851,7 @@ static void row_draw(AwraWidget *w, AwraDraw *d)
     af.size *= x->kind == 2 ? 0.92f : 0.86f;
     const float aw = awra_text_width(&af, x->accel, -1);
     awra_draw_text(d, &af, awra_mirror_x(w, right - aw, aw),
-                   floorf(cy - awra_font_line_height(&af) * 0.5f + awra_font_ascent(&af) + 0.5f), x->accel,
+                   floorf(cy - awra_font_line_height(&af) * 0.5f) + floorf(awra_font_ascent(&af) + 0.5f), x->accel,
                    -1, &t->muted);
     right -= aw + gap;
   }
@@ -870,7 +873,8 @@ static void row_draw(AwraWidget *w, AwraDraw *d)
     awra_text_layout_logical(l, avail, &lx0, &lw);
     lx = awra_mirror_x(w, cx, (float)avail) + avail - fminf(ceilf(lw), (float)avail) - lx0;
   }
-  awra_text_layout_draw(l, d, lx, floorf(cy - th * 0.5f + 0.5f), avail, &fg);
+  /* gtk_label_get_layout_location: floor((height - text height) / 2) */
+  awra_text_layout_draw(l, d, lx, floorf(cy - th * 0.5f), avail, &fg);
   awra_text_layout_free(l);
 }
 
@@ -1729,6 +1733,7 @@ AwraWidget *awra_dropdown_new(const char *const *items, int n)
   awra_widget_unref(box); /* its parent holds it */
   /* awra.css: padding 5px 11px inside a 1 px transparent border: 34 px */
   awra_button_set_padding_internal(w, 12, 6, 96);
+  awra_button_set_bg_inset_internal(w, 1);
   awra_signal_connect(w, AWRA_SIGNAL_CLICKED, drop_open, NULL, NULL);
   awra_dropdown_set_items(w, items, n);
   if (n > 0) {

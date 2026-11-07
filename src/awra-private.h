@@ -597,6 +597,7 @@ void awra_paint_button_bg(AwraDraw *d, AwraBox b, float radius, const AwraButton
                           float press_t, bool focus_ring);
 
 void awra_button_set_padding_internal(AwraWidget *w, int pad_x, int pad_y, int min_w);
+void awra_button_set_bg_inset_internal(AwraWidget *w, int inset);
 void awra_header_set_drag_enabled(AwraWidget *w, bool drag);
 void awra_header_set_dialog(AwraWidget *w, bool dialog);
 void awra_header_set_compact(AwraWidget *w, bool compact);

@@ -191,8 +191,19 @@ static AwraRGBA lerp_rgba(AwraRGBA a, AwraRGBA b, float t)
   return awra_mix(a, b, t);
 }
 
+static void paint_button_bg(AwraDraw *d, AwraBox b, float radius, const AwraButtonColors *c,
+                            float press_t, bool focus_ring, float inset);
+
 void awra_paint_button_bg(AwraDraw *d, AwraBox b, float radius, const AwraButtonColors *c,
                           float press_t, bool focus_ring)
+{
+  paint_button_bg(d, b, radius, c, press_t, focus_ring, 0.0f);
+}
+
+/* inset: a transparent border that far around the background
+ * (background-clip: padding-box), the outline still around the border */
+static void paint_button_bg(AwraDraw *d, AwraBox b, float radius, const AwraButtonColors *c,
+                            float press_t, bool focus_ring, float inset)
 {
   /* transform: scale(.96) around the center while pressed */
   if (press_t > 0.0f) {
@@ -203,6 +214,15 @@ void awra_paint_button_bg(AwraDraw *d, AwraBox b, float radius, const AwraButton
     b.w = nw;
     b.h = nh;
     radius *= s;
+  }
+  const AwraBox outer = b;
+  const float outer_radius = radius;
+  if (inset > 0.0f) {
+    b.x += inset;
+    b.y += inset;
+    b.w -= 2 * inset;
+    b.h -= 2 * inset;
+    radius = BK_MAX(0.0f, radius - inset);
   }
   awra_paint_rbox(d, b, radius, &c->bg, 0, NULL);
   if (c->ring.a > 0) {
@@ -218,8 +238,8 @@ void awra_paint_button_bg(AwraDraw *d, AwraBox b, float radius, const AwraButton
   if (focus_ring) {
     /* outline: 3px solid @awra_focus; outline-offset: 2px */
     const float w = awra_pxf(3), off = awra_pxf(2);
-    AwraBox o = {b.x - off - w, b.y - off - w, b.w + 2 * (off + w), b.h + 2 * (off + w)};
-    awra_paint_rbox(d, o, radius + off + w, NULL, w, &awra_tokens()->focus_ring);
+    AwraBox o = {outer.x - off - w, outer.y - off - w, outer.w + 2 * (off + w), outer.h + 2 * (off + w)};
+    awra_paint_rbox(d, o, outer_radius + off + w, NULL, w, &awra_tokens()->focus_ring);
   }
 }
 
@@ -240,6 +260,7 @@ typedef struct ButtonExt {
   AwraButtonColors colors, from;
   float color_t;
   int pad_x, pad_y, min_w; /* > 0: overrides (dropdowns) */
+  int bg_inset;             /* a transparent border (dropdowns), logical px */
   bool accent_fg; /* the content in @awra_accent_content (a playing media row's first button) */
 } ButtonExt;
 
@@ -595,8 +616,8 @@ static void button_draw(AwraWidget *w, AwraDraw *d)
   AwraButtonColors c;
   current_colors(w, &c);
   const bool reduced = awra_style_reduced_motion();
-  awra_paint_button_bg(d, awra_box_of(w), awra_pxf(rad), &c, reduced ? 0.0f : awra_press_t(w),
-                       awra_focus_visible(w));
+  paint_button_bg(d, awra_box_of(w), awra_pxf(rad), &c, reduced ? 0.0f : awra_press_t(w),
+                  awra_focus_visible(w), awra_pxf(x->bg_inset));
   x->colors = c;
   if (x->child) {
     return; /* the child draws, with this button's color (child_style) */
@@ -967,6 +988,14 @@ void awra_toggle_button_set_group(AwraWidget *w, AwraWidget *member)
   /* splice w into member's ring */
   x->group_next = BX(member)->group_next;
   BX(member)->group_next = w;
+}
+
+/* awra.css: a dropdown's button has a 1 px transparent border, and
+ * .awra-button clips its background to the padding box */
+void awra_button_set_bg_inset_internal(AwraWidget *w, int inset)
+{
+  BX(w)->bg_inset = inset;
+  awra_invalidate(w);
 }
 
 void awra_button_set_padding_internal(AwraWidget *w, int pad_x, int pad_y, int min_w)
