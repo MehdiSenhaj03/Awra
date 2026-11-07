@@ -157,6 +157,10 @@ impl CollectionView {
     pub fn set_sort_column(&self, column: Option<i32>, descending: bool) {
         unsafe { ffi::awra_collection_view_set_sort_column(ptr!(self), column.unwrap_or(-1), descending) }
     }
+    /// The sorted column's arrow; visible by default (GTK's own theme).
+    pub fn set_sort_indicator_visible(&self, visible: bool) {
+        unsafe { ffi::awra_collection_view_set_sort_indicator_visible(ptr!(self), visible) }
+    }
     pub fn set_show_header(&self, show: bool) {
         unsafe { ffi::awra_collection_view_set_show_header(ptr!(self), show) }
     }

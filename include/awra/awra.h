@@ -1335,6 +1335,10 @@ bool awra_collection_view_column_visible(AwraWidget *view, int column);
 void awra_collection_view_set_column_width(AwraWidget *view, int column, int width);
 int awra_collection_view_column_width(AwraWidget *view, int column);
 void awra_collection_view_set_sort_column(AwraWidget *view, int column, bool descending);
+/* The sorted column's arrow (GTK's sort-indicator: GTK's own theme draws
+ * pan-up/pan-down, desktop themes without that rule draw none and leave
+ * no room for it). Visible by default. */
+void awra_collection_view_set_sort_indicator_visible(AwraWidget *view, bool visible);
 void awra_collection_view_set_show_header(AwraWidget *view, bool show);
 int awra_collection_view_header_height(AwraWidget *view);
 /* The rubberband's look: the accent (else the focus colour) at these

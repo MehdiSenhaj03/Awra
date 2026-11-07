@@ -11,7 +11,7 @@
  * control-hover, selection in selection with a 1 px inner focus line; list
  * rows are radius 4 with selection and cap-hover, cells padded 5 x 10, and
  * column headers are transparent buttons (4 10 8 padding, 24 px min,
- * .86em weight 500, muted) with GTK's sort indicator.
+ * .86em of .86em, weight 500, muted) with GTK's sort indicator.
  *
  * Interaction is GTK's list grammar: click selects, Ctrl toggles, Shift
  * extends, double click / Return activates, arrows move the cursor; a press
@@ -57,6 +57,7 @@ typedef struct CollExt {
   int ncols;
   int sort_col;
   bool sort_desc;
+  bool sort_hidden; /* no arrow (a GTK theme without a sort-indicator rule) */
   bool show_header;
   int item_w, item_h; /* grid content size, logical */
   int row_h;          /* list row height, logical */
@@ -116,8 +117,10 @@ static int list_row_h(const CollExt *x)
 
 static AwraFont header_font(void)
 {
+  /* awra.css sets font-size: .86em on both the header and its buttons:
+   * the titles inherit both, .86 x .86 of the body */
   AwraFont f = awra_font_for(AWRA_TYPOGRAPHY_BODY);
-  f.size *= 0.86f;
+  f.size *= 0.86f * 0.86f;
   f.weight = 500;
   return f;
 }
@@ -137,7 +140,7 @@ static int title_width(CollExt *x, int c)
   AwraFont f = header_font();
   const char *t = x->cols[c].title ? x->cols[c].title : "";
   return (int)ceilf(awra_text_width(&f, t, (int)strlen(t))) + awra_px(2 * CELL_PAD_X) +
-         (c == x->sort_col ? awra_px(16 + 6) : 0);
+         (c == x->sort_col && !x->sort_hidden ? awra_px(16 + 6) : 0);
 }
 
 static void compute_columns(AwraWidget *w)
@@ -549,10 +552,12 @@ static void coll_draw(AwraWidget *w, AwraDraw *d)
       const bool rtl = awra_widget_rtl(w);
       /* the title starts the header (at its right, right to left), the sort arrow after it */
       const float tx = rtl ? hb.x + hb.w - awra_px(CELL_PAD_X) - tw : hb.x + awra_px(CELL_PAD_X);
-      const float base = w->y + pt + floorf((inner - lh) * 0.5f + 0.5f) + asc;
+      /* GtkLabel: floor ((height - logical.height) * yalign), the logical
+       * height in whole pixels (pango_layout_get_pixel_extents) */
+      const float base = w->y + pt + floorf((inner - ceilf(lh)) * 0.5f) + asc;
       bk_clip_push((int)hb.x, (int)hb.y, (int)hb.w, (int)hb.h);
       awra_draw_text(d, &f, tx, base, title, (int)strlen(title), &color);
-      if (c == x->sort_col) {
+      if (c == x->sort_col && !x->sort_hidden) {
         const int s = awra_px(16);
         awra_paint_icon(d, x->sort_desc ? "pan-down-symbolic" : "pan-up-symbolic",
                         rtl ? tx - awra_px(6) - s : tx + tw + awra_px(6), w->y + pt + floorf((inner - s) * 0.5f),
@@ -1585,6 +1590,17 @@ void awra_collection_view_set_sort_column(AwraWidget *w, int column, bool descen
   CollExt *x = CX(w);
   x->sort_col = column;
   x->sort_desc = descending;
+  awra_invalidate(w);
+}
+
+void awra_collection_view_set_sort_indicator_visible(AwraWidget *w, bool visible)
+{
+  CollExt *x = CX(w);
+  if (x->sort_hidden == !visible) {
+    return;
+  }
+  x->sort_hidden = !visible;
+  awra_widget_queue_resize(w);
   awra_invalidate(w);
 }
 

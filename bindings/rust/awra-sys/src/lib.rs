@@ -1029,6 +1029,7 @@ extern "C" {
     pub fn awra_collection_view_set_column_width(view: *mut AwraWidget, column: c_int, width: c_int);
     pub fn awra_collection_view_column_width(view: *mut AwraWidget, column: c_int) -> c_int;
     pub fn awra_collection_view_set_sort_column(view: *mut AwraWidget, column: c_int, descending: bool);
+    pub fn awra_collection_view_set_sort_indicator_visible(view: *mut AwraWidget, visible: bool);
     pub fn awra_collection_view_set_show_header(view: *mut AwraWidget, show: bool);
     pub fn awra_collection_view_header_height(view: *mut AwraWidget) -> c_int;
     pub fn awra_collection_view_set_band_style(view: *mut AwraWidget, accent: bool, fill_alpha: f64, border_alpha: f64, radius: c_int, fade: bool);
