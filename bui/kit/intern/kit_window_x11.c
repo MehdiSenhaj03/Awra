@@ -228,7 +228,7 @@ struct BKWindow {
   int flags, states, depth; /* BUI-Awra: BK_WINDOW_*, BK_WSTATE_*, visual depth */
   Visual *visual;
   Timer timers[MAX_TIMERS];
-  Cursor cursors[12];
+  Cursor cursors[16];
   struct BKWindow *next;
   /* BUI-Awra: popups in override-redirect windows (kit_popup_x11.inc.c) */
   Colormap cmap;
@@ -253,6 +253,7 @@ static void x11_popups_init(BKWindow *win);
 static void x11_popups_render(BKWindow *win);
 static void x11_popups_free(BKWindow *win);
 static void x11_popups_follow(BKWindow *win);
+static void x11_pop_cursor(BKWindow *win, int slot, Cursor c);
 static void x11_xdnd_aware(Window xid);
 
 static double now_ms(void)
@@ -339,8 +340,34 @@ static void host_set_cursor(void *data, int c)
   if (!win->xid) {
     return;
   }
-  c = BK_CLAMP(c, 0, 11);
+  c = BK_CLAMP(c, 0, 15);
   win->cursor = c;
+  if (!win->cursors[c]) {
+    /* BUI-Awra: the cursor theme's, by its names (GDK's), as Xcursor
+     * loads them; the core font's when the theme has none */
+    static Cursor (*load)(Display *, const char *) = NULL;
+    static int tried = 0;
+    if (!tried) {
+      tried = 1;
+      void *lib = dlopen("libXcursor.so.1", RTLD_NOW | RTLD_LOCAL);
+      load = lib ? (Cursor(*)(Display *, const char *))dlsym(lib, "XcursorLibraryLoadCursor") :
+                   NULL;
+    }
+    static const char *const names[16] = {
+        "default",     "ew-resize",   "ns-resize", "text",        "crosshair", "pointer",
+        "move",        NULL,          "nesw-resize", "nwse-resize", "not-allowed", "wait",
+        "progress",    "copy",        "dnd-move",  "no-drop"};
+    static const char *const fallback[16] = {
+        "left_ptr", "sb_h_double_arrow", "sb_v_double_arrow", "xterm", "crosshair", "hand2",
+        "fleur", NULL, "fd_double_arrow", "bd_double_arrow", "crossed_circle", "watch",
+        "left_ptr_watch", "dnd-copy", "dnd-move", "dnd-none"};
+    if (load && names[c]) {
+      win->cursors[c] = load(g_dpy, names[c]);
+      if (!win->cursors[c] && fallback[c]) {
+        win->cursors[c] = load(g_dpy, fallback[c]);
+      }
+    }
+  }
   if (!win->cursors[c]) {
     if (c == BK_CURSOR_NONE) { /* an empty 1x1 bitmap */
       static char zero = 0;
@@ -350,16 +377,21 @@ static void host_set_cursor(void *data, int c)
       XFreePixmap(g_dpy, p);
     }
     else {
-      static const unsigned shapes[12] = {XC_left_ptr,     XC_sb_h_double_arrow,
+      static const unsigned shapes[16] = {XC_left_ptr,     XC_sb_h_double_arrow,
                                           XC_sb_v_double_arrow, XC_xterm,
                                           XC_crosshair,    XC_hand2,
                                           XC_fleur,        XC_left_ptr,
                                           XC_bottom_left_corner, XC_bottom_right_corner,
-                                          XC_X_cursor,     XC_watch};
+                                          XC_X_cursor,     XC_watch,
+                                          XC_watch,        XC_plus,
+                                          XC_fleur,        XC_X_cursor};
       win->cursors[c] = XCreateFontCursor(g_dpy, shapes[c]);
     }
   }
   XDefineCursor(g_dpy, win->xid, win->cursors[c]);
+  for (int i = 0; win->pops && i < BK_POPUP_SLOTS; i++) { /* BUI-Awra: its popups too */
+    x11_pop_cursor(win, i, win->cursors[c]);
+  }
   XFlush(g_dpy);
 }
 

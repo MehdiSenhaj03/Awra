@@ -355,6 +355,9 @@ static HCURSOR cursor_handle(int c)
     case BK_CURSOR_PROGRESS:
       id = IDC_APPSTARTING;
       break;
+    case BK_CURSOR_NO_DROP: /* BUI-Awra: a drag nothing here takes */
+      id = IDC_NO;
+      break;
     case BK_CURSOR_NONE:
       return NULL;
   }

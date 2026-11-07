@@ -405,7 +405,11 @@ void bk_invalidate(BKNode *n)
   int m = BK_MAX(3, n->overdraw);
   for (const BKNode *p = n; p; p = p->parent) {
     if (p->cls->flags & CLS_POPUP) {
-      m = BK_MAX(m, BK_MAX((int)(bk_theme.menu_shadow_width * bk_scale_fac) + 6, p->overdraw));
+      /* the kit's menus spill their shadow over what they hold (BUI-Awra:
+       * popups that place themselves draw their own: no spill) */
+      if (!p->cls->place) {
+        m = BK_MAX(m, BK_MAX((int)(bk_theme.menu_shadow_width * bk_scale_fac) + 6, p->overdraw));
+      }
       break;
     }
   }
@@ -2573,7 +2577,10 @@ static void set_hover(BKContext *ctx, BKNode *n)
 static void update_cursor(BKContext *ctx)
 {
   int name;
-  if (ctx->modal) {
+  if (ctx->drag_cursor) { /* BUI-Awra */
+    name = ctx->drag_cursor - 1;
+  }
+  else if (ctx->modal) {
     name = ctx->modal->cls->cursor ? ctx->modal->cls->cursor : BK_CURSOR_CROSSHAIR;
   }
   else if (ctx->grab && ctx->dragging && ctx->grab->cls->drag_cursor && !BK_HTML(ctx->grab)) {
@@ -2600,6 +2607,12 @@ static void update_cursor(BKContext *ctx)
 
 void bk_update_cursor(BKContext *ctx)
 {
+  update_cursor(ctx);
+}
+
+void bk_set_drag_cursor(BKContext *ctx, int cursor)
+{
+  ctx->drag_cursor = cursor >= 0 ? cursor + 1 : 0;
   update_cursor(ctx);
 }
 

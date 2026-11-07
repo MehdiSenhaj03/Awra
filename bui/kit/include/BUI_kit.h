@@ -87,6 +87,11 @@ enum {
   BK_CURSOR_NOT_ALLOWED,
   BK_CURSOR_WAIT,
   BK_CURSOR_PROGRESS,  /* busy in the background, still interactive */
+  /* BUI-Awra: a drag in the application (GDK's drag cursors): what a drop
+   * here does, or that nothing here takes it */
+  BK_CURSOR_COPY,
+  BK_CURSOR_DND_MOVE,
+  BK_CURSOR_NO_DROP,
 };
 
 /* Callback kinds delivered through BKHost.emit. */

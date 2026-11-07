@@ -2101,6 +2101,13 @@ AwraTexture *awra_drag_preview_texture(AwraWidget *preview);
 /* GTK's :drop(active): the widget is the destination a drag hovers (drawn
  * as GTK's default theme does, a 1 px ring of the drop colour). */
 void awra_widget_set_drop_active(AwraWidget *widget, bool active);
+/* A drag within the application is under way in `window` (GtkDragSource):
+ * the pointer shows what a drop under it does — AWRA_DRAG_ACTION_COPY,
+ * _MOVE, or _NONE when nothing there takes it (GDK's copy / dnd-move /
+ * no-drop cursors) — and widgets under it get no hover until it ends
+ * (action < 0: the drag is over). */
+enum { AWRA_DRAG_ACTION_NONE = 0, AWRA_DRAG_ACTION_COPY = 1, AWRA_DRAG_ACTION_MOVE = 2 };
+void awra_window_set_drag_action(AwraWidget *window, int action);
 bool awra_widget_drop_active(AwraWidget *widget);
 
 

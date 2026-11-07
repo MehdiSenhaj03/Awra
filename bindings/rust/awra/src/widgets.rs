@@ -1089,15 +1089,27 @@ impl Popover {
     pub fn popup_at(&self, relative_to: &impl IsWidget, x: f64, y: f64) {
         unsafe { ffi::awra_popover_popup_at(ptr!(self), relative_to.widget_ptr(), x, y) }
     }
+    /// GtkPopover's pointing-to: a rectangle of its parent (logical px)
+    /// rather than the parent's bounds; None unsets it.
     pub fn set_pointing_to(&self, rect: Option<&crate::Rectangle>) {
         self.0.set_rust_data("pointing-to", rect.copied());
+        let (x, y, w, h) = rect.map_or((0.0, 0.0, -1.0, -1.0), |r| {
+            (r.x as f64, r.y as f64, r.width as f64, r.height as f64)
+        });
+        unsafe { ffi::awra_popover_set_pointing_to(ptr!(self), x, y, w, h) }
     }
-    /// Pops up at the point given by `set_pointing_to` (of the anchor).
+    /// Pops up pointing at the rectangle given by `set_pointing_to` (of
+    /// `anchor`).
     pub fn popup_pointing(&self, anchor: &impl IsWidget) {
-        match self.0.rust_data::<Option<crate::Rectangle>>("pointing-to").flatten() {
-            Some(r) => self.popup_at(anchor, r.x as f64 + r.width as f64 / 2.0, r.y as f64 + r.height as f64),
-            None => self.popup(),
+        let same = self
+            .0
+            .rust_data::<crate::WeakRef<Widget>>("popover-anchor")
+            .and_then(|a| a.upgrade())
+            .is_some_and(|a| a.widget_ptr() == anchor.widget_ptr());
+        if !same {
+            self.set_parent(anchor);
         }
+        self.popup();
     }
     pub fn popdown(&self) {
         unsafe { ffi::awra_popover_popdown(ptr!(self)) }
@@ -1108,8 +1120,20 @@ impl Popover {
     pub fn set_position(&self, p: PositionType) {
         unsafe { ffi::awra_popover_set_position(ptr!(self), p as i32) }
     }
+    /// Awra's popovers have no arrow (Awra 1: has-arrow FALSE).
     pub fn set_has_arrow(&self, _a: bool) {}
-    pub fn set_autohide(&self, _a: bool) {}
+    /// GtkPopover's autohide: grabs, closes on a click elsewhere or Escape
+    /// (true, the default); false, it stays and leaves the keyboard alone.
+    pub fn set_autohide(&self, a: bool) {
+        unsafe { ffi::awra_popover_set_autohide(ptr!(self), a) }
+    }
+    pub fn is_autohide(&self) -> bool {
+        unsafe { ffi::awra_popover_autohide(ptr!(self)) }
+    }
+    /// GtkPopover's offset (logical px).
+    pub fn set_offset(&self, x: i32, y: i32) {
+        unsafe { ffi::awra_popover_set_offset(ptr!(self), x, y) }
+    }
     pub fn connect_closed<F: Fn(&Popover) + 'static>(&self, f: F) -> SignalHandlerId {
         self.0.connect_typed::<Popover, _>(sig::HIDE, move |w, _| f(w))
     }

@@ -555,6 +555,10 @@ bool awra_in_compact_header(const AwraWidget *w);
 void awra_popover_set_padding_internal(AwraWidget *w, int pad, bool menu);
 void awra_popover_set_centered_internal(AwraWidget *w, bool centered);
 bool awra_style_blur_active(void); /* window.c: the compositor blurs behind windows */
+/* dnd.c: a drag in the application is under way in `win` (hover frozen);
+ * window.c: the hover chain cleared (leave) or rebuilt at the pointer */
+bool awra_window_dragging(AwraWidget *win);
+void awra_window_hover_reset(AwraWidget *win, bool leave);
 void awra_map_tree(AwraWidget *w, bool mapped);
 void awra_tooltips_install(void);
 

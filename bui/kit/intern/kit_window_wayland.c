@@ -357,7 +357,8 @@ static void host_request(void *data)
 
 static const char *const g_cursor_names[] = {
     "default", "ew-resize", "ns-resize", "text", "crosshair", "pointer", "move",
-    NULL /* none */, "nesw-resize", "nwse-resize", "not-allowed", "wait", "progress"};
+    NULL /* none */, "nesw-resize", "nwse-resize", "not-allowed", "wait", "progress",
+    "copy", "dnd-move", "no-drop"};
 static const uint32_t g_cursor_shapes[] = {
     WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_DEFAULT,     WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_EW_RESIZE,
     WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_NS_RESIZE,   WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_TEXT,
@@ -365,14 +366,15 @@ static const uint32_t g_cursor_shapes[] = {
     WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_MOVE,        0,
     WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_NESW_RESIZE, WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_NWSE_RESIZE,
     WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_NOT_ALLOWED, WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_WAIT,
-    WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_PROGRESS};
+    WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_PROGRESS,    WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_COPY,
+    WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_MOVE,        WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_NO_DROP};
 
 static void apply_cursor(BKWindow *win)
 {
   if (!g_pointer || g_pointer_win != win) {
     return;
   }
-  const int c = BK_CLAMP(win->cursor, 0, 12);
+  const int c = BK_CLAMP(win->cursor, 0, 15);
   if (c == BK_CURSOR_NONE) {
     wl_pointer_set_cursor(g_pointer, g_pointer_serial, NULL, 0, 0);
     return;

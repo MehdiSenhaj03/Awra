@@ -596,6 +596,9 @@ struct BKContext {
    * first popup opens) */
   const struct BKPopupHost *popup_host;
   struct BKPopupState *pops;
+  /* BUI-Awra: a drag in the application: its cursor (BK_CURSOR_* + 1, 0
+   * none) wins over the nodes' */
+  int drag_cursor;
 };
 
 /* BUI-Awra: tooltips drawn by an extension (Awra's look). Both NULL: the
@@ -629,6 +632,8 @@ void bk_custom_timer(BKContext *ctx);        /* BK_TIMER_CUSTOM fired */
 void bk_ctx_arm_timer(BKContext *ctx);
 bool bk_animations_enabled(void); /* BK_set_animations: off = reduced motion */
 void bk_update_cursor(BKContext *ctx);
+/* BUI-Awra: a drag's cursor over the whole window (-1: the nodes' again) */
+void bk_set_drag_cursor(BKContext *ctx, int cursor);
 
 void bk_undo_record(BKNode *n, int kind);
 void bk_anim_start(BKNode *n);

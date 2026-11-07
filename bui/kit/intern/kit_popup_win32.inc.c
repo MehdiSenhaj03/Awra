@@ -221,6 +221,7 @@ static int win32_pop_place(void *data, int slot, const BKPopupLayout *l, int w, 
     }
     SetWindowLongPtrW(p->hwnd, GWLP_USERDATA, (LONG_PTR)p);
     p->raster = BUI_raster_create(1, 1);
+    BUI_raster_set_diff(p->raster, 0); /* the kit's regions are the damage: one buffer */
     if (g_dwm.extend) {
       const MARGINS margins = {-1, -1, -1, -1}; /* glass: composed with its alpha */
       g_dwm.extend(p->hwnd, &margins);

@@ -363,6 +363,9 @@ pub const AWRA_MOD_SHIFT: c_int = 1;
 pub const AWRA_MOD_CTRL: c_int = 2;
 pub const AWRA_MOD_ALT: c_int = 4;
 pub const AWRA_MOD_SUPER: c_int = 64;
+pub const AWRA_DRAG_ACTION_NONE: c_int = 0;
+pub const AWRA_DRAG_ACTION_COPY: c_int = 1;
+pub const AWRA_DRAG_ACTION_MOVE: c_int = 2;
 
 extern "C" {
     pub fn awra_init(app_id: *const c_char);
@@ -813,6 +816,10 @@ extern "C" {
     pub fn awra_popover_popdown(popover: *mut AwraWidget);
     pub fn awra_popover_visible(popover: *mut AwraWidget) -> bool;
     pub fn awra_popover_set_position(popover: *mut AwraWidget, side: c_int);
+    pub fn awra_popover_set_pointing_to(popover: *mut AwraWidget, x: f64, y: f64, width: f64, height: f64);
+    pub fn awra_popover_set_offset(popover: *mut AwraWidget, x: c_int, y: c_int);
+    pub fn awra_popover_set_autohide(popover: *mut AwraWidget, autohide: bool);
+    pub fn awra_popover_autohide(popover: *mut AwraWidget) -> bool;
     pub fn awra_menu_popover_new(items: *const AwraMenuItem, n: c_int) -> *mut AwraWidget;
     pub fn awra_context_menu_attach(widget: *mut AwraWidget, items: *const AwraMenuItem, n: c_int);
     pub fn awra_dialog_new(title: *const c_char) -> *mut AwraWidget;
@@ -1327,5 +1334,6 @@ extern "C" {
     pub fn awra_drag_preview_set_drag_window(preview: *mut AwraWidget, window: *mut AwraWidget, hot_x: c_int, hot_y: c_int);
     pub fn awra_drag_preview_texture(preview: *mut AwraWidget) -> *mut AwraTexture;
     pub fn awra_widget_set_drop_active(widget: *mut AwraWidget, active: bool);
+    pub fn awra_window_set_drag_action(window: *mut AwraWidget, action: c_int);
     pub fn awra_widget_drop_active(widget: *mut AwraWidget) -> bool;
 }

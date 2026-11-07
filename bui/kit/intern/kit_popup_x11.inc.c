@@ -229,6 +229,13 @@ static void pop_regrab(BKWindow *win)
   XFlush(g_dpy);
 }
 
+static void x11_pop_cursor(BKWindow *win, int slot, Cursor c)
+{
+  if (win->pops[slot].xid && c) {
+    XDefineCursor(g_dpy, win->pops[slot].xid, c);
+  }
+}
+
 static void pop_destroy(XPop *p)
 {
   if (p->xid) {
@@ -321,6 +328,9 @@ static int x11_pop_place(void *data, int slot, const BKPopupLayout *l, int w, in
     p->raster = BUI_raster_create(1, 1);
     BUI_raster_set_diff(p->raster, 0); /* the kit's regions are the damage */
     pop_blur(p);
+    if (win->cursors[BK_CLAMP(win->cursor, 0, 15)]) {
+      XDefineCursor(g_dpy, p->xid, win->cursors[BK_CLAMP(win->cursor, 0, 15)]);
+    }
   }
   else {
     if (moved || resized) {

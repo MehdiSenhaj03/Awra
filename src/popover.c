@@ -255,6 +255,10 @@ static void pop_place(BKNode *n, int win_w, int win_h)
   awra_measure(w, AWRA_ORIENTATION_VERTICAL, nw, &mn, &nh);
   BKPopupLayout l;
   pop_layout(w, nw, nh, win_w, win_h, &l);
+  BKContext *pctx = bk_ctx(w);
+  if (pctx && pctx->popup_host && (pctx->popup_host->flags & BK_POPHOST_NATIVE_FRAME)) {
+    memset(l.shadow, 0, sizeof(l.shadow)); /* the system shadows it */
+  }
   {
     AwraResolvedMaterial m;
     awra_material_resolve(AWRA_MATERIAL_FLOATING, AWRA_ROLE_POPOVER, AWRA_ELEVATION_FLOATING,
