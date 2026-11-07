@@ -510,3 +510,85 @@ void BUI_raster_fade(BuiRaster *r, int x, int y, int w, int h, const uint32_t *s
 }
 
 /** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Rounded clips (GTK's push_rounded_clip over what a widget draws)
+ * \{ */
+
+/* The square of corner `i` (TL, TR, BR, BL) of a box with radius `r`. */
+static void corner_square(float x, float y, float w, float h, int i, int r, int *cx, int *cy)
+{
+  *cx = (i == 0 || i == 3) ? (int)floorf(x) : (int)ceilf(x + w) - r;
+  *cy = (i == 0 || i == 1) ? (int)floorf(y) : (int)ceilf(y + h) - r;
+}
+
+int BUI_raster_corners_size(float w, float h, const float radii[4])
+{
+  float rad[4];
+  clamp_radii(radii, w, h, rad);
+  int n = 0;
+  for (int i = 0; i < 4; i++) {
+    const int r = (int)ceilf(rad[i]) + 1;
+    n += rad[i] > 0.0f ? r * r : 0;
+  }
+  return n;
+}
+
+int BUI_raster_corners_save(BuiRaster *r, float x, float y, float w, float h, const float radii[4], uint32_t *dst)
+{
+  if (r->gpu) {
+    return 0;
+  }
+  float rad[4];
+  clamp_radii(radii, w, h, rad);
+  for (int i = 0; i < 4; i++) {
+    if (rad[i] <= 0.0f) {
+      continue;
+    }
+    const int n = (int)ceilf(rad[i]) + 1;
+    int cx, cy;
+    corner_square(x, y, w, h, i, n, &cx, &cy);
+    BUI_raster_read(r, cx, cy, n, n, dst);
+    dst += (size_t)n * n;
+  }
+  return 1;
+}
+
+void BUI_raster_corners_clip(BuiRaster *r, float x, float y, float w, float h, const float radii[4],
+                             const uint32_t *saved)
+{
+  if (r->gpu) {
+    return;
+  }
+  float rad[4];
+  clamp_radii(radii, w, h, rad);
+  for (int i = 0; i < 4; i++) {
+    if (rad[i] <= 0.0f) {
+      continue;
+    }
+    const int n = (int)ceilf(rad[i]) + 1;
+    int cx, cy, x0, y0, x1, y1;
+    corner_square(x, y, w, h, i, n, &cx, &cy);
+    if (fade_box(r, cx, cy, n, n, &x0, &y0, &x1, &y1)) {
+      for (int py = y0; py < y1; py++) {
+        uint32_t *row = r->pix + (size_t)py * r->w;
+        const uint32_t *under = saved + (size_t)(py - cy) * n - cx;
+        for (int px = x0; px < x1; px++) {
+          const float cov = clampf(0.5f - sd_rbox((float)px + 0.5f, (float)py + 0.5f, x, y, x + w, y + h, rad),
+                                   0.0f, 1.0f);
+          const uint32_t a = (uint32_t)(cov * 256.0f + 0.5f);
+          if (a >= 256) {
+            continue;
+          }
+          const uint32_t u = under[px], c = row[px];
+          const uint32_t rb = (((u & 0xFF00FFu) * (256 - a) + (c & 0xFF00FFu) * a) >> 8) & 0xFF00FFu;
+          const uint32_t ag = ((((u >> 8) & 0xFF00FFu) * (256 - a) + ((c >> 8) & 0xFF00FFu) * a) >> 8) & 0xFF00FFu;
+          row[px] = rb | ag << 8;
+        }
+      }
+    }
+    saved += (size_t)n * n;
+  }
+}
+
+/** \} */

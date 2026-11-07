@@ -35,6 +35,7 @@ typedef struct WinExt {
   AwraWidget *titlebar, *child;
   bool hide_on_close, keep_rounded, resizable, presented, closed;
   int default_w, default_h, min_w, min_h;
+  int content_min_w, content_min_h; /* logical, sent as minimum size hints */
   int state;
   int blur_state; /* -1 unknown, 0 no, 1 yes */
   AwraWidget *path[MAX_PATH];
@@ -192,8 +193,23 @@ static void window_allocate(AwraWidget *w)
   if (x->overlay_titlebar) {
     th = 0; /* the title bar floats over the content */
   }
+  /* GTK: a window is never smaller than its contents need: the
+   * compositor is told so (minimum size hints, unless the application set
+   * its own), and the contents get at least that much meanwhile */
+  int mw, nw, mh, nh;
+  window_measure(w, AWRA_ORIENTATION_HORIZONTAL, -1, &mw, &nw);
+  window_measure(w, AWRA_ORIENTATION_VERTICAL, mw, &mh, &nh);
+  if (x->bkw && x->min_w <= 0 && x->min_h <= 0) {
+    const int lw = (int)ceilf(mw / awra_scale()), lh = (int)ceilf(mh / awra_scale());
+    if (lw != x->content_min_w || lh != x->content_min_h) {
+      x->content_min_w = lw;
+      x->content_min_h = lh;
+      BK_window_wm(x->bkw, "minsize", lw, lh);
+    }
+  }
   if (x->child) {
-    awra_allocate(x->child, w->x, w->y + th, w->w, BK_MAX(0, w->h - th));
+    const int cw = BK_MAX(w->w, mw), ch = BK_MAX(w->h, mh);
+    awra_allocate(x->child, w->x, w->y + th, cw, BK_MAX(0, ch - th));
   }
   for (int i = 0; i < x->noverlays; i++) {
     place_overlay(w, i);

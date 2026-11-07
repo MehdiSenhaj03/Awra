@@ -426,6 +426,16 @@ void BUI_raster_rbox_gradient(BuiRaster *r,
 int BUI_raster_read(BuiRaster *r, int x, int y, int w, int h, uint32_t *dst);
 void BUI_raster_fade(BuiRaster *r, int x, int y, int w, int h, const uint32_t *saved, float a0, float a1);
 
+/* BUI-Awra: a rounded clip over what a widget draws inside a box (x, y,
+ * w, h) with corner radii (TL, TR, BR, BL): BUI_raster_corners_save keeps
+ * the pixels under its corners (BUI_raster_corners_size of them) before
+ * it draws, BUI_raster_corners_clip puts back what falls outside the
+ * rounded box after, anti-aliased. Software rendering only (0 on a GPU). */
+int BUI_raster_corners_size(float w, float h, const float radii[4]);
+int BUI_raster_corners_save(BuiRaster *r, float x, float y, float w, float h, const float radii[4], uint32_t *dst);
+void BUI_raster_corners_clip(BuiRaster *r, float x, float y, float w, float h, const float radii[4],
+                             const uint32_t *saved);
+
 /* A font's ascent and descent (positive, unrounded px) at `size`. */
 int BUI_text_metrics(const char *family, int flags, float size, float *r_ascent, float *r_descent);
 /* An 8-bit coverage mask (w x h, `stride` bytes per row) at whole pixel

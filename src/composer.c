@@ -180,8 +180,9 @@ static void composer_draw(AwraWidget *w, AwraDraw *d)
   const AwraBox b = awra_box_of(w);
   const float r = awra_pxf(18), s = awra_scale();
   const bool focus = awra_widget_has_focus(x->view);
+  /* awra.css: background-color @awra_control (the control cap), not a well */
   if (!awra_sensitive(w)) {
-    const AwraRGBA bg = awra_with_alpha(t->control_well, t->control_well.a * 0.5f);
+    const AwraRGBA bg = awra_with_alpha(t->control_cap, t->control_cap.a * 0.5f);
     const AwraRGBA br = awra_with_alpha(t->border, t->border.a * 0.6f);
     awra_paint_rbox(d, b, r, &bg, s, &br);
     return;
@@ -190,10 +191,10 @@ static void composer_draw(AwraWidget *w, AwraDraw *d)
     /* 0 0 0 3px alpha(focus, .16) outside, inset 0 0 0 1px focus */
     const AwraRGBA glow = awra_with_alpha(t->focus_ring, 0.16f);
     awra_paint_rbox(d, (AwraBox){b.x - 3 * s, b.y - 3 * s, b.w + 6 * s, b.h + 6 * s}, r + 3 * s, NULL, 3 * s, &glow);
-    awra_paint_rbox(d, b, r, &t->control_well, s, &t->focus_ring);
+    awra_paint_rbox(d, b, r, &t->control_cap, s, &t->focus_ring);
     return;
   }
-  awra_paint_rbox(d, b, r, &t->control_well, s, &t->border);
+  awra_paint_rbox(d, b, r, &t->control_cap, s, &t->border);
   awra_paint_line(d, b.x + r, b.y + s * 0.5f, b.x + b.w - r, b.y + s * 0.5f, s, &t->rim);
 }
 
