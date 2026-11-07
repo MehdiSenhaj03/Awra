@@ -177,6 +177,7 @@ typedef struct AwraAux {
   unsigned expand_valid : 1, computed_hexpand : 1, computed_vexpand : 1;
   unsigned mode_valid : 1, mode_hfw : 1; /* request mode cache */
   unsigned needs_allocate : 1;
+  unsigned corners_saved : 1; /* a surface kept the pixels under its corners (compose.c) */
   int alloc_w, alloc_h; /* last allocated size (resize signal) */
   /* state animations, 0..1 */
   float hover_t, press_t;

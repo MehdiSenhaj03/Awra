@@ -8,6 +8,7 @@
  * SPDX-License-Identifier: GPL-2.0-or-later */
 #pragma once
 
+#include <stddef.h>
 #include <stdint.h>
 
 /* instance kinds: keep in sync with gpu/shaders/bui_ui.hlsl */
@@ -72,13 +73,20 @@ int bui_text_glyph_outline(int face, int glyph, float **r_curves, int *r_n, floa
 
 /* Atlas placement of a premultiplied 0xAARRGGBB image, cached by `key`
  * (BuiPixmap.key, or its content hash). 0 when it can't be placed. */
-int bui_gpu_image(BuiGpu *g, uint64_t key, const uint32_t *argb, int w, int h, int *r_x, int *r_y);
+int bui_gpu_image(BuiGpu *g, uint64_t key, int format, const uint32_t *argb, int w, int h, int *r_x, int *r_y);
+/* BUI-Awra: the pixels to upload for `px` (`format`, rows `*stride` pixels
+ * apart): ARGB and NV12 as they are, straight RGBA premultiplied into ARGB
+ * and I420's chroma planes interleaved into NV12, in `*scratch` (grown with
+ * realloc, `*cap` bytes; the renderer frees it), `*stride` then w. NULL when
+ * out of memory. The atlas takes ARGB only (`format` ARGB or RGBA). */
+const uint32_t *bui_pixmap_upload(int format, const uint32_t *px, int *stride, int w, int h,
+                                  uint32_t **scratch, size_t *cap);
 /* Images too big for the atlas, and video frames, get a texture of their
  * own, uploaded once per `key`; `base` is what BUI_image_forget names (the
  * image's key, or its stream). With `stream`, a new key of the same size and
  * format updates the stream's texture in place (a video: one texture, no
- * allocation per frame). `format` is BUI_PIXMAP_*: ARGB rows are `stride`
- * pixels apart; NV12 (stride w) becomes an R8 luma and an R8G8 chroma
+ * allocation per frame). `format` is BUI_PIXMAP_*: ARGB (or RGBA) rows are `stride`
+ * pixels apart; NV12 or I420 (stride w) becomes an R8 luma and an R8G8 chroma
  * texture, which image instances sample as YCbCr when their p[3] is the
  * format. Returns a texture handle > 0 for bui_gpu_inst_image, 0 when it
  * can't be made. Unused ones are freed. */

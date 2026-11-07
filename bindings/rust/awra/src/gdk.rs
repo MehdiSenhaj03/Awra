@@ -294,8 +294,22 @@ pub struct MemoryTexture;
 impl MemoryTexture {
     #[allow(clippy::new_ret_no_self)]
     pub fn new(width: i32, height: i32, format: MemoryFormat, bytes: &crate::glib::Bytes, stride: usize) -> Texture {
-        texture_from(width, height, format, bytes, stride).expect("a texture of these pixels")
+        shared(width, height, format, bytes, stride)
+            .or_else(|| texture_from(width, height, format, bytes, stride))
+            .expect("a texture of these pixels")
     }
+}
+
+/// A texture reading `bytes` in place, when its format and rows allow.
+fn shared(width: i32, height: i32, format: MemoryFormat, bytes: &crate::glib::Bytes, stride: usize) -> Option<Texture> {
+    let data = match format {
+        MemoryFormat::R8g8b8a8 => crate::TextureData::Rgba,
+        _ => return None,
+    };
+    if width <= 0 || stride != width as usize * 4 {
+        return None;
+    }
+    Texture::for_data(width, height, data, bytes.clone()).ok()
 }
 
 /// Converts pixels of `format` to a texture.
@@ -363,7 +377,9 @@ impl MemoryTextureBuilder {
     }
     pub fn build(self) -> Texture {
         let b = self.bytes.unwrap_or_else(|| crate::glib::Bytes::from_owned(Vec::new()));
-        texture_from(self.width, self.height, self.format.unwrap_or(MemoryFormat::R8g8b8a8), &b, self.stride)
+        let format = self.format.unwrap_or(MemoryFormat::R8g8b8a8);
+        shared(self.width, self.height, format, &b, self.stride)
+            .or_else(|| texture_from(self.width, self.height, format, &b, self.stride))
             .expect("a texture of these pixels")
     }
 }

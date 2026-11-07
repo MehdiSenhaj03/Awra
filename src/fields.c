@@ -18,15 +18,7 @@ AwraWidget *awra_text_area_new(void)
 /* ======================================================================= */
 /* Password entry: hidden text with a peek button at the end */
 
-static void peek_clicked(AwraWidget *button, const AwraArgs *a, void *data)
-{
-  (void)a;
-  AwraWidget *entry = (AwraWidget *)data;
-  const bool shown = awra_widget_get_data(entry, "awra-peek") != NULL;
-  awra_widget_set_data(entry, "awra-peek", shown ? NULL : (void *)1, NULL);
-  awra_entry_set_visibility(entry, !shown);
-  awra_button_set_icon_name(button, shown ? "view-reveal-symbolic" : "view-conceal-symbolic");
-}
+void awra_entry_set_peek_icon_internal(AwraWidget *w, bool peek);
 
 AwraWidget *awra_password_entry_new(void)
 {
@@ -34,20 +26,11 @@ AwraWidget *awra_password_entry_new(void)
   awra_widget_set_name(box, "AwraPasswordEntry");
   AwraWidget *entry = awra_entry_new();
   awra_entry_set_visibility(entry, false);
+  /* the peek icon shows by default, as Awra 1's password entry has it */
+  awra_entry_set_peek_icon_internal(entry, true);
   awra_overlay_set_child(box, entry);
-  AwraWidget *peek = awra_button_new_from_icon_name("view-reveal-symbolic");
-  awra_button_set_appearance(peek, AWRA_BUTTON_GHOST);
-  awra_widget_set_halign(peek, AWRA_ALIGN_END);
-  awra_widget_set_valign(peek, AWRA_ALIGN_CENTER);
-  awra_widget_set_margin_end(peek, 4);
-  awra_widget_set_tooltip(peek, "Show the text");
-  awra_widget_set_visible(peek, false);
-  awra_signal_connect(peek, AWRA_SIGNAL_CLICKED, peek_clicked, entry, NULL);
-  awra_overlay_add_overlay(box, peek);
   awra_widget_set_data(box, "awra-entry", entry, NULL);
-  awra_widget_set_data(box, "awra-peek-button", peek, NULL);
   awra_widget_unref(entry);
-  awra_widget_unref(peek);
   return box;
 }
 
@@ -58,7 +41,7 @@ AwraWidget *awra_password_entry_entry(AwraWidget *w)
 
 void awra_password_entry_set_show_peek_icon(AwraWidget *w, bool show)
 {
-  awra_widget_set_visible((AwraWidget *)awra_widget_get_data(w, "awra-peek-button"), show);
+  awra_entry_set_peek_icon_internal(awra_password_entry_entry(w), show);
 }
 
 /* ======================================================================= */

@@ -161,6 +161,8 @@ struct BuiGpu {
   Atlas mask, rgba;
   BigTex big[BIG_MAX];
   size_t big_bytes;
+  uint32_t *conv; /* BUI-Awra: pixels converted for upload (bui_pixmap_upload) */
+  size_t conv_cap;
   unsigned frame, forget_seen;
   int max_tex; /* the feature level's largest texture side */
   Slot *mask_map, *img_map;
@@ -532,6 +534,7 @@ void bui_gpu_free(BuiGpu *g)
   free(g->b);
   free(g->mask_map);
   free(g->img_map);
+  free(g->conv);
   free(g->slug_map);
   free(g);
 }
@@ -1156,7 +1159,7 @@ static void img_reset(BuiGpu *g)
   g->img_n = 0;
 }
 
-int bui_gpu_image(BuiGpu *g, uint64_t key, const uint32_t *argb, int w, int h, int *r_x, int *r_y)
+int bui_gpu_image(BuiGpu *g, uint64_t key, int format, const uint32_t *argb, int w, int h, int *r_x, int *r_y)
 {
   if (!g->rgba.tex && !atlas_create(g, &g->rgba, 2048, 4)) {
     return 0;
@@ -1182,9 +1185,14 @@ int bui_gpu_image(BuiGpu *g, uint64_t key, const uint32_t *argb, int w, int h, i
   int x, y;
   if (g->img_n >= IMG_MAP_FILL || !atlas_place(&g->rgba, w, h, &x, &y)) {
     img_reset(g);
-    return bui_gpu_image(g, key, argb, w, h, r_x, r_y);
+    return bui_gpu_image(g, key, format, argb, w, h, r_x, r_y);
   }
-  atlas_upload(g, &g->rgba, x, y, w, h, argb, w * 4);
+  int stride = w;
+  const uint32_t *up = bui_pixmap_upload(format, argb, &stride, w, h, &g->conv, &g->conv_cap);
+  if (!up) {
+    return 0;
+  }
+  atlas_upload(g, &g->rgba, x, y, w, h, up, stride * 4);
   Slot *s = &g->img_map[idx];
   s->k1 = k1;
   s->k2 = k2;
@@ -1200,7 +1208,7 @@ int bui_gpu_image(BuiGpu *g, uint64_t key, const uint32_t *argb, int w, int h, i
 
 static size_t big_size(int format, int w, int h)
 {
-  return format == BUI_PIXMAP_ARGB ? (size_t)w * h * 4 : (size_t)w * h * 3 / 2;
+  return BUI_pixmap_yuv(format) ? (size_t)w * h * 3 / 2 : (size_t)w * h * 4;
 }
 
 static void big_release(BuiGpu *g, BigTex *t)
@@ -1240,7 +1248,11 @@ static int big_plane(BuiGpu *g, DXGI_FORMAT fmt, int w, int h, const void *data,
 /* `px` into slot `t`'s textures: created, or (a stream's next frame) updated in place. */
 static int big_upload(BuiGpu *g, BigTex *t, int create, const uint32_t *px, int stride)
 {
-  const int nv12 = t->format != BUI_PIXMAP_ARGB;
+  const int nv12 = BUI_pixmap_yuv(t->format) != 0;
+  px = bui_pixmap_upload(t->format, px, &stride, t->w, t->h, &g->conv, &g->conv_cap);
+  if (!px) {
+    return 0;
+  }
   const uint8_t *uv = (const uint8_t *)px + (size_t)t->w * t->h;
   if (!create) {
     ID3D11DeviceContext_UpdateSubresource(g->ctx, (ID3D11Resource *)t->tex, 0, NULL, px,
@@ -1755,10 +1767,11 @@ int bui_gpu_mask(BuiGpu *g, const void *key, unsigned gen, const uint8_t *mask, 
   (void)r_y;
   return 0;
 }
-int bui_gpu_image(BuiGpu *g, uint64_t key, const uint32_t *argb, int w, int h, int *r_x, int *r_y)
+int bui_gpu_image(BuiGpu *g, uint64_t key, int format, const uint32_t *argb, int w, int h, int *r_x, int *r_y)
 {
   (void)g;
   (void)key;
+  (void)format;
   (void)argb;
   (void)w;
   (void)h;

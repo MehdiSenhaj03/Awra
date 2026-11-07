@@ -73,6 +73,75 @@ static void bin_allocate(AwraWidget *w)
   awra_allocate(x->child, w->x + s, w->y + t, BK_MAX(0, w->w - s - e), BK_MAX(0, w->h - t - b));
 }
 
+/* Awra 1's surfaces clip their child to their rounded outline (clip-child,
+ * on by default): the pixels under the corners are kept on a stack as a
+ * surface draws, and what its child drew outside the outline goes back to
+ * them after (nested surfaces push and pop in turn). */
+static uint32_t *g_corners;
+static size_t g_corners_top, g_corners_cap;
+
+static bool surface_clip_box(AwraWidget *w, AwraBox *r_box, float radii[4])
+{
+  BinExt *x = BINX(w);
+  if (!x->paints || !x->child || !awra_child_visible(x->child)) {
+    return false;
+  }
+  AwraResolvedMaterial m;
+  awra_material_resolve((AwraMaterial)x->material, x->role, (AwraElevation)x->elevation, false, &m);
+  const float r = x->radius >= 0 ? awra_pxf(x->radius) : awra_pxf(m.radius);
+  if (r <= 0.0f) {
+    return false;
+  }
+  *r_box = awra_box_inset(awra_box_of(w), awra_pxf(x->inset));
+  if (x->inset_end >= 0) { /* as surface_draw paints it */
+    r_box->w += awra_pxf(x->inset) - awra_pxf(x->inset_end);
+  }
+  for (int i = 0; i < 4; i++) {
+    radii[i] = (x->corner_mask & (1 << i)) ? r : 0.0f;
+  }
+  return true;
+}
+
+static void surface_save_corners(AwraWidget *w, AwraDraw *d)
+{
+  AwraBox b;
+  float radii[4];
+  awra_aux(w)->corners_saved = 0;
+  if (!surface_clip_box(w, &b, radii)) {
+    return;
+  }
+  const size_t n = (size_t)BUI_raster_corners_size(b.w, b.h, radii);
+  if (g_corners_top + n > g_corners_cap) {
+    const size_t cap = BK_MAX(g_corners_top + n, g_corners_cap * 2);
+    uint32_t *grown = (uint32_t *)realloc(g_corners, sizeof(uint32_t) * cap);
+    if (!grown) {
+      return;
+    }
+    g_corners = grown;
+    g_corners_cap = cap;
+  }
+  if (BUI_raster_corners_save(d->r, b.x, b.y, b.w, b.h, radii, g_corners + g_corners_top)) {
+    g_corners_top += n;
+    awra_aux(w)->corners_saved = 1;
+  }
+}
+
+static void surface_draw_over(AwraWidget *w, AwraDraw *d)
+{
+  AwraBox b;
+  float radii[4];
+  if (!awra_aux(w)->corners_saved) {
+    return;
+  }
+  awra_aux(w)->corners_saved = 0;
+  if (!surface_clip_box(w, &b, radii)) {
+    return; /* (it can't change while it draws) */
+  }
+  const size_t n = (size_t)BUI_raster_corners_size(b.w, b.h, radii);
+  g_corners_top -= n;
+  BUI_raster_corners_clip(d->r, b.x, b.y, b.w, b.h, radii, g_corners + g_corners_top);
+}
+
 static void surface_draw(AwraWidget *w, AwraDraw *d)
 {
   BinExt *x = BINX(w);
@@ -86,14 +155,14 @@ static void surface_draw(AwraWidget *w, AwraDraw *d)
   if (x->inset_end >= 0) {
     box.w += awra_pxf(x->inset) - awra_pxf(x->inset_end);
   }
-  if (x->backdrop &&
-      awra_paint_material_backdrop(d, box, (AwraMaterial)x->material, x->role,
-                                   (AwraElevation)x->elevation, r, x->corner_mask, x->edge_mask,
-                                   x->backdrop))
+  if (!(x->backdrop &&
+        awra_paint_material_backdrop(d, box, (AwraMaterial)x->material, x->role,
+                                     (AwraElevation)x->elevation, r, x->corner_mask, x->edge_mask,
+                                     x->backdrop)))
   {
-    return;
+    awra_paint_material(d, box, &m, r, x->corner_mask, x->edge_mask, (AwraElevation)x->elevation);
   }
-  awra_paint_material(d, box, &m, r, x->corner_mask, x->edge_mask, (AwraElevation)x->elevation);
+  surface_save_corners(w, d);
 }
 
 static void bin_finalize(AwraWidget *w)
@@ -135,6 +204,7 @@ static AwraClass surface_class = {
     .measure = bin_measure,
     .allocate = bin_allocate,
     .draw = surface_draw,
+    .draw_over = surface_draw_over,
 };
 
 static void bin_set_child(AwraWidget *w, AwraWidget *child)
@@ -251,6 +321,7 @@ static AwraClass card_class = {
     .measure = bin_measure,
     .allocate = bin_allocate,
     .draw = card_draw,
+    .draw_over = surface_draw_over,
     .release = card_release,
 };
 
@@ -371,6 +442,7 @@ AwraWidget *awra_page_new(void)
   AwraWidget *box = awra_box_new(AWRA_ORIENTATION_VERTICAL, 0);
   awra_widget_set_margins(box, 32, 32, 32, 32);
   bin_set_child(col, box);
+  awra_widget_unref(box); /* its parent holds it */
   awra_scrolled_set_child(scroll, col);
   awra_widget_unref(col); /* its parent holds it */
   bin_set_child(w, scroll);
@@ -553,7 +625,10 @@ void awra_section_set_header_suffix(AwraWidget *w, AwraWidget *suffix)
 
 AwraWidget *awra_form_new(void)
 {
-  return awra_box_new(AWRA_ORIENTATION_VERTICAL, 16);
+  AwraWidget *w = awra_box_new(AWRA_ORIENTATION_VERTICAL, 16);
+  /* its rows' labels are one column (Awra 1's horizontal size group) */
+  awra_widget_set_data(w, "awra-form", (void *)1, NULL);
+  return w;
 }
 
 void awra_form_append(AwraWidget *form, AwraWidget *row)
@@ -586,6 +661,32 @@ static bool row_compact(AwraWidget *w, int width)
                         width < BK_MAX(lm, awra_px(224)) + awra_px(16) + fm);
 }
 
+/* A row's label width request: in a form, the widest of the form's
+ * labels (Awra 1's AwraForm puts them in a horizontal GtkSizeGroup). */
+static void formrow_label_request(AwraWidget *w, int *r_min, int *r_nat)
+{
+  FormRowExt *x = FRX(w);
+  awra_measure(x->label, AWRA_ORIENTATION_HORIZONTAL, -1, r_min, r_nat);
+  AwraWidget *form = (AwraWidget *)w->parent;
+  if (!form || !awra_is_widget(form) || !awra_widget_get_data(form, "awra-form")) {
+    return;
+  }
+  for (int i = 0; i < form->nkids; i++) {
+    AwraWidget *row = form->kids[i];
+    if (row == w || !awra_widget_is(row, "AwraFormRow") || !awra_child_visible(row)) {
+      continue;
+    }
+    FormRowExt *rx = FRX(row);
+    if (!rx->label || !awra_child_visible(rx->label) || rx->vertical) {
+      continue;
+    }
+    int mn, nt;
+    awra_measure(rx->label, AWRA_ORIENTATION_HORIZONTAL, -1, &mn, &nt);
+    *r_min = BK_MAX(*r_min, mn);
+    *r_nat = BK_MAX(*r_nat, nt);
+  }
+}
+
 /* The label column beside the control for a row width: the row is a
  * GtkBox (label at least 224 wide, the field expanding), so the label gets
  * its natural width when there is room for it. */
@@ -593,7 +694,7 @@ static int formrow_label_width(AwraWidget *w, int width)
 {
   FormRowExt *x = FRX(w);
   int lm, ln, fm, fn;
-  awra_measure(x->label, AWRA_ORIENTATION_HORIZONTAL, -1, &lm, &ln);
+  formrow_label_request(w, &lm, &ln);
   awra_measure(x->field, AWRA_ORIENTATION_HORIZONTAL, -1, &fm, &fn);
   int sizes[2] = {BK_MAX(lm, awra_px(224)), fm};
   const int nats[2] = {BK_MAX(ln, awra_px(224)), BK_MAX(fn, fm)};
@@ -750,10 +851,14 @@ void awra_form_row_set_control(AwraWidget *w, AwraWidget *control)
      * (spin buttons, switches, segmented controls, captures...) keep their
      * natural width; an explicit hexpand wins (awra-form-row.c) */
     if (!awra_aux(control)->hexpand_set) {
+      const char *name = awra_widget_name(control);
       const bool fills = (awra_widget_is(control, "AwraEntry") &&
                           !awra_widget_is(control, "AwraSpinButton")) ||
                          awra_widget_is(control, "AwraDropdown") ||
-                         awra_widget_is(control, "AwraScrolledWindow");
+                         awra_widget_is(control, "AwraScrolledWindow") ||
+                         awra_widget_is(control, "AwraTextView") ||
+                         (name && (!strcmp(name, "AwraPasswordEntry") || !strcmp(name, "AwraTagEntry") ||
+                                   !strcmp(name, "AwraTextArea")));
       if (fills) {
         awra_widget_set_hexpand(control, true);
       }
@@ -1096,6 +1201,7 @@ AwraWidget *awra_badge_new(const char *label, AwraBadgeAppearance a)
   awra_label_set_scale(l, 0.80);
   awra_label_set_weight(l, 800);
   bin_set_child(w, l);
+  awra_widget_unref(l);
   x->a = l;
   bin_pad(w, 4, 10, 4, 10);
   awra_widget_set_halign(w, AWRA_ALIGN_START);
@@ -1174,6 +1280,7 @@ static AwraClass banner_class = {
     .measure = bin_measure,
     .allocate = bin_allocate,
     .draw = surface_draw,
+    .draw_over = surface_draw_over,
     .style_changed = banner_style,
 };
 
@@ -1939,31 +2046,76 @@ typedef struct SplitExt {
   AwraWidget *sidebar, *content, *end;
   int sidebar_width, end_width; /* logical; 0 = the breakpoints' */
   bool show_sidebar;
+  /* Awra 1's split view is a GtkPaned: the sidebar's width (`pos`, raster
+   * px, -1 unplaced) is set for each layout mode (expanded from 900 px,
+   * medium from 600, compact below: no sidebar), then follows the paned's
+   * width proportionally as the window resizes, and the user drags it. */
+  int pos, last_alloc;
+  int placed_mode, placed_inset;
+  bool dragging;
+  int drag_pos0;
 } SplitExt;
 
 #define SPLX(w) AWRA_EXT(w, SplitExt)
+/* GtkPaned's handle: a 1 px separator taking presses 6 px on each side */
+#define SPLIT_HANDLE_EXTRA 6
 
+static int sidebar_inset(const SplitExt *x)
+{
+  return awra_is_widget(x->sidebar) ? awra_aux(x->sidebar)->margin[1] + awra_aux(x->sidebar)->margin[3] : 0;
+}
+
+/* 0 compact, 1 medium, 2 expanded (AwraLayoutMode) for a width in px */
+static int split_mode(int width)
+{
+  const int lw = (int)(width / awra_scale());
+  return lw < 600 ? 0 : lw < 900 ? 1 : 2;
+}
+
+static bool split_has_sidebar(AwraWidget *w)
+{
+  SplitExt *x = SPLX(w);
+  return x->sidebar && x->show_sidebar && split_mode(w->w) != 0;
+}
+
+/* The sidebar's least width: the size request of its mode, or its own. */
+static int sidebar_req(AwraWidget *w, int mode)
+{
+  SplitExt *x = SPLX(w);
+  int mn, nt;
+  awra_measure(x->sidebar, AWRA_ORIENTATION_HORIZONTAL, -1, &mn, &nt);
+  if (x->sidebar_width > 0) {
+    return mn;
+  }
+  return BK_MAX(mn, awra_px((mode == 1 ? 210 : 230) + sidebar_inset(x)));
+}
+
+/* gtk_paned_compute_position: the sidebar's width for this allocation. */
 static int split_sidebar_w(AwraWidget *w, int width)
 {
   SplitExt *x = SPLX(w);
-  if (!x->sidebar || !x->show_sidebar || !awra_child_visible(x->sidebar)) {
+  if (!split_has_sidebar(w)) {
     return -1;
   }
-  const int lw = (int)(width / awra_scale());
-  if (lw < 600) {
-    return -1;
+  const int mode = split_mode(width);
+  if (x->sidebar_width > 0) {
+    return BK_MAX(awra_px(x->sidebar_width + sidebar_inset(x)), sidebar_req(w, mode));
   }
-  int inset = 0;
-  if (awra_is_widget(x->sidebar)) {
-    inset = awra_aux(x->sidebar)->margin[1] + awra_aux(x->sidebar)->margin[3];
+  const int alloc = width - awra_px(1);
+  int pos = x->pos;
+  if (mode != x->placed_mode || sidebar_inset(x) != x->placed_inset || pos < 0) {
+    pos = awra_px((mode == 1 ? 220 : 244) + sidebar_inset(x));
   }
-  int want = x->sidebar_width > 0 ? awra_px(x->sidebar_width + inset) :
-                                    awra_px((lw < 900 ? 220 : 244) + inset);
-  /* never under what the sidebar needs (GTK allocates no less than the
-   * minimum) */
-  int mn, nt;
-  awra_measure(x->sidebar, AWRA_ORIENTATION_HORIZONTAL, -1, &mn, &nt);
-  return BK_MAX(want, mn);
+  if (x->last_alloc > 0 && alloc != x->last_alloc && !x->dragging) {
+    pos = (int)(alloc * ((double)pos / x->last_alloc) + 0.5);
+  }
+  int cmn = 0, cnt;
+  if (x->content) {
+    awra_measure(x->content, AWRA_ORIENTATION_HORIZONTAL, -1, &cmn, &cnt);
+  }
+  const int mn = sidebar_req(w, mode);
+  const int mx = BK_MAX(mn, BK_MAX(1, alloc - cmn));
+  return BK_CLAMP(pos, mn, mx);
 }
 
 static void split_measure(AwraWidget *w, int o, int f, int *mn, int *nt)
@@ -1992,15 +2144,6 @@ static void split_measure(AwraWidget *w, int o, int f, int *mn, int *nt)
 static void split_allocate(AwraWidget *w)
 {
   SplitExt *x = SPLX(w);
-  const int sw = split_sidebar_w(w, w->w);
-  if (x->sidebar) {
-    awra_widget_set_visible(x->sidebar, x->show_sidebar && sw >= 0);
-  }
-  int cx = w->x;
-  if (sw >= 0 && x->sidebar && awra_child_visible(x->sidebar)) {
-    awra_allocate(x->sidebar, w->x, w->y, sw, w->h);
-    cx += sw + awra_px(1);
-  }
   int ew = 0;
   if (x->end && awra_child_visible(x->end)) {
     int mn, nt;
@@ -2008,17 +2151,99 @@ static void split_allocate(AwraWidget *w)
     ew = x->end_width > 0 ? awra_px(x->end_width) : nt;
     awra_allocate(x->end, w->x + w->w - ew, w->y, ew, w->h);
   }
+  const int width = w->w - ew;
+  const int sw = split_sidebar_w(w, width);
+  if (x->sidebar) {
+    awra_widget_set_visible(x->sidebar, sw >= 0);
+  }
+  int cx = w->x;
+  if (sw >= 0) {
+    awra_allocate(x->sidebar, w->x, w->y, sw, w->h);
+    cx += sw + awra_px(1);
+    x->pos = sw;
+    x->last_alloc = width - awra_px(1);
+    x->placed_mode = split_mode(width);
+    x->placed_inset = sidebar_inset(x);
+  }
+  else {
+    x->placed_mode = 0;
+  }
   if (x->content) {
     awra_allocate(x->content, cx, w->y, BK_MAX(0, w->x + w->w - ew - cx), w->h);
   }
 }
 
-static void split_draw(AwraWidget *w, AwraDraw *d)
+/* The separator's x, or -1 without a sidebar. */
+static int split_sep(AwraWidget *w)
 {
   SplitExt *x = SPLX(w);
-  const int sw = split_sidebar_w(w, w->w);
-  if (sw >= 0 && x->sidebar && awra_child_visible(x->sidebar)) {
-    awra_paint_rect(d, (AwraBox){(float)(w->x + sw), (float)w->y, awra_pxf(1), (float)w->h},
+  return x->sidebar && awra_child_visible(x->sidebar) && split_has_sidebar(w) ? x->sidebar->x + x->sidebar->w : -1;
+}
+
+static bool on_split_handle(AwraWidget *w, int px)
+{
+  const int sep = split_sep(w);
+  return sep >= 0 && SPLX(w)->sidebar_width <= 0 && px >= sep - awra_px(SPLIT_HANDLE_EXTRA) &&
+         px < sep + awra_px(1) + awra_px(SPLIT_HANDLE_EXTRA);
+}
+
+/* the handle takes presses over the children's edges, as GtkPaned's does */
+static BKNode *split_hit(BKNode *n, int px, int py)
+{
+  if (!bk_contains(n, px, py) || !(n->flags & NF_VISIBLE)) {
+    return NULL;
+  }
+  if (on_split_handle(n, px) && awra_aux(n)->can_target) {
+    return n;
+  }
+  return awra_bk_hit(n, px, py);
+}
+
+static int split_press(AwraWidget *w, BKEvent *e)
+{
+  SplitExt *x = SPLX(w);
+  if (!on_split_handle(w, e->x)) {
+    return 0;
+  }
+  x->dragging = true;
+  x->drag_pos0 = x->pos;
+  return 1;
+}
+
+static int split_drag(AwraWidget *w, BKEvent *e)
+{
+  SplitExt *x = SPLX(w);
+  if (!x->dragging) {
+    return 0;
+  }
+  x->pos = x->drag_pos0 + e->dx; /* clamped as it is allocated */
+  awra_queue_allocate(w);
+  awra_invalidate(w);
+  return 1;
+}
+
+static int split_release(AwraWidget *w, BKEvent *e)
+{
+  (void)e;
+  SplitExt *x = SPLX(w);
+  if (!x->dragging) {
+    return 0;
+  }
+  x->dragging = false;
+  return 1;
+}
+
+static int split_cursor(AwraWidget *w, int px, int py)
+{
+  (void)py;
+  return SPLX(w)->dragging || on_split_handle(w, px) ? BK_CURSOR_EW : -1;
+}
+
+static void split_draw(AwraWidget *w, AwraDraw *d)
+{
+  const int sep = split_sep(w);
+  if (sep >= 0) {
+    awra_paint_rect(d, (AwraBox){(float)sep, (float)w->y, awra_pxf(1), (float)w->h},
                     &awra_tokens()->separator);
   }
 }
@@ -2041,11 +2266,17 @@ static AwraClass split_class = {
     .measure = split_measure,
     .allocate = split_allocate,
     .draw = split_draw,
+    .press = split_press,
+    .drag = split_drag,
+    .release = split_release,
+    .cursor = split_cursor,
 };
 
 AwraWidget *awra_split_view_new(void)
 {
+  split_class.bk.hit = split_hit;
   AwraWidget *w = awra_widget_new(&split_class);
+  SPLX(w)->pos = -1;
   SPLX(w)->show_sidebar = true;
   return w;
 }

@@ -547,6 +547,10 @@ void awra_scrolled_scroll_to(AwraWidget *scrolled, AwraWidget *child);
 /* The vertical range (GtkAdjustment's value, upper and page size), logical
  * px; value-changed is emitted when the value changes. */
 void awra_scrolled_get_vadjustment(AwraWidget *scrolled, double *value, double *upper, double *page);
+/* Content scrolled past the top or bottom edge fades out over `top` /
+ * `bottom` logical px into what is behind, instead of being cut (Awra 1's
+ * conversation view; software rendering). 0 for none (the default). */
+void awra_scrolled_set_edge_fades(AwraWidget *scrolled, int top, int bottom);
 
 AwraWidget *awra_separator_new(AwraOrientation orientation);
 AwraWidget *awra_spacer_new(void); /* an empty expanding widget */
@@ -1463,7 +1467,7 @@ AwraTexture *awra_texture_ref(AwraTexture *texture);
 void awra_texture_unref(AwraTexture *texture);
 int awra_texture_width(const AwraTexture *texture);
 int awra_texture_height(const AwraTexture *texture);
-/* Straight RGBA rows; false for video frames. */
+/* Straight RGBA rows (video frames converted as drawn). */
 bool awra_texture_download(const AwraTexture *texture, uint8_t *rgba, int stride);
 /* Images show a texture (as GtkPicture shows a paintable: natural size the
  * texture's, height for width by its aspect ratio, content fit). */
@@ -1636,6 +1640,12 @@ AwraWidget *awra_rail_selected_item(AwraWidget *rail);
 void awra_rail_set_selected_item(AwraWidget *rail, AwraWidget *item);
 void awra_rail_set_header(AwraWidget *rail, AwraWidget *header);
 void awra_rail_set_footer(AwraWidget *rail, AwraWidget *footer);
+/* A reorderable rail's entries drag (an item by its tile, a folder by its
+ * own tile; past 8 px, the column scrolling near its edges): the others
+ * make room, and on release the rail emits AWRA_SIGNAL_MOVED: the entry
+ * now at args->index was moved there, or, with args->active, the item at
+ * args->index was dropped onto the entry at (int)args->value (the middle
+ * of a tile; the rail moves nothing then: folders are the application's). */
 void awra_rail_set_reorderable(AwraWidget *rail, bool reorderable);
 bool awra_rail_reorderable(AwraWidget *rail);
 AwraWidget *awra_rail_item_new(const char *label);
@@ -1812,6 +1822,37 @@ int awra_tag_entry_n_tags(AwraWidget *tags);
 const char *awra_tag_entry_tag(AwraWidget *tags, int index);
 
 /* ----------------------------------------------------------------------- */
+/* Textures over borrowed pixels (gdk_memory_texture_new over a GBytes):
+ * the texture reads `data` where it is, without a copy, and calls
+ * release(user_data) once its last reference goes (on the thread that drops
+ * it; references are atomic, so a texture may be made off the UI thread).
+ * `data` must stay unchanged until then, be 4-byte aligned and hold packed
+ * rows: ARGB and RGBA 4 * width bytes a row; NV12 and I420 (even width and
+ * height) width * height luma bytes, then NV12's interleaved Cb Cr rows of
+ * width bytes, or I420's Cb plane then Cr plane of width / 2 by height / 2.
+ * Straight RGBA is premultiplied as it is drawn, 4:2:0 video turned into
+ * colour (limited range, BT.601 or `bt709`): only the pixels drawn.
+ * NULL (and release not called) when the size, format or alignment don't do. */
+typedef enum {
+  AWRA_TEXTURE_ARGB_PREMULTIPLIED = 0, /* native-endian 0xAARRGGBB words */
+  AWRA_TEXTURE_RGBA = 1,               /* bytes R G B A, straight alpha */
+  AWRA_TEXTURE_NV12 = 2,
+  AWRA_TEXTURE_I420 = 3,
+} AwraTextureFormat;
+AwraTexture *awra_texture_new_for_data(const void *data, int width, int height,
+                                       AwraTextureFormat format, bool bt709,
+                                       void (*release)(void *user_data), void *user_data);
+
+/* ----------------------------------------------------------------------- */
+/* Popovers pointing at part of their anchor (gtk_popover_set_pointing_to):
+ * a rect in the anchor's logical coordinates the popover is placed by,
+ * beside it on its side (set_position), centred on it; unset: the anchor. */
+void awra_popover_set_pointing_to(AwraWidget *popover, bool set, int x, int y, int width, int height);
+
+/* ----------------------------------------------------------------------- */
+/* Debugging: how many widgets exist (made and not yet freed), to check that
+ * closing a window or dropping a row lets every widget of it go. */
+int awra_widgets_alive(void);
 /* Accessibility (GtkAccessible): every widget has a role from its class, a
  * name and a description (GTK's naming rules: an explicit label, the
  * labelled-by relation, its text or its children's for roles named from
@@ -2094,4 +2135,5 @@ bool awra_widget_drop_active(AwraWidget *widget);
 
 #ifdef __cplusplus
 }
+
 #endif

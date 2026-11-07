@@ -285,7 +285,7 @@ void BUI_raster_image_rounded(BuiRaster *r,
   float rad[4];
   clamp_radii(radii, w, h, rad);
   if (r->gpu || (rad[0] <= 0.0f && rad[1] <= 0.0f && rad[2] <= 0.0f && rad[3] <= 0.0f) ||
-      img->format != BUI_PIXMAP_ARGB)
+      BUI_pixmap_yuv(img->format))
   {
     BUI_raster_image(r, x, y, w, h, img, src, alpha, 0);
     return;
@@ -361,7 +361,7 @@ void BUI_raster_image_rounded(BuiRaster *r,
         const int tx = clampi((int)(sx + (fx - x) * kx), 0, img->w - 1);
         const int ty = clampi((int)(sy + (fy - y) * ky), 0, img->h - 1);
         const uint32_t ga = (uint32_t)(clampf(alpha * cov, 0.0f, 1.0f) * 256.0f + 0.5f);
-        put_image_px(row + px, img->px[(size_t)ty * img->w + tx], ga);
+        put_image_px(row + px, pixmap_texel(img, (size_t)ty * img->w + tx), ga);
       }
     }
   }
@@ -447,6 +447,147 @@ void BUI_raster_mask(BuiRaster *r,
       const uint32_t fac = ((uint32_t)p.a * (cov + (cov >> 7))) >> 8;
       row[px] = fac >= 256 ? p.rgb : blend(row[px], p.rgb, fac);
     }
+  }
+}
+
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Fades (an alpha mask over what a widget draws)
+ * \{ */
+
+/* The clip-limited part of (x, y, w, h); 0 when empty or rendering on a GPU. */
+static int fade_box(BuiRaster *r, int x, int y, int w, int h, int *x0, int *y0, int *x1, int *y1)
+{
+  if (r->gpu) {
+    return 0;
+  }
+  *x0 = clampi(x, r->cx0, r->cx1);
+  *y0 = clampi(y, r->cy0, r->cy1);
+  *x1 = clampi(x + w, r->cx0, r->cx1);
+  *y1 = clampi(y + h, r->cy0, r->cy1);
+  return *x1 > *x0 && *y1 > *y0;
+}
+
+int BUI_raster_read(BuiRaster *r, int x, int y, int w, int h, uint32_t *dst)
+{
+  int x0, y0, x1, y1;
+  if (!fade_box(r, x, y, w, h, &x0, &y0, &x1, &y1)) {
+    return 0;
+  }
+  for (int py = y0; py < y1; py++) {
+    memcpy(dst + (size_t)(py - y) * w + (x0 - x), r->pix + (size_t)py * r->w + x0,
+           sizeof(uint32_t) * (size_t)(x1 - x0));
+  }
+  return 1;
+}
+
+void BUI_raster_fade(BuiRaster *r, int x, int y, int w, int h, const uint32_t *saved, float a0, float a1)
+{
+  int x0, y0, x1, y1;
+  if (h <= 0 || !fade_box(r, x, y, w, h, &x0, &y0, &x1, &y1)) {
+    return;
+  }
+  for (int py = y0; py < y1; py++) {
+    /* the mask at the row's centre, as a linear gradient samples it */
+    const float t = ((float)(py - y) + 0.5f) / (float)h;
+    const uint32_t a = (uint32_t)(clampf(a0 + (a1 - a0) * t, 0.0f, 1.0f) * 256.0f + 0.5f);
+    if (a >= 256) {
+      continue;
+    }
+    uint32_t *row = r->pix + (size_t)py * r->w;
+    const uint32_t *under = saved + (size_t)(py - y) * w - x;
+    for (int px = x0; px < x1; px++) {
+      /* under + (content - under) * a, per channel */
+      const uint32_t u = under[px], c = row[px];
+      const uint32_t urb = u & 0xFF00FFu, uag = (u >> 8) & 0xFF00FFu;
+      const uint32_t crb = c & 0xFF00FFu, cag = (c >> 8) & 0xFF00FFu;
+      const uint32_t rb = ((urb * (256 - a) + crb * a) >> 8) & 0xFF00FFu;
+      const uint32_t ag = ((uag * (256 - a) + cag * a) >> 8) & 0xFF00FFu;
+      row[px] = rb | ag << 8;
+    }
+  }
+}
+
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Rounded clips (GTK's push_rounded_clip over what a widget draws)
+ * \{ */
+
+/* The square of corner `i` (TL, TR, BR, BL) of a box with radius `r`. */
+static void corner_square(float x, float y, float w, float h, int i, int r, int *cx, int *cy)
+{
+  *cx = (i == 0 || i == 3) ? (int)floorf(x) : (int)ceilf(x + w) - r;
+  *cy = (i == 0 || i == 1) ? (int)floorf(y) : (int)ceilf(y + h) - r;
+}
+
+int BUI_raster_corners_size(float w, float h, const float radii[4])
+{
+  float rad[4];
+  clamp_radii(radii, w, h, rad);
+  int n = 0;
+  for (int i = 0; i < 4; i++) {
+    const int r = (int)ceilf(rad[i]) + 1;
+    n += rad[i] > 0.0f ? r * r : 0;
+  }
+  return n;
+}
+
+int BUI_raster_corners_save(BuiRaster *r, float x, float y, float w, float h, const float radii[4], uint32_t *dst)
+{
+  if (r->gpu) {
+    return 0;
+  }
+  float rad[4];
+  clamp_radii(radii, w, h, rad);
+  for (int i = 0; i < 4; i++) {
+    if (rad[i] <= 0.0f) {
+      continue;
+    }
+    const int n = (int)ceilf(rad[i]) + 1;
+    int cx, cy;
+    corner_square(x, y, w, h, i, n, &cx, &cy);
+    BUI_raster_read(r, cx, cy, n, n, dst);
+    dst += (size_t)n * n;
+  }
+  return 1;
+}
+
+void BUI_raster_corners_clip(BuiRaster *r, float x, float y, float w, float h, const float radii[4],
+                             const uint32_t *saved)
+{
+  if (r->gpu) {
+    return;
+  }
+  float rad[4];
+  clamp_radii(radii, w, h, rad);
+  for (int i = 0; i < 4; i++) {
+    if (rad[i] <= 0.0f) {
+      continue;
+    }
+    const int n = (int)ceilf(rad[i]) + 1;
+    int cx, cy, x0, y0, x1, y1;
+    corner_square(x, y, w, h, i, n, &cx, &cy);
+    if (fade_box(r, cx, cy, n, n, &x0, &y0, &x1, &y1)) {
+      for (int py = y0; py < y1; py++) {
+        uint32_t *row = r->pix + (size_t)py * r->w;
+        const uint32_t *under = saved + (size_t)(py - cy) * n - cx;
+        for (int px = x0; px < x1; px++) {
+          const float cov = clampf(0.5f - sd_rbox((float)px + 0.5f, (float)py + 0.5f, x, y, x + w, y + h, rad),
+                                   0.0f, 1.0f);
+          const uint32_t a = (uint32_t)(cov * 256.0f + 0.5f);
+          if (a >= 256) {
+            continue;
+          }
+          const uint32_t u = under[px], c = row[px];
+          const uint32_t rb = (((u & 0xFF00FFu) * (256 - a) + (c & 0xFF00FFu) * a) >> 8) & 0xFF00FFu;
+          const uint32_t ag = ((((u >> 8) & 0xFF00FFu) * (256 - a) + ((c >> 8) & 0xFF00FFu) * a) >> 8) & 0xFF00FFu;
+          row[px] = rb | ag << 8;
+        }
+      }
+    }
+    saved += (size_t)n * n;
   }
 }
 

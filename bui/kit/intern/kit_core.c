@@ -3580,7 +3580,13 @@ int BK_scroll(BKContext *ctx, int x, int y, float dx, float dy, int mods)
 int BK_context_menu(BKContext *ctx, int x, int y, int mods)
 {
   if (ctx->pointer_hook) {
+    /* BUI-Awra: a menu the hook opened (a right-press handler popping up
+     * a popover) is the answer: the kit doesn't close it again or add its own */
+    const int before = ctx->npopups;
     ctx->pointer_hook(ctx, BK_EV_PRESS, x, y, mods | BK_BUTTON3);
+    if (ctx->npopups > before) {
+      return 1;
+    }
   }
   INPUT_ENTRY(in_BK_context_menu(ctx, x, y, mods));
 }
