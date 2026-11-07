@@ -177,6 +177,9 @@ impl Window {
     pub fn set_resizable(&self, r: bool) {
         unsafe { ffi::awra_window_set_resizable(self.0.as_ptr(), r) }
     }
+    pub fn is_resizable(&self) -> bool {
+        unsafe { ffi::awra_window_get_resizable(self.0.as_ptr()) }
+    }
     pub fn maximize(&self) {
         unsafe { ffi::awra_window_maximize(self.0.as_ptr()) }
     }

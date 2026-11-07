@@ -202,10 +202,15 @@ static void window_allocate(AwraWidget *w)
   WinExt *x = WEXT(w);
   int th = 0;
   if (x->titlebar && awra_child_visible(x->titlebar)) {
-    int mn, nat;
-    awra_measure(x->titlebar, AWRA_ORIENTATION_VERTICAL, w->w, &mn, &nat);
+    /* never under its minimum, as the content (GTK allocates a window's
+     * minimum and the surface clips): a too narrow window must not lay its
+     * header's parts over each other */
+    int mn, nat, tw;
+    awra_measure(x->titlebar, AWRA_ORIENTATION_HORIZONTAL, -1, &tw, &nat);
+    tw = BK_MAX(w->w, tw);
+    awra_measure(x->titlebar, AWRA_ORIENTATION_VERTICAL, tw, &mn, &nat);
     th = mn;
-    awra_allocate(x->titlebar, w->x, w->y, w->w, th);
+    awra_allocate(x->titlebar, w->x, w->y, tw, th);
   }
   if (x->overlay_titlebar) {
     th = 0; /* the title bar floats over the content */
@@ -1377,6 +1382,9 @@ static void ensure_native(AwraWidget *w)
   }
   awra_window_identity_native(w); /* identity.c: its icon */
   native_parent(w);
+  if (!x->resizable) {
+    BK_window_wm(x->bkw, "resizable", 0, 0);
+  }
   x->blur_state = BK_window_blur_available(x->bkw);
   if (x->blur_state == 1) {
     x->state |= AWRA_WINDOW_STATE_BLUR;
@@ -1743,6 +1751,9 @@ void awra_window_set_titlebar(AwraWidget *w, AwraWidget *titlebar)
   awra_set_slot(w, &x->titlebar, titlebar);
   /* the title bar paints over the content: keep it last among children */
   restack(w);
+  if (titlebar) {
+    awra_header_window_state_changed(titlebar); /* its controls follow the window */
+  }
 }
 
 AwraWidget *awra_window_titlebar(AwraWidget *w)
@@ -1786,9 +1797,27 @@ void awra_window_set_min_size(AwraWidget *w, int width, int height)
   }
 }
 
+/* gtk_window_set_resizable: the window manager is told (fixed size hints,
+ * no maximize), the client-side resize band goes and the header shows no
+ * maximize button (GtkWindowControls) */
 void awra_window_set_resizable(AwraWidget *w, bool resizable)
 {
-  WEXT(w)->resizable = resizable;
+  WinExt *x = WEXT(w);
+  if (x->resizable == resizable) {
+    return;
+  }
+  x->resizable = resizable;
+  if (x->bkw) {
+    BK_window_wm(x->bkw, "resizable", resizable ? 1 : 0, resizable ? 1 : 0);
+  }
+  if (x->titlebar) {
+    awra_header_window_state_changed(x->titlebar);
+  }
+}
+
+bool awra_window_get_resizable(AwraWidget *w)
+{
+  return awra_widget_is(w, "AwraWindow") && WEXT(w)->resizable;
 }
 
 static void wm_state(AwraWidget *w, int state)

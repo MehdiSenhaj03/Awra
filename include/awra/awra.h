@@ -2139,6 +2139,7 @@ void awra_window_set_transient_for_exported(AwraWidget *window, const char *pare
 void awra_window_set_transient_for(AwraWidget *window, AwraWidget *parent);
 AwraWidget *awra_window_get_transient_for(AwraWidget *window);
 void awra_window_set_modal(AwraWidget *window, bool modal);
+bool awra_window_get_resizable(AwraWidget *window);
 bool awra_window_get_modal(AwraWidget *window);
 /* Whether a popover or menu is open over the window (its keys go there
  * first: a window-wide key handler leaves them alone). */

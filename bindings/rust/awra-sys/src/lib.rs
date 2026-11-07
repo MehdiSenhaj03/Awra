@@ -1344,6 +1344,7 @@ extern "C" {
     pub fn awra_window_set_transient_for(window: *mut AwraWidget, parent: *mut AwraWidget);
     pub fn awra_window_get_transient_for(window: *mut AwraWidget) -> *mut AwraWidget;
     pub fn awra_window_set_modal(window: *mut AwraWidget, modal: bool);
+    pub fn awra_window_get_resizable(window: *mut AwraWidget) -> bool;
     pub fn awra_window_get_modal(window: *mut AwraWidget) -> bool;
     pub fn awra_window_has_popup(window: *mut AwraWidget) -> bool;
     pub fn awra_transition_bin_new() -> *mut AwraWidget;
