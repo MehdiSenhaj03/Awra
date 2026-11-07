@@ -751,6 +751,8 @@ extern "C" {
     pub fn awra_action_row_set_prefix(row: *mut AwraWidget, prefix: *mut AwraWidget);
     pub fn awra_action_row_add_suffix(row: *mut AwraWidget, suffix: *mut AwraWidget);
     pub fn awra_action_row_set_activatable(row: *mut AwraWidget, activatable: bool);
+    pub fn awra_action_row_set_suffix(row: *mut AwraWidget, suffix: *mut AwraWidget);
+    pub fn awra_action_row_get_suffix(row: *mut AwraWidget) -> *mut AwraWidget;
     pub fn awra_badge_new(label: *const c_char, appearance: c_int) -> *mut AwraWidget;
     pub fn awra_badge_set_label(badge: *mut AwraWidget, label: *const c_char);
     pub fn awra_badge_set_appearance(badge: *mut AwraWidget, appearance: c_int);

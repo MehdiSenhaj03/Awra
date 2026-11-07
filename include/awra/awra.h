@@ -838,7 +838,13 @@ void awra_action_row_set_subtitle(AwraWidget *row, const char *subtitle);
 void awra_action_row_set_icon_name(AwraWidget *row, const char *icon_name);
 void awra_action_row_set_prefix(AwraWidget *row, AwraWidget *prefix);
 void awra_action_row_add_suffix(AwraWidget *row, AwraWidget *suffix);
+/* Activatable rows (the default, as Awra 1's GtkButton rows) hover, take
+ * keyboard focus and emit clicked; a row that is not is a group. */
 void awra_action_row_set_activatable(AwraWidget *row, bool activatable);
+/* Awra 1's suffix: one widget at the row's end, replaced by the next call,
+ * NULL removes it; it keeps its own alignment (a button fills the row). */
+void awra_action_row_set_suffix(AwraWidget *row, AwraWidget *suffix);
+AwraWidget *awra_action_row_get_suffix(AwraWidget *row);
 
 AwraWidget *awra_badge_new(const char *label, AwraBadgeAppearance appearance);
 void awra_badge_set_label(AwraWidget *badge, const char *label);

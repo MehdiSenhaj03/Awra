@@ -1859,11 +1859,12 @@ impl ActionRow {
     pub fn add_suffix(&self, w: &impl IsWidget) {
         unsafe { ffi::awra_action_row_add_suffix(ptr!(self), w.widget_ptr()) }
     }
+    /// Awra 1's suffix: replaces the previous one, `None` removes it.
     pub fn set_suffix(&self, w: impl IntoOptWidget) {
-        let p = w.into_opt_ptr();
-        if !p.is_null() {
-            unsafe { ffi::awra_action_row_add_suffix(ptr!(self), p) }
-        }
+        unsafe { ffi::awra_action_row_set_suffix(ptr!(self), w.into_opt_ptr()) }
+    }
+    pub fn suffix(&self) -> Option<Widget> {
+        unsafe { Widget::from_none_opt(ffi::awra_action_row_get_suffix(ptr!(self))) }
     }
     pub fn set_activatable(&self, a: bool) {
         unsafe { ffi::awra_action_row_set_activatable(ptr!(self), a) }

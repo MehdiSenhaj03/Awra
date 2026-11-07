@@ -590,6 +590,42 @@ static bool button_child_style(AwraWidget *w, AwraRGBA *r_color, int *r_weight)
   return true;
 }
 
+/* awra.css: `.awra-button label { color: inherit }` (and the menu
+ * button's) outranks a typography's colour (`.awra-muted`...): a muted or
+ * monospace label in an Awra button takes the button's colour; on plain
+ * buttons, inline and row actions keep muted labels muted, search launchers
+ * pass their colour to every label, other roles to none. */
+extern AwraClass awra_button_class;
+
+bool awra_button_label_inherits(const AwraWidget *w, AwraTypography t)
+{
+  if (AWRA_CLASS_OF(w) != &awra_button_class) {
+    return false;
+  }
+  switch (role_look(w)) {
+    case -1:
+      break;
+    case AWRA_LOOK_INLINE_ACTION:
+    case AWRA_LOOK_ROW_ACTION:
+      return t != AWRA_TYPOGRAPHY_MUTED;
+    case AWRA_LOOK_SEARCH_LAUNCHER:
+      return true;
+    default:
+      return false;
+  }
+  switch (BX(w)->look) {
+    case AWRA_LOOK_SECONDARY:
+    case AWRA_LOOK_PRIMARY:
+    case AWRA_LOOK_GHOST:
+    case AWRA_LOOK_DESTRUCTIVE:
+    case AWRA_LOOK_TOOLBAR:
+    case AWRA_LOOK_SUCCESS:
+      return true;
+    default:
+      return false;
+  }
+}
+
 static void toggle_set(AwraWidget *w, bool active, bool notify);
 
 static void button_activate(AwraWidget *w)

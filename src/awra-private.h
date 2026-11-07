@@ -566,6 +566,7 @@ typedef struct AwraButtonColors {
   AwraRGBA ring;      /* inset 0 0 0 1px (primary hover) */
   float pressed_shadow; /* inset 0 1px 2px dark, alpha */
 } AwraButtonColors;
+bool awra_button_label_inherits(const AwraWidget *button, AwraTypography t);
 void awra_button_colors(AwraLook look, bool hover, bool pressed, bool checked, bool sensitive,
                         AwraButtonColors *r);
 /* Paints a button background (state, scale .96 while pressed, focus ring). */

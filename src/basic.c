@@ -213,14 +213,27 @@ static AwraRGBA label_color(AwraWidget *w)
   if (x->has_color) {
     return x->color;
   }
-  AwraRGBA c = awra_typography_color(awra_widget_typography(w));
+  const AwraTypography t = awra_widget_typography(w);
+  AwraRGBA c = awra_typography_color(t);
   int weight;
-  if (!awra_aux(w)->typography_set || awra_widget_typography(w) == AWRA_TYPOGRAPHY_BODY ||
-      awra_widget_typography(w) == AWRA_TYPOGRAPHY_LABEL)
-  {
+  if (!awra_aux(w)->typography_set || t == AWRA_TYPOGRAPHY_BODY || t == AWRA_TYPOGRAPHY_LABEL) {
     AwraRGBA ic;
     if (awra_inherited_style(w, &ic, &weight) && ic.a > 0) {
       c = ic;
+    }
+  }
+  else {
+    /* a typography's colour gives way inside an Awra button (awra.css) */
+    for (const BKNode *n = w->parent; n; n = n->parent) {
+      if (awra_is_widget(n) && AWRA_CLASS_OF(n)->child_style) {
+        AwraRGBA ic;
+        if (awra_button_label_inherits((const AwraWidget *)n, t) &&
+            AWRA_CLASS_OF(n)->child_style((AwraWidget *)n, &ic, &weight) && ic.a > 0)
+        {
+          c = ic;
+        }
+        break;
+      }
     }
   }
   if (awra_has_class_bit(w, AWRA_CB_DIM)) {
