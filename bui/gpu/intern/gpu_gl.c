@@ -799,7 +799,10 @@ static const char *const k_fs_quad =
     "  if (kind == K_BOX_SHADOW) {\n" /* BUI-Awra: BUI_raster_box_shadow */
     "    float d = sd_rbox4(s, R, v_c1);\n"
     "    float cov = v_uv.y > 0.5 ? half_erfc(d * v_uv.x) : sat(0.5 - d);\n"
-    "    if (v_uv.z > 0.5) {\n"
+    "    if (v_uv.z > 1.5) {\n" /* inset: inside the box, outside the (blurred) hole R */
+    "      cov = sat(0.5 - sd_rbox4(s, v_c2, v_c3)) * (1.0 - (v_uv.w > 0.5 ? 0.0 : cov));\n"
+    "    }\n"
+    "    else if (v_uv.z > 0.5) {\n"
     "      cov *= 1.0 - sat(0.5 - sd_rbox4(s, v_c2, v_c3));\n"
     "    }\n"
     "    return cov > 0.002 ? premul(v_c0, cov) : vec4(0.0);\n"

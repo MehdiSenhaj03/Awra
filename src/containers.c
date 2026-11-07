@@ -1779,3 +1779,8 @@ void awra_flow_box_set_child_padding(AwraWidget *flow, int padding)
   AWRA_EXT(flow, FlowExt)->child_pad = padding;
   awra_widget_queue_resize(flow);
 }
+
+int awra_box_axis(const AwraWidget *w)
+{
+  return awra_widget_is(w, "AwraBox") ? AWRA_EXT(w, BoxExt)->orientation : -1;
+}

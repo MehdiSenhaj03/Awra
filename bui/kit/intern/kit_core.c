@@ -2386,6 +2386,22 @@ void bk_ctx_prepare(BKContext *ctx)
   }
 }
 
+void BK_context_layout(BKContext *ctx, int w, int h)
+{
+  if (!ctx || w <= 0 || h <= 0) {
+    return;
+  }
+  if (w != ctx->win_w || h != ctx->win_h) {
+    ctx->win_w = w;
+    ctx->win_h = h;
+    ctx->layout_dirty = true;
+    ctx->full_dirty = true;
+  }
+  if (ctx->layout_dirty) {
+    layout(ctx);
+  }
+}
+
 int BK_render(BKContext *ctx, BuiRaster *r, int w, int h, int full)
 {
   BK_image_poll(); /* decoded images arrive (and damage where they show) */

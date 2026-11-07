@@ -2,7 +2,8 @@
  * the locale, children mirrored in their container (start is right),
  * labels and entries aligned at the right, scales inverted with Left
  * raising them, switches on at the left, text layouts' base direction,
- * and icons that have right-to-left variants mirrored.
+ * icons that have right-to-left variants mirrored, and the first focus as
+ * gtk_window_show moves it (gtk_widget_focus_sort).
  *
  * SPDX-License-Identifier: GPL-3.0-or-later */
 
@@ -155,6 +156,61 @@ static void check_icons(void)
   BUI_raster_free(r);
 }
 
+/* A window's first focus as GTK's: the first focusable widget in focus
+ * order, where a box's children go from left to right as they show (a
+ * right-to-left row starts at its end) and other containers' in reading
+ * order (right to left in a right-to-left grid). */
+static AwraWidget *first_focus(AwraTextDirection dir, bool grid, AwraWidget **a, AwraWidget **b)
+{
+  AwraTextDirection was = awra_widget_get_default_direction();
+  awra_widget_set_default_direction(dir);
+  AwraWidget *win = awra_window_new_offscreen("Focus", 400, 300, 1.0);
+  *a = awra_button_new_with_label("A");
+  *b = awra_entry_new();
+  if (grid) {
+    /* the second child in the first column */
+    AwraWidget *g = awra_grid_new();
+    awra_grid_attach(g, *a, 1, 0, 1, 1);
+    awra_grid_attach(g, *b, 0, 0, 1, 1);
+    awra_window_set_child(win, g);
+    awra_widget_unref(g);
+  }
+  else {
+    /* a rail and a column: Dawra's sidebar */
+    AwraWidget *row = awra_box_new(AWRA_ORIENTATION_HORIZONTAL, 0);
+    AwraWidget *column = awra_box_new(AWRA_ORIENTATION_VERTICAL, 0);
+    AwraWidget *title = awra_label_new("Direct messages");
+    awra_box_append(row, *a);
+    awra_box_append(column, title);
+    awra_box_append(column, *b);
+    awra_widget_set_hexpand(column, true);
+    awra_box_append(row, column);
+    awra_window_set_child(win, row);
+    awra_widget_unref(title);
+    awra_widget_unref(column);
+    awra_widget_unref(row);
+  }
+  /* compared by address only once the window has gone */
+  awra_widget_unref(*a);
+  awra_widget_unref(*b);
+  awra_window_present(win);
+  AwraWidget *focus = awra_window_focus(win);
+  awra_window_close(win);
+  awra_widget_set_default_direction(was);
+  return focus;
+}
+
+static void check_first_focus(void)
+{
+  AwraWidget *a, *b;
+  CHECK(first_focus(AWRA_TEXT_DIR_LTR, false, &a, &b) == a, "a row starts at its left: the rail");
+  CHECK(first_focus(AWRA_TEXT_DIR_RTL, false, &a, &b) == b,
+        "a right-to-left row starts at its left too: the column's field");
+  CHECK(first_focus(AWRA_TEXT_DIR_LTR, true, &a, &b) == b, "a grid in reading order: column 0");
+  CHECK(first_focus(AWRA_TEXT_DIR_RTL, true, &a, &b) == b,
+        "a right-to-left grid reads from its right: column 0 still");
+}
+
 int main(void)
 {
   check_locale();
@@ -162,6 +218,7 @@ int main(void)
   check_layout();
   check_text();
   check_icons();
+  check_first_focus();
   if (failures) {
     fprintf(stderr, "%d failure(s)\n", failures);
     return 1;

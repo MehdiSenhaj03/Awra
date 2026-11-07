@@ -90,6 +90,18 @@ Awra 2: the same look, without GTK.
   `awra_entry_select_region`, `awra_header_set_expand_center`, suffixes on
   navigation items, drop-hover / files-dropped with the pointer position,
   GTK's chevrons for pan-* icons, place and device icons.
+- Window sizes as GtkWindow computes them: a dimension left unset takes the
+  contents' natural size when the window maps (on idle after present, so a
+  body filled right after present counts), and a window that is not
+  resizable, such as a dialog, follows its contents' size afterwards.
+- Focus order as gtk_widget_focus_sort: a box's children from left to
+  right or top to bottom as they show, other containers' in reading order
+  (right to left in a right-to-left container), with the window laid out
+  first, so a window's first focus and Tab follow GTK in both directions.
+  BUI: `BK_context_layout`.
+- GPU renderers: inset box shadows (entries, switches, checks) draw on the
+  GPU as in the software raster, and a Direct3D 11 window takes its device
+  as soon as it is ready instead of at its next change.
 - License: GPL-3.0-or-later (BUI derives from Blender, GPL-2.0-or-later).
   Awra 1 was LGPL-2.1-or-later.
 

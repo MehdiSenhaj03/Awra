@@ -65,6 +65,14 @@ typedef struct WinExt {
   AwraWidget *overlays[8];
   double ov_x[8], ov_y[8];
   int noverlays;
+  /* an unset default width or height, the contents' natural one: measured
+   * again when the window maps, on idle after present (GTK computes it at
+   * the first layout, after what the caller adds once presenting) */
+  bool natural_w, natural_h;
+  unsigned map_idle;
+  /* the default size as asked (-1: unset), and the size last asked of the
+   * window system for a window that follows its contents */
+  int req_w, req_h, asked_w, asked_h;
 } WinExt;
 
 #define WEXT(w) AWRA_EXT(w, WinExt)
@@ -78,8 +86,8 @@ static void window_init(AwraWidget *w)
 {
   WinExt *x = WEXT(w);
   x->resizable = true;
-  x->default_w = 900;
-  x->default_h = 620;
+  x->default_w = x->req_w = 900;
+  x->default_h = x->req_h = 620;
   x->blur_state = -1;
   x->scale = 1.0f;
 }
@@ -197,6 +205,34 @@ static void place_overlay(AwraWidget *w, int i)
   awra_allocate(c, px, py, pw, ph);
 }
 
+/* A window that is not resizable keeps no size of its own: GtkWindow
+ * computes its default size again at each layout (should_remember_size), so
+ * it follows its contents' natural size where its default size is unset (a
+ * dialog grows as its body fills) and stays at least their minimum. */
+static void follow_contents(AwraWidget *w, int mw, int nw)
+{
+  WinExt *x = WEXT(w);
+  if (!x->bkw || x->resizable || !x->presented || x->map_idle || x->natural_w || x->natural_h) {
+    return;
+  }
+  const float s = awra_scale();
+  const int lmw = (int)ceilf(mw / s);
+  const int width = x->req_w > 0 ? BK_MAX(lmw, x->req_w) : (int)ceilf(nw / s);
+  int mh = 0, nh = 0;
+  window_measure(w, AWRA_ORIENTATION_VERTICAL, (int)(width * s), &mh, &nh);
+  const int height = x->req_h > 0 ? BK_MAX((int)ceilf(mh / s), x->req_h) : (int)ceilf(nh / s);
+  if (width <= 0 || height <= 0 || (width == x->asked_w && height == x->asked_h)) {
+    return;
+  }
+  x->asked_w = width;
+  x->asked_h = height;
+  if (width != awra_widget_width(w) || height != awra_widget_height(w)) {
+    x->default_w = width;
+    x->default_h = height;
+    BK_window_set_size(x->bkw, width, height);
+  }
+}
+
 static void window_allocate(AwraWidget *w)
 {
   WinExt *x = WEXT(w);
@@ -229,6 +265,7 @@ static void window_allocate(AwraWidget *w)
       BK_window_wm(x->bkw, "minsize", lw, lh);
     }
   }
+  follow_contents(w, mw, nw);
   if (x->child) {
     const int cw = BK_MAX(w->w, mw), ch = BK_MAX(w->h, mh);
     awra_allocate(x->child, w->x, w->y + th, cw, BK_MAX(0, ch - th));
@@ -691,6 +728,46 @@ static bool focusable(const AwraWidget *n)
   return (AWRA_CLASS_OF(n)->flags & (AWRA_CLASS_FOCUSABLE | AWRA_CLASS_TEXT_INPUT)) != 0;
 }
 
+/* gtk_widget_focus_sort for GTK_DIR_TAB_FORWARD, without a focus inside
+ * yet: a box's children from left to right or top to bottom as they show
+ * (a right-to-left row starts at its left, its end), any other container's
+ * by their centres' rows, then along each row in the reading direction
+ * (tab_sort_func). Children not laid out yet keep their order. */
+static int focus_compare(const AwraWidget *a, const AwraWidget *b, int axis, bool rtl)
+{
+  if (a->w <= 0 || a->h <= 0 || b->w <= 0 || b->h <= 0) {
+    return 0;
+  }
+  const double ax = a->x + a->w / 2.0, bx = b->x + b->w / 2.0;
+  const double ay = a->y + a->h / 2.0, by = b->y + b->h / 2.0;
+  if (axis == AWRA_ORIENTATION_HORIZONTAL) {
+    return ax < bx ? -1 : ax > bx ? 1 : 0;
+  }
+  if (axis == AWRA_ORIENTATION_VERTICAL || ay != by) {
+    return ay < by ? -1 : ay > by ? 1 : 0;
+  }
+  return (ax < bx ? -1 : ax > bx ? 1 : 0) * (rtl ? -1 : 1);
+}
+
+static void focus_sort(const AwraWidget *n, AwraWidget **kids, int count)
+{
+  if (!awra_is_widget(n) || count < 2) {
+    return;
+  }
+  const int axis = awra_box_axis(n); /* -1: not a box */
+  const bool rtl = awra_widget_rtl(n);
+  /* stable: equal places keep the tree's order */
+  for (int i = 1; i < count; i++) {
+    AwraWidget *k = kids[i];
+    int j = i;
+    while (j > 0 && focus_compare(k, kids[j - 1], axis, rtl) < 0) {
+      kids[j] = kids[j - 1];
+      j--;
+    }
+    kids[j] = k;
+  }
+}
+
 static void collect_focusable(AwraWidget *n, AwraWidget **out, int *count, int max)
 {
   static int leaving = -2;
@@ -705,8 +782,20 @@ static void collect_focusable(AwraWidget *n, AwraWidget **out, int *count, int m
   if (focusable(n)) {
     out[(*count)++] = n;
   }
+  AwraWidget *stack[64];
+  AwraWidget **kids = n->nkids <= 64 ? stack : (AwraWidget **)malloc(sizeof(*kids) * (size_t)n->nkids);
+  if (!kids) {
+    return;
+  }
   for (int i = 0; i < n->nkids; i++) {
-    collect_focusable(n->kids[i], out, count, max);
+    kids[i] = n->kids[i];
+  }
+  focus_sort(n, kids, n->nkids);
+  for (int i = 0; i < n->nkids; i++) {
+    collect_focusable(kids[i], out, count, max);
+  }
+  if (kids != stack) {
+    free(kids);
   }
 }
 
@@ -871,6 +960,25 @@ static void move_focus(AwraWidget *win, int dir)
   awra_set_focus(win, list[next], true);
 }
 
+/* Lays the window out now at its size (GTK moves the focus with widgets
+ * allocated: at show, and after paint once the focused widget went), so
+ * the focus order follows where widgets show. */
+static void layout_now(AwraWidget *win)
+{
+  WinExt *x = WEXT(win);
+  if (!x->offscreen && !x->bkw) {
+    return;
+  }
+  const float s = x->scale > 0 ? x->scale : awra_scale();
+  int pw = x->offscreen ? x->off_w : x->ctx->win_w, ph = x->offscreen ? x->off_h : x->ctx->win_h;
+  if (pw <= 0 || ph <= 0) {
+    pw = (int)(x->default_w * s);
+    ph = (int)(x->default_h * s);
+  }
+  BK_set_scale(s);
+  BK_context_layout(x->ctx, pw, ph);
+}
+
 /* The first focusable widget of `n`'s subtree, in tab order. */
 static AwraWidget *first_focusable(AwraWidget *n)
 {
@@ -912,6 +1020,7 @@ static bool focus_move(void *data)
     }
   }
   if (!next) {
+    layout_now(win);
     next = first_focusable(x->child);
   }
   if (!next) {
@@ -1279,10 +1388,10 @@ static AwraWidget *window_create(const char *title, int width, int height, bool 
   x->title = awra_strdup(title ? title : "");
   /* -1: unset, the contents' natural size (GTK); 0: Awra's 900 x 620 */
   if (width != 0) {
-    x->default_w = width;
+    x->default_w = x->req_w = width;
   }
   if (height != 0) {
-    x->default_h = height;
+    x->default_h = x->req_h = height;
   }
   x->offscreen = offscreen;
   x->ctx = BK_context_new(w);
@@ -1360,6 +1469,8 @@ static void ensure_native(AwraWidget *w)
    * (measured at the current scale: the window's own may differ, so the
    * measures are forgotten once it is known) */
   const bool measured = x->child || x->titlebar;
+  x->natural_w = x->default_w <= 0;
+  x->natural_h = x->default_h <= 0;
   if (measured) {
     /* an unset default size (-1) is the contents' natural size
      * (gtk_window_compute_default_size): a dialog's height */
@@ -1508,6 +1619,55 @@ bool awra_window_get_modal(AwraWidget *w)
   return awra_widget_is(w, "AwraWindow") && WEXT(w)->modal;
 }
 
+static void map_native(AwraWidget *w)
+{
+  WinExt *x = WEXT(w);
+  BK_window_show(x->bkw);
+  BK_window_wm(x->bkw, "focus", 0, 0);
+  awra_window_identity_present(w); /* identity.c: activation (startup id) */
+}
+
+/* gtk_window_compute_default_size at the first layout: a size left unset is
+ * the contents' natural one as they are now, with what was added after
+ * present (a dialog's body filled once it is shown) */
+static bool map_natural(void *data)
+{
+  AwraWidget *w = (AwraWidget *)data;
+  WinExt *x = WEXT(w);
+  x->map_idle = 0;
+  if (!x->bkw || x->closed || (x->state & AWRA_WINDOW_STATE_HIDDEN)) {
+    return false;
+  }
+  if (x->natural_w || x->natural_h) {
+    const float s = awra_scale();
+    int mn = 0, nat = 0, width = x->default_w, height = x->default_h;
+    if (x->natural_w) {
+      window_measure(w, AWRA_ORIENTATION_HORIZONTAL, -1, &mn, &nat);
+      width = BK_MAX(1, (int)ceilf(nat / s));
+    }
+    if (x->natural_h) {
+      window_measure(w, AWRA_ORIENTATION_VERTICAL, (int)(width * s), &mn, &nat);
+      height = BK_MAX(1, (int)ceilf(nat / s));
+    }
+    forget_measures(w);
+    x->natural_w = x->natural_h = false;
+    if (width != x->default_w || height != x->default_h) {
+      x->default_w = width;
+      x->default_h = height;
+      BK_window_set_size(x->bkw, width, height);
+    }
+  }
+  x->asked_w = x->default_w;
+  x->asked_h = x->default_h;
+  map_native(w);
+  return false;
+}
+
+static void map_unref(void *data)
+{
+  awra_widget_unref((AwraWidget *)data);
+}
+
 void awra_window_present(AwraWidget *w)
 {
   if (!awra_widget_is(w, "AwraWindow")) {
@@ -1526,6 +1686,9 @@ void awra_window_present(AwraWidget *w)
      * first focusable widget of its content, then of its titlebar (not
      * shown as keyboard focus) */
     if (!x->focus) {
+      /* gtk_window_show moves the focus with the window laid out: the
+       * order follows where widgets show */
+      layout_now(w);
       AwraWidget *list[512];
       int n = 0;
       if (x->child) {
@@ -1544,10 +1707,13 @@ void awra_window_present(AwraWidget *w)
   if (!x->offscreen) {
     awra_a11y_platform_start(); /* assistive technologies may look (on demand) */
   }
-  if (x->bkw) {
-    BK_window_show(x->bkw);
-    BK_window_wm(x->bkw, "focus", 0, 0);
-    awra_window_identity_present(w); /* identity.c: activation (startup id) */
+  if (x->bkw && (x->natural_w || x->natural_h)) {
+    if (!x->map_idle) {
+      x->map_idle = awra_idle_add(map_natural, awra_widget_ref(w), map_unref);
+    }
+  }
+  else if (x->bkw) {
+    map_native(w);
   }
   update_blocked(x->transient_for);
 }
@@ -1775,6 +1941,10 @@ void awra_window_set_default_size(AwraWidget *w, int width, int height)
   WinExt *x = WEXT(w);
   x->default_w = width > 0 ? width : x->default_w;
   x->default_h = height > 0 ? height : x->default_h;
+  x->req_w = width > 0 ? width : x->req_w;
+  x->req_h = height > 0 ? height : x->req_h;
+  x->natural_w = x->natural_w && width <= 0;
+  x->natural_h = x->natural_h && height <= 0;
   /* GTK 4 resizes a shown window to its new default size, unless it is
    * maximized or fullscreen (it then applies once restored) */
   if (x->bkw && (!x->presented || !(x->state & (AWRA_WINDOW_STATE_MAXIMIZED | AWRA_WINDOW_STATE_FULLSCREEN)))) {

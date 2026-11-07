@@ -456,6 +456,9 @@ void awra_window_set_overlay_chrome(AwraWidget *window, bool overlaid);
 void awra_window_present(AwraWidget *window);
 void awra_window_hide(AwraWidget *window);
 void awra_window_close(AwraWidget *window); /* asks: close-request handlers may refuse */
+/* -1 leaves a dimension unset: the contents' natural one, measured when the
+ * window first maps (on idle after present, as GtkWindow's first layout),
+ * so what is added right after present counts. */
 void awra_window_set_default_size(AwraWidget *window, int width, int height);
 void awra_window_get_size(AwraWidget *window, int *width, int *height);
 void awra_window_set_min_size(AwraWidget *window, int width, int height);

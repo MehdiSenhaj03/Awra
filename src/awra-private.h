@@ -307,6 +307,8 @@ struct AwraDraw {
 
 /* Right to left (awra_widget_get_direction). */
 bool awra_widget_rtl(const AwraWidget *w);
+/* A box's orientation (GtkBoxLayout, its focus order), else -1. */
+int awra_box_axis(const AwraWidget *w);
 /* x of a box [x, x + width) inside widget `w`, mirrored in it when it is
  * right to left: custom drawing and hit-testing written left to right. */
 float awra_mirror_x(const AwraWidget *w, float x, float width);
