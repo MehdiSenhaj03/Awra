@@ -1572,7 +1572,10 @@ void awra_window_begin_move_internal(AwraWidget *w)
 
 static bool release_closed(void *data)
 {
-  awra_widget_unref((AwraWidget *)data);
+  AwraWidget *w = (AwraWidget *)data;
+  /* closed for good: its widgets' closures go, then the list's reference */
+  awra_dispose_tree(w);
+  awra_widget_unref(w);
   return false;
 }
 

@@ -2486,10 +2486,11 @@ impl Dialog {
         d
     }
     fn state(&self) -> std::rc::Rc<RefCell<DialogState>> {
-        self.0.rust_data("dialog-state").expect("a dialog's state")
+        // a closed dialog let its data go (Awra disposes closed windows)
+        self.0.rust_data("dialog-state").unwrap_or_default()
     }
     fn handlers(&self) -> std::rc::Rc<RefCell<Vec<ResponseFn>>> {
-        self.0.rust_data("dialog-handlers").expect("a dialog's handlers")
+        self.0.rust_data("dialog-handlers").unwrap_or_default()
     }
     fn response_index(&self, id: &str) -> Option<i32> {
         self.state().borrow().ids.iter().position(|i| i == id).map(|i| i as i32)

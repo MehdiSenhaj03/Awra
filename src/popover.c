@@ -1453,6 +1453,15 @@ void awra_popover_owner_a11y(AwraWidget *w, AwraA11yInfo *info)
   }
 }
 
+AwraWidget *awra_attached_popover(AwraWidget *w)
+{
+  MenuBtnData *m = (MenuBtnData *)awra_widget_get_data(w, "awra-menu-button");
+  if (m && m->popover) {
+    return m->popover;
+  }
+  return awra_widget_get_data(w, "awra-dropdown") ? drop_popover(dd(w)) : NULL;
+}
+
 /* awra.css .awra-menu-button.awra-open: a menu button whose popover shows
  * looks pressed (checked) */
 bool awra_menu_button_open(const AwraWidget *b)
