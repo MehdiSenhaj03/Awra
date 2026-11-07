@@ -914,6 +914,18 @@ void awra_popover_popup_at(AwraWidget *popover, AwraWidget *relative_to, double 
 void awra_popover_popdown(AwraWidget *popover);
 bool awra_popover_visible(AwraWidget *popover);
 void awra_popover_set_position(AwraWidget *popover, int side); /* 0 bottom 1 top 2 start 3 end */
+/* GtkPopover's pointing-to: the rectangle (logical px, in the anchor's
+ * coordinates) it points at instead of the anchor's bounds; width or
+ * height < 0 unsets it. */
+void awra_popover_set_pointing_to(AwraWidget *popover, double x, double y, double width,
+                                  double height);
+/* GtkPopover's offset (logical px) from where it would go. */
+void awra_popover_set_offset(AwraWidget *popover, int x, int y);
+/* GtkPopover's autohide (default true): it takes the keyboard and closes on
+ * a click elsewhere or Escape (menus); false, it stays until closed (no
+ * grab: completion lists that leave the keyboard to a text field). */
+void awra_popover_set_autohide(AwraWidget *popover, bool autohide);
+bool awra_popover_autohide(AwraWidget *popover);
 /* A popover menu of items, at a point of `relative_to` (context menus). */
 AwraWidget *awra_menu_popover_new(const AwraMenuItem *items, int n);
 void awra_context_menu_attach(AwraWidget *widget, const AwraMenuItem *items, int n);

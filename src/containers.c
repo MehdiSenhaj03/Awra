@@ -1413,7 +1413,7 @@ static bool fade_tick(void *data)
   BKRect r = bk_rect(w->x + w->w - awra_px(8), w->y, awra_px(8), w->h);
   BKContext *ctx = bk_ctx(w);
   if (ctx) {
-    bk_ctx_dirty_rect(ctx, r);
+    bk_node_dirty(w, r);
   }
   if (x->bar_t <= 0.0f) {
     x->fade_timer = 0;

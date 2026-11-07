@@ -17,6 +17,10 @@ struct BuiRaster {
   int full_damage;
   int external; /* BUI-Awra: `pix` belongs to the host (a shared-memory buffer) */
   int nodiff;   /* BUI-Awra: no `prev`: damage is what was drawn (the kit's regions) */
+  /* BUI-Awra: the coordinates drawing uses at the buffer's top-left pixel
+   * (BUI_raster_set_origin: a popup's own buffer drawn in its window's
+   * coordinates); the clip is in these coordinates, damage in the buffer's */
+  int ox, oy;
 
   /* clip, exclusive max, always inside the buffer */
   int cx0, cy0, cx1, cy1;
@@ -45,6 +49,10 @@ typedef struct Paint {
   uint32_t rgb; /* 0xFFRRGGBB: the color at full alpha (BUI-Awra: premultiplied frames) */
   int a;        /* 0..256 */
 } Paint;
+
+/* BUI-Awra: row `py` (drawing coordinates) of the buffer, indexed by x in
+ * drawing coordinates; only rows and columns inside the clip are touched */
+#define RASTER_ROW(r, py) ((r)->pix + (ptrdiff_t)((py) - (r)->oy) * (r)->w - (r)->ox)
 
 static inline int clampi(int v, int lo, int hi)
 {
@@ -121,10 +129,10 @@ static int clip_box(const BuiRaster *r, float fx0, float fy0, float fx1, float f
 
 static void raster_reset_clip(BuiRaster *r)
 {
-  r->cx0 = 0;
-  r->cy0 = 0;
-  r->cx1 = r->w;
-  r->cy1 = r->h;
+  r->cx0 = r->ox;
+  r->cy0 = r->oy;
+  r->cx1 = r->ox + r->w;
+  r->cy1 = r->oy + r->h;
 }
 
 static void raster_alloc(BuiRaster *r, int w, int h)
@@ -476,10 +484,10 @@ size_t BUI_raster_view_size(void)
 void BUI_raster_view(const BuiRaster *src, BuiRaster *dst, int x0, int y0, int x1, int y1)
 {
   *dst = *src; /* shares the pixels; drawing only touches pix inside the clip */
-  dst->cx0 = clampi(x0 > src->cx0 ? x0 : src->cx0, 0, src->w);
-  dst->cy0 = clampi(y0 > src->cy0 ? y0 : src->cy0, 0, src->h);
-  dst->cx1 = clampi(x1 < src->cx1 ? x1 : src->cx1, dst->cx0, src->w);
-  dst->cy1 = clampi(y1 < src->cy1 ? y1 : src->cy1, dst->cy0, src->h);
+  dst->cx0 = clampi(x0 > src->cx0 ? x0 : src->cx0, src->ox, src->ox + src->w);
+  dst->cy0 = clampi(y0 > src->cy0 ? y0 : src->cy0, src->oy, src->oy + src->h);
+  dst->cx1 = clampi(x1 < src->cx1 ? x1 : src->cx1, dst->cx0, src->ox + src->w);
+  dst->cy1 = clampi(y1 < src->cy1 ? y1 : src->cy1, dst->cy0, src->oy + src->h);
 }
 
 void BUI_raster_set_clip(BuiRaster *r, int x, int y, int w, int h)
@@ -488,10 +496,10 @@ void BUI_raster_set_clip(BuiRaster *r, int x, int y, int w, int h)
     raster_reset_clip(r);
     return;
   }
-  r->cx0 = clampi(x, 0, r->w);
-  r->cy0 = clampi(y, 0, r->h);
-  r->cx1 = clampi(x + w, 0, r->w);
-  r->cy1 = clampi(y + h, 0, r->h);
+  r->cx0 = clampi(x, r->ox, r->ox + r->w);
+  r->cy0 = clampi(y, r->oy, r->oy + r->h);
+  r->cx1 = clampi(x + w, r->ox, r->ox + r->w);
+  r->cy1 = clampi(y + h, r->oy, r->oy + r->h);
 }
 
 /** \} */
@@ -524,7 +532,7 @@ void BUI_raster_fill_rect(BuiRaster *r, float x, float y, float w, float h, cons
     if (cy <= 0.0f) {
       continue;
     }
-    uint32_t *row = r->pix + (size_t)py * r->w;
+    uint32_t *row = RASTER_ROW(r, py);
     /* fully covered interior span */
     const int ix0 = clampi((int)ceilf(fx0), x0, x1);
     const int ix1 = clampi((int)floorf(fx1), x0, x1);
@@ -611,7 +619,7 @@ void BUI_raster_round_rect(
   const float bx = hw - rad, by = hh - rad;
   const float rin = rad - 0.5f; /* coverage is exactly 1 inside this radius */
   for (int py = y0; py < y1; py++) {
-    uint32_t *row = r->pix + (size_t)py * r->w;
+    uint32_t *row = RASTER_ROW(r, py);
     const float qy = fabsf((float)py + 0.5f - cy) - by;
     /* Half-width (from cx) of this row's fully covered span: the interior
      * is filled directly; the SDF only runs on the anti-aliased rim. */
@@ -699,7 +707,7 @@ void BUI_raster_circle(
   }
   const float half_lw = line_width * 0.5f;
   for (int py = y0; py < y1; py++) {
-    uint32_t *row = r->pix + (size_t)py * r->w;
+    uint32_t *row = RASTER_ROW(r, py);
     const float dy = (float)py + 0.5f - cy;
     for (int px = x0; px < x1; px++) {
       const float dx = (float)px + 0.5f - cx;
@@ -759,7 +767,7 @@ void BUI_raster_line(
   const float vx = bx - ax, vy = by - ay;
   const float len2 = vx * vx + vy * vy;
   for (int py = iy0; py < iy1; py++) {
-    uint32_t *row = r->pix + (size_t)py * r->w;
+    uint32_t *row = RASTER_ROW(r, py);
     const float wy = (float)py + 0.5f - ay;
     for (int px = ix0; px < ix1; px++) {
       const float wx = (float)px + 0.5f - ax;
@@ -810,7 +818,7 @@ void BUI_raster_ellipse(BuiRaster *r,
   }
   const float half_lw = line_width * 0.5f;
   for (int py = y0; py < y1; py++) {
-    uint32_t *row = r->pix + (size_t)py * r->w;
+    uint32_t *row = RASTER_ROW(r, py);
     const float dy = ((float)py + 0.5f - cy) / ry;
     for (int px = x0; px < x1; px++) {
       const float dx = ((float)px + 0.5f - cx) / rx;
@@ -909,7 +917,7 @@ void BUI_raster_widget(BuiRaster *r,
   const float safe = rad + ow + 1.0f;
 
   for (int py = y0; py < y1; py++) {
-    uint32_t *row = r->pix + (size_t)py * r->w;
+    uint32_t *row = RASTER_ROW(r, py);
     const float sy = (float)py + 0.5f;
     if (gradient) {
       const float t = clampf((sy - y) / h, 0.0f, 1.0f);
@@ -1032,7 +1040,7 @@ void BUI_raster_widget_base(BuiRaster *r, const BuiWidgetBase *p)
   const int mb = clampi((int)floorf(x + w - cornerw - 0.5f) + 1, ma, x1);
 
   for (int py = y0; py < y1; py++) {
-    uint32_t *row = r->pix + (size_t)py * r->w;
+    uint32_t *row = RASTER_ROW(r, py);
     const float sy = (float)py + 0.5f;
     if (gradient && !p->shade_horizontal) {
       const float t = clampf((sy - (y + px1)) / fmaxf(1.0f, h - 2.0f * px1), 0.0f, 1.0f);
@@ -1353,7 +1361,7 @@ static void raster_nv12(BuiRaster *r, float x, float y, float w, float h, const 
     /* 1:1: one luma sample and its chroma pair per pixel */
     const int ox = (int)sx - (int)x, oy = (int)sy - (int)y;
     for (int py = y0; py < y1; py++) {
-      uint32_t *row = r->pix + (size_t)py * r->w;
+      uint32_t *row = RASTER_ROW(r, py);
       const int ty = py + oy;
       const uint8_t *yr = yp + (size_t)ty * iw, *cr = uvp + (size_t)(ty >> 1) * iw;
       if (ga >= 256) {
@@ -1388,7 +1396,7 @@ static void raster_nv12(BuiRaster *r, float x, float y, float w, float h, const 
   const int iy1 = (int)fmaxf((float)iy0, ceilf(sy + sh) - 1.0f);
   const float bias = nearest ? 0.0f : 0.5f;
   for (int py = y0; py < y1; py++) {
-    uint32_t *row = r->pix + (size_t)py * r->w;
+    uint32_t *row = RASTER_ROW(r, py);
     const float v = sy + ((float)py + 0.5f - y) * ky;
     const float vy = v - bias, vc = v * 0.5f - 0.5f;
     const int ty = (int)floorf(vy), tc = (int)floorf(vc);
@@ -1482,7 +1490,7 @@ void BUI_raster_image(BuiRaster *r,
       sx == floorf(sx) && sy == floorf(sy))
   {
     for (int py = y0; py < y1; py++) {
-      uint32_t *row = r->pix + (size_t)py * r->w;
+      uint32_t *row = RASTER_ROW(r, py);
       const uint32_t *s = img->px + (size_t)(py - (int)y + (int)sy) * img->w + (int)sx - (int)x;
       for (int px = x0; px < x1; px++) {
         put_image_px(row + px, s[px], ga);
@@ -1495,7 +1503,7 @@ void BUI_raster_image(BuiRaster *r,
   const int ix1 = (int)fmaxf((float)ix0, ceilf(sx + sw) - 1.0f);
   const int iy1 = (int)fmaxf((float)iy0, ceilf(sy + sh) - 1.0f);
   for (int py = y0; py < y1; py++) {
-    uint32_t *row = r->pix + (size_t)py * r->w;
+    uint32_t *row = RASTER_ROW(r, py);
     /* texel space, centers at .5 */
     const float v = sy + ((float)py + 0.5f - y) * ky - (nearest ? 0.0f : 0.5f);
     int ty = (int)floorf(v);
@@ -1527,6 +1535,8 @@ void BUI_raster_end_frame_region(BuiRaster *r, int rx, int ry, int rw, int rh)
     BUI_raster_end_frame(r);
     return;
   }
+  rx -= r->ox; /* BUI-Awra: the region in buffer pixels */
+  ry -= r->oy;
   r->damage_len = 0;
   if (r->gpu) {
     bui_gpu_damage(r->gpu, rx, ry, rw, rh);
@@ -1601,7 +1611,7 @@ void BUI_raster_shadow(
   const float cx = x + hw, cy = y + hh + size * 0.25f;
   const Paint black = {0xFF000000u, 256};
   for (int py = y0; py < y1; py++) {
-    uint32_t *row = r->pix + (size_t)py * r->w;
+    uint32_t *row = RASTER_ROW(r, py);
     const float sy = (float)py + 0.5f;
     for (int px = x0; px < x1; px++) {
       const float sx = (float)px + 0.5f;
@@ -1744,7 +1754,7 @@ void BUI_raster_polygon(BuiRaster *r, const float (*pts)[2], int n, const float 
     if (!any) {
       continue;
     }
-    uint32_t *row = r->pix + (size_t)py * r->w;
+    uint32_t *row = RASTER_ROW(r, py);
     for (int x = 0; x < span; x++) {
       put_cov(row + x0 + x, p, fminf(cov[x], 1.0f));
     }
@@ -1807,7 +1817,7 @@ void BUI_raster_triangles(BuiRaster *r,
     const int tl2 = is_top_left(v[0][0], v[0][1], v[1][0], v[1][1]);
     const float inv_area = 1.0f / area;
     for (int py = y0; py < y1; py++) {
-      uint32_t *row = r->pix + (size_t)py * r->w;
+      uint32_t *row = RASTER_ROW(r, py);
       const float sy = (float)py + 0.5f;
       for (int px = x0; px < x1; px++) {
         const float sx = (float)px + 0.5f;
@@ -2186,7 +2196,7 @@ static void mesh_triangle(BuiRaster *r,
   for (int py = y0; py < y1; py++) {
     int64_t e0 = E0[0] + B[0] * (py - y0), e1 = E0[1] + B[1] * (py - y0),
             e2 = E0[2] + B[2] * (py - y0);
-    uint32_t *row = r->pix + (size_t)py * r->w;
+    uint32_t *row = RASTER_ROW(r, py);
     for (int px = x0; px < x1; px++, e0 += A[0], e1 += A[1], e2 += A[2]) {
       if (e0 + bias[0] < 0 || e1 + bias[1] < 0 || e2 + bias[2] < 0) {
         continue;
@@ -2306,7 +2316,7 @@ void BUI_raster_hsv_circle(BuiRaster *r, float cx, float cy, float radius, float
   }
   const float inv_2pi = 0.15915494309189535f;
   for (int py = y0; py < y1; py++) {
-    uint32_t *row = r->pix + (size_t)py * r->w;
+    uint32_t *row = RASTER_ROW(r, py);
     const float dy = (float)py + 0.5f - cy;
     for (int px = x0; px < x1; px++) {
       const float dx = (float)px + 0.5f - cx;
@@ -2351,7 +2361,7 @@ void BUI_raster_gradient(BuiRaster *r,
     return;
   }
   for (int py = y0; py < y1; py++) {
-    uint32_t *row = r->pix + (size_t)py * r->w;
+    uint32_t *row = RASTER_ROW(r, py);
     const float v = clampf(((float)py + 0.5f - y) / h, 0.0f, 1.0f);
     float left[4], right[4];
     for (int k = 0; k < 4; k++) {
@@ -2408,7 +2418,7 @@ void BUI_raster_sphere(
     return;
   }
   for (int py = y0; py < y1; py++) {
-    uint32_t *row = r->pix + (size_t)py * r->w;
+    uint32_t *row = RASTER_ROW(r, py);
     const float ny = -((float)py + 0.5f - cy) / radius; /* up is +y */
     for (int px = x0; px < x1; px++) {
       const float nx = ((float)px + 0.5f - cx) / radius;
@@ -2775,7 +2785,7 @@ void BUI_raster_text_run(BuiRaster *r, float x, float y, const BuiTextRun *run, 
     return;
   }
   for (int py = y0; py < y1; py++) {
-    uint32_t *row = r->pix + (size_t)py * r->w;
+    uint32_t *row = RASTER_ROW(r, py);
     const uint8_t *m = e->mask + (size_t)(py - dy) * e->mw - dx;
     for (int px = x0; px < x1; px++) {
       const uint32_t cov = m[px];

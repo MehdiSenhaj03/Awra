@@ -30,6 +30,7 @@
 
 typedef struct Waiter {
   BKContext *ctx;
+  int slot;      /* BUI-Awra: the popup surface it shows in (-1 the window) */
   int rect[4];   /* x0 y0 x1 y1, window pixels */
   unsigned pass; /* the drawing pass that last asked */
 } Waiter;
@@ -78,6 +79,7 @@ static struct {
   BKImageStats stats;
   struct {
     BKContext *ctx;
+    int slot; /* BUI-Awra: -1 the window, else the popup surface drawn */
     int rect[4];
     unsigned serial;
   } pass;
@@ -265,11 +267,13 @@ static void add_waiter(Entry *e, const int rect[4])
   }
   Waiter *w = NULL;
   for (int i = 0; i < e->nwaiters && !w; i++) {
-    w = e->waiters[i].ctx == C.pass.ctx ? &e->waiters[i] : NULL;
+    w = e->waiters[i].ctx == C.pass.ctx && e->waiters[i].slot == C.pass.slot ? &e->waiters[i] :
+                                                                               NULL;
   }
   if (!w && e->nwaiters < MAX_WAITERS) {
     w = &e->waiters[e->nwaiters++];
     w->ctx = C.pass.ctx;
+    w->slot = C.pass.slot;
     memcpy(w->rect, rect, sizeof(w->rect));
   }
   else if (!w) {
@@ -353,7 +357,7 @@ static void damage(const Entry *e)
 {
   for (int i = 0; i < e->nwaiters; i++) {
     const int *r = e->waiters[i].rect;
-    bk_ctx_dirty_rect(e->waiters[i].ctx, (BKRect){r[0], r[1], r[2], r[3]});
+    bk_surface_dirty(e->waiters[i].ctx, e->waiters[i].slot, (BKRect){r[0], r[1], r[2], r[3]});
   }
 }
 
@@ -557,6 +561,7 @@ void bk_image_frame_begin(void)
 void bk_image_pass_begin(BKContext *ctx, int x0, int y0, int x1, int y1)
 {
   C.pass.ctx = ctx;
+  C.pass.slot = -1;
   C.pass.rect[0] = x0;
   C.pass.rect[1] = y0;
   C.pass.rect[2] = x1;
@@ -571,7 +576,8 @@ static bool drop_waiters(Entry *e)
   bool dropped = false;
   for (int i = e->nwaiters - 1; i >= 0; i--) {
     const Waiter *w = &e->waiters[i];
-    if (w->ctx == C.pass.ctx && w->pass != C.pass.serial && w->rect[0] >= p[0] &&
+    if (w->ctx == C.pass.ctx && w->slot == C.pass.slot && w->pass != C.pass.serial &&
+        w->rect[0] >= p[0] &&
         w->rect[1] >= p[1] && w->rect[2] <= p[2] && w->rect[3] <= p[3])
     {
       e->waiters[i] = e->waiters[--e->nwaiters];
@@ -579,6 +585,11 @@ static bool drop_waiters(Entry *e)
     }
   }
   return dropped;
+}
+
+void bk_image_pass_slot(int slot)
+{
+  C.pass.slot = slot;
 }
 
 void bk_image_pass_end(void)

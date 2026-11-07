@@ -361,6 +361,11 @@ void BUI_raster_clear(BuiRaster *r, int x, int y, int w, int h);
  * instead of the raster's own; NULL returns to an own buffer. Turns the
  * frame diff off: damage is what the caller drew. */
 void BUI_raster_set_target(BuiRaster *r, uint32_t *pixels, int w, int h);
+/* Drawing coordinates of the buffer's top-left pixel (default 0, 0): x, y
+ * of every primitive and of the clip are offset by it, so a part of a
+ * larger surface (a popup's own buffer in its window's coordinates) draws
+ * with the same coordinates; damage stays in buffer pixels. CPU rasters. */
+void BUI_raster_set_origin(BuiRaster *r, int x, int y);
 /* Whether end_frame diffs against the previous frame (upstream: always),
  * which costs a second frame of memory. Off, damage is the drawn region. */
 void BUI_raster_set_diff(BuiRaster *r, int on);

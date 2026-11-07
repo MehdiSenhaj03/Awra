@@ -711,6 +711,9 @@ AwraWidget *awra_completion_popover_new(void)
   CompletionExt *x = (CompletionExt *)calloc(1, sizeof(CompletionExt));
   x->popover = awra_popover_new();
   awra_popover_set_position(x->popover, 1);
+  awra_popover_set_offset(x->popover, 0, -CARET_GAP);
+  awra_widget_set_halign(x->popover, AWRA_ALIGN_START);
+  awra_popover_set_autohide(x->popover, false); /* the text keeps the keyboard */
   awra_popover_set_padding_internal(x->popover, 0, false);
   x->scroller = awra_scrolled_new();
   awra_scrolled_set_policy(x->scroller, AWRA_POLICY_NEVER, AWRA_POLICY_AUTOMATIC);
@@ -787,8 +790,12 @@ void awra_completion_popover_present_at_cursor(AwraWidget *w)
   }
   const unsigned rows = BK_MIN(n_items(w), VISIBLE_ROWS);
   awra_scrolled_set_max_content_height(x->scroller, (int)(rows * DEFAULT_ROW_HEIGHT + 10));
+  /* Awra 1: pointing at the caret, above it (GTK_POS_TOP, offset -gap,
+   * aligned to its start) */
+  awra_popover_set_pointing_to(x->popover, cx, cy, 1, BK_MAX(1.0, ch));
   if (!awra_popover_visible(x->popover)) {
-    awra_popover_popup_at(x->popover, x->attached, cx, cy - CARET_GAP);
+    awra_popover_set_anchor(x->popover, x->attached);
+    awra_popover_popup(x->popover);
   }
   else {
     awra_widget_queue_resize(x->popover);

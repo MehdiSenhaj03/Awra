@@ -340,6 +340,8 @@ enum {
   NF_HTML = 1 << 25,        /* "html": Chrome's default form-control look and interaction */
   NF_ACTIVE_DEFAULT = 1 << 26, /* buttons: UI_BUT_ACTIVE_DEFAULT (drawn with the select colors) */
   NF_DEFAULT_SET = 1 << 27, /* `defval` was set: by "default", or by the first "value" a widget got */
+  NF_NO_AUTOHIDE = 1 << 28, /* BUI-Awra: a popup that outside clicks and Escape leave open
+                             * (GtkPopover autohide FALSE: no grab, no focus) */
 };
 
 #define BK_HTML(n) (((n)->flags & NF_HTML) != 0)
@@ -589,6 +591,11 @@ struct BKContext {
   int (*drop_hook)(BKContext *ctx, int kind, int x, int y, const char *uris);
   /* BUI-Awra: draws above the popups and the tooltip (a drag's image) */
   void (*overlay_hook)(BKContext *ctx);
+  /* BUI-Awra: popups in native surfaces of their own (kit_popup.c): the
+   * window host's popup services, and each slot's state (NULL until the
+   * first popup opens) */
+  const struct BKPopupHost *popup_host;
+  struct BKPopupState *pops;
 };
 
 /* BUI-Awra: tooltips drawn by an extension (Awra's look). Both NULL: the
@@ -639,6 +646,10 @@ void bk_ctx_dirty_rect(BKContext *ctx, BKRect r);
 void bk_ctx_request(BKContext *ctx);
 void bk_open_popup(BKContext *ctx, BKNode *popup, BKNode *owner, BKNode *parent_popup);
 void bk_close_popups_after(BKContext *ctx, BKNode *after); /* NULL: all */
+/* BUI-Awra: closes the popups from the first autohide one up (an outside
+ * click); false when none is open. */
+bool bk_close_autohide_popups(BKContext *ctx);
+void bk_tooltip_hide(BKContext *ctx);
 bool bk_owns_popup(BKContext *ctx, const BKNode *owner);
 int bk_popup_index(BKContext *ctx, const BKNode *popup);
 void bk_start_drag_toggle(BKContext *ctx, int group, int value);
@@ -648,6 +659,125 @@ char *bk_clipboard_get(BKContext *ctx);
 void bk_clipboard_set(BKContext *ctx, const char *s);
 void bk_forget(BKContext *ctx, BKNode *subtree);
 double bk_time(void);
+
+/* -------------------------------------------------------------------- */
+/* BUI-Awra: popups as native surfaces (kit_popup.c)
+ *
+ * GDK's popup model: a popup is placed by a layout (GdkPopupLayout) — an
+ * anchor rectangle in its window's coordinates, the point of that
+ * rectangle it hangs from, the point of the popup put there, an offset and
+ * what may happen when the monitor's work area constrains it (flip, slide,
+ * resize) — and the window host resolves it: Wayland through an
+ * xdg_positioner (the compositor answers), X11 and Win32 against the
+ * monitor's work area (gdk_surface_layout_popup_helper). The popup keeps
+ * window coordinates (hit testing, focus, accessibility don't change); the
+ * host gives it its own surface, draws it with BUI_raster_set_origin and
+ * routes its input back in window coordinates. Without a host (offscreen
+ * windows, tests) popups are drawn in the window, constrained by it. */
+
+/* GdkGravity */
+enum {
+  BK_GRAVITY_NORTH_WEST = 1, BK_GRAVITY_NORTH, BK_GRAVITY_NORTH_EAST, BK_GRAVITY_WEST,
+  BK_GRAVITY_CENTER, BK_GRAVITY_EAST, BK_GRAVITY_SOUTH_WEST, BK_GRAVITY_SOUTH,
+  BK_GRAVITY_SOUTH_EAST
+};
+/* GdkAnchorHints */
+enum {
+  BK_ANCHOR_FLIP_X = 1 << 0, BK_ANCHOR_FLIP_Y = 1 << 1, BK_ANCHOR_SLIDE_X = 1 << 2,
+  BK_ANCHOR_SLIDE_Y = 1 << 3, BK_ANCHOR_RESIZE_X = 1 << 4, BK_ANCHOR_RESIZE_Y = 1 << 5,
+  BK_ANCHOR_FLIP = BK_ANCHOR_FLIP_X | BK_ANCHOR_FLIP_Y,
+  BK_ANCHOR_SLIDE = BK_ANCHOR_SLIDE_X | BK_ANCHOR_SLIDE_Y,
+  BK_ANCHOR_RESIZE = BK_ANCHOR_RESIZE_X | BK_ANCHOR_RESIZE_Y
+};
+
+typedef struct BKPopupLayout {
+  BKRect anchor;               /* window raster px */
+  int rect_anchor;             /* BK_GRAVITY_*: the point of `anchor` */
+  int surface_anchor;          /* BK_GRAVITY_*: the point of the popup put there */
+  int dx, dy;                  /* offset, px */
+  unsigned hints;              /* BK_ANCHOR_* */
+  int shadow[4];               /* left right top bottom: px drawn outside the box */
+  int kind;                    /* BK_POPUP_KIND_*: what the surface is for the system */
+  int blur;                    /* 1: the compositor blurs behind the box */
+  int radius;                  /* the box's corner radius (px): blur region, frame */
+} BKPopupLayout;
+
+enum { BK_POPUP_KIND_MENU = 0, BK_POPUP_KIND_DIALOG, BK_POPUP_KIND_TOOLTIP };
+
+/* The slot of the tooltip; slots 0 .. BK_MAX_POPUPS - 1 are ctx->popups. */
+#define BK_POPUP_TIP BK_MAX_POPUPS
+#define BK_POPUP_SLOTS (BK_MAX_POPUPS + 1)
+
+typedef struct BKPopupState {
+  bool surfaced; /* drawn in a native surface of its own */
+  bool asked;    /* the host was given `layout` at size w x h */
+  bool known;    /* `rect` is where the host put it */
+  bool full;     /* redraw the whole surface */
+  BKPopupLayout layout;
+  int w, h;
+  BKRect rect;   /* the popup's box (window px, shadow excluded) */
+  BKRect dirty[8];
+  int ndirty;
+} BKPopupState;
+
+/* Popup services of a window host. */
+enum {
+  BK_POPHOST_NATIVE_FRAME = 1 << 0, /* the system rounds and shadows popups (DWM):
+                                     * draw `corner_radius` corners, no shadow */
+};
+typedef struct BKPopupHost {
+  void *data;
+  unsigned flags;
+  int corner_radius; /* px, with BK_POPHOST_NATIVE_FRAME */
+  /* Shows slot's surface for `l` at w x h (px, shadow included), or moves
+   * it when the layout or size changed. Returns 1 with *r_rect (the box,
+   * window px) when the position is known now; 0 while it is being asked
+   * (Wayland: bk_popup_configured gives it). `grab`: an autohide popup
+   * (pointer and keyboard grabbed, closed by clicks elsewhere). */
+  int (*place)(void *data, int slot, const BKPopupLayout *l, int w, int h, int grab,
+               BKRect *r_rect);
+  /* The slot's popup closed: its surface goes. */
+  void (*close)(void *data, int slot);
+} BKPopupHost;
+
+/* GDK's gdk_surface_layout_popup_helper: the box (shadow excluded) for a
+ * popup of w x h (shadow included) inside `bounds`; r_flip: flipped x / y. */
+void bk_popup_layout_resolve(const BKPopupLayout *l, int w, int h, const BKRect *bounds,
+                             BKRect *r_rect, int r_flip[2]);
+/* Called by a popup class's place hook: where `popup` (open in its
+ * context) goes, its box in *r_rect. Returns 1 when it has a surface of its
+ * own (the host placed it), 0 when it is drawn in the window (placed inside
+ * it). */
+int bk_popup_layout(BKNode *popup, const BKPopupLayout *l, int w, int h, BKRect *r_rect);
+/* Whether slot's popup is drawn in a surface of its own. */
+bool bk_popup_surfaced(const BKContext *ctx, int slot);
+/* Hosts: install (NULL removes) the popup services; Wayland's answer;
+ * the system closed a popup (grab dismissed, deactivation, a click outside
+ * the application): it and the popups above it close. */
+void bk_popup_host_set(BKContext *ctx, const BKPopupHost *host);
+void bk_popup_configured(BKContext *ctx, int slot, BKRect rect);
+void bk_popup_dismissed(BKContext *ctx, int slot);
+/* Damage `r` of whatever tree `n` is in (its popup's surface or the
+ * window). */
+void bk_node_dirty(BKNode *n, BKRect r);
+/* Damage `r` of surface `slot` (-1: the window). */
+void bk_surface_dirty(BKContext *ctx, int slot, BKRect r);
+/* Renders slot's popup (or the tooltip) into `r` (w x h px, the surface's
+ * top-left at window px ox, oy): only its damage unless `full`. Returns
+ * the number of regions drawn (0: nothing changed). */
+int bk_render_popup(BKContext *ctx, int slot, BuiRaster *r, int w, int h, int ox, int oy,
+                    int full);
+/* Whether slot has damage to draw. */
+bool bk_popup_needs_render(const BKContext *ctx, int slot);
+/* kit_core.c internals kit_popup.c uses */
+void bk_ctx_prepare(BKContext *ctx); /* animations and layout before a popup renders */
+void bk_draw_tooltip_at(BKContext *ctx);
+void bk_tooltip_layout(BKContext *ctx, BKPopupLayout *l);
+void bk_popup_slot_reset(BKContext *ctx, int slot);
+/* The tooltip's box for layout `l` at w x h (its own surface when the
+ * window has popup services, else inside the window); 1 with a surface. */
+int bk_tooltip_place(BKContext *ctx, const BKPopupLayout *l, int w, int h, BKRect *r_rect);
+void bk_clip_reset_at(int x, int y, int w, int h);
 
 /* Popup placement fields live in ext of popup nodes (kit_menus.c). */
 typedef struct BKPopupPlace {

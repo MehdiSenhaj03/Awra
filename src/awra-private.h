@@ -518,6 +518,7 @@ void awra_header_set_compact(AwraWidget *w, bool compact);
 bool awra_in_compact_header(const AwraWidget *w);
 void awra_popover_set_padding_internal(AwraWidget *w, int pad, bool menu);
 void awra_popover_set_centered_internal(AwraWidget *w, bool centered);
+bool awra_style_blur_active(void); /* window.c: the compositor blurs behind windows */
 void awra_map_tree(AwraWidget *w, bool mapped);
 void awra_tooltips_install(void);
 

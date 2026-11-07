@@ -13,6 +13,7 @@ add_library(bui_kit STATIC
   intern/kit_widgets.c
   intern/kit_views.c
   intern/kit_menus.c
+  intern/kit_popup.c
   intern/kit_color.c
   intern/kit_frame.c
   intern/kit_textarea.c

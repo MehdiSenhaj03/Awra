@@ -590,7 +590,7 @@ static bool fade_tick(void *data)
   x->bar_t = t > 0 ? t : 0;
   BKContext *ctx = bk_ctx(w);
   if (ctx) {
-    bk_ctx_dirty_rect(ctx, bk_rect(w->x + w->w - awra_px(8), w->y, awra_px(8), w->h));
+    bk_node_dirty(w, bk_rect(w->x + w->w - awra_px(8), w->y, awra_px(8), w->h));
   }
   if (x->bar_t <= 0.0f) {
     x->fade_timer = 0;
