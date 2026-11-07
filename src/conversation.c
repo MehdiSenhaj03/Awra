@@ -15,12 +15,39 @@
 #define GLIDE_PAGES 2.0
 #define PILL_MARGIN 14
 #define HIGHLIGHT_MS 1500.0
+/* new messages appended while following rise in (awra.css's
+ * awra-conversation-arrive: 220 ms, 8 px, cubic-bezier(.2, .8, .2, 1));
+ * a larger batch is a load, not arrivals */
+#define ARRIVE_MS 220.0
+#define ARRIVE_RISE 8.0f
+#define MAX_ARRIVING 8
 
 void awra_scrolled_shift_internal(AwraWidget *scrolled, double delta);
 void awra_scrolled_get_vadjustment(AwraWidget *scrolled, double *value, double *upper, double *page);
 long long awra_list_view_offset_internal(AwraWidget *w, unsigned position);
 int awra_list_view_height_internal(AwraWidget *w, unsigned position);
 void awra_list_view_drop_anchor_internal(AwraWidget *w);
+void awra_list_view_item_set_offset_internal(AwraWidget *item, int dy);
+
+/* CSS cubic-bezier(x1, y1, x2, y2) at progress t (0..1). */
+static double css_bezier(double x1, double y1, double x2, double y2, double t)
+{
+  if (t <= 0.0 || t >= 1.0) {
+    return t <= 0.0 ? 0.0 : 1.0;
+  }
+  /* solve x(u) = t by Newton steps, then y(u) */
+  double u = t;
+  for (int i = 0; i < 8; i++) {
+    const double x = 3 * x1 * u * (1 - u) * (1 - u) + 3 * x2 * u * u * (1 - u) + u * u * u - t;
+    const double dx = 3 * x1 * (1 - u) * (1 - 3 * u) + 3 * x2 * u * (2 - 3 * u) + 3 * u * u;
+    if (fabs(x) < 1e-5 || fabs(dx) < 1e-6) {
+      break;
+    }
+    u -= x / dx;
+  }
+  u = u < 0 ? 0 : u > 1 ? 1 : u;
+  return 3 * y1 * u * (1 - u) * (1 - u) + 3 * y2 * u * u * (1 - u) + u * u * u;
+}
 
 /* ======================================================================= */
 /* A floating pill (the jump button, the edges' status): the window's
@@ -171,10 +198,16 @@ typedef struct ConvExt {
   /* glide */
   double glide_from, glide_to;
   bool gliding, glide_end;
-  /* highlight */
+  /* highlight: a row's tint and bar, full for 35% of the time, then
+   * fading out (awra.css's awra-conversation-highlight) */
   unsigned highlight_pos;
-  double highlight_until;
-  unsigned highlight_timer;
+  double highlight_start, highlight_until;
+  unsigned highlight_timer; /* reduced motion: when it goes */
+  /* rows rising in: their positions and when they arrived */
+  unsigned arriving[MAX_ARRIVING];
+  double arrived[MAX_ARRIVING];
+  int n_arriving;
+  bool moving; /* the list's motion animation runs */
   unsigned n_items;
   bool frame_queued;
 } ConvExt;
@@ -290,13 +323,15 @@ static void scrolled_changed(AwraWidget *scroller, const AwraArgs *args, void *d
   if (!x->setting_value) {
     /* the user scrolled: following stops until the end shows again */
     if (x->gliding) {
+      x->gliding = false; /* first: glide_done then knows it was stopped */
       awra_anim_stop_for(w);
-      x->gliding = false;
     }
     x->follow = distance_to_end(w) <= AT_BOTTOM_SLACK;
   }
   queue_checks(w);
 }
+
+static bool place_arrivals(ConvExt *x);
 
 static void conv_measure(AwraWidget *w, int o, int for_size, int *r_min, int *r_nat)
 {
@@ -318,6 +353,10 @@ static void conv_allocate(AwraWidget *w)
 {
   ConvExt *x = CVX(w);
   awra_allocate(x->scroller, w->x, w->y, w->w, w->h);
+  /* rows just bound for arrivals start transparent and low, not in place */
+  if (x->n_arriving && place_arrivals(x)) {
+    awra_allocate(x->scroller, w->x, w->y, w->w, w->h);
+  }
   /* following: the newest stays at the bottom whatever came in */
   if (x->follow && !x->gliding) {
     const double end = end_value(w);
@@ -336,30 +375,145 @@ static void conv_allocate(AwraWidget *w)
   queue_checks(w);
 }
 
-static void conv_draw_over(AwraWidget *w, AwraDraw *d)
+/* How much of the highlight shows now (0 gone). */
+static float highlight_alpha(const ConvExt *x)
+{
+  const double now = awra_now_ms();
+  if (now >= x->highlight_until) {
+    return 0.0f;
+  }
+  if (awra_style_reduced_motion()) {
+    return 1.0f; /* without motion it still says where to look, then leaves */
+  }
+  const double p = (now - x->highlight_start) / HIGHLIGHT_MS;
+  if (p <= 0.35) {
+    return 1.0f;
+  }
+  /* ease-out within the last keyframe */
+  return (float)(1.0 - css_bezier(0.0, 0.0, 0.58, 1.0, (p - 0.35) / 0.65));
+}
+
+static void conv_draw(AwraWidget *w, AwraDraw *d)
 {
   ConvExt *x = CVX(w);
-  /* a row being highlighted: the accent's soft tint and a 3 px bar */
-  if (x->highlight_until > awra_now_ms()) {
-    AwraWidget *it = awra_list_view_item(x->list, x->highlight_pos);
+  /* a row being highlighted, under its content as its background: the
+   * accent's soft tint and a 3 px bar at its start */
+  const float a = highlight_alpha(x);
+  if (a <= 0.0f) {
+    return;
+  }
+  AwraWidget *it = awra_list_view_item(x->list, x->highlight_pos);
+  if (!it) {
+    return;
+  }
+  const AwraTokens *t = awra_tokens();
+  const AwraRGBA soft = awra_with_alpha(t->accent_soft, t->accent_soft.a * a);
+  const AwraRGBA bar = awra_with_alpha(t->accent, t->accent.a * a);
+  bk_clip_push(w->x, w->y, w->w, w->h);
+  awra_paint_rect(d, awra_box_of(it), &soft);
+  awra_paint_rect(d, (AwraBox){(float)it->x, (float)it->y, awra_pxf(3), (float)it->h}, &bar);
+  bk_clip_pop();
+}
+
+/* -- motion: arrivals and the highlight, on the list's frame clock ------- */
+
+static void invalidate_row(ConvExt *x, unsigned position)
+{
+  AwraWidget *it = awra_list_view_item(x->list, position);
+  if (it) {
+    awra_invalidate(it);
+  }
+}
+
+/* Each arrival's opacity and rise now; true when one of them moved. */
+static bool place_arrivals(ConvExt *x)
+{
+  const double now = awra_now_ms();
+  bool moved = false;
+  int keep = 0;
+  for (int i = 0; i < x->n_arriving; i++) {
+    AwraWidget *it = awra_list_view_item(x->list, x->arriving[i]);
+    const double p = (now - x->arrived[i]) / ARRIVE_MS;
+    const double e = css_bezier(0.2, 0.8, 0.2, 1.0, p < 0 ? 0 : p > 1 ? 1 : p);
     if (it) {
-      const double left = x->highlight_until - awra_now_ms();
-      const float a = left > HIGHLIGHT_MS * 0.65 ? 1.0f : (float)(left / (HIGHLIGHT_MS * 0.65));
-      const AwraTokens *t = awra_tokens();
-      AwraRGBA soft = awra_with_alpha(t->accent_soft, t->accent_soft.a * a);
-      AwraRGBA bar = awra_with_alpha(t->accent, a);
-      bk_clip_push(w->x, w->y, w->w, w->h);
-      awra_paint_rect(d, awra_box_of(it), &soft);
-      awra_paint_rect(d, (AwraBox){(float)it->x, (float)it->y, awra_pxf(3), (float)it->h}, &bar);
-      bk_clip_pop();
+      const int dy = p >= 1.0 ? 0 : (int)lroundf((float)(1.0 - e) * ARRIVE_RISE * awra_scale());
+      moved |= awra_aux(it)->opacity != (float)e;
+      awra_widget_set_opacity(it, e);
+      awra_list_view_item_set_offset_internal(it, dy);
+    }
+    if (p < 1.0) {
+      x->arriving[keep] = x->arriving[i];
+      x->arrived[keep] = x->arrived[i];
+      keep++;
     }
   }
+  x->n_arriving = keep;
+  return moved;
+}
+
+static void motion_frame(AwraWidget *list, double t, void *data)
+{
+  (void)list;
+  (void)t;
+  AwraWidget *w = (AwraWidget *)data;
+  ConvExt *x = CVX(w);
+  place_arrivals(x);
+  if (x->highlight_until > 0) {
+    invalidate_row(x, x->highlight_pos);
+  }
+}
+
+static void motion_done(void *data)
+{
+  AwraWidget *w = (AwraWidget *)data;
+  ConvExt *x = CVX(w);
+  x->moving = false;
+  place_arrivals(x);
+  if (awra_now_ms() >= x->highlight_until && x->highlight_until > 0) {
+    invalidate_row(x, x->highlight_pos);
+    x->highlight_until = 0;
+  }
+}
+
+/* Runs the motion until the last arrival and the highlight are over. */
+static void motion_start(AwraWidget *w)
+{
+  ConvExt *x = CVX(w);
+  const double now = awra_now_ms();
+  double until = x->highlight_until;
+  for (int i = 0; i < x->n_arriving; i++) {
+    until = fmax(until, x->arrived[i] + ARRIVE_MS);
+  }
+  if (until <= now || awra_style_reduced_motion()) {
+    return;
+  }
+  if (x->moving) {
+    awra_anim_stop_for(x->list); /* its done runs: restarted below */
+  }
+  x->moving = true;
+  awra_anim_start(x->list, (unsigned)ceil(until - now), motion_frame, w, motion_done);
+}
+
+/* Positions after items changed at `position` (`removed` gone, `added`
+ * new): moved along, or UINT32_MAX when the item went. */
+static unsigned moved_position(unsigned p, unsigned position, unsigned removed, unsigned added)
+{
+  if (p == UINT32_MAX || p < position) {
+    return p;
+  }
+  if (p < position + removed) {
+    return UINT32_MAX;
+  }
+  return p - removed + added;
 }
 
 static void conv_finalize(AwraWidget *w)
 {
   ConvExt *x = CVX(w);
   free(x->jump_label);
+  if (x->moving) {
+    awra_anim_stop_for(x->list);
+  }
   if (x->highlight_timer) {
     awra_source_remove(x->highlight_timer);
   }
@@ -373,7 +527,7 @@ static AwraClass conv_class = {
     .finalize = conv_finalize,
     .measure = conv_measure,
     .allocate = conv_allocate,
-    .draw_over = conv_draw_over,
+    .draw = conv_draw,
 };
 
 static void update_pill_label(AwraWidget *w)
@@ -408,8 +562,9 @@ static void glide_done(void *data)
 {
   AwraWidget *w = (AwraWidget *)data;
   ConvExt *x = CVX(w);
+  const bool finished = x->gliding; /* else stopped: the user took over */
   x->gliding = false;
-  if (x->glide_end) {
+  if (finished && x->glide_end) {
     x->follow = true;
     set_value(w, end_value(w));
   }
@@ -423,8 +578,8 @@ static void glide_to(AwraWidget *w, double target, bool to_end, bool animate)
   double value, upper, page;
   awra_scrolled_get_vadjustment(x->scroller, &value, &upper, &page);
   if (x->gliding) {
+    x->gliding = false; /* first: glide_done then knows it was stopped */
     awra_anim_stop_for(w);
-    x->gliding = false;
   }
   const bool far = fabs(target - value) > page * GLIDE_PAGES;
   if (!animate || far || awra_style_reduced_motion() || !awra_aux(w)->mapped) {
@@ -440,7 +595,7 @@ static void glide_to(AwraWidget *w, double target, bool to_end, bool animate)
   x->glide_end = to_end;
   x->gliding = true;
   awra_widget_ref(w);
-  awra_anim_start(w, awra_motion_duration(AWRA_MOTION_SLOW), glide_anim, NULL, glide_done);
+  awra_anim_start(w, awra_motion_duration(AWRA_MOTION_SLOW), glide_anim, w, glide_done);
 }
 
 static void pill_clicked(AwraWidget *pill, const AwraArgs *args, void *data)
@@ -519,6 +674,8 @@ AwraWidget *awra_conversation_view_new(void)
   awra_child_insert(w, x->scroller, -1);
   awra_widget_unref(x->scroller);
   awra_signal_connect(x->scroller, AWRA_SIGNAL_VALUE_CHANGED, scrolled_changed, w, NULL);
+  /* on glass, a hard edge under a header or above a composer reads as a seam */
+  awra_scrolled_set_edge_fades(x->scroller, 16, 12);
 
   AwraWidget *box = awra_box_new(AWRA_ORIENTATION_HORIZONTAL, 6);
   AwraWidget *icon = awra_image_new_from_icon_name("go-down-symbolic");
@@ -557,10 +714,41 @@ void awra_conversation_view_items_changed(AwraWidget *w, unsigned position, unsi
   if (position == 0 && added > 0 && old_n > 0) {
     x->top_armed = true;
   }
-  if (removed == 0 && added > 0 && position == old_n && old_n > 0 && !x->follow) {
+  /* the highlighted row and those rising in move with their items */
+  x->highlight_pos = moved_position(x->highlight_pos, position, removed, added);
+  if (x->highlight_pos == UINT32_MAX) {
+    x->highlight_until = 0;
+  }
+  int keep = 0;
+  for (int i = 0; i < x->n_arriving; i++) {
+    const unsigned p = moved_position(x->arriving[i], position, removed, added);
+    if (p != UINT32_MAX) {
+      x->arriving[keep] = p;
+      x->arrived[keep++] = x->arrived[i];
+    }
+  }
+  x->n_arriving = keep;
+  const bool append = removed == 0 && added > 0 && position == old_n && old_n > 0;
+  if (append && !x->follow) {
     x->bottom_armed = true;
   }
   awra_list_view_items_changed(x->list, position, removed, added);
+  if (append && x->follow && added <= MAX_ARRIVING && awra_aux(w)->mapped &&
+      awra_motion_duration(AWRA_MOTION_NORMAL) > 0)
+  {
+    const double now = awra_now_ms();
+    for (unsigned p = position; p < position + added; p++) {
+      if (x->n_arriving == MAX_ARRIVING) {
+        /* the oldest makes room */
+        memmove(x->arriving, x->arriving + 1, sizeof(unsigned) * (MAX_ARRIVING - 1));
+        memmove(x->arrived, x->arrived + 1, sizeof(double) * (MAX_ARRIVING - 1));
+        x->n_arriving--;
+      }
+      x->arriving[x->n_arriving] = p;
+      x->arrived[x->n_arriving++] = now;
+    }
+    motion_start(w);
+  }
   queue_checks(w);
 }
 
@@ -612,16 +800,15 @@ void awra_conversation_view_scroll_to_end(AwraWidget *w, bool animate)
   glide_to(w, end_value(w), true, animate);
 }
 
-static bool highlight_tick(void *data)
+/* Reduced motion: the highlight stays whole, then goes at once. */
+static bool highlight_end(void *data)
 {
   AwraWidget *w = (AwraWidget *)data;
   ConvExt *x = CVX(w);
-  awra_invalidate(w);
-  if (awra_now_ms() >= x->highlight_until) {
-    x->highlight_timer = 0;
-    return false;
-  }
-  return true;
+  x->highlight_timer = 0;
+  invalidate_row(x, x->highlight_pos);
+  x->highlight_until = 0;
+  return false;
 }
 
 static bool scroll_item_idle(void *data)
@@ -643,17 +830,28 @@ void awra_conversation_view_scroll_to_item(AwraWidget *w, unsigned position, Awr
   }
   x->follow = false;
   if (x->gliding) {
+    x->gliding = false; /* first: glide_done then knows it was stopped */
     awra_anim_stop_for(w);
-    x->gliding = false;
   }
   awra_list_view_scroll_to(x->list, position, align == AWRA_CONVERSATION_ALIGN_TOP ? 1 :
                                               align == AWRA_CONVERSATION_ALIGN_END ? 3 :
                                                                                      2);
   if (highlight) {
+    if (x->highlight_until > 0) {
+      invalidate_row(x, x->highlight_pos);
+    }
     x->highlight_pos = position;
-    x->highlight_until = awra_now_ms() + HIGHLIGHT_MS;
-    if (!x->highlight_timer) {
-      x->highlight_timer = awra_timeout_add(33, highlight_tick, w, NULL);
+    x->highlight_start = awra_now_ms();
+    x->highlight_until = x->highlight_start + HIGHLIGHT_MS;
+    if (x->highlight_timer) {
+      awra_source_remove(x->highlight_timer);
+      x->highlight_timer = 0;
+    }
+    if (awra_style_reduced_motion()) {
+      x->highlight_timer = awra_timeout_add((unsigned)HIGHLIGHT_MS, highlight_end, w, NULL);
+    }
+    else {
+      motion_start(w);
     }
   }
   awra_widget_ref(w);

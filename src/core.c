@@ -432,6 +432,14 @@ static void aux_free(void *p)
   free(p);
 }
 
+/* widgets made and not yet freed (awra_widgets_alive) */
+static int g_alive;
+
+int awra_widgets_alive(void)
+{
+  return g_alive;
+}
+
 AwraWidget *awra_widget_new(const AwraClass *cls)
 {
   if (!g_inited) {
@@ -447,6 +455,7 @@ AwraWidget *awra_widget_new(const AwraClass *cls)
     return NULL;
   }
   aux->refs = 1;
+  g_alive++;
   aux->req_w = aux->req_h = -1;
   aux->halign = aux->valign = AWRA_ALIGN_FILL;
   aux->can_target = 1;
@@ -536,6 +545,7 @@ static void widget_dispose(AwraWidget *w)
     w->parent = NULL;
   }
   BK_node_free(w); /* children released, free_ext (finalize), aux freed */
+  g_alive--;
 }
 
 void awra_bk_free(BKNode *n)
@@ -562,7 +572,11 @@ void awra_bk_free(BKNode *n)
     h = next;
   }
   a->handlers = NULL;
-  for (AwraDataEntry *e = a->data; e;) {
+  /* detached first: a destroy notify may look up or clear this widget's data
+   * (a popover its menu button drops unlinks itself from it) */
+  AwraDataEntry *data = a->data;
+  a->data = NULL;
+  for (AwraDataEntry *e = data; e;) {
     AwraDataEntry *next = e->next;
     if (e->destroy) {
       e->destroy(e->data);
@@ -571,7 +585,6 @@ void awra_bk_free(BKNode *n)
     free(e);
     e = next;
   }
-  a->data = NULL;
   free(a->name);
   a->name = NULL;
   if (a->a11y) {
@@ -1935,7 +1948,7 @@ static void damage_node_area(AwraWidget *w)
     return;
   }
   const int m = 3 + w->overdraw_tree;
-  bk_ctx_dirty_rect(ctx, bk_rect(w->x - m, w->y - m, w->w + 2 * m, w->h + 2 * m));
+  bk_node_dirty(w, bk_rect(w->x - m, w->y - m, w->w + 2 * m, w->h + 2 * m));
 }
 
 static void update_overdraw(AwraWidget *w)

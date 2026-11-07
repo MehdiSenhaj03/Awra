@@ -154,6 +154,16 @@ void bk_clip_reset(int w, int h)
   clip_apply();
 }
 
+void bk_clip_reset_at(int x, int y, int w, int h)
+{
+  g_clip_n = 0;
+  bk_draw.clip[0] = x;
+  bk_draw.clip[1] = y;
+  bk_draw.clip[2] = x + w;
+  bk_draw.clip[3] = y + h;
+  clip_apply();
+}
+
 void bk_clip_push(int x, int y, int w, int h)
 {
   if (g_clip_n < 32) {

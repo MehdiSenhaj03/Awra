@@ -153,7 +153,20 @@ enum {
   BUI_PIXMAP_ARGB = 0,      /* premultiplied 0xAARRGGBB */
   BUI_PIXMAP_NV12_BT601 = 1, /* YCbCr 4:2:0, BT.601 (SD video) */
   BUI_PIXMAP_NV12_BT709 = 2, /* YCbCr 4:2:0, BT.709 (HD video) */
+  /* BUI-Awra: pixels as their producer laid them out, drawn without a copy
+   * (GdkMemoryTexture's R8G8B8A8 and planar video): converted per pixel
+   * drawn, and once into a scratch when a GPU renderer uploads them. */
+  BUI_PIXMAP_RGBA = 3,       /* straight alpha, bytes R G B A */
+  BUI_PIXMAP_I420_BT601 = 4, /* planar 4:2:0: w * h luma, then Cb, then Cr (w/2 * h/2 each) */
+  BUI_PIXMAP_I420_BT709 = 5,
 };
+/* BUI-Awra: 0 for RGB pixmaps, else the YCbCr matrix (1 BT.601, 2 BT.709). */
+static inline int BUI_pixmap_yuv(int format)
+{
+  return format == BUI_PIXMAP_NV12_BT601 || format == BUI_PIXMAP_I420_BT601 ? 1 :
+         format == BUI_PIXMAP_NV12_BT709 || format == BUI_PIXMAP_I420_BT709 ? 2 :
+                                                                              0;
+}
 enum {
   BUI_IMAGE_NEAREST = 1 << 0, /* nearest texel (CSS image-rendering: pixelated); else bilinear */
 };
@@ -454,6 +467,11 @@ void BUI_raster_clear(BuiRaster *r, int x, int y, int w, int h);
  * instead of the raster's own; NULL returns to an own buffer. Turns the
  * frame diff off: damage is what the caller drew. */
 void BUI_raster_set_target(BuiRaster *r, uint32_t *pixels, int w, int h);
+/* Drawing coordinates of the buffer's top-left pixel (default 0, 0): x, y
+ * of every primitive and of the clip are offset by it, so a part of a
+ * larger surface (a popup's own buffer in its window's coordinates) draws
+ * with the same coordinates; damage stays in buffer pixels. CPU rasters. */
+void BUI_raster_set_origin(BuiRaster *r, int x, int y);
 /* Whether end_frame diffs against the previous frame (upstream: always),
  * which costs a second frame of memory. Off, damage is the drawn region. */
 void BUI_raster_set_diff(BuiRaster *r, int on);
@@ -505,6 +523,24 @@ void BUI_raster_rbox_gradient(BuiRaster *r,
                               const float from[4],
                               const float to[4],
                               int horizontal);
+
+/* BUI-Awra: a fade, as GTK's alpha mask: BUI_raster_read copies the frame's
+ * pixels in (x, y, w, h), within the clip, to `dst` (w per row) before a
+ * widget draws there; BUI_raster_fade then blends what it drew back
+ * towards them, keeping alpha a0 at the top of the box down to a1 at its
+ * bottom. Software rendering only: BUI_raster_read returns 0 on a GPU. */
+int BUI_raster_read(BuiRaster *r, int x, int y, int w, int h, uint32_t *dst);
+void BUI_raster_fade(BuiRaster *r, int x, int y, int w, int h, const uint32_t *saved, float a0, float a1);
+
+/* BUI-Awra: a rounded clip over what a widget draws inside a box (x, y,
+ * w, h) with corner radii (TL, TR, BR, BL): BUI_raster_corners_save keeps
+ * the pixels under its corners (BUI_raster_corners_size of them) before
+ * it draws, BUI_raster_corners_clip puts back what falls outside the
+ * rounded box after, anti-aliased. Software rendering only (0 on a GPU). */
+int BUI_raster_corners_size(float w, float h, const float radii[4]);
+int BUI_raster_corners_save(BuiRaster *r, float x, float y, float w, float h, const float radii[4], uint32_t *dst);
+void BUI_raster_corners_clip(BuiRaster *r, float x, float y, float w, float h, const float radii[4],
+                             const uint32_t *saved);
 
 /* A font's ascent and descent (positive, unrounded px) at `size`. */
 int BUI_text_metrics(const char *family, int flags, float size, float *r_ascent, float *r_descent);

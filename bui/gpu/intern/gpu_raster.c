@@ -17,6 +17,10 @@ struct BuiRaster {
   int full_damage;
   int external; /* BUI-Awra: `pix` belongs to the host (a shared-memory buffer) */
   int nodiff;   /* BUI-Awra: no `prev`: damage is what was drawn (the kit's regions) */
+  /* BUI-Awra: the coordinates drawing uses at the buffer's top-left pixel
+   * (BUI_raster_set_origin: a popup's own buffer drawn in its window's
+   * coordinates); the clip is in these coordinates, damage in the buffer's */
+  int ox, oy;
 
   /* clip, exclusive max, always inside the buffer */
   int cx0, cy0, cx1, cy1;
@@ -45,6 +49,10 @@ typedef struct Paint {
   uint32_t rgb; /* 0xFFRRGGBB: the color at full alpha (BUI-Awra: premultiplied frames) */
   int a;        /* 0..256 */
 } Paint;
+
+/* BUI-Awra: row `py` (drawing coordinates) of the buffer, indexed by x in
+ * drawing coordinates; only rows and columns inside the clip are touched */
+#define RASTER_ROW(r, py) ((r)->pix + (ptrdiff_t)((py) - (r)->oy) * (r)->w - (r)->ox)
 
 static inline int clampi(int v, int lo, int hi)
 {
@@ -121,10 +129,10 @@ static int clip_box(const BuiRaster *r, float fx0, float fy0, float fx1, float f
 
 static void raster_reset_clip(BuiRaster *r)
 {
-  r->cx0 = 0;
-  r->cy0 = 0;
-  r->cx1 = r->w;
-  r->cy1 = r->h;
+  r->cx0 = r->ox;
+  r->cy0 = r->oy;
+  r->cx1 = r->ox + r->w;
+  r->cy1 = r->oy + r->h;
 }
 
 static void raster_alloc(BuiRaster *r, int w, int h)
@@ -476,10 +484,10 @@ size_t BUI_raster_view_size(void)
 void BUI_raster_view(const BuiRaster *src, BuiRaster *dst, int x0, int y0, int x1, int y1)
 {
   *dst = *src; /* shares the pixels; drawing only touches pix inside the clip */
-  dst->cx0 = clampi(x0 > src->cx0 ? x0 : src->cx0, 0, src->w);
-  dst->cy0 = clampi(y0 > src->cy0 ? y0 : src->cy0, 0, src->h);
-  dst->cx1 = clampi(x1 < src->cx1 ? x1 : src->cx1, dst->cx0, src->w);
-  dst->cy1 = clampi(y1 < src->cy1 ? y1 : src->cy1, dst->cy0, src->h);
+  dst->cx0 = clampi(x0 > src->cx0 ? x0 : src->cx0, src->ox, src->ox + src->w);
+  dst->cy0 = clampi(y0 > src->cy0 ? y0 : src->cy0, src->oy, src->oy + src->h);
+  dst->cx1 = clampi(x1 < src->cx1 ? x1 : src->cx1, dst->cx0, src->ox + src->w);
+  dst->cy1 = clampi(y1 < src->cy1 ? y1 : src->cy1, dst->cy0, src->oy + src->h);
 }
 
 void BUI_raster_set_clip(BuiRaster *r, int x, int y, int w, int h)
@@ -488,10 +496,10 @@ void BUI_raster_set_clip(BuiRaster *r, int x, int y, int w, int h)
     raster_reset_clip(r);
     return;
   }
-  r->cx0 = clampi(x, 0, r->w);
-  r->cy0 = clampi(y, 0, r->h);
-  r->cx1 = clampi(x + w, 0, r->w);
-  r->cy1 = clampi(y + h, 0, r->h);
+  r->cx0 = clampi(x, r->ox, r->ox + r->w);
+  r->cy0 = clampi(y, r->oy, r->oy + r->h);
+  r->cx1 = clampi(x + w, r->ox, r->ox + r->w);
+  r->cy1 = clampi(y + h, r->oy, r->oy + r->h);
 }
 
 /** \} */
@@ -524,7 +532,7 @@ void BUI_raster_fill_rect(BuiRaster *r, float x, float y, float w, float h, cons
     if (cy <= 0.0f) {
       continue;
     }
-    uint32_t *row = r->pix + (size_t)py * r->w;
+    uint32_t *row = RASTER_ROW(r, py);
     /* fully covered interior span */
     const int ix0 = clampi((int)ceilf(fx0), x0, x1);
     const int ix1 = clampi((int)floorf(fx1), x0, x1);
@@ -611,7 +619,7 @@ void BUI_raster_round_rect(
   const float bx = hw - rad, by = hh - rad;
   const float rin = rad - 0.5f; /* coverage is exactly 1 inside this radius */
   for (int py = y0; py < y1; py++) {
-    uint32_t *row = r->pix + (size_t)py * r->w;
+    uint32_t *row = RASTER_ROW(r, py);
     const float qy = fabsf((float)py + 0.5f - cy) - by;
     /* Half-width (from cx) of this row's fully covered span: the interior
      * is filled directly; the SDF only runs on the anti-aliased rim. */
@@ -699,7 +707,7 @@ void BUI_raster_circle(
   }
   const float half_lw = line_width * 0.5f;
   for (int py = y0; py < y1; py++) {
-    uint32_t *row = r->pix + (size_t)py * r->w;
+    uint32_t *row = RASTER_ROW(r, py);
     const float dy = (float)py + 0.5f - cy;
     for (int px = x0; px < x1; px++) {
       const float dx = (float)px + 0.5f - cx;
@@ -759,7 +767,7 @@ void BUI_raster_line(
   const float vx = bx - ax, vy = by - ay;
   const float len2 = vx * vx + vy * vy;
   for (int py = iy0; py < iy1; py++) {
-    uint32_t *row = r->pix + (size_t)py * r->w;
+    uint32_t *row = RASTER_ROW(r, py);
     const float wy = (float)py + 0.5f - ay;
     for (int px = ix0; px < ix1; px++) {
       const float wx = (float)px + 0.5f - ax;
@@ -810,7 +818,7 @@ void BUI_raster_ellipse(BuiRaster *r,
   }
   const float half_lw = line_width * 0.5f;
   for (int py = y0; py < y1; py++) {
-    uint32_t *row = r->pix + (size_t)py * r->w;
+    uint32_t *row = RASTER_ROW(r, py);
     const float dy = ((float)py + 0.5f - cy) / ry;
     for (int px = x0; px < x1; px++) {
       const float dx = ((float)px + 0.5f - cx) / rx;
@@ -909,7 +917,7 @@ void BUI_raster_widget(BuiRaster *r,
   const float safe = rad + ow + 1.0f;
 
   for (int py = y0; py < y1; py++) {
-    uint32_t *row = r->pix + (size_t)py * r->w;
+    uint32_t *row = RASTER_ROW(r, py);
     const float sy = (float)py + 0.5f;
     if (gradient) {
       const float t = clampf((sy - y) / h, 0.0f, 1.0f);
@@ -1032,7 +1040,7 @@ void BUI_raster_widget_base(BuiRaster *r, const BuiWidgetBase *p)
   const int mb = clampi((int)floorf(x + w - cornerw - 0.5f) + 1, ma, x1);
 
   for (int py = y0; py < y1; py++) {
-    uint32_t *row = r->pix + (size_t)py * r->w;
+    uint32_t *row = RASTER_ROW(r, py);
     const float sy = (float)py + 0.5f;
     if (gradient && !p->shade_horizontal) {
       const float t = clampf((sy - (y + px1)) / fmaxf(1.0f, h - 2.0f * px1), 0.0f, 1.0f);
@@ -1174,6 +1182,73 @@ static inline uint32_t bilerp(uint32_t c00, uint32_t c10, uint32_t c01, uint32_t
   return ag | rb;
 }
 
+/* BUI-Awra: a straight RGBA texel (bytes R G B A, BUI_PIXMAP_RGBA) as
+ * premultiplied 0xAARRGGBB, rounded as GdkMemoryTexture premultiplies. */
+static inline uint32_t div255(uint32_t v)
+{
+  v += 128;
+  return (v + (v >> 8)) >> 8;
+}
+
+static inline uint32_t rgba_texel(const uint32_t *p)
+{
+  const uint8_t *b = (const uint8_t *)p;
+  const uint32_t a = b[3];
+  if (a == 255) {
+    return 0xFF000000u | (uint32_t)b[0] << 16 | (uint32_t)b[1] << 8 | b[2];
+  }
+  if (a == 0) {
+    return 0;
+  }
+  return a << 24 | div255(b[0] * a) << 16 | div255(b[1] * a) << 8 | div255(b[2] * a);
+}
+
+/* A texel of an RGB pixmap (ARGB or RGBA) as premultiplied ARGB. */
+static inline uint32_t pixmap_texel(const BuiPixmap *img, size_t i)
+{
+  return img->format == BUI_PIXMAP_RGBA ? rgba_texel(img->px + i) : img->px[i];
+}
+
+const uint32_t *bui_pixmap_upload(int format, const uint32_t *px, int *stride, int w, int h,
+                                  uint32_t **scratch, size_t *cap)
+{
+  if (format != BUI_PIXMAP_RGBA && format != BUI_PIXMAP_I420_BT601 &&
+      format != BUI_PIXMAP_I420_BT709)
+  {
+    return px;
+  }
+  const size_t bytes = format == BUI_PIXMAP_RGBA ? (size_t)w * h * 4 : ((size_t)w * h * 3 / 2 + 3) & ~(size_t)3;
+  if (*cap < bytes) {
+    uint32_t *grown = (uint32_t *)realloc(*scratch, bytes);
+    if (!grown) {
+      return NULL;
+    }
+    *scratch = grown;
+    *cap = bytes;
+  }
+  uint32_t *out = *scratch;
+  if (format == BUI_PIXMAP_RGBA) {
+    for (int y = 0; y < h; y++) {
+      const uint32_t *row = px + (size_t)y * *stride;
+      uint32_t *o = out + (size_t)y * w;
+      for (int x = 0; x < w; x++) {
+        o[x] = rgba_texel(row + x);
+      }
+    }
+  }
+  else { /* I420 to NV12: luma as it is, chroma interleaved */
+    const uint8_t *src = (const uint8_t *)px, *u = src + (size_t)w * h, *v = u + (size_t)w / 2 * (h / 2);
+    uint8_t *dst = (uint8_t *)out, *uv = dst + (size_t)w * h;
+    memcpy(dst, src, (size_t)w * h);
+    for (size_t i = 0, n = (size_t)w / 2 * (h / 2); i < n; i++) {
+      uv[2 * i] = u[i];
+      uv[2 * i + 1] = v[i];
+    }
+  }
+  *stride = w;
+  return out;
+}
+
 static uint64_t pixmap_key(const BuiPixmap *img)
 {
   if (img->key) {
@@ -1183,7 +1258,7 @@ static uint64_t pixmap_key(const BuiPixmap *img)
   uint64_t h = 1469598103934665603ull;
   /* in 32-bit words: NV12 holds 1.5 bytes a pixel */
   const size_t px = (size_t)img->w * img->h;
-  const size_t n = img->format == BUI_PIXMAP_ARGB ? px : px * 3 / 8;
+  const size_t n = BUI_pixmap_yuv(img->format) ? px * 3 / 8 : px;
   for (size_t i = 0; i < n; i++) {
     h = (h ^ img->px[i]) * 1099511628211ull;
   }
@@ -1243,7 +1318,7 @@ static void gpu_image_big(BuiRaster *r, float x, float y, float w, float h, cons
     return;
   }
   const int tiled = img->w > core + 2 || img->h > core + 2;
-  if (tiled && img->format != BUI_PIXMAP_ARGB) {
+  if (tiled && BUI_pixmap_yuv(img->format)) {
     return; /* video frames are decoded within the device's limit */
   }
   const int nx = tiled ? (img->w + core - 1) / core : 1, ny = tiled ? (img->h + core - 1) / core : 1;
@@ -1261,7 +1336,7 @@ static void gpu_image_big(BuiRaster *r, float x, float y, float w, float h, cons
       const int tx0 = cx0 > 0 ? cx0 - 1 : 0, tx1 = imin(img->w, cx1 + 1);
       const int ty0 = cy0 > 0 ? cy0 - 1 : 0, ty1 = imin(img->h, cy1 + 1);
       const uint64_t tkey = tiled ? (key ^ ((uint64_t)(j * nx + i + 1) * 0x9E3779B97F4A7C15ull)) : key;
-      const int tex = tiled ? bui_gpu_image_tex(r->gpu, tkey, key, 0, BUI_PIXMAP_ARGB,
+      const int tex = tiled ? bui_gpu_image_tex(r->gpu, tkey, key, 0, img->format,
                                                 img->px + (size_t)ty0 * img->w + tx0, img->w,
                                                 tx1 - tx0, ty1 - ty0) :
                               bui_gpu_image_tex(r->gpu, key, img->stream ? img->stream : key,
@@ -1287,7 +1362,7 @@ static void gpu_image_big(BuiRaster *r, float x, float y, float w, float h, cons
         v4(in->uv, sx - (float)tx0, sy - (float)ty0, sw, sh);
         in->p[1] = alpha;
         in->p[2] = (flags & BUI_IMAGE_NEAREST) ? 1.0f : 0.0f;
-        in->p[3] = (float)img->format; /* > 0: NV12 (luma + chroma textures) */
+        in->p[3] = (float)BUI_pixmap_yuv(img->format); /* > 0: YCbCr (luma + chroma textures) */
       }
     }
   }
@@ -1314,19 +1389,47 @@ static inline uint32_t yuv_argb(const int *k, int y, int u, int v)
   return 0xFF000000u | (uint32_t)r << 16 | (uint32_t)g << 8 | (uint32_t)b;
 }
 
+/* BUI-Awra: where a YCbCr pixmap's chroma is: NV12 interleaves Cb Cr in
+ * rows of w bytes; I420 keeps them in planes of rows of w / 2. Cb of chroma
+ * texel (cx, cy) is u[cy * stride + cx * step], Cr the same in v. */
+typedef struct Chroma {
+  const uint8_t *u, *v;
+  int stride, step;
+} Chroma;
+
+static Chroma pixmap_chroma(const BuiPixmap *img)
+{
+  const uint8_t *c = (const uint8_t *)img->px + (size_t)img->w * img->h;
+  if (img->format == BUI_PIXMAP_I420_BT601 || img->format == BUI_PIXMAP_I420_BT709) {
+    const Chroma ch = {c, c + (size_t)(img->w / 2) * (img->h / 2), img->w / 2, 1};
+    return ch;
+  }
+  const Chroma ch = {c, c + 1, img->w, 2};
+  return ch;
+}
+
 void BUI_pixmap_read(const BuiPixmap *img, int y0, int rows, uint32_t *dst)
 {
-  if (img->format == BUI_PIXMAP_ARGB) {
+  const int yuv = BUI_pixmap_yuv(img->format);
+  if (!yuv) {
+    if (img->format == BUI_PIXMAP_RGBA) {
+      for (size_t i = (size_t)y0 * img->w, n = i + (size_t)img->w * rows; i < n; i++) {
+        *dst++ = rgba_texel(img->px + i);
+      }
+      return;
+    }
     memcpy(dst, img->px + (size_t)y0 * img->w, sizeof(uint32_t) * (size_t)img->w * rows);
     return;
   }
-  const int *k = k_yuv[img->format == BUI_PIXMAP_NV12_BT709];
-  const uint8_t *yp = (const uint8_t *)img->px, *uvp = yp + (size_t)img->w * img->h;
+  const int *k = k_yuv[yuv == 2];
+  const uint8_t *yp = (const uint8_t *)img->px;
+  const Chroma ch = pixmap_chroma(img);
   for (int y = y0; y < y0 + rows; y++) {
-    const uint8_t *yr = yp + (size_t)y * img->w, *cr = uvp + (size_t)(y >> 1) * img->w;
+    const uint8_t *yr = yp + (size_t)y * img->w;
+    const size_t crow = (size_t)(y >> 1) * ch.stride;
     for (int x = 0; x < img->w; x++) {
-      const uint8_t *c = cr + (x & ~1);
-      *dst++ = yuv_argb(k, yr[x], c[0], c[1]);
+      const size_t c = crow + (size_t)(x >> 1) * ch.step;
+      *dst++ = yuv_argb(k, yr[x], ch.u[c], ch.v[c]);
     }
   }
 }
@@ -1342,10 +1445,10 @@ static void raster_nv12(BuiRaster *r, float x, float y, float w, float h, const 
                         float sx, float sy, float sw, float sh, uint32_t ga, int nearest,
                         int x0, int y0, int x1, int y1)
 {
-  const int *k = k_yuv[img->format == BUI_PIXMAP_NV12_BT709];
+  const int *k = k_yuv[BUI_pixmap_yuv(img->format) == 2];
   const uint8_t *yp = (const uint8_t *)img->px;
-  const uint8_t *uvp = yp + (size_t)img->w * img->h;
-  const int iw = img->w;
+  const Chroma ch = pixmap_chroma(img);
+  const int iw = img->w, cs = ch.stride, step = ch.step;
   const float kx = sw / w, ky = sh / h;
   if (fabsf(kx - 1.0f) < 1e-4f && fabsf(ky - 1.0f) < 1e-4f && x == floorf(x) && y == floorf(y) &&
       sx == floorf(sx) && sy == floorf(sy))
@@ -1353,15 +1456,16 @@ static void raster_nv12(BuiRaster *r, float x, float y, float w, float h, const 
     /* 1:1: one luma sample and its chroma pair per pixel */
     const int ox = (int)sx - (int)x, oy = (int)sy - (int)y;
     for (int py = y0; py < y1; py++) {
-      uint32_t *row = r->pix + (size_t)py * r->w;
+      uint32_t *row = RASTER_ROW(r, py);
       const int ty = py + oy;
-      const uint8_t *yr = yp + (size_t)ty * iw, *cr = uvp + (size_t)(ty >> 1) * iw;
+      const uint8_t *yr = yp + (size_t)ty * iw;
+      const uint8_t *cu = ch.u + (size_t)(ty >> 1) * cs, *cv = ch.v + (size_t)(ty >> 1) * cs;
       if (ga >= 256) {
         /* opaque (every video frame): the chroma terms once per pair, stored */
         for (int px = x0; px < x1; px++) {
           const int tx = px + ox;
-          const uint8_t *c = cr + (tx & ~1);
-          const int u = c[0] - 128, v = c[1] - 128;
+          const size_t c = (size_t)(tx >> 1) * step;
+          const int u = cu[c] - 128, v = cv[c] - 128;
           const int rv = k[1] * v + 32768, gu = 32768 - k[2] * u - k[3] * v, bu = k[4] * u + 32768;
           for (int n = (tx & 1) ? 1 : imin(2, x1 - px); n > 0; n--, px++) {
             const int l = (yr[px + ox] - 16) * k[0];
@@ -1375,8 +1479,8 @@ static void raster_nv12(BuiRaster *r, float x, float y, float w, float h, const 
       }
       for (int px = x0; px < x1; px++) {
         const int tx = px + ox;
-        const uint8_t *c = cr + (tx & ~1);
-        put_image_px(row + px, yuv_argb(k, yr[tx], c[0], c[1]), ga);
+        const size_t c = (size_t)(tx >> 1) * step;
+        put_image_px(row + px, yuv_argb(k, yr[tx], cu[c], cv[c]), ga);
       }
     }
     return;
@@ -1388,7 +1492,7 @@ static void raster_nv12(BuiRaster *r, float x, float y, float w, float h, const 
   const int iy1 = (int)fmaxf((float)iy0, ceilf(sy + sh) - 1.0f);
   const float bias = nearest ? 0.0f : 0.5f;
   for (int py = y0; py < y1; py++) {
-    uint32_t *row = r->pix + (size_t)py * r->w;
+    uint32_t *row = RASTER_ROW(r, py);
     const float v = sy + ((float)py + 0.5f - y) * ky;
     const float vy = v - bias, vc = v * 0.5f - 0.5f;
     const int ty = (int)floorf(vy), tc = (int)floorf(vc);
@@ -1396,8 +1500,8 @@ static void raster_nv12(BuiRaster *r, float x, float y, float w, float h, const 
     const int fcy = (int)((vc - (float)tc) * 256.0f);
     const uint8_t *ya = yp + (size_t)clampi(ty, iy0, iy1) * iw;
     const uint8_t *yb = yp + (size_t)clampi(ty + 1, iy0, iy1) * iw;
-    const uint8_t *ca = uvp + (size_t)clampi(tc, iy0 >> 1, iy1 >> 1) * iw;
-    const uint8_t *cb = uvp + (size_t)clampi(tc + 1, iy0 >> 1, iy1 >> 1) * iw;
+    const size_t ca = (size_t)clampi(tc, iy0 >> 1, iy1 >> 1) * cs;
+    const size_t cb = (size_t)clampi(tc + 1, iy0 >> 1, iy1 >> 1) * cs;
     /* texel coordinates in 16.16 fixed point, stepped per pixel (no float
      * floor per pixel: this is the path of every resized video frame) */
     const int64_t du = (int64_t)(kx * 65536.0f);
@@ -1409,10 +1513,12 @@ static void raster_nv12(BuiRaster *r, float x, float y, float w, float h, const 
       const int fx = nearest ? 0 : (int)((uy >> 8) & 255);
       const int fcx = (int)((uc >> 8) & 255);
       const int xa = clampi(tx, ix0, ix1), xb = clampi(tx + 1, ix0, ix1);
-      const int ca0 = clampi(tcx, ix0 >> 1, ix1 >> 1) * 2, cb0 = clampi(tcx + 1, ix0 >> 1, ix1 >> 1) * 2;
+      const size_t ca0 = (size_t)clampi(tcx, ix0 >> 1, ix1 >> 1) * step;
+      const size_t cb0 = (size_t)clampi(tcx + 1, ix0 >> 1, ix1 >> 1) * step;
+      const uint8_t *u = ch.u, *v = ch.v;
       const int Y = lerp2(ya[xa], ya[xb], yb[xa], yb[xb], fx, fy);
-      const int U = lerp2(ca[ca0], ca[cb0], cb[ca0], cb[cb0], fcx, fcy);
-      const int V = lerp2(ca[ca0 + 1], ca[cb0 + 1], cb[ca0 + 1], cb[cb0 + 1], fcx, fcy);
+      const int U = lerp2(u[ca + ca0], u[ca + cb0], u[cb + ca0], u[cb + cb0], fcx, fcy);
+      const int V = lerp2(v[ca + ca0], v[ca + cb0], v[cb + ca0], v[cb + cb0], fcx, fcy);
       put_image_px(row + px, yuv_argb(k, Y, U, V), ga);
     }
   }
@@ -1446,9 +1552,9 @@ void BUI_raster_image(BuiRaster *r,
     }
   }
   alpha = clampf(alpha, 0.0f, 1.0f);
-  if (img->format != BUI_PIXMAP_ARGB) {
+  if (BUI_pixmap_yuv(img->format)) {
     if ((img->w | img->h) & 1) {
-      return; /* NV12 is even-sized */
+      return; /* 4:2:0 is even-sized */
     }
     if (!r->gpu) {
       raster_nv12(r, x, y, w, h, img, sx, sy, sw, sh, (uint32_t)(alpha * 256.0f + 0.5f),
@@ -1456,7 +1562,7 @@ void BUI_raster_image(BuiRaster *r,
       return;
     }
   }
-  if (r->gpu && (img->format != BUI_PIXMAP_ARGB || img->stream || img->w > BUI_IMAGE_ATLAS_MAX ||
+  if (r->gpu && (BUI_pixmap_yuv(img->format) || img->stream || img->w > BUI_IMAGE_ATLAS_MAX ||
                  img->h > BUI_IMAGE_ATLAS_MAX))
   {
     gpu_image_big(r, x, y, w, h, img, sx, sy, sw, sh, alpha, flags, x0, y0, x1, y1);
@@ -1464,7 +1570,7 @@ void BUI_raster_image(BuiRaster *r,
   }
   if (r->gpu) {
     int ax, ay;
-    if (bui_gpu_image(r->gpu, pixmap_key(img), img->px, img->w, img->h, &ax, &ay)) {
+    if (bui_gpu_image(r->gpu, pixmap_key(img), img->format, img->px, img->w, img->h, &ax, &ay)) {
       BuiGpuInst *in = gpu_inst(r, BG_IMAGE, x0, y0, x1, y1);
       if (in) {
         v4(in->rect, x, y, w, h);
@@ -1482,8 +1588,14 @@ void BUI_raster_image(BuiRaster *r,
       sx == floorf(sx) && sy == floorf(sy))
   {
     for (int py = y0; py < y1; py++) {
-      uint32_t *row = r->pix + (size_t)py * r->w;
+      uint32_t *row = RASTER_ROW(r, py);
       const uint32_t *s = img->px + (size_t)(py - (int)y + (int)sy) * img->w + (int)sx - (int)x;
+      if (img->format == BUI_PIXMAP_RGBA) {
+        for (int px = x0; px < x1; px++) {
+          put_image_px(row + px, rgba_texel(s + px), ga);
+        }
+        continue;
+      }
       for (int px = x0; px < x1; px++) {
         put_image_px(row + px, s[px], ga);
       }
@@ -1491,11 +1603,12 @@ void BUI_raster_image(BuiRaster *r,
     return;
   }
   const int nearest = (flags & BUI_IMAGE_NEAREST) != 0;
+  const int rgba = img->format == BUI_PIXMAP_RGBA;
   const int ix0 = (int)sx, iy0 = (int)sy;
   const int ix1 = (int)fmaxf((float)ix0, ceilf(sx + sw) - 1.0f);
   const int iy1 = (int)fmaxf((float)iy0, ceilf(sy + sh) - 1.0f);
   for (int py = y0; py < y1; py++) {
-    uint32_t *row = r->pix + (size_t)py * r->w;
+    uint32_t *row = RASTER_ROW(r, py);
     /* texel space, centers at .5 */
     const float v = sy + ((float)py + 0.5f - y) * ky - (nearest ? 0.0f : 0.5f);
     int ty = (int)floorf(v);
@@ -1507,12 +1620,14 @@ void BUI_raster_image(BuiRaster *r,
       const int tx = (int)floorf(u);
       uint32_t c;
       if (nearest) {
-        c = ra[clampi(tx, ix0, ix1)];
+        c = rgba ? rgba_texel(ra + clampi(tx, ix0, ix1)) : ra[clampi(tx, ix0, ix1)];
       }
       else {
         const uint32_t fx = (uint32_t)((u - (float)tx) * 256.0f);
         const int xa = clampi(tx, ix0, ix1), xb = clampi(tx + 1, ix0, ix1);
-        c = bilerp(ra[xa], ra[xb], rb[xa], rb[xb], fx, fy);
+        c = rgba ? bilerp(rgba_texel(ra + xa), rgba_texel(ra + xb), rgba_texel(rb + xa),
+                          rgba_texel(rb + xb), fx, fy) :
+                   bilerp(ra[xa], ra[xb], rb[xa], rb[xb], fx, fy);
       }
       put_image_px(row + px, c, ga);
     }
@@ -1527,6 +1642,8 @@ void BUI_raster_end_frame_region(BuiRaster *r, int rx, int ry, int rw, int rh)
     BUI_raster_end_frame(r);
     return;
   }
+  rx -= r->ox; /* BUI-Awra: the region in buffer pixels */
+  ry -= r->oy;
   r->damage_len = 0;
   if (r->gpu) {
     bui_gpu_damage(r->gpu, rx, ry, rw, rh);
@@ -1601,7 +1718,7 @@ void BUI_raster_shadow(
   const float cx = x + hw, cy = y + hh + size * 0.25f;
   const Paint black = {0xFF000000u, 256};
   for (int py = y0; py < y1; py++) {
-    uint32_t *row = r->pix + (size_t)py * r->w;
+    uint32_t *row = RASTER_ROW(r, py);
     const float sy = (float)py + 0.5f;
     for (int px = x0; px < x1; px++) {
       const float sx = (float)px + 0.5f;
@@ -1744,7 +1861,7 @@ void BUI_raster_polygon(BuiRaster *r, const float (*pts)[2], int n, const float 
     if (!any) {
       continue;
     }
-    uint32_t *row = r->pix + (size_t)py * r->w;
+    uint32_t *row = RASTER_ROW(r, py);
     for (int x = 0; x < span; x++) {
       put_cov(row + x0 + x, p, fminf(cov[x], 1.0f));
     }
@@ -1807,7 +1924,7 @@ void BUI_raster_triangles(BuiRaster *r,
     const int tl2 = is_top_left(v[0][0], v[0][1], v[1][0], v[1][1]);
     const float inv_area = 1.0f / area;
     for (int py = y0; py < y1; py++) {
-      uint32_t *row = r->pix + (size_t)py * r->w;
+      uint32_t *row = RASTER_ROW(r, py);
       const float sy = (float)py + 0.5f;
       for (int px = x0; px < x1; px++) {
         const float sx = (float)px + 0.5f;
@@ -2186,7 +2303,7 @@ static void mesh_triangle(BuiRaster *r,
   for (int py = y0; py < y1; py++) {
     int64_t e0 = E0[0] + B[0] * (py - y0), e1 = E0[1] + B[1] * (py - y0),
             e2 = E0[2] + B[2] * (py - y0);
-    uint32_t *row = r->pix + (size_t)py * r->w;
+    uint32_t *row = RASTER_ROW(r, py);
     for (int px = x0; px < x1; px++, e0 += A[0], e1 += A[1], e2 += A[2]) {
       if (e0 + bias[0] < 0 || e1 + bias[1] < 0 || e2 + bias[2] < 0) {
         continue;
@@ -2306,7 +2423,7 @@ void BUI_raster_hsv_circle(BuiRaster *r, float cx, float cy, float radius, float
   }
   const float inv_2pi = 0.15915494309189535f;
   for (int py = y0; py < y1; py++) {
-    uint32_t *row = r->pix + (size_t)py * r->w;
+    uint32_t *row = RASTER_ROW(r, py);
     const float dy = (float)py + 0.5f - cy;
     for (int px = x0; px < x1; px++) {
       const float dx = (float)px + 0.5f - cx;
@@ -2351,7 +2468,7 @@ void BUI_raster_gradient(BuiRaster *r,
     return;
   }
   for (int py = y0; py < y1; py++) {
-    uint32_t *row = r->pix + (size_t)py * r->w;
+    uint32_t *row = RASTER_ROW(r, py);
     const float v = clampf(((float)py + 0.5f - y) / h, 0.0f, 1.0f);
     float left[4], right[4];
     for (int k = 0; k < 4; k++) {
@@ -2408,7 +2525,7 @@ void BUI_raster_sphere(
     return;
   }
   for (int py = y0; py < y1; py++) {
-    uint32_t *row = r->pix + (size_t)py * r->w;
+    uint32_t *row = RASTER_ROW(r, py);
     const float ny = -((float)py + 0.5f - cy) / radius; /* up is +y */
     for (int px = x0; px < x1; px++) {
       const float nx = ((float)px + 0.5f - cx) / radius;
@@ -2906,7 +3023,7 @@ void BUI_raster_text_run(BuiRaster *r, float x, float y, const BuiTextRun *run, 
     return;
   }
   for (int py = y0; py < y1; py++) {
-    uint32_t *row = r->pix + (size_t)py * r->w;
+    uint32_t *row = RASTER_ROW(r, py);
     const uint8_t *m = e->mask + (size_t)(py - dy) * e->mw - dx;
     for (int px = x0; px < x1; px++) {
       const uint32_t cov = m[px];

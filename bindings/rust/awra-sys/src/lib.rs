@@ -212,6 +212,10 @@ pub const AWRA_DATA_VIEW_CONTENT: c_int = 0;
 pub const AWRA_DATA_VIEW_EMPTY: c_int = 1;
 pub const AWRA_DATA_VIEW_LOADING: c_int = 2;
 pub const AWRA_DATA_VIEW_ERROR: c_int = 3;
+pub const AWRA_TEXTURE_ARGB_PREMULTIPLIED: c_int = 0;
+pub const AWRA_TEXTURE_RGBA: c_int = 1;
+pub const AWRA_TEXTURE_NV12: c_int = 2;
+pub const AWRA_TEXTURE_I420: c_int = 3;
 pub const AWRA_ACCESSIBLE_ROLE_ALERT: c_int = 0;
 pub const AWRA_ACCESSIBLE_ROLE_ALERT_DIALOG: c_int = 1;
 pub const AWRA_ACCESSIBLE_ROLE_BANNER: c_int = 2;
@@ -367,6 +371,9 @@ pub const AWRA_MOD_SHIFT: c_int = 1;
 pub const AWRA_MOD_CTRL: c_int = 2;
 pub const AWRA_MOD_ALT: c_int = 4;
 pub const AWRA_MOD_SUPER: c_int = 64;
+pub const AWRA_DRAG_ACTION_NONE: c_int = 0;
+pub const AWRA_DRAG_ACTION_COPY: c_int = 1;
+pub const AWRA_DRAG_ACTION_MOVE: c_int = 2;
 
 extern "C" {
     pub fn awra_init(app_id: *const c_char);
@@ -563,6 +570,7 @@ extern "C" {
     pub fn awra_scrolled_set_hvalue(scrolled: *mut AwraWidget, value: f64);
     pub fn awra_scrolled_scroll_to(scrolled: *mut AwraWidget, child: *mut AwraWidget);
     pub fn awra_scrolled_get_vadjustment(scrolled: *mut AwraWidget, value: *mut f64, upper: *mut f64, page: *mut f64);
+    pub fn awra_scrolled_set_edge_fades(scrolled: *mut AwraWidget, top: c_int, bottom: c_int);
     pub fn awra_separator_new(orientation: c_int) -> *mut AwraWidget;
     pub fn awra_spacer_new() -> *mut AwraWidget;
     pub fn awra_label_new(text: *const c_char) -> *mut AwraWidget;
@@ -822,6 +830,10 @@ extern "C" {
     pub fn awra_popover_popdown(popover: *mut AwraWidget);
     pub fn awra_popover_visible(popover: *mut AwraWidget) -> bool;
     pub fn awra_popover_set_position(popover: *mut AwraWidget, side: c_int);
+    pub fn awra_popover_set_pointing_to(popover: *mut AwraWidget, x: f64, y: f64, width: f64, height: f64);
+    pub fn awra_popover_set_offset(popover: *mut AwraWidget, x: c_int, y: c_int);
+    pub fn awra_popover_set_autohide(popover: *mut AwraWidget, autohide: bool);
+    pub fn awra_popover_autohide(popover: *mut AwraWidget) -> bool;
     pub fn awra_menu_popover_new(items: *const AwraMenuItem, n: c_int) -> *mut AwraWidget;
     pub fn awra_context_menu_attach(widget: *mut AwraWidget, items: *const AwraMenuItem, n: c_int);
     pub fn awra_dialog_new(title: *const c_char) -> *mut AwraWidget;
@@ -1284,6 +1296,8 @@ extern "C" {
     pub fn awra_tag_entry_clear(tags: *mut AwraWidget);
     pub fn awra_tag_entry_n_tags(tags: *mut AwraWidget) -> c_int;
     pub fn awra_tag_entry_tag(tags: *mut AwraWidget, index: c_int) -> *const c_char;
+    pub fn awra_texture_new_for_data(data: *const c_void, width: c_int, height: c_int, format: c_int, bt709: bool, release: Option<unsafe extern "C" fn(*mut c_void)>, user_data: *mut c_void) -> *mut AwraTexture;
+    pub fn awra_widgets_alive() -> c_int;
     pub fn awra_accessible_set_role(widget: *mut AwraWidget, role: c_int);
     pub fn awra_accessible_get_role(widget: *mut AwraWidget) -> c_int;
     pub fn awra_accessible_update_property_string(widget: *mut AwraWidget, property: c_int, value: *const c_char);
@@ -1336,5 +1350,6 @@ extern "C" {
     pub fn awra_drag_preview_set_drag_window(preview: *mut AwraWidget, window: *mut AwraWidget, hot_x: c_int, hot_y: c_int);
     pub fn awra_drag_preview_texture(preview: *mut AwraWidget) -> *mut AwraTexture;
     pub fn awra_widget_set_drop_active(widget: *mut AwraWidget, active: bool);
+    pub fn awra_window_set_drag_action(window: *mut AwraWidget, action: c_int);
     pub fn awra_widget_drop_active(widget: *mut AwraWidget) -> bool;
 }

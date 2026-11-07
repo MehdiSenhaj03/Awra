@@ -21,6 +21,10 @@ void awra_avatar_set_cut_rect_internal(AwraWidget *w, bool cut, float rx, float 
 void awra_paint_rbox_cut(AwraDraw *d, AwraBox b, float radius, AwraBox cut, float cut_radius,
                          const AwraRGBA *color);
 static void badge_box(AwraWidget *w, float tile, float ox, float oy, AwraBox *r_box, char *text, AwraFont *r_font);
+/* drags that reorder the rail and merge entries into folders (below) */
+static int entry_drag(AwraWidget *item, BKEvent *e);
+static bool entry_drop(AwraWidget *item);
+static bool rail_dragging_item(AwraWidget *item);
 
 /* tile 40 + 8, inset 12, gap 8 (navigation height + spacing tokens) */
 static float tile_size(void)
@@ -274,6 +278,9 @@ static void item_draw_over(AwraWidget *w, AwraDraw *d)
 static void item_hover(AwraWidget *w, bool on)
 {
   (void)on;
+  if (rail_dragging_item(w)) {
+    return; /* while an entry is dragged, only the drop target reacts */
+  }
   item_update(w);
 }
 
@@ -308,11 +315,18 @@ static int item_press(AwraWidget *w, BKEvent *e)
 
 static int item_release(AwraWidget *w, BKEvent *e)
 {
+  /* a drag that moved or merged it ends; it doesn't activate */
+  const bool dragged = entry_drop(w);
   item_update(w);
-  if (e->inside && !RIX(w)->lifted) {
+  if (e->inside && !dragged && !RIX(w)->lifted) {
     item_activate(w);
   }
   return 1;
+}
+
+static int item_drag(AwraWidget *w, BKEvent *e)
+{
+  return entry_drag(w, e);
 }
 
 static void item_finalize(AwraWidget *w)
@@ -369,6 +383,7 @@ static AwraClass item_class = {
     .draw_over = item_draw_over,
     .press = item_press,
     .release = item_release,
+    .drag = item_drag,
     .activate = item_activate,
     .hover = item_hover,
     .overdraw = 8,
@@ -477,6 +492,15 @@ void awra_rail_item_set_tint(AwraWidget *w, const AwraRGBA *tint)
     x->tint = *tint;
   }
   awra_invalidate(w);
+}
+
+static void item_set_lifted(AwraWidget *w, bool lifted)
+{
+  if (RIX(w)->lifted != lifted) {
+    RIX(w)->lifted = lifted;
+    item_update(w);
+    awra_invalidate(w);
+  }
 }
 
 void awra_rail_item_set_drop_target(AwraWidget *w, bool target)
@@ -801,13 +825,163 @@ AwraWidget *awra_rail_group_item(AwraWidget *w, int index)
 /* ======================================================================= */
 /* The rail: header, a scrolled column of entries, footer */
 
+/* How close to an edge of the visible column a drag scrolls, and how fast
+ * (logical px, px a second); the middle share of a tile that merges an item
+ * dropped there rather than placing it beside (Awra 1's rail). */
+#define AUTOSCROLL_EDGE 40.0f
+#define AUTOSCROLL_SPEED 720.0f
+#define MERGE_ZONE 0.5f
+#define DRAG_THRESHOLD 8
+
+/* An entry's offset from its place in the column: entries move out of the
+ * way of a dragged one, then settle where they belong (raster px). */
+typedef struct Motion {
+  AwraWidget *entry;
+  float offset, from, to;
+} Motion;
+
+typedef struct ListExt {
+  AwraWidget *rail;
+  /* the lifted entry, drawn last (on top) and placed at dragged_y; its
+   * place in the column is `origin` meanwhile */
+  AwraWidget *dragged;
+  int origin;
+  float dragged_y;
+  Motion *motion;
+  int n_motion;
+} ListExt;
+
+#define LSX(w) AWRA_EXT(w, ListExt)
+
 typedef struct RailExt {
   AwraWidget *box, *scroller, *list, *header, *footer;
   AwraWidget *selected;
   bool reorderable;
+  /* a press on an entry that may become a drag (raster px) */
+  AwraWidget *pressed;
+  float press_list_y, pointer_view_y, grab_offset;
+  bool dragging, dragged; /* dragged: the press turned into a drag */
+  int drop;
+  AwraWidget *merge;
+  unsigned autoscroll;
+  double autoscroll_time;
 } RailExt;
 
 #define RLX(w) AWRA_EXT(w, RailExt)
+
+static Motion *motion_of(AwraWidget *list, const AwraWidget *entry)
+{
+  ListExt *x = LSX(list);
+  for (int i = 0; i < x->n_motion; i++) {
+    if (x->motion[i].entry == entry) {
+      return &x->motion[i];
+    }
+  }
+  return NULL;
+}
+
+static float entry_offset(AwraWidget *list, const AwraWidget *entry)
+{
+  const Motion *m = motion_of(list, entry);
+  return m ? m->offset : 0.0f;
+}
+
+static void forget_motion(AwraWidget *list, const AwraWidget *entry)
+{
+  ListExt *x = LSX(list);
+  for (int i = 0; i < x->n_motion; i++) {
+    if (x->motion[i].entry == entry) {
+      x->motion[i] = x->motion[--x->n_motion];
+      return;
+    }
+  }
+}
+
+static void motion_anim(AwraWidget *list, double t, void *data)
+{
+  (void)data;
+  ListExt *x = LSX(list);
+  bool moving = false;
+  for (int i = 0; i < x->n_motion; i++) {
+    Motion *m = &x->motion[i];
+    m->offset = m->from + (m->to - m->from) * (float)t;
+    moving |= m->offset != 0.0f || m->to != 0.0f;
+  }
+  if (t >= 1.0 && !moving && !x->dragged) {
+    x->n_motion = 0; /* everything settled */
+  }
+  awra_queue_allocate(list);
+  awra_invalidate(list);
+}
+
+/* `entry`'s motion, made at rest when it has none (NULL: out of memory). */
+static Motion *motion_add(AwraWidget *list, AwraWidget *entry)
+{
+  ListExt *x = LSX(list);
+  Motion *m = motion_of(list, entry);
+  if (!m) {
+    Motion *grown = (Motion *)realloc(x->motion, sizeof(Motion) * (size_t)(x->n_motion + 1));
+    if (!grown) {
+      return NULL;
+    }
+    x->motion = grown;
+    m = &x->motion[x->n_motion++];
+    *m = (Motion){entry, 0.0f, 0.0f, 0.0f};
+  }
+  return m;
+}
+
+/* Moves `entry` towards `offset` (animated, all entries together). */
+static bool retarget(AwraWidget *list, AwraWidget *entry, float offset)
+{
+  Motion *m = motion_of(list, entry);
+  if (!m && offset == 0.0f) {
+    return false;
+  }
+  m = m ? m : motion_add(list, entry);
+  if (!m || m->to == offset) {
+    return false;
+  }
+  m->to = offset;
+  return true;
+}
+
+static void motion_start(AwraWidget *list)
+{
+  ListExt *x = LSX(list);
+  for (int i = 0; i < x->n_motion; i++) {
+    x->motion[i].from = x->motion[i].offset;
+  }
+  awra_anim_stop_for(list);
+  awra_anim_start(list, awra_motion_duration(AWRA_MOTION_NORMAL), motion_anim, NULL, NULL);
+}
+
+static int entry_height(AwraWidget *entry)
+{
+  int mn, nt;
+  awra_measure(entry, AWRA_ORIENTATION_VERTICAL, -1, &mn, &nt);
+  return mn;
+}
+
+/* The entries in their order: with an entry lifted, it is drawn last but
+ * its place stays `origin` until it is dropped. */
+static int list_order(AwraWidget *list, AwraWidget **out)
+{
+  ListExt *x = LSX(list);
+  int n = 0;
+  for (int i = 0; i < list->nkids; i++) {
+    if (x->dragged && n == x->origin) {
+      out[n++] = x->dragged;
+    }
+    if (list->kids[i] != x->dragged) {
+      out[n++] = list->kids[i];
+    }
+  }
+  if (x->dragged && n == x->origin) {
+    out[n++] = x->dragged;
+  }
+  return n;
+}
 
 static void list_measure(AwraWidget *w, int o, int for_size, int *r_min, int *r_nat)
 {
@@ -835,26 +1009,436 @@ static void list_measure(AwraWidget *w, int o, int for_size, int *r_min, int *r_
 
 static void list_allocate(AwraWidget *w)
 {
+  ListExt *x = LSX(w);
   const int gap = awra_px(entry_gap());
+  AwraWidget *stack[64], **order = w->nkids <= 64 ? stack : (AwraWidget **)malloc(sizeof(AwraWidget *) * (size_t)w->nkids);
+  if (!order) {
+    return;
+  }
+  const int n = list_order(w, order);
   int y = gap;
-  for (int i = 0; i < w->nkids; i++) {
-    if (!awra_child_visible(w->kids[i])) {
+  for (int i = 0; i < n; i++) {
+    AwraWidget *c = order[i];
+    if (!awra_child_visible(c)) {
       continue;
     }
-    int mn, nt;
-    awra_measure(w->kids[i], AWRA_ORIENTATION_VERTICAL, -1, &mn, &nt);
-    awra_allocate(w->kids[i], w->x, w->y + y, w->w, mn);
-    y += mn + gap;
+    const int h = entry_height(c);
+    const float top = c == x->dragged ? x->dragged_y : y + entry_offset(w, c);
+    awra_allocate(c, w->x, w->y + (int)roundf(top), w->w, h);
+    y += h + gap;
   }
+  if (order != stack) {
+    free(order);
+  }
+}
+
+static void list_finalize(AwraWidget *w)
+{
+  free(LSX(w)->motion);
 }
 
 static AwraClass list_class = {
     .bk = AWRA_BK("AwraRailList", 0),
     .type = "AwraRailList",
     .flags = AWRA_CLASS_CONTAINER,
+    .ext_size = sizeof(ListExt),
+    .finalize = list_finalize,
     .measure = list_measure,
     .allocate = list_allocate,
 };
+
+/* -- drags --------------------------------------------------------------- */
+
+static AwraWidget *rail_of(AwraWidget *w)
+{
+  for (BKNode *p = w ? w->parent : NULL; p; p = p->parent) {
+    if (awra_is_widget(p) && awra_widget_is(p, "AwraRail")) {
+      return p;
+    }
+  }
+  return NULL;
+}
+
+/* The entry an item drags: itself at the top of the column, its folder when
+ * it is the folder's own tile; an item inside a folder doesn't drag. */
+static AwraWidget *drag_entry(AwraWidget *item, AwraWidget *list)
+{
+  if (item->parent == list) {
+    return item;
+  }
+  if (RIX(item)->group_header && item->parent && item->parent->parent == list) {
+    return item->parent;
+  }
+  return NULL;
+}
+
+static bool is_group(const AwraWidget *w)
+{
+  return awra_widget_is(w, "AwraRailGroup");
+}
+
+static bool is_entry(const AwraWidget *w)
+{
+  return awra_widget_is(w, "AwraRailItem") || is_group(w);
+}
+
+/* The tile that shows an entry: an item, or a folder's own tile. */
+static AwraWidget *drag_face(AwraWidget *entry)
+{
+  return is_group(entry) ? GRX(entry)->header : entry;
+}
+
+static bool rail_dragging_item(AwraWidget *item)
+{
+  AwraWidget *rail = rail_of(item);
+  return rail && RLX(rail)->dragging;
+}
+
+static float view_top(AwraWidget *rail)
+{
+  return (float)RLX(rail)->scroller->y;
+}
+
+static float scroll_px(AwraWidget *rail)
+{
+  return (float)(awra_scrolled_vvalue(RLX(rail)->scroller) * awra_scale());
+}
+
+static void set_merge(AwraWidget *rail, AwraWidget *target)
+{
+  RailExt *x = RLX(rail);
+  if (x->merge == target) {
+    return;
+  }
+  if (x->merge) {
+    awra_rail_item_set_drop_target(drag_face(x->merge), false);
+  }
+  x->merge = target;
+  if (target) {
+    awra_rail_item_set_drop_target(drag_face(target), true);
+  }
+}
+
+/* The top of each entry but the dragged one with room for it at `drop`,
+ * in order (`tops` has room for list->nkids). */
+static void layout_with_gap(AwraWidget *list, AwraWidget **order, int n, int drop, float *tops)
+{
+  ListExt *lx = LSX(list);
+  const int gap = awra_px(entry_gap());
+  float y = (float)gap;
+  int index = 0;
+  for (int i = 0; i < n; i++) {
+    if (order[i] == lx->dragged) {
+      continue;
+    }
+    if (index == drop) {
+      y += entry_height(lx->dragged) + gap;
+    }
+    tops[index++] = y;
+    y += entry_height(order[i]) + gap;
+  }
+}
+
+/* Places the dragged entry under the pointer and moves the others to make
+ * room where it would drop, or holds them still over a merge target. */
+static void update_drag(AwraWidget *rail)
+{
+  RailExt *x = RLX(rail);
+  AwraWidget *list = x->list;
+  ListExt *lx = LSX(list);
+  const int gap = awra_px(entry_gap());
+  const float tile = (float)awra_px(tile_size());
+  const int n = list->nkids;
+  AwraWidget **order = (AwraWidget **)malloc(sizeof(AwraWidget *) * (size_t)n);
+  float *tops = (float *)malloc(sizeof(float) * (size_t)n);
+  if (!order || !tops) {
+    free(order);
+    free(tops);
+    return;
+  }
+  list_order(list, order);
+  const int dragged_h = entry_height(lx->dragged);
+  float top = x->pointer_view_y + scroll_px(rail) - x->grab_offset;
+  top = fminf(fmaxf(top, 0.0f), fmaxf(0.0f, (float)(list->h - dragged_h)));
+  lx->dragged_y = top;
+  const float center = top + fminf((float)dragged_h, tile) / 2.0f;
+  AwraWidget *merge = NULL;
+  int drop = 0;
+  /* over the middle of a tile where it stands now, an item merges */
+  if (!is_group(lx->dragged)) {
+    layout_with_gap(list, order, n, x->drop, tops);
+    int index = 0;
+    for (int i = 0; i < n; i++) {
+      if (order[i] == lx->dragged) {
+        continue;
+      }
+      const float tile_center = tops[index] + tile / 2.0f;
+      if (is_entry(order[i]) && fabsf(center - tile_center) < tile * MERGE_ZONE / 2.0f) {
+        merge = order[i];
+      }
+      index++;
+    }
+  }
+  if (merge) {
+    drop = x->drop;
+  }
+  else {
+    /* otherwise it slots in after every entry whose middle it passed */
+    float compact = (float)gap;
+    for (int i = 0; i < n; i++) {
+      if (order[i] == lx->dragged) {
+        continue;
+      }
+      const int h = entry_height(order[i]);
+      if (center > compact + fminf((float)h, tile) / 2.0f) {
+        drop++;
+      }
+      compact += h + gap;
+    }
+  }
+  x->drop = drop;
+  set_merge(rail, merge);
+  layout_with_gap(list, order, n, drop, tops);
+  float natural = (float)gap;
+  int index = 0;
+  bool moved = false;
+  for (int i = 0; i < n; i++) {
+    if (order[i] != lx->dragged) {
+      moved |= retarget(list, order[i], tops[index] - natural);
+      index++;
+    }
+    natural += entry_height(order[i]) + gap;
+  }
+  if (moved) {
+    motion_start(list);
+  }
+  free(order);
+  free(tops);
+  awra_queue_allocate(list);
+  awra_invalidate(list);
+}
+
+static bool autoscroll_tick(void *data)
+{
+  AwraWidget *rail = (AwraWidget *)data;
+  RailExt *x = RLX(rail);
+  if (!x->dragging) {
+    x->autoscroll = 0;
+    return false;
+  }
+  const float s = awra_scale(), edge = AUTOSCROLL_EDGE * s;
+  const float page = (float)x->scroller->h;
+  const double now = awra_now_ms();
+  const double elapsed = x->autoscroll_time > 0 ? (now - x->autoscroll_time) / 1000.0 : 0.0;
+  x->autoscroll_time = now;
+  float speed = 0.0f;
+  if (x->pointer_view_y < edge) {
+    speed = -AUTOSCROLL_SPEED * (1.0f - fmaxf(x->pointer_view_y, 0.0f) / edge);
+  }
+  else if (x->pointer_view_y > page - edge) {
+    speed = AUTOSCROLL_SPEED * (1.0f - fmaxf(page - x->pointer_view_y, 0.0f) / edge);
+  }
+  if (speed == 0.0f) {
+    x->autoscroll = 0; /* out of the edges: no timer until it comes back */
+    x->autoscroll_time = 0;
+    return false;
+  }
+  if (elapsed > 0) {
+    awra_scrolled_set_vvalue(x->scroller, awra_scrolled_vvalue(x->scroller) + speed * elapsed);
+    update_drag(rail);
+  }
+  return true;
+}
+
+static void stop_autoscroll(RailExt *x)
+{
+  if (x->autoscroll) {
+    awra_source_remove(x->autoscroll);
+  }
+  x->autoscroll = 0;
+  x->autoscroll_time = 0;
+}
+
+static void begin_drag(AwraWidget *rail, AwraWidget *entry)
+{
+  RailExt *x = RLX(rail);
+  AwraWidget *list = x->list;
+  ListExt *lx = LSX(list);
+  const int origin = awra_child_index(list, entry);
+  if (origin < 0) {
+    return;
+  }
+  x->dragging = true;
+  x->dragged = true;
+  x->drop = origin;
+  x->grab_offset = x->press_list_y - (float)(entry->y - list->y);
+  lx->dragged = awra_widget_ref(entry);
+  lx->origin = origin;
+  lx->dragged_y = (float)(entry->y - list->y);
+  /* drawn last: over its neighbours */
+  memmove(list->kids + origin, list->kids + origin + 1, sizeof(BKNode *) * (size_t)(list->nkids - origin - 1));
+  list->kids[list->nkids - 1] = entry;
+  item_set_lifted(drag_face(entry), true);
+}
+
+static void end_drag(AwraWidget *rail, bool commit)
+{
+  RailExt *x = RLX(rail);
+  AwraWidget *list = x->list;
+  ListExt *lx = LSX(list);
+  AwraWidget *dragged = lx->dragged;
+  stop_autoscroll(x);
+  x->dragging = false;
+  x->pressed = NULL;
+  if (!dragged) {
+    return;
+  }
+  AwraWidget *merge = x->merge ? awra_widget_ref(x->merge) : NULL;
+  set_merge(rail, NULL);
+  item_set_lifted(drag_face(dragged), false);
+  const int n = list->nkids;
+  AwraWidget **order = (AwraWidget **)malloc(sizeof(AwraWidget *) * (size_t)n);
+  float *seen = (float *)malloc(sizeof(float) * (size_t)n);
+  const int gap = awra_px(entry_gap());
+  int final = lx->origin;
+  if (order && seen) {
+    /* where each entry is on screen now */
+    list_order(list, order);
+    int y = gap;
+    for (int i = 0; i < n; i++) {
+      seen[i] = order[i] == dragged ? lx->dragged_y : y + entry_offset(list, order[i]);
+      y += entry_height(order[i]) + gap;
+    }
+    if (commit && !merge && x->drop != lx->origin) {
+      final = x->drop;
+    }
+    /* the new order, the dragged entry at `final`; it was kept last */
+    AwraWidget **kids = list->kids;
+    int k = 0;
+    for (int i = 0; i < n; i++) {
+      if (order[i] != dragged) {
+        if (k == final) {
+          kids[k++] = dragged;
+        }
+        kids[k++] = order[i];
+      }
+    }
+    if (k < n) {
+      kids[k++] = dragged;
+    }
+    lx->dragged = NULL;
+    /* every entry stays where it is on screen, then settles into its place */
+    y = gap;
+    for (int i = 0; i < n; i++) {
+      AwraWidget *c = kids[i];
+      float was = 0.0f;
+      for (int j = 0; j < n; j++) {
+        if (order[j] == c) {
+          was = seen[j];
+          break;
+        }
+      }
+      Motion *m = was != (float)y ? motion_add(list, c) : motion_of(list, c);
+      if (m) {
+        m->offset = was - (float)y;
+        m->to = 0.0f;
+      }
+      y += entry_height(c) + gap;
+    }
+    motion_start(list);
+  }
+  else {
+    /* out of memory: put it back where it was */
+    memmove(list->kids + lx->origin + 1, list->kids + lx->origin, sizeof(BKNode *) * (size_t)(n - lx->origin - 1));
+    list->kids[lx->origin] = dragged;
+    lx->dragged = NULL;
+  }
+  free(order);
+  free(seen);
+  awra_queue_allocate(list);
+  awra_invalidate(list);
+  AwraArgs args = {0};
+  args.signal = AWRA_SIGNAL_MOVED;
+  if (commit && merge) {
+    args.active = true;
+    args.index = awra_child_index(list, dragged);
+    args.value = awra_child_index(list, merge);
+    awra_emit(rail, &args);
+  }
+  else if (commit && final != lx->origin) {
+    args.index = final;
+    awra_emit(rail, &args);
+  }
+  if (merge) {
+    awra_widget_unref(merge);
+  }
+  awra_widget_unref(dragged);
+}
+
+static int entry_drag(AwraWidget *item, BKEvent *e)
+{
+  AwraWidget *rail = rail_of(item);
+  if (!rail) {
+    return 0;
+  }
+  RailExt *x = RLX(rail);
+  AwraWidget *list = x->list;
+  if (!x->dragging) {
+    AwraWidget *entry = x->reorderable ? drag_entry(item, list) : NULL;
+    const int t = awra_px(DRAG_THRESHOLD);
+    if (!entry || e->dx * e->dx + e->dy * e->dy < t * t) {
+      return 0;
+    }
+    /* the press, in list coordinates */
+    x->press_list_y = (float)(e->y - e->dy - list->y);
+    begin_drag(rail, entry);
+    if (!x->dragging) {
+      return 0;
+    }
+  }
+  x->pointer_view_y = (float)e->y - view_top(rail);
+  update_drag(rail);
+  const float edge = AUTOSCROLL_EDGE * awra_scale();
+  if (!x->autoscroll && (x->pointer_view_y < edge || x->pointer_view_y > x->scroller->h - edge)) {
+    x->autoscroll_time = 0;
+    x->autoscroll = awra_timeout_add(16, autoscroll_tick, rail, NULL);
+  }
+  return 1;
+}
+
+/* The press on `item` ends: true when it had become a drag. */
+static bool entry_drop(AwraWidget *item)
+{
+  AwraWidget *rail = rail_of(item);
+  if (!rail) {
+    return false;
+  }
+  RailExt *x = RLX(rail);
+  const bool dragged = x->dragged;
+  if (x->dragging) {
+    awra_widget_ref(rail);
+    end_drag(rail, true);
+    awra_widget_unref(rail);
+  }
+  x->dragged = false;
+  return dragged;
+}
+
+static void rail_map(AwraWidget *w, bool mapped)
+{
+  if (!mapped && RLX(w)->dragging) {
+    end_drag(w, false);
+  }
+}
+
+static void rail_finalize(AwraWidget *w)
+{
+  RailExt *x = RLX(w);
+  stop_autoscroll(x);
+  if (x->selected) {
+    awra_widget_unref(x->selected);
+  }
+}
 
 static void rail_measure(AwraWidget *w, int o, int for_size, int *r_min, int *r_nat)
 {
@@ -878,8 +1462,10 @@ static AwraClass rail_class = {
     .type = "AwraRail",
     .flags = AWRA_CLASS_CONTAINER,
     .ext_size = sizeof(RailExt),
+    .finalize = rail_finalize,
     .measure = rail_measure,
     .allocate = rail_allocate,
+    .map = rail_map,
 };
 
 AwraWidget *awra_rail_new(void)
@@ -894,6 +1480,7 @@ AwraWidget *awra_rail_new(void)
   awra_scrolled_set_propagate_natural(x->scroller, true, false);
   awra_widget_set_vexpand(x->scroller, true);
   x->list = awra_widget_new(&list_class);
+  LSX(x->list)->rail = w;
   awra_scrolled_set_child(x->scroller, x->list);
   awra_widget_unref(x->list);
   awra_box_append(x->box, x->scroller);
@@ -926,7 +1513,11 @@ void awra_rail_item_activated_internal(AwraWidget *rail, AwraWidget *item)
 void awra_rail_insert(AwraWidget *w, AwraWidget *entry, int position)
 {
   RailExt *x = RLX(w);
+  if (x->dragging) {
+    end_drag(w, false); /* the column changes under it */
+  }
   if (entry->parent == x->list) {
+    forget_motion(x->list, entry);
     awra_widget_ref(entry);
     awra_child_remove(x->list, entry);
     awra_child_insert(x->list, entry, position);
@@ -952,6 +1543,10 @@ void awra_rail_remove(AwraWidget *w, AwraWidget *entry)
     awra_widget_unref(x->selected);
     x->selected = NULL;
   }
+  if (x->dragging) {
+    end_drag(w, false);
+  }
+  forget_motion(x->list, entry);
   awra_child_remove(x->list, entry);
 }
 
@@ -1012,6 +1607,9 @@ void awra_rail_set_footer(AwraWidget *w, AwraWidget *footer)
 void awra_rail_set_reorderable(AwraWidget *w, bool reorderable)
 {
   RLX(w)->reorderable = reorderable;
+  if (!reorderable && RLX(w)->dragging) {
+    end_drag(w, false);
+  }
 }
 
 bool awra_rail_reorderable(AwraWidget *w)

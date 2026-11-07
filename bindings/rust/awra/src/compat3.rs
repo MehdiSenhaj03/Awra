@@ -463,7 +463,10 @@ fn leave_target(over: Option<(Widget, crate::DropTarget, bool)>) {
 /// pointer, the Escape handler.
 fn release_state(d: &mut Dragging) {
     leave_target(d.over.take());
-    d.widget.set_cursor_from_name(None);
+    if let Some(win) = d.widget.root_widget() {
+        // the drag's cursor goes, hover comes back under the pointer
+        unsafe { ffi::awra_window_set_drag_action(win.as_ptr(), -1) };
+    }
     if let Some((win, id)) = d.escape.take() {
         win.disconnect(id);
     }
@@ -547,7 +550,9 @@ fn hand_over(source: &Widget, wx: f64, wy: f64) -> bool {
             if let Some(d) = d.borrow_mut().as_mut() {
                 d.native = true;
                 leave_target(d.over.take());
-                d.widget.set_cursor_from_name(None);
+                if let Some(win) = d.widget.root_widget() {
+                    unsafe { ffi::awra_window_set_drag_action(win.as_ptr(), -1) };
+                }
             }
         });
     }
@@ -565,15 +570,34 @@ fn drag_motion(source: &Widget, x: f64, y: f64) {
     if old.as_ref().is_some_and(|(ow, _, _)| found.as_ref().is_none_or(|(w, _)| w != ow)) {
         leave_target(old);
     }
+    let mut action = crate::DragAction::empty();
     let over = found.map(|(w, t)| {
         let (tx, ty) = w.window_position().unwrap_or((0.0, 0.0));
-        let accepted = t.motion(wx - tx, wy - ty);
+        action = t.motion_action(wx - tx, wy - ty);
+        let accepted = action != crate::DragAction::empty();
         w.set_drop_active(accepted);
         (w, t, accepted)
     });
-    // GTK's drag cursor without a destination ("no-drop")
-    let accepted = over.as_ref().is_some_and(|o| o.2);
-    source.set_cursor_from_name(if accepted { None } else { Some("not-allowed") });
+    // GDK's drag cursors: what a drop here does (GtkDropTarget's unique
+    // action: copy before move), no-drop when nothing takes it
+    let offered = DRAGGING.with(|d| d.borrow().as_ref().map(|d| d.source.0.actions.get()));
+    if let Some(o) = offered.filter(|o| *o != crate::DragAction::empty()) {
+        if over.as_ref().is_some_and(|ov| ov.2) && (action & o) != crate::DragAction::empty() {
+            action = action & o;
+        }
+    }
+    let code = if !over.as_ref().is_some_and(|o| o.2) {
+        ffi::AWRA_DRAG_ACTION_NONE
+    } else if action.contains(crate::DragAction::COPY) {
+        ffi::AWRA_DRAG_ACTION_COPY
+    } else if action.contains(crate::DragAction::MOVE) {
+        ffi::AWRA_DRAG_ACTION_MOVE
+    } else {
+        ffi::AWRA_DRAG_ACTION_COPY
+    };
+    if let Some(win) = source.root_widget() {
+        unsafe { ffi::awra_window_set_drag_action(win.as_ptr(), code) };
+    }
     motion_controllers(source, wx, wy);
     DRAGGING.with(|d| {
         if let Some(d) = d.borrow_mut().as_mut() {

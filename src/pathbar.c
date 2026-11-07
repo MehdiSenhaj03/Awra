@@ -579,6 +579,7 @@ void awra_path_bar_set_suggestions(AwraWidget *w, const char *const *titles,
   x->popover = awra_menu_popover_new(items, n);
   free(items);
   awra_popover_set_anchor(x->popover, w);
+  awra_widget_set_halign(x->popover, AWRA_ALIGN_START); /* Awra 1: GTK_POS_BOTTOM, start */
   awra_popover_popup(x->popover);
   /* the field keeps the keyboard */
   AwraWidget *win = awra_window_of(w);

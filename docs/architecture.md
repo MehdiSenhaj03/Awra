@@ -96,6 +96,35 @@ corners and draws the shadow; resizing goes through a native border band.
 Physical keys come from scan codes (as evdev codes, the names KeyToMusic
 binds), key labels from the layout, file drops through OLE (hover and drop).
 
+## Popups
+
+GTK 4 gives each popover, menu and tooltip a native surface of its own,
+placed by GDK's popup layout; Awra 2 does the same. A popup class places
+itself with a layout (`BKPopupLayout`: an anchor rectangle in its window's
+coordinates, the gravity on it and on the popup, an offset, and whether it
+may flip, slide or shrink — GtkPopover's `create_popup_layout`, GTK's
+`gtk_tooltip_position` for tooltips), and the window host resolves it:
+
+- Wayland: an `xdg_popup` whose positioner is built as GDK's (anchor in the
+  parent's geometry, reactive), nested under the popup it opened from,
+  grabbed with the last press's serial when it hides on outside clicks;
+  the compositor places it and `popup_done` closes it;
+- X11: an override-redirect ARGB window placed in root coordinates by
+  GDK's layout helper against the work area of the anchor's monitor
+  (`_GTK_WORKAREAS_Dn`, `_NET_WORKAREA`, RandR), moved with its window,
+  pointer and keyboard grabbed with owner events;
+- Windows: a `WS_POPUP` tool window owned by its window, never activated,
+  placed against the monitor's work area; DWM rounds, shadows and blurs it
+  as Awra 1's popovers there; it closes when its window is deactivated.
+
+Popups keep window coordinates, so hit testing, focus, menus' keys and the
+accessibility tree are unchanged; each draws into its own buffer with
+`BUI_raster_set_origin` and has its own damage (a hover in a menu repaints
+that menu's row and nothing of the window). Hosts route a popup's input
+back in window coordinates, and leaving the window for one of its popups
+is no leave. Offscreen windows (tests, `awra-shot`) draw popups inside the
+window, constrained by it; `BUI_POPUP_SURFACES=0` does it everywhere.
+
 ## Data transfer
 
 The clipboard carries any type (BK_window_clipboard_*): text under every

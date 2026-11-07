@@ -42,6 +42,13 @@ typedef struct PopExt {
   /* a menu: the row whose hover opens its submenu (or closes another) soon */
   unsigned hover_timer;
   AwraWidget *hover_row;
+  /* GtkPopover's pointing-to (logical, in the anchor's coordinates; w < 0:
+   * the anchor's bounds), offset and autohide */
+  double pt_x, pt_y, pt_w, pt_h;
+  int off_x, off_y;
+  bool autohide_off;
+  bool surfaced; /* the last placement gave it a native surface */
+  bool blur;     /* ... and the compositor blurs behind it */
 } PopExt;
 
 #define POPX(w) AWRA_EXT(w, PopExt)
@@ -68,27 +75,51 @@ static void pop_allocate(AwraWidget *w)
   }
 }
 
+/* Windows: the popup is a window DWM rounds (its small radius, none on
+ * Windows 10) and shadows; it draws the same corner and no shadow (Awra 1's
+ * awra-win32-popup). */
+static bool pop_native_frame(const AwraWidget *w, float *r_radius)
+{
+  BKContext *ctx = POPX(w)->surfaced ? bk_ctx(w) : NULL;
+  if (ctx && ctx->popup_host && (ctx->popup_host->flags & BK_POPHOST_NATIVE_FRAME)) {
+    *r_radius = (float)ctx->popup_host->corner_radius;
+    return true;
+  }
+  return false;
+}
+
+/* its material: frosted when its surface is blurred (Awra 1's effect
+ * coordinator on popovers), the opaque fallback in the window */
+static void pop_material(const AwraWidget *w, AwraResolvedMaterial *m, float *r_radius,
+                         AwraElevation *r_elevation)
+{
+  const PopExt *x = POPX(w);
+  *r_radius = awra_pxf(x->radius);
+  *r_elevation = AWRA_ELEVATION_FLOATING;
+  if (pop_native_frame(w, r_radius)) {
+    *r_elevation = AWRA_ELEVATION_FLAT;
+  }
+  awra_material_resolve(AWRA_MATERIAL_FLOATING, AWRA_ROLE_POPOVER, *r_elevation,
+                        x->surfaced && x->blur, m);
+}
+
 static void pop_draw(AwraWidget *w, AwraDraw *d)
 {
-  PopExt *x = POPX(w);
-  if (x->modal_scrim) {
-    /* palettes and in-window dialogs dim nothing in Awra 1 (separate
-     * windows): keep the content as it is */
-  }
   AwraResolvedMaterial m;
-  awra_material_resolve(AWRA_MATERIAL_FLOATING, AWRA_ROLE_POPOVER, AWRA_ELEVATION_FLOATING, false, &m);
-  awra_paint_material(d, awra_box_of(w), &m, awra_pxf(x->radius), 15, AWRA_EDGE_ALL,
-                      AWRA_ELEVATION_FLOATING);
+  float radius;
+  AwraElevation elevation;
+  pop_material(w, &m, &radius, &elevation);
+  awra_paint_material(d, awra_box_of(w), &m, radius, 15, AWRA_EDGE_ALL, elevation);
 }
 
 static void pop_draw_over(AwraWidget *w, AwraDraw *d)
 {
   /* the outline and rim sit above the content (GSK border nodes after the
    * child): redraw them so rows touching the edge don't cover them */
-  PopExt *x = POPX(w);
   AwraResolvedMaterial m;
-  awra_material_resolve(AWRA_MATERIAL_FLOATING, AWRA_ROLE_POPOVER, AWRA_ELEVATION_FLOATING, false, &m);
-  const float r = awra_pxf(x->radius);
+  float r;
+  AwraElevation elevation;
+  pop_material(w, &m, &r, &elevation);
   const float r4[4] = {r, r, r, r};
   const float bw = awra_pxf(m.border_width), hw = awra_pxf(m.highlight_width);
   const float b4[4] = {bw, bw, bw, bw}, h4[4] = {hw, 0, 0, hw};
@@ -103,6 +134,115 @@ static AwraWidget *window_root(AwraWidget *w)
   return a ? awra_window_of(a) : NULL;
 }
 
+/* AWRA_SHADOWS=1 draws the Floating elevation's shadow (paint.c): its
+ * surface then reserves the room around the box (GTK's shadow width). */
+static void pop_shadow(int r_shadow[4])
+{
+  static int shadows = -1;
+  if (shadows < 0) {
+    const char *e = getenv("AWRA_SHADOWS");
+    shadows = e && e[0] == '1';
+  }
+  if (!shadows) {
+    r_shadow[0] = r_shadow[1] = r_shadow[2] = r_shadow[3] = 0;
+    return;
+  }
+  /* 0 7px 20px: the blur each side, the offset down */
+  r_shadow[0] = r_shadow[1] = awra_px(20);
+  r_shadow[2] = awra_px(20 - 7);
+  r_shadow[3] = awra_px(20 + 7);
+}
+
+/* GtkPopover's create_popup_layout: the anchor's bounds (or the pointing-to
+ * rectangle), the gravities of its position and alignment, flipped across
+ * the anchor and slid along it, resized when the work area is too small. */
+static void pop_layout(AwraWidget *w, int nw, int nh, int win_w, int win_h, BKPopupLayout *l)
+{
+  PopExt *x = POPX(w);
+  memset(l, 0, sizeof(*l));
+  pop_shadow(l->shadow);
+  l->kind = x->menu || x->submenu_row ? BK_POPUP_KIND_MENU : BK_POPUP_KIND_DIALOG;
+  if (x->centered) {
+    /* a palette: its own window in Awra 1, centred on the window, a third
+     * of the free height above it */
+    const int y0 = BK_MAX(awra_px(48), (win_h - nh) / 3);
+    l->anchor = bk_rect(win_w / 2, y0, 1, 1);
+    l->rect_anchor = BK_GRAVITY_NORTH_WEST;
+    l->surface_anchor = BK_GRAVITY_NORTH;
+    l->hints = BK_ANCHOR_SLIDE | BK_ANCHOR_RESIZE;
+    l->kind = BK_POPUP_KIND_DIALOG;
+    return;
+  }
+  AwraWidget *parent = x->relative ? x->relative : x->anchor;
+  if (!parent) {
+    l->anchor = bk_rect(win_w / 2, win_h / 2, 1, 1);
+    l->rect_anchor = BK_GRAVITY_NORTH_WEST;
+    l->surface_anchor = BK_GRAVITY_CENTER;
+    l->hints = BK_ANCHOR_SLIDE | BK_ANCHOR_RESIZE;
+    return;
+  }
+  const float s = awra_scale();
+  if (x->relative) { /* popup_at / point_to: the point */
+    l->anchor = bk_rect(parent->x + (int)floor(x->at_x * s), parent->y + (int)floor(x->at_y * s), 1,
+                        1);
+    if (!x->pointing) {
+      /* popup_at: its corner at the point (below it, or above it for side
+       * 1, a caret), flipped and slid to stay on the work area */
+      l->rect_anchor = BK_GRAVITY_NORTH_WEST;
+      l->surface_anchor = x->side == 1 ? BK_GRAVITY_SOUTH_WEST : BK_GRAVITY_NORTH_WEST;
+      l->hints = BK_ANCHOR_FLIP | BK_ANCHOR_SLIDE | BK_ANCHOR_RESIZE;
+      return;
+    }
+  }
+  else if (x->pt_w >= 0 && x->pt_h >= 0 && !x->submenu_row) {
+    const int ax = parent->x + (int)floor(x->pt_x * s), ay = parent->y + (int)floor(x->pt_y * s);
+    l->anchor = bk_rect(ax, ay, BK_MAX(1, (int)ceil(x->pt_w * s)), BK_MAX(1, (int)ceil(x->pt_h * s)));
+  }
+  else {
+    l->anchor = bk_rect(parent->x, parent->y, parent->w, parent->h);
+  }
+  l->dx = awra_px(x->off_x);
+  l->dy = awra_px(x->off_y);
+  const AwraAux *a = awra_aux(w);
+  /* Awra's sides: 0 bottom 1 top 2 start (left) 3 end (right) */
+  const int side = x->submenu_row ? 3 : x->side;
+  if (side == 2 || side == 3) {
+    const bool left = side == 2;
+    switch (a->valign) {
+      case AWRA_ALIGN_START:
+        l->rect_anchor = left ? BK_GRAVITY_NORTH_WEST : BK_GRAVITY_NORTH_EAST;
+        l->surface_anchor = left ? BK_GRAVITY_NORTH_EAST : BK_GRAVITY_NORTH_WEST;
+        break;
+      case AWRA_ALIGN_END:
+        l->rect_anchor = left ? BK_GRAVITY_SOUTH_WEST : BK_GRAVITY_SOUTH_EAST;
+        l->surface_anchor = left ? BK_GRAVITY_SOUTH_EAST : BK_GRAVITY_SOUTH_WEST;
+        break;
+      default:
+        l->rect_anchor = left ? BK_GRAVITY_WEST : BK_GRAVITY_EAST;
+        l->surface_anchor = left ? BK_GRAVITY_EAST : BK_GRAVITY_WEST;
+        break;
+    }
+    l->hints = BK_ANCHOR_FLIP_X | BK_ANCHOR_SLIDE_Y | BK_ANCHOR_RESIZE;
+    return;
+  }
+  const bool top = side == 1;
+  switch (a->halign) {
+    case AWRA_ALIGN_START:
+      l->rect_anchor = top ? BK_GRAVITY_NORTH_WEST : BK_GRAVITY_SOUTH_WEST;
+      l->surface_anchor = top ? BK_GRAVITY_SOUTH_WEST : BK_GRAVITY_NORTH_WEST;
+      break;
+    case AWRA_ALIGN_END:
+      l->rect_anchor = top ? BK_GRAVITY_NORTH_EAST : BK_GRAVITY_SOUTH_EAST;
+      l->surface_anchor = top ? BK_GRAVITY_SOUTH_EAST : BK_GRAVITY_NORTH_EAST;
+      break;
+    default:
+      l->rect_anchor = top ? BK_GRAVITY_NORTH : BK_GRAVITY_SOUTH;
+      l->surface_anchor = top ? BK_GRAVITY_SOUTH : BK_GRAVITY_NORTH;
+      break;
+  }
+  l->hints = BK_ANCHOR_FLIP_Y | BK_ANCHOR_SLIDE_X | BK_ANCHOR_RESIZE;
+}
+
 static void pop_place(BKNode *n, int win_w, int win_h)
 {
   AwraWidget *w = n;
@@ -112,82 +252,43 @@ static void pop_place(BKNode *n, int win_w, int win_h)
   if (x->menu) {
     nw = BK_MAX(nw, awra_px(210 + 14));
   }
-  nw = BK_MIN(nw, win_w - awra_px(16));
   awra_measure(w, AWRA_ORIENTATION_VERTICAL, nw, &mn, &nh);
-  nh = BK_MIN(nh, win_h - awra_px(16));
-  int x0, y0;
-  AwraWidget *a = x->anchor;
-  if (x->centered) {
-    x0 = (win_w - nw) / 2;
-    y0 = BK_MAX(awra_px(48), (win_h - nh) / 3);
+  BKPopupLayout l;
+  pop_layout(w, nw, nh, win_w, win_h, &l);
+  BKContext *pctx = bk_ctx(w);
+  if (pctx && pctx->popup_host && (pctx->popup_host->flags & BK_POPHOST_NATIVE_FRAME)) {
+    memset(l.shadow, 0, sizeof(l.shadow)); /* the system shadows it */
   }
-  else if (x->relative) {
-    x0 = x->relative->x + awra_px(x->at_x);
-    y0 = x->relative->y + awra_px(x->at_y);
-    if (x->side == 1) {
-      /* above the point (a caret), below it without room */
-      if (y0 - nh >= 0) {
-        y0 -= nh;
-      }
-    }
-    if (x->pointing) {
-      /* GTK_POS_BOTTOM: centred under the point, above it without room
-       * below; then slid into the window */
-      x0 -= nw / 2;
-      if (y0 + nh > win_h && y0 - nh >= 0) {
-        y0 -= nh;
-      }
-    }
-    else if (x0 + nw > win_w) {
-      x0 = BK_MAX(0, x0 - nw);
-    }
-    if (y0 + nh > win_h && !x->pointing) {
-      y0 = BK_MAX(0, y0 - nh);
+  {
+    AwraResolvedMaterial m;
+    awra_material_resolve(AWRA_MATERIAL_FLOATING, AWRA_ROLE_POPOVER, AWRA_ELEVATION_FLOATING,
+                          awra_style_blur_active(), &m);
+    l.blur = m.request_blur;
+    l.radius = awra_px(x->radius);
+    if (x->blur != (bool)l.blur) {
+      x->blur = l.blur;
+      bk_invalidate(w);
     }
   }
-  else if (a && x->submenu_row) {
-    /* beside the row (Awra 1: GTK_POS_RIGHT, the popover's middle at the
-     * row's), on its left without room on its right */
-    x0 = a->x + a->w;
-    if (x0 + nw > win_w && a->x - nw >= 0) {
-      x0 = a->x - nw;
-    }
-    y0 = a->y + (a->h - nh) / 2;
-  }
-  else if (a) {
-    switch (x->side) {
-      case 1: /* above */
-        x0 = a->x + (a->w - nw) / 2;
-        y0 = a->y - nh;
-        if (y0 < 0) {
-          y0 = a->y + a->h;
-        }
-        break;
-      case 2:
-        x0 = a->x - nw;
-        y0 = a->y;
-        break;
-      case 3:
-        x0 = a->x + a->w;
-        y0 = a->y;
-        break;
-      default: /* below, flipped above without room */
-        x0 = a->x + (a->w - nw) / 2;
-        y0 = a->y + a->h;
-        if (y0 + nh > win_h && a->y - nh >= 0) {
-          y0 = a->y - nh;
-        }
-        break;
-    }
+  if (x->autohide_off) {
+    w->flags |= NF_NO_AUTOHIDE;
   }
   else {
-    x0 = (win_w - nw) / 2;
-    y0 = (win_h - nh) / 2;
+    w->flags &= ~NF_NO_AUTOHIDE;
   }
-  x0 = BK_CLAMP(x0, awra_px(4), BK_MAX(awra_px(4), win_w - nw - awra_px(4)));
-  y0 = BK_CLAMP(y0, awra_px(4), BK_MAX(awra_px(4), win_h - nh - awra_px(4)));
-  /* unfold: translateY(-4px) while it opens */
-  y0 -= (int)(awra_pxf(4) * (1.0f - x->unfold));
+  BKRect box;
+  const bool surfaced = bk_popup_layout(w, &l, nw + l.shadow[0] + l.shadow[1],
+                                        nh + l.shadow[2] + l.shadow[3], &box) != 0;
+  if (surfaced != x->surfaced) {
+    x->surfaced = surfaced;
+    bk_invalidate(w);
+  }
+  const int x0 = box.xmin;
+  /* unfold: translateY(-4px) while it opens (inside its surface, as GTK's
+   * contents animation) */
+  const int y0 = box.ymin - (int)(awra_pxf(4) * (1.0f - x->unfold));
+  nw = bk_rw(&box);
+  nh = bk_rh(&box);
   /* placed by the kit: bk_arrange sets the rect; lay out the contents */
   const bool moved = w->x != x0 || w->y != y0 || w->w != nw || w->h != nh;
   if (moved) {
@@ -312,6 +413,7 @@ AwraWidget *awra_popover_new(void)
   PopExt *x = POPX(w);
   x->radius = 17;
   x->unfold = 1.0f;
+  x->pt_w = x->pt_h = -1;
   w->flags |= NF_EVENTS; /* clicks on its padding stay inside it */
   return w;
 }
@@ -450,9 +552,48 @@ bool awra_popover_visible(AwraWidget *w)
   return POPX(w)->open;
 }
 
+/* a placement setting changed while it shows: placed again */
+static void pop_replace(AwraWidget *w)
+{
+  BKContext *ctx = POPX(w)->open ? bk_ctx(w) : NULL;
+  if (ctx) {
+    ctx->layout_dirty = true;
+    bk_ctx_request(ctx);
+  }
+}
+
 void awra_popover_set_position(AwraWidget *w, int side)
 {
   POPX(w)->side = side;
+  pop_replace(w);
+}
+
+void awra_popover_set_pointing_to(AwraWidget *w, double x, double y, double width, double height)
+{
+  PopExt *p = POPX(w);
+  p->pt_x = x;
+  p->pt_y = y;
+  p->pt_w = width < 0 || height < 0 ? -1 : width;
+  p->pt_h = width < 0 || height < 0 ? -1 : height;
+  pop_replace(w);
+}
+
+void awra_popover_set_offset(AwraWidget *w, int x, int y)
+{
+  POPX(w)->off_x = x;
+  POPX(w)->off_y = y;
+  pop_replace(w);
+}
+
+void awra_popover_set_autohide(AwraWidget *w, bool autohide)
+{
+  POPX(w)->autohide_off = !autohide;
+  pop_replace(w);
+}
+
+bool awra_popover_autohide(AwraWidget *w)
+{
+  return !POPX(w)->autohide_off;
 }
 
 void awra_popover_set_padding_internal(AwraWidget *w, int pad, bool menu);
@@ -1383,7 +1524,7 @@ static void ctx_pressed(AwraWidget *w, const AwraArgs *a, void *data)
     return;
   }
   AwraWidget *pop = awra_menu_popover_new(c->items, c->n);
-  awra_popover_popup_at(pop, w, a->x, a->y);
+  awra_popover_point_to(pop, w, a->x, a->y); /* Awra 1: pointing at the click, below it */
   awra_widget_unref(pop);
   *a->handled = true;
 }
@@ -1572,6 +1713,7 @@ typedef struct Toast {
   unsigned id;
   AwraWidget *surface;
   unsigned timer;
+  struct ToastTimer *timer_data; /* the timer's, freed with it */
   unsigned timeout;
   AwraHandler handler;
   void *data;
@@ -1629,11 +1771,28 @@ void awra_toast_overlay_set_bottom_inset(AwraWidget *w, int inset)
   }
 }
 
+/* Toasts still up when the overlay goes: their timers stop (their surfaces
+ * go with the overlay's children). */
+static void toast_overlay_finalize(AwraWidget *w)
+{
+  ToastExt *x = TX(w);
+  while (x->toasts) {
+    Toast *t = x->toasts;
+    x->toasts = t->next;
+    if (t->timer) {
+      awra_source_remove(t->timer);
+      free(t->timer_data);
+    }
+    free(t);
+  }
+}
+
 static AwraClass toast_overlay_class = {
     .bk = AWRA_BK("AwraToastOverlay", 0),
     .type = "AwraToastOverlay",
     .flags = AWRA_CLASS_CONTAINER | AWRA_CLASS_CLIP | AWRA_CLASS_EXPAND_ISOLATED,
     .ext_size = sizeof(ToastExt),
+    .finalize = toast_overlay_finalize,
     .measure = toast_measure,
     .allocate = toast_allocate,
 };
@@ -1704,6 +1863,7 @@ static void toast_remove(AwraWidget *w, Toast *t)
   }
   if (t->timer) {
     awra_source_remove(t->timer);
+    free(t->timer_data);
   }
   awra_child_remove(w, t->surface);
   free(t);
@@ -1806,6 +1966,7 @@ unsigned awra_toast_overlay_show_with_action(AwraWidget *w, const char *title, c
     tt->overlay = w;
     tt->id = t->id;
     t->timer = awra_timeout_add(timeout, toast_expire, tt, NULL);
+    t->timer_data = tt;
   }
   awra_anim_start(t->surface, awra_motion_duration(AWRA_MOTION_NORMAL), slide_anim, NULL, NULL);
   awra_queue_allocate(w);
@@ -1835,6 +1996,7 @@ typedef struct PaletteData {
   int n;
   char **strings;
   AwraWidget *popover, *entry, *list, *empty, *window, *header;
+  AwraWidget *column; /* the popover's, which holds the palette while open */
   char *title;
   int current; /* index in commands of the Enter target */
 } PaletteData;
@@ -2028,6 +2190,17 @@ void awra_command_palette_set_query(AwraWidget *w, const char *query)
   awra_entry_set_text(pd(w)->entry, query ? query : "");
 }
 
+/* Closed, the palette leaves its popover's column: the palette holds the
+ * popover, so the popover must not hold it back. */
+static void palette_hidden(AwraWidget *pop, const AwraArgs *a, void *data)
+{
+  AwraWidget *w = (AwraWidget *)data;
+  PaletteData *p = pd(w);
+  if (p && p->column && w->parent == p->column) {
+    awra_container_remove(p->column, w);
+  }
+}
+
 void awra_command_palette_present(AwraWidget *w, AwraWidget *window)
 {
   PaletteData *p = pd(w);
@@ -2043,10 +2216,14 @@ void awra_command_palette_present(AwraWidget *w, AwraWidget *window)
     awra_header_set_drag_enabled(h, false);
     awra_box_append(col, h);
     awra_widget_unref(h); /* held by the column (and p->header, borrowed) */
-    awra_box_append(col, w);
     awra_widget_set_size_request(col, 560, 460);
     awra_popover_set_child(p->popover, col);
     awra_widget_unref(col);
+    p->column = col;
+    awra_signal_connect(p->popover, AWRA_SIGNAL_HIDE, palette_hidden, w, NULL);
+  }
+  if (!w->parent) {
+    awra_box_append(p->column, w);
   }
   p->window = window;
   awra_entry_set_text(p->entry, "");

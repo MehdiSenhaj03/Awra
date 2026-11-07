@@ -943,6 +943,18 @@ unsafe extern "C" fn dispatch_free(data: *mut c_void) {
     drop(std::boxed::Box::from_raw(data as *mut MenuDispatch));
 }
 
+/// Builds a menu's items again from its model (its actions' state now).
+fn refresh_menu(owner: &Widget) {
+    let d = unsafe { ffi::awra_widget_get_data(owner.as_ptr(), c"awra-rs-menu".as_ptr()) } as *mut MenuDispatch;
+    if d.is_null() {
+        return;
+    }
+    let watch = unsafe { (*d)._watch.borrow().clone() };
+    if let Some(rebuild) = watch {
+        rebuild();
+    }
+}
+
 /// Shows `menu` in a menu button / popover, following its changes.
 fn attach_menu(owner: &Widget, menu: Option<&Menu>, apply: fn(&Widget, &[ffi::AwraMenuItem])) {
     let key = c"awra-rs-menu";
@@ -1012,6 +1024,11 @@ impl MenuButton {
         attach_menu(&self.0, menu, |w, items| unsafe {
             ffi::awra_menu_button_set_menu(w.as_ptr(), items.as_ptr(), items.len() as i32)
         });
+        // the items' state as the menu opens
+        if self.0.rust_data::<bool>("menu-refresh").is_none() {
+            self.0.set_rust_data("menu-refresh", true);
+            self.0.connect_raw(sig::PRESSED, |w, _| refresh_menu(w));
+        }
     }
     pub fn popup(&self) {
         if let Some(p) = self.popover() {
@@ -1083,21 +1100,37 @@ impl Popover {
         self.set_parent(anchor)
     }
     pub fn popup(&self) {
+        // GTK tracks its menu's actions: what became available since the
+        // menu was set (its anchor's groups) shows sensitive now
+        refresh_menu(&self.0);
         unsafe { ffi::awra_popover_popup(ptr!(self)) }
     }
     /// Pops up at (x, y) of `relative_to`.
     pub fn popup_at(&self, relative_to: &impl IsWidget, x: f64, y: f64) {
+        refresh_menu(&self.0);
         unsafe { ffi::awra_popover_popup_at(ptr!(self), relative_to.widget_ptr(), x, y) }
     }
+    /// GtkPopover's pointing-to: a rectangle of its parent (logical px)
+    /// rather than the parent's bounds; None unsets it.
     pub fn set_pointing_to(&self, rect: Option<&crate::Rectangle>) {
         self.0.set_rust_data("pointing-to", rect.copied());
+        let (x, y, w, h) = rect.map_or((0.0, 0.0, -1.0, -1.0), |r| {
+            (r.x as f64, r.y as f64, r.width as f64, r.height as f64)
+        });
+        unsafe { ffi::awra_popover_set_pointing_to(ptr!(self), x, y, w, h) }
     }
-    /// Pops up at the point given by `set_pointing_to` (of the anchor).
+    /// Pops up pointing at the rectangle given by `set_pointing_to` (of
+    /// `anchor`).
     pub fn popup_pointing(&self, anchor: &impl IsWidget) {
-        match self.0.rust_data::<Option<crate::Rectangle>>("pointing-to").flatten() {
-            Some(r) => self.popup_at(anchor, r.x as f64 + r.width as f64 / 2.0, r.y as f64 + r.height as f64),
-            None => self.popup(),
+        let same = self
+            .0
+            .rust_data::<crate::WeakRef<Widget>>("popover-anchor")
+            .and_then(|a| a.upgrade())
+            .is_some_and(|a| a.widget_ptr() == anchor.widget_ptr());
+        if !same {
+            self.set_parent(anchor);
         }
+        self.popup();
     }
     pub fn popdown(&self) {
         unsafe { ffi::awra_popover_popdown(ptr!(self)) }
@@ -1108,8 +1141,20 @@ impl Popover {
     pub fn set_position(&self, p: PositionType) {
         unsafe { ffi::awra_popover_set_position(ptr!(self), p as i32) }
     }
+    /// Awra's popovers have no arrow (Awra 1: has-arrow FALSE).
     pub fn set_has_arrow(&self, _a: bool) {}
-    pub fn set_autohide(&self, _a: bool) {}
+    /// GtkPopover's autohide: grabs, closes on a click elsewhere or Escape
+    /// (true, the default); false, it stays and leaves the keyboard alone.
+    pub fn set_autohide(&self, a: bool) {
+        unsafe { ffi::awra_popover_set_autohide(ptr!(self), a) }
+    }
+    pub fn is_autohide(&self) -> bool {
+        unsafe { ffi::awra_popover_autohide(ptr!(self)) }
+    }
+    /// GtkPopover's offset (logical px).
+    pub fn set_offset(&self, x: i32, y: i32) {
+        unsafe { ffi::awra_popover_set_offset(ptr!(self), x, y) }
+    }
     pub fn connect_closed<F: Fn(&Popover) + 'static>(&self, f: F) -> SignalHandlerId {
         self.0.connect_typed::<Popover, _>(sig::HIDE, move |w, _| f(w))
     }

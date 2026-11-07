@@ -323,6 +323,12 @@ impl DragAction {
         self.0 & o.0 == o.0
     }
 }
+impl std::ops::BitAnd for DragAction {
+    type Output = DragAction;
+    fn bitand(self, o: DragAction) -> DragAction {
+        DragAction(self.0 & o.0)
+    }
+}
 impl std::ops::BitOr for DragAction {
     type Output = DragAction;
     fn bitor(self, o: DragAction) -> DragAction {
@@ -380,13 +386,17 @@ impl DropTarget {
     }
     /// An application drag moved over the target: whether it takes it (a
     /// target without motion handlers takes any).
-    pub(crate) fn motion(&self, x: f64, y: f64) -> bool {
+    /// What the handlers would do with a drop here (COPY without one).
+    pub(crate) fn motion_action(&self, x: f64, y: f64) -> DragAction {
         let hs: Vec<DropMotionFn> = self.0.motion.borrow().clone();
-        let mut accepted = hs.is_empty();
-        for h in hs {
-            accepted |= h(self, x, y) != DragAction::empty();
+        if hs.is_empty() {
+            return DragAction::COPY;
         }
-        accepted
+        let mut a = DragAction::empty();
+        for h in hs {
+            a = a | h(self, x, y);
+        }
+        a
     }
     pub(crate) fn leave(&self) {
         let hs: Vec<DropLeaveFn> = self.0.leave.borrow().clone();

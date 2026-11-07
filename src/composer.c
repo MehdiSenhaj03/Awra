@@ -180,8 +180,9 @@ static void composer_draw(AwraWidget *w, AwraDraw *d)
   const AwraBox b = awra_box_of(w);
   const float r = awra_pxf(18), s = awra_scale();
   const bool focus = awra_widget_has_focus(x->view);
+  /* awra.css: background-color @awra_control (the control cap), not a well */
   if (!awra_sensitive(w)) {
-    const AwraRGBA bg = awra_with_alpha(t->control_well, t->control_well.a * 0.5f);
+    const AwraRGBA bg = awra_with_alpha(t->control_cap, t->control_cap.a * 0.5f);
     const AwraRGBA br = awra_with_alpha(t->border, t->border.a * 0.6f);
     awra_paint_rbox(d, b, r, &bg, s, &br);
     return;
@@ -190,10 +191,10 @@ static void composer_draw(AwraWidget *w, AwraDraw *d)
     /* 0 0 0 3px alpha(focus, .16) outside, inset 0 0 0 1px focus */
     const AwraRGBA glow = awra_with_alpha(t->focus_ring, 0.16f);
     awra_paint_rbox(d, (AwraBox){b.x - 3 * s, b.y - 3 * s, b.w + 6 * s, b.h + 6 * s}, r + 3 * s, NULL, 3 * s, &glow);
-    awra_paint_rbox(d, b, r, &t->control_well, s, &t->focus_ring);
+    awra_paint_rbox(d, b, r, &t->control_cap, s, &t->focus_ring);
     return;
   }
-  awra_paint_rbox(d, b, r, &t->control_well, s, &t->border);
+  awra_paint_rbox(d, b, r, &t->control_cap, s, &t->border);
   awra_paint_line(d, b.x + r, b.y + s * 0.5f, b.x + b.w - r, b.y + s * 0.5f, s, &t->rim);
 }
 
@@ -711,6 +712,9 @@ AwraWidget *awra_completion_popover_new(void)
   CompletionExt *x = (CompletionExt *)calloc(1, sizeof(CompletionExt));
   x->popover = awra_popover_new();
   awra_popover_set_position(x->popover, 1);
+  awra_popover_set_offset(x->popover, 0, -CARET_GAP);
+  awra_widget_set_halign(x->popover, AWRA_ALIGN_START);
+  awra_popover_set_autohide(x->popover, false); /* the text keeps the keyboard */
   awra_popover_set_padding_internal(x->popover, 0, false);
   x->scroller = awra_scrolled_new();
   awra_scrolled_set_policy(x->scroller, AWRA_POLICY_NEVER, AWRA_POLICY_AUTOMATIC);
@@ -787,8 +791,12 @@ void awra_completion_popover_present_at_cursor(AwraWidget *w)
   }
   const unsigned rows = BK_MIN(n_items(w), VISIBLE_ROWS);
   awra_scrolled_set_max_content_height(x->scroller, (int)(rows * DEFAULT_ROW_HEIGHT + 10));
+  /* Awra 1: pointing at the caret, above it (GTK_POS_TOP, offset -gap,
+   * aligned to its start) */
+  awra_popover_set_pointing_to(x->popover, cx, cy, 1, BK_MAX(1.0, ch));
   if (!awra_popover_visible(x->popover)) {
-    awra_popover_popup_at(x->popover, x->attached, cx, cy - CARET_GAP);
+    awra_popover_set_anchor(x->popover, x->attached);
+    awra_popover_popup(x->popover);
   }
   else {
     awra_widget_queue_resize(x->popover);

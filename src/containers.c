@@ -1341,6 +1341,12 @@ typedef struct ScrollExt {
   int drag_y0;
   double drag_v0;
   unsigned fade_timer;
+  /* edge fades (logical px; 0 none) and, while a frame draws, what lies
+   * under each faded band: top rows then bottom rows */
+  int edge_fade[2];
+  int fade_h[2], fade_skip;
+  uint32_t *fade_under;
+  size_t fade_cap;
 } ScrollExt;
 
 #define SX(w) AWRA_EXT(w, ScrollExt)
@@ -1417,10 +1423,59 @@ static void scroll_allocate(AwraWidget *w)
 }
 
 /* the overlay indicator (awra.css L919-954): a 5 px pill at the right edge */
+/* Content scrolled past an edge fades into what is behind (Awra 1's
+ * conversation view masks its scroller so): the bands under the fades are
+ * kept before the children draw, and blended back in after. */
+static void scroll_draw(AwraWidget *w, AwraDraw *d)
+{
+  ScrollExt *x = SX(w);
+  x->fade_h[0] = x->fade_h[1] = 0;
+  if (!x->edge_fade[0] && !x->edge_fade[1]) {
+    return;
+  }
+  const double end = (double)(x->content_h - w->h);
+  const float s = awra_scale();
+  const int top = x->vvalue / s > 0.5 ? awra_px(x->edge_fade[0]) : 0;
+  const int bottom = (end - x->vvalue) / s > 0.5 ? awra_px(x->edge_fade[1]) : 0;
+  if ((!top && !bottom) || w->h <= 2 * (awra_px(x->edge_fade[0]) + awra_px(x->edge_fade[1]))) {
+    return;
+  }
+  const size_t need = sizeof(uint32_t) * (size_t)w->w * (size_t)(top + bottom);
+  if (x->fade_cap < need) {
+    uint32_t *grown = (uint32_t *)realloc(x->fade_under, need);
+    if (!grown) {
+      return;
+    }
+    x->fade_under = grown;
+    x->fade_cap = need;
+  }
+  /* top rows first, the bottom rows after them */
+  x->fade_h[0] = top && BUI_raster_read(d->r, w->x, w->y, w->w, top, x->fade_under) ? top : 0;
+  x->fade_h[1] = bottom && BUI_raster_read(d->r, w->x, w->y + w->h - bottom, w->w, bottom,
+                                           x->fade_under + (size_t)w->w * top) ?
+                     bottom :
+                     0;
+  x->fade_skip = top;
+}
+
+static void scroll_fade(AwraWidget *w, AwraDraw *d)
+{
+  ScrollExt *x = SX(w);
+  if (x->fade_h[0] > 0) {
+    BUI_raster_fade(d->r, w->x, w->y, w->w, x->fade_h[0], x->fade_under, 0.0f, 1.0f);
+  }
+  if (x->fade_h[1] > 0) {
+    BUI_raster_fade(d->r, w->x, w->y + w->h - x->fade_h[1], w->w, x->fade_h[1],
+                    x->fade_under + (size_t)w->w * x->fade_skip, 1.0f, 0.0f);
+  }
+  x->fade_h[0] = x->fade_h[1] = 0;
+}
+
 static void scroll_draw_over(AwraWidget *w, AwraDraw *d)
 {
   ScrollExt *x = SX(w);
   if (x->content_h <= w->h || x->bar_t <= 0.0f || x->vpolicy == AWRA_POLICY_EXTERNAL) {
+    scroll_fade(w, d);
     return;
   }
   const float track = (float)w->h;
@@ -1433,6 +1488,7 @@ static void scroll_draw_over(AwraWidget *w, AwraDraw *d)
   /* at the left, right to left (GtkScrolledWindow's placement swaps) */
   awra_paint_rbox(d, awra_mirror_box(w, (AwraBox){w->x + w->w - awra_pxf(6), w->y + pos, bw, len}),
                   bw * 0.5f, &c, 0, NULL);
+  scroll_fade(w, d);
 }
 
 static bool fade_tick(void *data)
@@ -1450,7 +1506,7 @@ static bool fade_tick(void *data)
                      awra_px(8), w->h);
   BKContext *ctx = bk_ctx(w);
   if (ctx) {
-    bk_ctx_dirty_rect(ctx, r);
+    bk_node_dirty(w, r);
   }
   if (x->bar_t <= 0.0f) {
     x->fade_timer = 0;
@@ -1511,6 +1567,20 @@ static void scroll_finalize(AwraWidget *w)
   if (SX(w)->fade_timer) {
     awra_source_remove(SX(w)->fade_timer);
   }
+  free(SX(w)->fade_under);
+}
+
+void awra_scrolled_set_edge_fades(AwraWidget *w, int top, int bottom)
+{
+  ScrollExt *x = SX(w);
+  x->edge_fade[0] = top > 0 ? top : 0;
+  x->edge_fade[1] = bottom > 0 ? bottom : 0;
+  if (!top && !bottom) {
+    free(x->fade_under);
+    x->fade_under = NULL;
+    x->fade_cap = 0;
+  }
+  awra_invalidate(w);
 }
 
 static AwraClass scrolled_class = {
@@ -1522,6 +1592,7 @@ static AwraClass scrolled_class = {
     .finalize = scroll_finalize,
     .measure = scroll_measure,
     .allocate = scroll_allocate,
+    .draw = scroll_draw,
     .draw_over = scroll_draw_over,
     .scroll = scroll_scroll,
 };

@@ -263,6 +263,8 @@ enum { BK_IMAGE_PRIORITY_PREFETCH = 0, BK_IMAGE_PRIORITY_VISIBLE = 1 };
 void bk_image_frame_begin(void); /* a drawn frame: next generation, evict, cancel */
 void bk_image_pass_begin(BKContext *ctx, int x0, int y0, int x1, int y1);
 void bk_image_pass_end(void);
+/* BUI-Awra: the pass draws popup surface `slot` (after pass_begin) */
+void bk_image_pass_slot(int slot);
 void bk_image_forget_context(BKContext *ctx);
 /* Animations: frames whose time came are swapped in (their rectangles
  * redraw), the next ones decoded ahead; only for what is on screen. */

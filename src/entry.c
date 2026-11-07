@@ -40,7 +40,14 @@ typedef struct EditExt {
   bool bare;
   int bare_mx, bare_my, max_lines;
   const AwraRGBA *caret_color;
+  /* GtkPasswordEntry's peek icon at the end: a click shows or hides the text */
+  bool peek;
 } EditExt;
+
+/* the peek icon's box: 24 px, its right edge 17 px in from the field's
+ * (GtkPasswordEntry's image after the text, as Awra 1 measures) */
+#define PEEK_BOX 24
+#define PEEK_END 17
 
 #define EX(w) AWRA_EXT(w, EditExt)
 
@@ -159,6 +166,9 @@ static void edit_pads(AwraWidget *w, int *l, int *r, int *t, int *b)
   }
   if (x->spin) {
     *r += awra_px(96);
+  }
+  if (x->peek) {
+    *r = awra_px(PEEK_END + PEEK_BOX);
   }
   if (x->accel) {
     AwraFont f = edit_font(w);
@@ -285,6 +295,31 @@ static void ensure_caret_visible(AwraWidget *w)
   }
 }
 
+
+/* A quiet line rather than a well until it is used (awra.css): an entry
+ * set so, or a search field in a sidebar or under .awra-role-quiet-search. */
+static bool entry_quiet(AwraWidget *w)
+{
+  if (awra_widget_get_data(w, "awra-quiet")) {
+    return true;
+  }
+  if (!EX(w)->search) {
+    return false;
+  }
+  for (BKNode *p = w; p; p = p->parent) {
+    if (!awra_is_widget(p)) {
+      continue;
+    }
+    const char *name = awra_widget_name(p);
+    if ((name && !strcmp(name, "AwraSidebar")) || awra_widget_has_class(p, "awra-role-quiet-search") ||
+        awra_widget_has_class(p, "quiet-search"))
+    {
+      return true;
+    }
+  }
+  return false;
+}
+
 static void edit_draw(AwraWidget *w, AwraDraw *d)
 {
   EditExt *x = EX(w);
@@ -302,8 +337,8 @@ static void edit_draw(AwraWidget *w, AwraDraw *d)
     AwraBox o = {b.x - off - ow, b.y - off - ow, b.w + 2 * (off + ow), b.h + 2 * (off + ow)};
     awra_paint_rbox(d, o, radius + off + ow, NULL, ow, &t->selection);
   }
-  const AwraRGBA *fill = awra_widget_get_data(w, "awra-quiet") && !focus ? &t->control_cap_hover :
-                                                                           &t->control_well;
+  const bool quiet = entry_quiet(w);
+  const AwraRGBA *fill = quiet && !focus ? &t->control_cap_hover : &t->control_well;
   /* a form row's validation state colours the border (awra.css
    * .awra-entry.awra-validation-*) */
   AwraRGBA vb = {0};
@@ -318,7 +353,7 @@ static void edit_draw(AwraWidget *w, AwraDraw *d)
     vb = (AwraRGBA){0.322f, 0.788f, 0.510f, 0.72f};
   }
   awra_paint_rbox(d, b, radius, fill, focus || vb.a > 0 ? awra_pxf(1) : 0, vb.a > 0 ? &vb : &t->focus_ring);
-  if (!awra_widget_get_data(w, "awra-quiet")) { /* inset 0 1px 2px rgba(0,0,0,.20) */
+  if (!quiet) { /* inset 0 1px 2px rgba(0,0,0,.20) */
     const AwraRGBA sh = {0, 0, 0, 0.15f};
     const float r4[4] = {radius, radius, radius, radius}, w4[4] = {awra_pxf(1.5), 0, 0, 0};
     awra_paint_rbox4(d, b, r4, NULL, w4, &sh);
@@ -331,6 +366,12 @@ static void edit_draw(AwraWidget *w, AwraDraw *d)
     const int s = awra_px(16);
     const float ix = awra_mirror_x(w, b.x + awra_pxf(1) + awra_pxf(x->search ? 8 : 11), (float)s);
     awra_paint_icon(d, x->search ? "system-search-symbolic" : x->icon, ix,
+                    b.y + floorf((b.h - s) * 0.5f + 0.5f), s, &t->muted);
+  }
+  if (x->peek) {
+    const int s = awra_px(16);
+    const float ix = b.x + b.w - awra_pxf(PEEK_END) - awra_pxf((PEEK_BOX + 16) / 2.0f);
+    awra_paint_icon(d, x->visibility ? "view-conceal-symbolic" : "view-reveal-symbolic", roundf(ix),
                     b.y + floorf((b.h - s) * 0.5f + 0.5f), s, &t->muted);
   }
   if (x->search && x->te->len > 0) {
@@ -620,6 +661,11 @@ static int edit_index_at(AwraWidget *w, int px, int py)
   return real_index(w, awra_text_layout_pos_to_index(x->layout, lw, px - text_x(w, a), py - ty));
 }
 
+static bool in_peek_icon(AwraWidget *w, int px)
+{
+  return EX(w)->peek && px >= w->x + w->w - awra_px(PEEK_END + PEEK_BOX) && px < w->x + w->w - awra_px(PEEK_END);
+}
+
 static bool in_clear_icon(AwraWidget *w, int px)
 {
   return EX(w)->search && EX(w)->te->len > 0 && awra_mirror_px(w, px) > w->x + w->w - awra_px(8 + 16 + 4);
@@ -653,6 +699,10 @@ static int edit_press(AwraWidget *w, BKEvent *e)
   }
   if (in_clear_icon(w, e->x)) {
     awra_entry_set_text(w, "");
+    return 1;
+  }
+  if (in_peek_icon(w, e->x)) {
+    awra_entry_set_visibility(w, !x->visibility);
     return 1;
   }
   BKContext *ctx = bk_ctx(w);
@@ -710,7 +760,7 @@ static int edit_motion(AwraWidget *w, BKEvent *e)
 
 static int edit_cursor(AwraWidget *w, int px, int py)
 {
-  if (spin_button_at(w, px, py) >= 0 || in_clear_icon(w, px)) {
+  if (spin_button_at(w, px, py) >= 0 || in_clear_icon(w, px) || in_peek_icon(w, px)) {
     return BK_CURSOR_DEFAULT;
   }
   return BK_CURSOR_TEXT;
@@ -947,6 +997,16 @@ void awra_entry_set_icon_name(AwraWidget *w, const char *icon)
 {
   awra_set_str(&EX(w)->icon, icon);
   awra_widget_queue_resize(w);
+}
+
+void awra_entry_set_peek_icon_internal(AwraWidget *w, bool peek);
+void awra_entry_set_peek_icon_internal(AwraWidget *w, bool peek)
+{
+  if (EX(w)->peek != peek) {
+    EX(w)->peek = peek;
+    awra_widget_queue_resize(w);
+    awra_invalidate(w);
+  }
 }
 
 void awra_entry_set_visibility(AwraWidget *w, bool visible)
