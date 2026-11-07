@@ -259,6 +259,33 @@ int main(void)
   awra_widget_destroy(win);
   awra_pump();
 
+  /* scale 2: bounds are logical; a hidden password is never told */
+  {
+    AwraWidget *w3 = awra_window_new_offscreen("Scaled", 300, 200, 2.0);
+    AwraWidget *pw = awra_password_entry_new();
+    awra_window_set_child(w3, pw);
+    awra_widget_unref(pw);
+    AwraWidget *entry3 = awra_password_entry_entry(pw);
+    awra_entry_set_text(entry3, "s3cr\xC3\xA9t");
+    awra_window_render_offscreen(w3, true);
+    double r[4];
+    awra_a11y_bounds(entry3, r);
+    CHECK(fabs(r[2] - awra_widget_width(entry3)) < 1.0);
+    AwraA11yInfo pi;
+    awra_a11y_info(entry3, &pi);
+    CHECK((pi.flags & AWRA_A11Y_PASSWORD) != 0);
+    awra_a11y_set_backend(&g_rec);
+    awra_a11y_expose(entry3);
+    CHECK(awra_a11y_snap(entry3)->text && !awra_a11y_snap(entry3)->text[0]);
+    g_log[0] = 0;
+    awra_entry_set_text(entry3, "other");
+    awra_a11y_flush();
+    CHECK(strstr(g_log, "text:") == NULL); /* nothing of it leaves */
+    awra_a11y_set_backend(NULL);
+    awra_widget_destroy(w3);
+    awra_pump();
+  }
+
   /* windows opened and closed while a client walks them: every exposed
    * widget is let go, the memory comes back flat */
   awra_a11y_set_backend(&g_rec);
