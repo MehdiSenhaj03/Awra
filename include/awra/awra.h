@@ -340,6 +340,9 @@ bool awra_widget_pointer_position(AwraWidget *widget, double *x, double *y);
  * that change a component's look: "accent", "muted", "flat", "circular",
  * "dim-label", "numeric", "success", "warning", "error", ...). */
 void awra_widget_add_class(AwraWidget *widget, const char *name);
+/* Any widget shows "drop-target" (it takes the drop under the pointer) and
+ * "about-to-open" (a held drag opens it soon: the accent pulses; redraw it
+ * while it waits). */
 void awra_widget_remove_class(AwraWidget *widget, const char *name);
 bool awra_widget_has_class(const AwraWidget *widget, const char *name);
 /* Sizes after layout, in logical pixels (0 before the first layout). */
