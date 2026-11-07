@@ -29,6 +29,7 @@ mod collection;
 mod window;
 mod video;
 mod texture_data;
+mod dnd;
 mod transfer;
 pub mod gdk;
 pub mod gio;

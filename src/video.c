@@ -688,7 +688,9 @@ bool awra_backdrop_paint(AwraWidget *source, AwraDraw *d, AwraBox b, const float
   {
     return false;
   }
-  if (!vv_update_thumb(source)) {
+  /* a view showing nothing lends no backdrop (an empty GtkPicture): the
+   * surface paints its own material */
+  if (!VVX(source)->s->shown || !vv_update_thumb(source)) {
     return false;
   }
   VideoExt *x = VVX(source);
@@ -1603,12 +1605,16 @@ static void edge_allocate(AwraWidget *w)
     awra_allocate(x->content, w->x, w->y, w->w, w->h);
   }
   if (x->surface && (x->surface->flags & NF_VISIBLE)) {
+    /* Awra 1's revealer around the surface keeps MD from the edge and from
+     * the top and bottom; the surface's own margins (the application's)
+     * add to it */
+    const int inset = awra_px(awra_spacing(AWRA_SPACING_MD));
     int mn, nt;
     awra_measure(x->surface, AWRA_ORIENTATION_HORIZONTAL, -1, &mn, &nt);
-    const int sw = BK_MIN(nt, w->w); /* with margins */
-    const int slide = (int)lroundf(sw * (1.0f - x->t));
-    const int sx = x->edge == 0 ? w->x - slide : w->x + w->w - sw + slide;
-    awra_allocate(x->surface, sx, w->y, sw, w->h);
+    const int sw = BK_MAX(0, BK_MIN(nt, w->w - inset)); /* with margins */
+    const int slide = (int)lroundf((sw + inset) * (1.0f - x->t));
+    const int sx = x->edge == 0 ? w->x + inset - slide : w->x + w->w - inset - sw + slide;
+    awra_allocate(x->surface, sx, w->y + inset, sw, BK_MAX(0, w->h - 2 * inset));
   }
 }
 
@@ -1621,14 +1627,6 @@ static AwraClass edge_class = {
     .allocate = edge_allocate,
 };
 
-static void edge_sync_margins(AwraWidget *w)
-{
-  EdgeExt *x = EDX(w);
-  const int inset = awra_spacing(AWRA_SPACING_MD);
-  awra_widget_set_margin_start(x->surface, x->edge == 0 ? inset : 0);
-  awra_widget_set_margin_end(x->surface, x->edge == 0 ? 0 : inset);
-}
-
 AwraWidget *awra_edge_panel_new(void)
 {
   AwraWidget *w = awra_widget_new(&edge_class);
@@ -1637,12 +1635,9 @@ AwraWidget *awra_edge_panel_new(void)
   x->surface = awra_surface_new(AWRA_MATERIAL_FLOATING);
   awra_surface_set_elevation(x->surface, AWRA_ELEVATION_FLOATING);
   awra_widget_set_size_request(x->surface, x->panel_width, -1);
-  awra_widget_set_margin_top(x->surface, awra_spacing(AWRA_SPACING_MD));
-  awra_widget_set_margin_bottom(x->surface, awra_spacing(AWRA_SPACING_MD));
   awra_child_insert(w, x->surface, -1);
   awra_widget_unref(x->surface);
   awra_widget_set_visible(x->surface, false);
-  edge_sync_margins(w);
   return w;
 }
 
@@ -1685,7 +1680,6 @@ AwraWidget *awra_edge_panel_surface(AwraWidget *w)
 void awra_edge_panel_set_edge(AwraWidget *w, int edge)
 {
   EDX(w)->edge = edge ? 1 : 0;
-  edge_sync_margins(w);
   awra_queue_allocate(w);
 }
 

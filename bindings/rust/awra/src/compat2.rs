@@ -378,11 +378,15 @@ impl DropTarget {
     pub fn connect_leave<F: Fn(&DropTarget) + 'static>(&self, f: F) {
         self.0.leave.borrow_mut().push(Rc::new(f));
     }
-    pub(crate) fn motion(&self, x: f64, y: f64) {
+    /// An application drag moved over the target: whether it takes it (a
+    /// target without motion handlers takes any).
+    pub(crate) fn motion(&self, x: f64, y: f64) -> bool {
         let hs: Vec<DropMotionFn> = self.0.motion.borrow().clone();
+        let mut accepted = hs.is_empty();
         for h in hs {
-            h(self, x, y);
+            accepted |= h(self, x, y) != DragAction::empty();
         }
+        accepted
     }
     pub(crate) fn leave(&self) {
         let hs: Vec<DropLeaveFn> = self.0.leave.borrow().clone();

@@ -5353,6 +5353,13 @@ int BUI_text_metrics(const char *family, int flags, float size, float *r_ascent,
   const Face *face = &g_faces[s->face];
   *r_ascent = (float)face->ascent * s->scale;
   *r_descent = (float)-face->descent * s->scale;
+  if (g_hint_metrics) {
+    /* FreeType's hinted size metrics, which Pango's line extents use with
+     * hinted font metrics: ascender and descender each rounded outwards
+     * to whole pixels (DejaVu Sans 13.33 px: 13 + 4, a 17 px line) */
+    *r_ascent = ceilf(*r_ascent - 0.001f);
+    *r_descent = ceilf(*r_descent - 0.001f);
+  }
 #endif
   return 1;
 }

@@ -1305,7 +1305,9 @@ AwraWidget *awra_media_row_new(const char *title)
   awra_label_set_ellipsize(x->subtitle, AWRA_ELLIPSIZE_END);
   awra_widget_set_visible(x->subtitle, false);
   awra_box_append(texts, x->title);
+  awra_widget_unref(x->title); /* its parent holds it */
   awra_box_append(texts, x->subtitle);
+  awra_widget_unref(x->subtitle); /* its parent holds it */
   x->ends = awra_box_new(AWRA_ORIENTATION_HORIZONTAL, 4);
   awra_widget_set_valign(x->ends, AWRA_ALIGN_CENTER);
   x->play = awra_button_new_from_icon_name("media-playback-start-symbolic");
@@ -1318,8 +1320,11 @@ AwraWidget *awra_media_row_new(const char *title)
   awra_widget_set_size_request(x->volume, 120, -1);
   awra_widget_set_visible(x->volume, false);
   awra_box_append(x->ends, x->play);
+  awra_widget_unref(x->play); /* its parent holds it */
   awra_box_append(x->ends, x->stop);
+  awra_widget_unref(x->stop); /* its parent holds it */
   awra_box_append(x->ends, x->volume);
+  awra_widget_unref(x->volume); /* its parent holds it */
   AwraWidget *seekbox = awra_box_new(AWRA_ORIENTATION_HORIZONTAL, 8);
   x->elapsed = small_label();
   awra_label_set_xalign(x->elapsed, 1.0f);
@@ -1333,18 +1338,17 @@ AwraWidget *awra_media_row_new(const char *title)
   awra_accessible_update_state(x->total, AWRA_ACCESSIBLE_STATE_HIDDEN, 1);
   awra_box_append(seekbox, x->elapsed);
   awra_box_append(seekbox, x->seek);
+  awra_widget_unref(x->seek); /* its parent holds it */
   awra_box_append(seekbox, x->total);
   awra_grid_attach(x->grid, x->tile, 0, 0, 1, 2);
   awra_grid_attach(x->grid, texts, 1, 0, 1, 1);
+  awra_widget_unref(texts); /* its parent holds it */
   awra_grid_attach(x->grid, x->ends, 2, 0, 1, 1);
+  awra_widget_unref(x->ends); /* its parent holds it */
   awra_grid_attach(x->grid, seekbox, 1, 1, 2, 1);
+  awra_widget_unref(seekbox); /* its parent holds it */
   awra_child_insert(w, x->grid, -1);
-  /* the containers hold their parts */
-  AwraWidget *held[] = {x->title, x->subtitle, x->play, x->stop, x->volume, x->elapsed, x->seek,
-                        x->total, x->tile, texts, x->ends, seekbox, x->grid};
-  for (size_t i = 0; i < sizeof(held) / sizeof(held[0]); i++) {
-    awra_widget_unref(held[i]);
-  }
+  awra_widget_unref(x->grid); /* its parent holds it */
   awra_signal_connect(x->play, AWRA_SIGNAL_CLICKED, media_play, w, NULL);
   awra_signal_connect(x->stop, AWRA_SIGNAL_CLICKED, media_stop, w, NULL);
   awra_signal_connect(x->volume, AWRA_SIGNAL_VALUE_CHANGED, media_volume, w, NULL);
@@ -1631,15 +1635,17 @@ AwraWidget *awra_drop_zone_new(void)
   AwraWidget *spacer = awra_box_new(AWRA_ORIENTATION_VERTICAL, 0);
   awra_widget_set_vexpand(spacer, true);
   awra_box_append(x->well, x->icon);
+  awra_widget_unref(x->icon); /* its parent holds it */
   awra_box_append(x->well, x->title);
+  awra_widget_unref(x->title); /* its parent holds it */
   awra_box_append(x->well, x->subtitle);
+  awra_widget_unref(x->subtitle); /* its parent holds it */
   awra_box_append(x->well, x->browse);
+  awra_widget_unref(x->browse); /* its parent holds it */
   awra_box_append(x->well, spacer);
+  awra_widget_unref(spacer); /* its parent holds it */
   awra_child_insert(w, x->well, -1);
-  AwraWidget *held[] = {x->icon, x->title, x->subtitle, x->browse, spacer, x->well};
-  for (size_t i = 0; i < sizeof(held) / sizeof(held[0]); i++) {
-    awra_widget_unref(held[i]);
-  }
+  awra_widget_unref(x->well); /* its parent holds it */
   awra_widget_set_accepts_file_drops(w, true);
   awra_signal_connect(w, AWRA_SIGNAL_DROP_HOVER, zone_hover, NULL, NULL);
   return w;

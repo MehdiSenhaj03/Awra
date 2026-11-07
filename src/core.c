@@ -599,6 +599,7 @@ void awra_bk_finish_edit(BKNode *n, bool confirm)
 /* Tree */
 
 static void set_mapped_tree(AwraWidget *w, bool mapped);
+void awra_window_focus_unmapped(AwraWidget *w); /* window.c */
 
 void awra_child_insert(AwraWidget *parent, AwraWidget *child, int index)
 {
@@ -1041,6 +1042,9 @@ static void set_mapped_tree(AwraWidget *w, bool mapped)
     awra_a11y_child_changed(w->parent, w, false); /* a popover closes */
   }
   a->mapped = now;
+  if (!now) {
+    awra_window_focus_unmapped(w);
+  }
   if (AWRA_CLASS_OF(w)->map) {
     AWRA_CLASS_OF(w)->map(w, now);
   }
@@ -1081,6 +1085,8 @@ static void set_effective_visible(AwraWidget *w, bool visible)
     if (awra_is_widget(w)) {
       awra_aux(w)->needs_allocate = 1;
     }
+    /* shown again where it was: nothing else damages its area */
+    awra_invalidate(w);
     if (w->parent) {
       awra_a11y_child_changed(w->parent, w, true);
     }
@@ -1968,6 +1974,7 @@ void awra_bk_arrange(BKNode *n)
 /* Drawing */
 
 static AwraDraw g_draw;
+void awra_paint_drop_active(AwraDraw *d, AwraWidget *w); /* dnd.c */
 
 void awra_bk_draw_tree(BKNode *n)
 {
@@ -2004,6 +2011,7 @@ void awra_bk_draw_tree(BKNode *n)
     if (c->draw) {
       c->draw(n, &g_draw);
     }
+    awra_paint_drop_active(&g_draw, n);
     if (n->nkids) {
       const bool clip = (c->flags & AWRA_CLASS_CLIP) != 0 || a->overflow_hidden;
       if (clip) {
