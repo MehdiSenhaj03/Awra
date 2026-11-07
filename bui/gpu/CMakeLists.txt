@@ -45,6 +45,7 @@ if(BUI_TEXT_FREETYPE AND NOT BUI_TEXT_GDI)
   set(FT_SRC
     ${FT}/src/base/ftsystem.c ${FT}/src/base/ftinit.c ${FT}/src/base/ftdebug.c
     ${FT}/src/base/ftbase.c ${FT}/src/base/ftmm.c ${FT}/src/base/ftbitmap.c ${FT}/src/base/ftbbox.c
+    ${FT}/src/base/ftsynth.c
     ${FT}/src/truetype/truetype.c ${FT}/src/sfnt/sfnt.c ${FT}/src/autofit/autofit.c
     ${FT}/src/smooth/smooth.c ${FT}/src/psnames/psnames.c ${FT}/src/cff/cff.c
     ${FT}/src/psaux/psaux.c ${FT}/src/pshinter/pshinter.c

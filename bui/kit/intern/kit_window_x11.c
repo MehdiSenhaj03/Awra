@@ -38,6 +38,7 @@
 #  include <stdio.h>
 #  include <stdlib.h>
 #  include <string.h>
+#  include <strings.h>
 #  include <sys/select.h>
 #  include <time.h>
 #  include <unistd.h>
@@ -264,6 +265,8 @@ static double now_ms(void)
   return ts.tv_sec * 1000.0 + ts.tv_nsec / 1e6;
 }
 
+static void x11_font_options(void); /* kit_popup_x11.inc.c */
+
 static int open_display(void)
 {
   if (g_dpy) {
@@ -282,6 +285,7 @@ static int open_display(void)
   a_utf8 = XInternAtom(g_dpy, "UTF8_STRING", False);
   a_targets = XInternAtom(g_dpy, "TARGETS", False);
   a_bui_sel = XInternAtom(g_dpy, "BUI_SELECTION", False);
+  x11_font_options();
   return 1;
 }
 
