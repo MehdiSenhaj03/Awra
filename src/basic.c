@@ -305,7 +305,15 @@ static void label_draw(AwraWidget *w, AwraDraw *d)
   label_origin(w, &lx, &ly, &width);
   const AwraRGBA c = label_color(w);
   if (x->selectable && x->sel_anchor != x->sel_cursor) {
-    AwraRGBA sel = awra_tokens()->selection;
+    /* GTK's label > selection (its default theme; awra.css leaves it): the
+     * selected text background while the label has the focus, else the
+     * backdrop's grey; the text keeps its colour */
+    const bool dark = awra_style_is_dark();
+    const AwraRGBA sel = awra_widget_has_focus(w) ?
+                             (dark ? (AwraRGBA){21 / 255.0f, 83 / 255.0f, 158 / 255.0f, 0.8f} :
+                                     (AwraRGBA){53 / 255.0f, 132 / 255.0f, 228 / 255.0f, 0.3f}) :
+                             (dark ? (AwraRGBA){90 / 255.0f, 90 / 255.0f, 90 / 255.0f, 0.5f} :
+                                     (AwraRGBA){140 / 255.0f, 140 / 255.0f, 140 / 255.0f, 0.5f});
     awra_text_layout_draw_selection(x->layout, d, lx, ly, width, x->sel_anchor, x->sel_cursor, &sel);
   }
   if (awra_text_layout_n_links(x->layout)) {
@@ -390,8 +398,9 @@ static int label_press(AwraWidget *w, BKEvent *e)
       x->sel_anchor = x->sel_cursor = i;
     }
     x->selecting = true;
+    /* GtkLabel: a selectable label takes the focus unless set unfocusable */
     AwraWidget *win = awra_window_of(w);
-    if (win) {
+    if (win && !(awra_aux(w)->focusable_set && !awra_aux(w)->focusable)) {
       awra_set_focus(win, w, false);
     }
     awra_invalidate(w);
@@ -888,6 +897,29 @@ static void decode_at(AwraWidget *w, int dw, int dh)
   BK_imbuf_free(ib);
 }
 
+/* How well something is going, on its icon (Awra 1's quality-good, -fair and
+ * -poor roles, awra.css L1280): the status banners' colours. */
+static bool quality_color(const AwraWidget *w, AwraRGBA *r_color)
+{
+  static int bits[3] = {-2};
+  static const char *const names[3] = {"quality-good", "quality-fair", "quality-poor"};
+  static const uint32_t dark[3] = {0x80dca5, 0xf0c66b, 0xff929c};
+  static const uint32_t light[3] = {0x217846, 0x8a6215, 0xa02f3a};
+  if (bits[0] == -2) {
+    for (int i = 0; i < 3; i++) {
+      bits[i] = awra_class_bit(names[i]);
+    }
+  }
+  for (int i = 0; i < 3; i++) {
+    if (bits[i] >= 0 && awra_has_class_bit(w, bits[i])) {
+      const uint32_t v = awra_style_is_dark() ? dark[i] : light[i];
+      *r_color = (AwraRGBA){((v >> 16) & 0xff) / 255.0f, ((v >> 8) & 0xff) / 255.0f, (v & 0xff) / 255.0f, 1.0f};
+      return true;
+    }
+  }
+  return false;
+}
+
 static void image_draw(AwraWidget *w, AwraDraw *d)
 {
   ImageExt *x = IX(w);
@@ -898,7 +930,7 @@ static void image_draw(AwraWidget *w, AwraDraw *d)
     if (x->has_color) {
       c = x->color;
     }
-    else if (!awra_inherited_style(w, &c, &weight)) {
+    else if (!quality_color(w, &c) && !awra_inherited_style(w, &c, &weight)) {
       c = awra_typography_color(awra_widget_typography(w));
     }
     if (!awra_sensitive(w)) {

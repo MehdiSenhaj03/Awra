@@ -7,6 +7,9 @@
 #include "a11y.h"
 
 #include <stdio.h>
+#ifdef __GLIBC__
+#include <malloc.h>
+#endif
 
 static int g_fail;
 #define CHECK(c)                                                         \
@@ -326,23 +329,17 @@ int main(void)
     awra_a11y_flush();
     awra_widget_destroy(w2);
     awra_pump();
-#ifdef __linux__
+#ifdef __GLIBC__
     if (round == 49 || round == 399) {
-      FILE *f = fopen("/proc/self/statm", "r");
-      long pages = 0, res = 0;
-      if (f && fscanf(f, "%ld %ld", &pages, &res) == 2) {
-        rss_at[round == 399] = res * 4;
-      }
-      if (f) {
-        fclose(f);
-      }
+      /* the heap in use (not RSS, which moves with the allocator's pages) */
+      rss_at[round == 399] = (long)(mallinfo2().uordblks / 1024);
     }
 #endif
   }
   CHECK(g_freed - freed0 == exposed); /* every exposed widget was freed */
-#if defined(__linux__) && !defined(__SANITIZE_ADDRESS__) /* ASan keeps freed memory */
-  printf("a11y: RSS after 50 rounds %ld KB, after 400 %ld KB\n", rss_at[0], rss_at[1]);
-  CHECK(rss_at[1] - rss_at[0] < 256);
+#if defined(__GLIBC__) && !defined(__SANITIZE_ADDRESS__) /* ASan has its own heap */
+  printf("a11y: heap in use after 50 rounds %ld KB, after 400 %ld KB\n", rss_at[0], rss_at[1]);
+  CHECK(rss_at[1] - rss_at[0] < 16);
 #endif
   awra_a11y_set_backend(NULL);
   if (g_fail) {

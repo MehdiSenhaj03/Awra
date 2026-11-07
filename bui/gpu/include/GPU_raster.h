@@ -434,6 +434,7 @@ void BUI_text_set_png_decoder(BuiPngDecodeFn decode);
 typedef struct BuiGpuX11Window {
   void *display;        /* Display * the window lives on (NULL: open one) */
   unsigned long window; /* Window */
+  unsigned long visual; /* its VisualID (BUI-Awra; 0: the screen's default) */
 } BuiGpuX11Window;
 int BUI_raster_gpu_attach(BuiRaster *r, void *window_handle, int wait);
 int BUI_raster_gpu_poll(BuiRaster *r);

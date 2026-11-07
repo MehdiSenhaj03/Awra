@@ -1498,10 +1498,29 @@ AwraTextDirection awra_widget_get_default_direction(void)
   return g_default_dir;
 }
 
+/* Under Awra 1's prose-metadata role, monospace values read as prose:
+ * their font is inherited (awra.css L3923). */
+static bool in_prose_metadata(const BKNode *n)
+{
+  static int bit = -2;
+  if (bit == -2) {
+    bit = awra_class_bit("prose-metadata");
+  }
+  for (; bit >= 0 && n; n = n->parent) {
+    if (awra_is_widget(n) && awra_has_class_bit(n, bit)) {
+      return true;
+    }
+  }
+  return false;
+}
+
 AwraTypography awra_widget_typography(const AwraWidget *w)
 {
   for (const BKNode *n = w; n; n = n->parent) {
     if (awra_is_widget(n) && awra_aux(n)->typography_set) {
+      if (awra_aux(n)->typography == AWRA_TYPOGRAPHY_MONOSPACE && in_prose_metadata(n)) {
+        continue;
+      }
       return (AwraTypography)awra_aux(n)->typography;
     }
   }
