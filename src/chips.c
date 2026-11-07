@@ -951,6 +951,7 @@ AwraWidget *awra_metric_row_new(const char *label, const char *value)
   awra_widget_unref(l);
   awra_widget_unref(v);
   awra_widget_set_name(row, "AwraMetricRow");
+  awra_widget_set_size_request(row, -1, 30); /* awra.css: awrametricrow { min-height: 30px } */
   return row;
 }
 
