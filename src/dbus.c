@@ -861,8 +861,9 @@ static void on_readable(int fd, void *data)
   if (b->state != ST_CLOSED) {
     process(b);
   }
-  /* a large message read: give the memory back */
-  if (b->state != ST_CLOSED && b->in_n == 0 && b->in_cap > 65536) {
+  /* everything read: the buffer goes until the next message (an idle
+   * connection holds no memory) */
+  if (b->state != ST_CLOSED && b->in_n == 0 && b->in) {
     free(b->in);
     b->in = NULL;
     b->in_cap = 0;

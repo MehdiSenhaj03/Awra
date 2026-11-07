@@ -711,6 +711,11 @@ AwraWidget *awra_form_row_new(const char *title, const char *subtitle)
   x->has_help = subtitle && subtitle[0];
   awra_child_insert(w, x->label, -1);
   awra_child_insert(w, x->field, -1);
+  /* the row's tree holds its parts (they were leaked with it) */
+  awra_widget_unref(x->label);
+  awra_widget_unref(x->field);
+  awra_widget_unref(x->help);
+  awra_widget_unref(x->error);
   return w;
 }
 

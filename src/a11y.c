@@ -1409,7 +1409,8 @@ typedef struct IdSlot {
   AwraWidget *w;
 } IdSlot;
 static IdSlot *g_ids;
-static uint32_t g_ids_cap, g_ids_used, g_next_id = 1;
+/* used: slots taken (live + tombstones), live: exposed widgets */
+static uint32_t g_ids_cap, g_ids_used, g_ids_live, g_next_id = 1;
 
 static uint32_t hash_id(uint32_t id)
 {
@@ -1419,15 +1420,22 @@ static uint32_t hash_id(uint32_t id)
   return id;
 }
 
-static void ids_insert(uint32_t id, AwraWidget *w);
+static bool ids_insert(uint32_t id, AwraWidget *w);
 
 static void ids_grow(void)
 {
   const uint32_t old_cap = g_ids_cap;
   IdSlot *old = g_ids;
-  g_ids_cap = old_cap ? old_cap * 2 : 256;
+  /* mostly tombstones (widgets come and go): rehash at the same size */
+  g_ids_cap = !old_cap ? 256 : g_ids_live * 2 < old_cap ? old_cap : old_cap * 2;
   g_ids = (IdSlot *)calloc(g_ids_cap, sizeof(IdSlot));
+  if (!g_ids) {
+    g_ids = old; /* keep the old table (full: the insert probes on) */
+    g_ids_cap = old_cap;
+    return;
+  }
   g_ids_used = 0;
+  g_ids_live = 0;
   for (uint32_t i = 0; i < old_cap; i++) {
     if (old[i].id && old[i].id != UINT32_MAX) {
       ids_insert(old[i].id, old[i].w);
@@ -1436,22 +1444,24 @@ static void ids_grow(void)
   free(old);
 }
 
-static void ids_insert(uint32_t id, AwraWidget *w)
+static bool ids_insert(uint32_t id, AwraWidget *w)
 {
   if ((g_ids_used + 1) * 4 >= g_ids_cap * 3) {
     ids_grow();
   }
-  for (uint32_t i = hash_id(id);; i++) {
+  for (uint32_t i = hash_id(id), k = 0; k < g_ids_cap; i++, k++) {
     IdSlot *s = &g_ids[i & (g_ids_cap - 1)];
     if (s->id == 0 || s->id == UINT32_MAX) {
       if (s->id == 0) {
         g_ids_used++;
       }
+      g_ids_live++;
       s->id = id;
       s->w = w;
-      return;
+      return true;
     }
   }
+  return false; /* out of memory */
 }
 
 static IdSlot *ids_find(uint32_t id)
@@ -1538,7 +1548,11 @@ uint32_t awra_a11y_expose(AwraWidget *w)
     if (g_next_id == UINT32_MAX) {
       g_next_id = 1;
     }
-    ids_insert(x->snap->id, w);
+    if (!ids_insert(x->snap->id, w)) {
+      free(x->snap);
+      x->snap = NULL;
+      return 0;
+    }
     snap_fill(w, x->snap);
   }
   return x->snap->id;
@@ -1556,6 +1570,7 @@ static void snap_free(AwraWidget *w, struct AwraA11y *x)
   if (s) {
     s->id = UINT32_MAX;
     s->w = NULL;
+    g_ids_live--;
   }
   free(x->snap->name);
   free(x->snap->description);
@@ -1834,8 +1849,7 @@ void awra_a11y_flush(void)
           /* the focused one of its cells (a list's cursor) is told */
           AwraA11yInfo ci;
           awra_a11y_info(c, &ci);
-          if (ci.flags & AWRA_A11Y_FOCUSED) {
-            awra_a11y_expose(c);
+          if ((ci.flags & AWRA_A11Y_FOCUSED) && awra_a11y_expose(c)) {
             awra_a11y_snap(c)->states &= ~(unsigned)AWRA_A11Y_FOCUSED;
           }
         }
@@ -1966,12 +1980,17 @@ void awra_a11y_set_backend(const AwraA11yBackend *backend)
             free(x->snap);
             x->snap = NULL;
           }
+          if (!x->attrs && x->role < 0 && !x->targeted && !x->holder) {
+            /* nothing the application set: the widget holds nothing again */
+            awra_aux(g_ids[i].w)->a11y = NULL;
+            free(x);
+          }
         }
       }
     }
     free(g_ids);
     g_ids = NULL;
-    g_ids_cap = g_ids_used = 0;
+    g_ids_cap = g_ids_used = g_ids_live = 0;
     free(g_dirty);
     g_dirty = NULL;
     g_ndirty = g_capdirty = 0;

@@ -258,6 +258,66 @@ int main(void)
 
   awra_widget_destroy(win);
   awra_pump();
+
+  /* windows opened and closed while a client walks them: every exposed
+   * widget is let go, the memory comes back flat */
+  awra_a11y_set_backend(&g_rec);
+  long rss_at[2] = {0, 0};
+  int exposed = 0;
+  const int freed0 = g_freed;
+  for (int round = 0; round < 400; round++) {
+    AwraWidget *w2 = awra_window_new_offscreen("Dialog", 360, 240, 1.0);
+    AwraWidget *form = awra_form_new();
+    AwraWidget *row = awra_form_row_new("Delay", "Between two sounds");
+    AwraWidget *spin = awra_spin_button_new(0, 100, 1);
+    awra_form_row_set_control(row, spin);
+    awra_widget_unref(spin);
+    awra_form_append(form, row);
+    AwraWidget *ok = awra_button_new_with_label("OK");
+    awra_accessible_update_relation(ok, AWRA_ACCESSIBLE_RELATION_DESCRIBED_BY, &row, 1);
+    awra_box_append(form, ok);
+    awra_widget_unref(ok);
+    awra_widget_unref(row);
+    awra_window_set_child(w2, form);
+    awra_widget_unref(form);
+    awra_window_render_offscreen(w2, true);
+    /* the client reaches everything */
+    AwraWidget *stack[64];
+    int n = 0;
+    stack[n++] = w2;
+    while (n > 0) {
+      AwraWidget *x = stack[--n];
+      awra_a11y_expose(x);
+      exposed++;
+      AwraWidget *kids[32];
+      const int k = awra_a11y_children(x, kids, 32);
+      for (int i = 0; i < k && i < 32 && n < 64; i++) {
+        stack[n++] = kids[i];
+      }
+    }
+    awra_entry_set_text(spin, "12");
+    awra_a11y_flush();
+    awra_widget_destroy(w2);
+    awra_pump();
+#ifdef __linux__
+    if (round == 49 || round == 399) {
+      FILE *f = fopen("/proc/self/statm", "r");
+      long pages = 0, res = 0;
+      if (f && fscanf(f, "%ld %ld", &pages, &res) == 2) {
+        rss_at[round == 399] = res * 4;
+      }
+      if (f) {
+        fclose(f);
+      }
+    }
+#endif
+  }
+  CHECK(g_freed - freed0 == exposed); /* every exposed widget was freed */
+#ifdef __linux__
+  printf("a11y: RSS after 50 rounds %ld KB, after 400 %ld KB\n", rss_at[0], rss_at[1]);
+  CHECK(rss_at[1] - rss_at[0] < 256);
+#endif
+  awra_a11y_set_backend(NULL);
   if (g_fail) {
     fprintf(stderr, "%d failure(s)\n", g_fail);
     return 1;
