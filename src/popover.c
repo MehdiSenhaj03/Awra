@@ -182,6 +182,9 @@ static void pop_layout(AwraWidget *w, int nw, int nh, int win_w, int win_h, BKPo
     return;
   }
   const float s = awra_scale();
+  /* right to left, start and end swap (GtkPopover's halign gravities,
+   * submenus and menus at a point open towards the left) */
+  const bool rtl = awra_widget_rtl(w);
   if (x->relative) { /* popup_at / point_to: the point */
     l->anchor = bk_rect(parent->x + (int)floor(x->at_x * s), parent->y + (int)floor(x->at_y * s), 1,
                         1);
@@ -189,7 +192,8 @@ static void pop_layout(AwraWidget *w, int nw, int nh, int win_w, int win_h, BKPo
       /* popup_at: its corner at the point (below it, or above it for side
        * 1, a caret), flipped and slid to stay on the work area */
       l->rect_anchor = BK_GRAVITY_NORTH_WEST;
-      l->surface_anchor = x->side == 1 ? BK_GRAVITY_SOUTH_WEST : BK_GRAVITY_NORTH_WEST;
+      l->surface_anchor = x->side == 1 ? (rtl ? BK_GRAVITY_SOUTH_EAST : BK_GRAVITY_SOUTH_WEST) :
+                                         (rtl ? BK_GRAVITY_NORTH_EAST : BK_GRAVITY_NORTH_WEST);
       l->hints = BK_ANCHOR_FLIP | BK_ANCHOR_SLIDE | BK_ANCHOR_RESIZE;
       return;
     }
@@ -207,7 +211,7 @@ static void pop_layout(AwraWidget *w, int nw, int nh, int win_w, int win_h, BKPo
   /* Awra's sides: 0 bottom 1 top 2 start (left) 3 end (right) */
   const int side = x->submenu_row ? 3 : x->side;
   if (side == 2 || side == 3) {
-    const bool left = side == 2;
+    const bool left = (side == 2) != rtl;
     switch (a->valign) {
       case AWRA_ALIGN_START:
         l->rect_anchor = left ? BK_GRAVITY_NORTH_WEST : BK_GRAVITY_NORTH_EAST;
@@ -226,7 +230,10 @@ static void pop_layout(AwraWidget *w, int nw, int nh, int win_w, int win_h, BKPo
     return;
   }
   const bool top = side == 1;
-  switch (a->halign) {
+  const int halign = rtl && a->halign == AWRA_ALIGN_START ? AWRA_ALIGN_END :
+                     rtl && a->halign == AWRA_ALIGN_END   ? AWRA_ALIGN_START :
+                                                            a->halign;
+  switch (halign) {
     case AWRA_ALIGN_START:
       l->rect_anchor = top ? BK_GRAVITY_NORTH_WEST : BK_GRAVITY_SOUTH_WEST;
       l->surface_anchor = top ? BK_GRAVITY_SOUTH_WEST : BK_GRAVITY_NORTH_WEST;
@@ -1135,7 +1142,9 @@ static int menu_key(AwraWidget *pop, BKEvent *e)
   const char *k = e->keysym;
   const bool down = bk_keysym_is(k, "Down"), up = bk_keysym_is(k, "Up");
   const bool home = bk_keysym_is(k, "Home"), end = bk_keysym_is(k, "End");
-  const bool right = bk_keysym_is(k, "Right"), left = bk_keysym_is(k, "Left");
+  /* right to left, submenus open with Left and close with Right */
+  const bool rtl = awra_widget_rtl(pop);
+  const bool right = bk_keysym_is(k, rtl ? "Left" : "Right"), left = bk_keysym_is(k, rtl ? "Right" : "Left");
   if (!down && !up && !home && !end && !right && !left) {
     return 0;
   }

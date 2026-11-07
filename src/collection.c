@@ -1123,10 +1123,10 @@ static int coll_key(AwraWidget *w, BKEvent *e)
   else if (bk_keysym_is(e->keysym, "Up")) {
     to = cur < 0 ? 0 : (cur - cols >= 0 ? cur - cols : cur);
   }
-  else if (bk_keysym_is(e->keysym, "Right") && cols > 1) {
-    to = cur < 0 ? 0 : cur + 1;
+  else if (bk_keysym_is(e->keysym, awra_widget_rtl(w) ? "Left" : "Right") && cols > 1) {
+    to = cur < 0 ? 0 : cur + 1; /* the next tile is on the left, right to left */
   }
-  else if (bk_keysym_is(e->keysym, "Left") && cols > 1) {
+  else if (bk_keysym_is(e->keysym, awra_widget_rtl(w) ? "Right" : "Left") && cols > 1) {
     to = cur < 0 ? 0 : cur - 1;
   }
   else if (bk_keysym_is(e->keysym, "Home")) {
