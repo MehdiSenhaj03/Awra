@@ -5609,14 +5609,23 @@ int BUI_text_extents(const char *family, int flags, float size, const char *utf8
   }
   const int f = font_get(family, flags & ~TEXT_DIRS, size);
   const TextRun *e = f >= 0 ? run_get(f, text_dir(flags), utf8, len) : NULL;
-  if (e && !e->uses_font && (e->ext_asc > 0.0f || e->ext_desc > 0.0f)) {
+  float ea = e ? e->ext_asc : 0.0f, ed = e ? e->ext_desc : 0.0f;
+#if !TEXT_GDI
+  if (g_hint_metrics) {
+    /* Pango with hinted metrics: each font's extents rounded outwards, as
+     * the font's own are (BUI_text_metrics) */
+    ea = ceilf(ea - 0.001f);
+    ed = ceilf(ed - 0.001f);
+  }
+#endif
+  if (e && !e->uses_font && (ea > 0.0f || ed > 0.0f)) {
     /* drawn only with fallback fonts: theirs */
-    *r_ascent = e->ext_asc;
-    *r_descent = e->ext_desc;
+    *r_ascent = ea;
+    *r_descent = ed;
   }
   else if (e) {
-    *r_ascent = e->ext_asc > *r_ascent ? e->ext_asc : *r_ascent;
-    *r_descent = e->ext_desc > *r_descent ? e->ext_desc : *r_descent;
+    *r_ascent = ea > *r_ascent ? ea : *r_ascent;
+    *r_descent = ed > *r_descent ? ed : *r_descent;
   }
   return 1;
 }
