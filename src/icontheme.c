@@ -683,7 +683,9 @@ static IconCache *cache_open(const char *dir)
     c = (IconCache *)calloc(1, sizeof(IconCache));
 #ifdef _WIN32
     wchar_t *w = c ? wide(path) : NULL;
-    c && (c->f = w ? _wfopen(w, L"rb") : NULL);
+    if (c) {
+      c->f = w ? _wfopen(w, L"rb") : NULL;
+    }
     free(w);
     if (c && !c->f) {
       free(c);
@@ -1059,7 +1061,6 @@ static char **search_path(void)
   /* gtk_icon_theme_init */
   char **data = awra_xdg_data_dirs(false);
   Strv s = {0};
-  const char *dh = getenv("XDG_DATA_HOME");
   char *home = home_dir();
 #ifdef _WIN32
   {
@@ -1068,6 +1069,7 @@ static char **search_path(void)
     strv_add(&s, u);
   }
 #else
+  const char *dh = getenv("XDG_DATA_HOME");
   if (dh && dh[0]) {
     strv_add(&s, join(dh, "icons"));
   }

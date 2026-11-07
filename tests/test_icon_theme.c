@@ -12,7 +12,17 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
-#include <unistd.h>
+#ifdef _WIN32
+#  include <direct.h>
+#  include <process.h>
+#  define MKDIR(p) _mkdir(p)
+#  define rmdir(p) _rmdir(p)
+#  define GETPID() _getpid()
+#else
+#  include <unistd.h>
+#  define MKDIR(p) mkdir(p, 0755)
+#  define GETPID() getpid()
+#endif
 
 static int failures;
 #define CHECK(cond, ...)                                                   \
@@ -27,6 +37,25 @@ static int failures;
 
 static char g_root[512];
 
+/* what the test made, removed in reverse order */
+static char *g_made[256];
+static int g_nmade;
+
+static void made(const char *path)
+{
+  for (int i = 0; i < g_nmade; i++) {
+    if (!strcmp(g_made[i], path)) {
+      return;
+    }
+  }
+  if (g_nmade < 256) {
+    g_made[g_nmade] = (char *)malloc(strlen(path) + 1);
+    if (g_made[g_nmade]) {
+      strcpy(g_made[g_nmade++], path);
+    }
+  }
+}
+
 static void put(const char *rel, const char *text)
 {
   char path[1024];
@@ -35,7 +64,8 @@ static void put(const char *rel, const char *text)
   for (char *p = path + strlen(g_root) + 1; *p; p++) {
     if (*p == '/') {
       *p = 0;
-      mkdir(path, 0755);
+      MKDIR(path);
+      made(path);
       *p = '/';
     }
   }
@@ -43,6 +73,7 @@ static void put(const char *rel, const char *text)
   if (f) {
     fputs(text, f);
     fclose(f);
+    made(path);
   }
 }
 
@@ -73,10 +104,25 @@ static void on_changed(void *data)
   changed++;
 }
 
+static void set_root(void)
+{
+#ifdef _WIN32
+  const char *tmp = getenv("TEMP");
+  snprintf(g_root, sizeof(g_root), "%s/awra-icon-theme-test-%d", tmp ? tmp : ".", (int)GETPID());
+  for (char *p = g_root; *p; p++) {
+    if (*p == '\\') {
+      *p = '/';
+    }
+  }
+#else
+  snprintf(g_root, sizeof(g_root), "/tmp/awra-icon-theme-test-%d", (int)GETPID());
+#endif
+}
+
 static void fake_theme(void)
 {
-  snprintf(g_root, sizeof(g_root), "/tmp/awra-icon-theme-test-%d", (int)getpid());
-  mkdir(g_root, 0755);
+  set_root();
+  MKDIR(g_root);
   /* Child inherits Parent; both before hicolor */
   put("icons/Child/index.theme",
       "[Icon Theme]\nName=Child\nInherits=Parent\n"
@@ -128,11 +174,15 @@ static void cleanup(void)
   if (getenv("AWRA_TEST_KEEP")) {
     return; /* to compare with GTK: XDG_DATA_DIRS=<root> */
   }
-  char cmd[700];
-  snprintf(cmd, sizeof(cmd), "rm -rf '%s'", g_root);
-  if (system(cmd) != 0) {
-    fprintf(stderr, "could not remove %s\n", g_root);
+  /* files, then directories, deepest first */
+  for (int i = g_nmade - 1; i >= 0; i--) {
+    if (remove(g_made[i]) != 0) {
+      rmdir(g_made[i]);
+    }
+    free(g_made[i]);
   }
+  g_nmade = 0;
+  rmdir(g_root);
 }
 
 /* a pixel as premultiplied 0xAARRGGBB */
@@ -277,8 +327,12 @@ int main(void)
   }
   awra_icon_theme_set_theme_name(NULL);
 
-  /* content types (shared-mime-info) */
+  /* content types (shared-mime-info; Windows has none unless shipped) */
+#ifdef _WIN32
+  if (0) {
+#else
   if (stat("/usr/share/mime/mime.cache", &st) == 0) {
+#endif
     bool uncertain = true;
     char *t = awra_content_type_guess("Rapport.PDF", NULL, 0, &uncertain);
     CHECK(t && !strcmp(t, "application/pdf") && !uncertain, "pdf: %s", t ? t : "(null)");
@@ -305,7 +359,7 @@ int main(void)
   else {
     printf("shared-mime-info not installed: content types skipped\n");
   }
-  snprintf(g_root, sizeof(g_root), "/tmp/awra-icon-theme-test-%d", (int)getpid());
+  set_root();
   cleanup();
   if (failures) {
     fprintf(stderr, "%d failure(s)\n", failures);
