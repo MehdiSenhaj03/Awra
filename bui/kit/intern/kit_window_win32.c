@@ -964,6 +964,16 @@ static LRESULT border_hit(BKWindow *win, LPARAM lp)
   return left ? HTLEFT : right ? HTRIGHT : HTCLIENT;
 }
 
+/* BUI-Awra: accessibility (WM_GETOBJECT, and WM_DESTROY to let go) */
+static intptr_t (*g_getobject_hook)(void *hwnd, unsigned msg, uintptr_t wp, intptr_t lp,
+                                    BKContext *ctx, int *r_handled) = NULL;
+
+void BK_window_set_getobject_hook(intptr_t (*hook)(void *hwnd, unsigned msg, uintptr_t wp,
+                                                   intptr_t lp, BKContext *ctx, int *r_handled))
+{
+  g_getobject_hook = hook;
+}
+
 static LRESULT CALLBACK wndproc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
 {
   BKWindow *win = (BKWindow *)GetWindowLongPtrW(hwnd, GWLP_USERDATA);
@@ -1240,7 +1250,20 @@ static LRESULT CALLBACK wndproc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
       }
       DestroyWindow(hwnd);
       return 0;
+    case WM_GETOBJECT:
+      if (g_getobject_hook) {
+        int handled = 0;
+        const intptr_t r = g_getobject_hook(hwnd, msg, (uintptr_t)wp, (intptr_t)lp, ctx, &handled);
+        if (handled) {
+          return (LRESULT)r;
+        }
+      }
+      break;
     case WM_DESTROY:
+      if (g_getobject_hook) {
+        int handled = 0;
+        g_getobject_hook(hwnd, msg, (uintptr_t)wp, (intptr_t)lp, ctx, &handled);
+      }
       drop_unregister(win);
       win->hwnd = NULL;
       if (--g_open <= 0) {

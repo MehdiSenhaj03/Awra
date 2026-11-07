@@ -721,6 +721,10 @@ void BK_loop_cancel_timer(int id);
  * (Linux hosts; a socket of a D-Bus connection). One watch per fd. */
 int BK_loop_watch_fd(int fd, void (*fn)(int fd, void *data), void *data);
 void BK_loop_unwatch_fd(int fd);
+/* BUI-Awra (Win32): a hook for WM_GETOBJECT (accessibility providers) and
+ * WM_DESTROY; it sets *r_handled to answer the message. */
+void BK_window_set_getobject_hook(intptr_t (*hook)(void *hwnd, unsigned msg, uintptr_t wp,
+                                                   intptr_t lp, BKContext *ctx, int *r_handled));
 /* Physical keys: the evdev number of the key behind the last BK_key /
  * BK_key_release (Linux numbering; Win32 maps its scan codes), and the
  * character a key types in the current layout (unshifted, letters upper
