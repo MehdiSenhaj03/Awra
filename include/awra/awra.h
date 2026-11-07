@@ -562,6 +562,9 @@ void awra_label_set_xalign(AwraWidget *label, float xalign);
 void awra_label_set_yalign(AwraWidget *label, float yalign);
 void awra_label_set_justify(AwraWidget *label, AwraJustify justify);
 void awra_label_set_lines(AwraWidget *label, int lines);
+/* Blank pixels above each paragraph's first line and above its wrapped
+ * lines (logical; GtkTextView's pixels-above-lines, pixels-inside-wrap). */
+void awra_label_set_line_spacing(AwraWidget *label, int above_paragraph, int inside_wrap);
 void awra_label_set_max_width_chars(AwraWidget *label, int chars);
 void awra_label_set_width_chars(AwraWidget *label, int chars);
 void awra_label_set_selectable(AwraWidget *label, bool selectable);
@@ -852,6 +855,9 @@ void awra_sidebar_append(AwraWidget *sidebar, AwraWidget *child);
 void awra_sidebar_append_heading(AwraWidget *sidebar, const char *title);
 void awra_sidebar_set_footer(AwraWidget *sidebar, AwraWidget *footer);
 void awra_sidebar_set_inset(AwraWidget *sidebar, AwraSpacing inset);
+/* The inset at the end edge only (logical px; -1: the inset), as Awra 1's
+ * get_surface().set_margin_end(): 0 lets the panel meet what follows it. */
+void awra_sidebar_set_end_inset(AwraWidget *sidebar, int px);
 
 AwraWidget *awra_navigation_item_new(const char *label, const char *icon_name);
 void awra_navigation_item_set_label(AwraWidget *item, const char *label);
@@ -1234,6 +1240,9 @@ void awra_collection_view_visible_range(AwraWidget *view, int *r_first, int *r_c
  * list: the row height. */
 void awra_collection_view_set_item_size(AwraWidget *view, int width, int height);
 void awra_collection_view_set_row_height(AwraWidget *view, int height);
+/* List: a blank below each row (logical px; Awra 1's spaced-rows role),
+ * part of no item: a press there starts a rubberband. */
+void awra_collection_view_set_row_spacing(AwraWidget *view, int spacing);
 void awra_collection_view_set_max_columns(AwraWidget *view, int n); /* grid, default 7 */
 /* List columns: width in logical px (-1: the title's), expand shares the rest. */
 int awra_collection_view_add_column(AwraWidget *view, const char *title, int width, bool expand);

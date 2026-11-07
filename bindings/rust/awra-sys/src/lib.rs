@@ -412,6 +412,7 @@ extern "C" {
     pub fn awra_label_set_yalign(label: *mut AwraWidget, yalign: f32);
     pub fn awra_label_set_justify(label: *mut AwraWidget, justify: c_int);
     pub fn awra_label_set_lines(label: *mut AwraWidget, lines: c_int);
+    pub fn awra_label_set_line_spacing(label: *mut AwraWidget, above_paragraph: c_int, inside_wrap: c_int);
     pub fn awra_label_set_max_width_chars(label: *mut AwraWidget, chars: c_int);
     pub fn awra_label_set_width_chars(label: *mut AwraWidget, chars: c_int);
     pub fn awra_label_set_selectable(label: *mut AwraWidget, selectable: bool);
@@ -621,6 +622,7 @@ extern "C" {
     pub fn awra_sidebar_append_heading(sidebar: *mut AwraWidget, title: *const c_char);
     pub fn awra_sidebar_set_footer(sidebar: *mut AwraWidget, footer: *mut AwraWidget);
     pub fn awra_sidebar_set_inset(sidebar: *mut AwraWidget, inset: c_int);
+    pub fn awra_sidebar_set_end_inset(sidebar: *mut AwraWidget, px: c_int);
     pub fn awra_navigation_item_new(label: *const c_char, icon_name: *const c_char) -> *mut AwraWidget;
     pub fn awra_navigation_item_set_label(item: *mut AwraWidget, label: *const c_char);
     pub fn awra_navigation_item_label(item: *mut AwraWidget) -> *const c_char;
@@ -834,6 +836,7 @@ extern "C" {
     pub fn awra_collection_view_visible_range(view: *mut AwraWidget, r_first: *mut c_int, r_count: *mut c_int);
     pub fn awra_collection_view_set_item_size(view: *mut AwraWidget, width: c_int, height: c_int);
     pub fn awra_collection_view_set_row_height(view: *mut AwraWidget, height: c_int);
+    pub fn awra_collection_view_set_row_spacing(view: *mut AwraWidget, spacing: c_int);
     pub fn awra_collection_view_set_max_columns(view: *mut AwraWidget, n: c_int);
     pub fn awra_collection_view_add_column(view: *mut AwraWidget, title: *const c_char, width: c_int, expand: bool) -> c_int;
     pub fn awra_collection_view_set_column_title(view: *mut AwraWidget, column: c_int, title: *const c_char);

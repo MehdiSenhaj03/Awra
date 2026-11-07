@@ -34,6 +34,7 @@ typedef struct BinExt {
   AwraWidget *backdrop;      /* surfaces: a local backdrop source */
   short inset;               /* sidebars: logical px around the painted surface,
                               * inside the size request (Awra 1's inner surface margins) */
+  short inset_end;           /* sidebars: at the end edge (-1: inset) */
 } BinExt;
 
 bool awra_paint_material_backdrop(AwraDraw *d, AwraBox b, AwraMaterial material, int role,
@@ -45,7 +46,8 @@ bool awra_paint_material_backdrop(AwraDraw *d, AwraBox b, AwraMaterial material,
 static void bin_measure(AwraWidget *w, int o, int for_size, int *r_min, int *r_nat)
 {
   BinExt *x = BINX(w);
-  const int ph = awra_px(x->pad[1]) + awra_px(x->pad[3]) + 2 * awra_px(x->inset);
+  const int ie = x->inset_end >= 0 ? x->inset_end : x->inset;
+  const int ph = awra_px(x->pad[1]) + awra_px(x->pad[3]) + awra_px(x->inset) + awra_px(ie);
   const int pv = awra_px(x->pad[0]) + awra_px(x->pad[2]) + 2 * awra_px(x->inset);
   const int pad = o == AWRA_ORIENTATION_HORIZONTAL ? ph : pv;
   const int other = o == AWRA_ORIENTATION_HORIZONTAL ? pv : ph;
@@ -64,7 +66,8 @@ static void bin_allocate(AwraWidget *w)
     return;
   }
   const int in = awra_px(x->inset);
-  const int t = awra_px(x->pad[0]) + in, e = awra_px(x->pad[1]) + in, b = awra_px(x->pad[2]) + in,
+  const int ie = awra_px(x->inset_end >= 0 ? x->inset_end : x->inset);
+  const int t = awra_px(x->pad[0]) + in, e = awra_px(x->pad[1]) + ie, b = awra_px(x->pad[2]) + in,
             s = awra_px(x->pad[3]) + in;
   awra_allocate(x->child, w->x + s, w->y + t, BK_MAX(0, w->w - s - e), BK_MAX(0, w->h - t - b));
 }
@@ -78,7 +81,10 @@ static void surface_draw(AwraWidget *w, AwraDraw *d)
   AwraResolvedMaterial m;
   awra_material_resolve((AwraMaterial)x->material, x->role, (AwraElevation)x->elevation, false, &m);
   const float r = x->radius >= 0 ? awra_pxf(x->radius) : awra_pxf(m.radius);
-  const AwraBox box = awra_box_inset(awra_box_of(w), awra_pxf(x->inset));
+  AwraBox box = awra_box_inset(awra_box_of(w), awra_pxf(x->inset));
+  if (x->inset_end >= 0) {
+    box.w += awra_pxf(x->inset) - awra_pxf(x->inset_end);
+  }
   if (x->backdrop &&
       awra_paint_material_backdrop(d, box, (AwraMaterial)x->material, x->role,
                                    (AwraElevation)x->elevation, r, x->corner_mask, x->edge_mask,
@@ -1227,6 +1233,7 @@ AwraWidget *awra_sidebar_new(void)
   x->material = AWRA_MATERIAL_CHROME;
   x->role = AWRA_ROLE_SIDEBAR;
   x->inset = 12;
+  x->inset_end = -1;
   AwraWidget *col = awra_box_new(AWRA_ORIENTATION_VERTICAL, 0);
   AwraWidget *list = awra_box_new(AWRA_ORIENTATION_VERTICAL, 0);
   awra_widget_set_vexpand(list, true);
@@ -1282,6 +1289,13 @@ void awra_sidebar_set_inset(AwraWidget *w, AwraSpacing inset)
   awra_widget_queue_resize(w);
   BINX(w)->corner_mask = m > 0 ? 15 : 0;
   BINX(w)->edge_mask = m > 0 ? AWRA_EDGE_ALL : AWRA_EDGE_END;
+  awra_invalidate(w);
+}
+
+void awra_sidebar_set_end_inset(AwraWidget *w, int px)
+{
+  BINX(w)->inset_end = (short)(px < 0 ? -1 : px);
+  awra_widget_queue_resize(w);
   awra_invalidate(w);
 }
 

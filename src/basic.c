@@ -43,6 +43,7 @@ typedef struct LabelExt {
   int n_objects;
   int inline_size; /* logical px, 0: the letters' height */
   bool rich;       /* every U+FFFC is a picture's square */
+  short above_paragraph, inside_wrap; /* logical px above lines (GtkTextView's) */
 } LabelExt;
 
 #define LX(w) AWRA_EXT(w, LabelExt)
@@ -80,6 +81,7 @@ static void label_sync(AwraWidget *w)
   }
   awra_text_layout_set_wrap(x->layout, x->wrap, x->ellipsize, x->lines);
   awra_text_layout_set_line_factor(x->layout, awra_typography_line_factor(awra_widget_typography(w)));
+  awra_text_layout_set_line_extra(x->layout, awra_pxf(x->above_paragraph), awra_pxf(x->inside_wrap));
   awra_text_layout_set_justify(x->layout, x->justify);
   x->style_gen = awra_style_generation();
 }
@@ -601,6 +603,14 @@ void awra_label_set_justify(AwraWidget *w, AwraJustify j)
 void awra_label_set_lines(AwraWidget *w, int lines)
 {
   LX(w)->lines = lines;
+  label_sync(w);
+  label_changed(w, true);
+}
+
+void awra_label_set_line_spacing(AwraWidget *w, int above_paragraph, int inside_wrap)
+{
+  LX(w)->above_paragraph = (short)BK_MAX(0, above_paragraph);
+  LX(w)->inside_wrap = (short)BK_MAX(0, inside_wrap);
   label_sync(w);
   label_changed(w, true);
 }

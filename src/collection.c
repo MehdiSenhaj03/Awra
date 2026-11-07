@@ -59,6 +59,7 @@ typedef struct CollExt {
   bool show_header;
   int item_w, item_h; /* grid content size, logical */
   int row_h;          /* list row height, logical */
+  int row_gap;        /* list: blank below each row, logical (Awra 1's spaced-rows) */
   int max_cols;
   /* computed, raster */
   int header_h, grid_cols, tile_h, content_h, view_h;
@@ -191,7 +192,7 @@ static void compute_geometry(AwraWidget *w)
     compute_columns(w);
     x->grid_cols = 1;
     x->col_w = w->w;
-    x->tile_h = list_row_h(x);
+    x->tile_h = list_row_h(x) + awra_px(x->row_gap);
     x->content_h = x->n * x->tile_h;
   }
   const double maxv = BK_MAX(0, x->content_h - x->view_h);
@@ -222,7 +223,7 @@ static void item_rect(AwraWidget *w, int i, int *rx, int *ry, int *rw, int *rh)
     *rx = w->x;
     *ry = top + i * x->tile_h;
     *rw = w->w;
-    *rh = x->tile_h;
+    *rh = x->tile_h - awra_px(x->row_gap);
   }
 }
 
@@ -249,6 +250,10 @@ static int index_at(AwraWidget *w, int px, int py, bool *r_content)
   }
   else {
     i = (int)(cy / x->tile_h);
+    /* the gap below a row is blank */
+    if (x->row_gap > 0 && cy - (double)i * x->tile_h >= x->tile_h - awra_px(x->row_gap)) {
+      return -1;
+    }
   }
   if (i < 0 || i >= x->n) {
     return -1;
@@ -1346,7 +1351,23 @@ void awra_collection_view_set_row_height(AwraWidget *w, int height)
   const double ratio = x->tile_h > 0 ? x->vvalue / x->tile_h : 0;
   x->row_h = height;
   if (x->layout == AWRA_COLLECTION_LIST) {
-    x->vvalue = ratio * list_row_h(x);
+    x->vvalue = ratio * (list_row_h(x) + awra_px(x->row_gap));
+  }
+  awra_queue_allocate(w);
+  awra_invalidate(w);
+}
+
+void awra_collection_view_set_row_spacing(AwraWidget *w, int spacing)
+{
+  CollExt *x = CX(w);
+  spacing = BK_MAX(0, spacing);
+  if (x->row_gap == spacing) {
+    return;
+  }
+  const double ratio = x->tile_h > 0 ? x->vvalue / x->tile_h : 0;
+  x->row_gap = spacing;
+  if (x->layout == AWRA_COLLECTION_LIST) {
+    x->vvalue = ratio * (list_row_h(x) + awra_px(x->row_gap));
   }
   awra_queue_allocate(w);
   awra_invalidate(w);

@@ -77,6 +77,13 @@ static int icon_space(PathExt *x)
   return x->icon ? awra_px(2) + awra_px(15) + awra_px(4) : 0;
 }
 
+/* Awra 1 drew the first crumb's text 29 px into the bar after its 15 px
+ * icon: the trail starts 7 px before the field's text does. */
+static int trail_pull(PathExt *x)
+{
+  return x->icon ? awra_px(7) : 0;
+}
+
 static void path_measure(AwraWidget *w, int o, int for_size, int *r_min, int *r_nat)
 {
   PathExt *x = PX(w);
@@ -85,7 +92,7 @@ static void path_measure(AwraWidget *w, int o, int for_size, int *r_min, int *r_
     awra_measure(x->end, o, -1, &emn, &ent);
   }
   if (o == AWRA_ORIENTATION_HORIZONTAL) {
-    const int base = awra_px(1) * 2 + awra_px(6) + awra_px(3) + icon_space(x) + emn;
+    const int base = awra_px(1) * 2 + awra_px(6) + awra_px(3) + icon_space(x) - trail_pull(x) + emn;
     *r_min = base + awra_px(64);
     layout_crumbs(w);
     *r_nat = base + trail_width(x) + awra_px(36);
@@ -114,8 +121,8 @@ static void path_allocate(AwraWidget *w)
   /* the field */
   awra_allocate(x->entry, left + awra_px(4), w->y + b, BK_MAX(0, right - left - awra_px(8)), w->h - 2 * b);
   /* the trail keeps 36 px of the field empty, and shows its end */
-  x->trail_x = left;
-  x->trail_w = BK_MAX(0, right - left - awra_px(36));
+  x->trail_x = left - trail_pull(x);
+  x->trail_w = BK_MAX(0, right - x->trail_x - awra_px(36));
   const int tw = trail_width(x);
   x->offset = tw > x->trail_w ? tw - x->trail_w : 0;
 }

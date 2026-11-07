@@ -459,6 +459,7 @@ enum {
 bool awra_inherited_style(const AwraWidget *w, AwraRGBA *r_color, int *r_weight);
 float awra_typography_line_factor(AwraTypography t);
 void awra_text_layout_set_line_factor(AwraTextLayout *l, float factor);
+void awra_text_layout_set_line_extra(AwraTextLayout *l, float paragraph, float wrapped);
 
 /* Button looks (button.c), shared by buttons, toggles, menu buttons,
  * segments and window controls. */

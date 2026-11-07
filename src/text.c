@@ -181,6 +181,9 @@ struct AwraTextLayout {
   int max_lines;
   AwraJustify justify;
   float line_factor;
+  float para_extra, wrap_extra; /* raster px above each paragraph's first line, and
+                                 * above its other lines (GtkTextView's pixels-above-lines
+                                 * and pixels-inside-wrap) */
   /* the layout for one width */
   int laid_width; /* -2: dirty */
   Line *lines;
@@ -650,6 +653,15 @@ void awra_text_layout_set_line_factor(AwraTextLayout *l, float factor)
   }
 }
 
+void awra_text_layout_set_line_extra(AwraTextLayout *l, float paragraph, float wrapped)
+{
+  if (l->para_extra != paragraph || l->wrap_extra != wrapped) {
+    l->para_extra = paragraph;
+    l->wrap_extra = wrapped;
+    dirty(l);
+  }
+}
+
 void awra_text_layout_set_wrap(AwraTextLayout *l, AwraWrap wrap, AwraEllipsize e, int max_lines)
 {
   if (l->wrap != wrap || l->ellipsize != e || l->max_lines != max_lines) {
@@ -769,7 +781,7 @@ static void add_run(AwraTextLayout *l, int a, int b, float x)
   }
 }
 
-static void line_metrics(AwraTextLayout *l, Line *ln)
+static void line_metrics(AwraTextLayout *l, Line *ln, bool para_start)
 {
   float asc = awra_font_ascent(&l->font), h = awra_font_line_height(&l->font);
   for (int i = 0; i < ln->n_runs; i++) {
@@ -797,6 +809,11 @@ static void line_metrics(AwraTextLayout *l, Line *ln)
     const float nh = h * l->line_factor;
     asc += (nh - h) * 0.5f;
     h = nh;
+  }
+  const float extra = para_start ? l->para_extra : l->wrap_extra;
+  if (extra > 0.0f) {
+    asc += extra;
+    h += extra;
   }
   ln->ascent = asc;
   ln->height = h;
@@ -937,6 +954,7 @@ static void layout(AwraTextLayout *l, int width)
     }
     int a = pos;
     do {
+      const bool para_start = a == pos;
       Line *ln = push_line(l);
       const bool last_allowed = l->n_lines >= max_lines;
       const float full = range_width(l, a, para_end);
@@ -1007,7 +1025,7 @@ static void layout(AwraTextLayout *l, int width)
           a++;
         }
       }
-      line_metrics(l, ln);
+      line_metrics(l, ln, para_start);
       if (l->n_lines >= max_lines && (a < para_end || para_end < l->len)) {
         pos = l->len + 1;
         break;
