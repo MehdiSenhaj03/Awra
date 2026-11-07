@@ -1219,6 +1219,9 @@ void awra_video_view_present(AwraWidget *view, void *frame);
 void awra_video_view_release(AwraWidget *view, void *frame);
 /* UI thread */
 void awra_video_view_clear(AwraWidget *view); /* no frame: the background */
+/* Any thread, before configure: NV12's matrix, 601 or 709 (BT.601 /
+ * BT.709, limited range), 0 (the default): BT.709 above 576 rows. */
+void awra_video_view_set_matrix(AwraWidget *view, int matrix);
 bool awra_video_view_has_frame(AwraWidget *view);
 /* The frame shown: pixels and display aspect ratio (0 without a frame). */
 void awra_video_view_frame_size(AwraWidget *view, int *r_width, int *r_height, double *r_aspect);

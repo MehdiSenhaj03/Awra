@@ -120,6 +120,11 @@ impl VideoSink {
     fn p(&self) -> *mut ffi::AwraWidget {
         self.0 as *mut ffi::AwraWidget
     }
+    /// NV12's matrix for the next configure: 601 or 709 (limited range),
+    /// 0 (the default) BT.709 above 576 rows.
+    pub fn set_matrix(&self, matrix: i32) {
+        unsafe { ffi::awra_video_view_set_matrix(self.p(), matrix) }
+    }
     /// (Re)allocates the frames; returns the planes' (row bytes, rows).
     pub fn configure(
         &self,

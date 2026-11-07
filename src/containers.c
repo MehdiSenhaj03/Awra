@@ -1329,6 +1329,47 @@ static void overlay_allocate(AwraWidget *w)
       awra_allocate(c, w->x + awra_px(rx), w->y + awra_px(ry), awra_px(rw), awra_px(rh));
       continue;
     }
+    AwraAux *a = awra_aux(c);
+    if (c != x->child && (a->halign == AWRA_ALIGN_CENTER || a->valign == AWRA_ALIGN_CENTER) &&
+        awra_child_visible(c))
+    {
+      /* GtkOverlay's own get-child-position: the preferred size within
+       * the overlay, centred as width / 2 - size / 2 in whole logical px
+       * (half a pixel lower and further right than gtk_widget's
+       * (size - natural) / 2) */
+      const int k = BK_MAX(1, (int)awra_scale());
+      int min_w, nat_w, min_h, nat_h, unused;
+      awra_measure(c, AWRA_ORIENTATION_HORIZONTAL, -1, &min_w, &nat_w);
+      awra_measure(c, AWRA_ORIENTATION_VERTICAL, min_w, &min_h, &unused);
+      awra_measure(c, AWRA_ORIENTATION_VERTICAL, nat_w, &unused, &nat_h);
+      int cw = BK_MAX(min_w, BK_MIN(w->w, nat_w)), ch = BK_MAX(min_h, BK_MIN(w->h, nat_h));
+      int cx = 0, cy = 0;
+      if (a->halign == AWRA_ALIGN_CENTER) {
+        cx = (w->w / k / 2 - cw / k / 2) * k;
+      }
+      else if (a->halign == AWRA_ALIGN_FILL) {
+        cw = BK_MAX(cw, w->w);
+      }
+      else {
+        cx = 0;
+        cw = w->w; /* start / end: aligned by awra_allocate */
+      }
+      if (a->valign == AWRA_ALIGN_CENTER) {
+        cy = (w->h / k / 2 - ch / k / 2) * k;
+      }
+      else if (a->valign == AWRA_ALIGN_FILL) {
+        ch = BK_MAX(ch, w->h);
+      }
+      else {
+        cy = 0;
+        ch = w->h;
+      }
+      if (awra_widget_rtl(w) && a->halign == AWRA_ALIGN_CENTER) {
+        cx = w->w - cx - cw; /* mirrored back by awra_allocate */
+      }
+      awra_allocate(c, w->x + cx, w->y + cy, cw, ch);
+      continue;
+    }
     awra_allocate(c, w->x, w->y, w->w, w->h);
   }
 }

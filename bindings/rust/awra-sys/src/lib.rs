@@ -962,6 +962,7 @@ extern "C" {
     pub fn awra_video_view_present(view: *mut AwraWidget, frame: *mut c_void);
     pub fn awra_video_view_release(view: *mut AwraWidget, frame: *mut c_void);
     pub fn awra_video_view_clear(view: *mut AwraWidget);
+    pub fn awra_video_view_set_matrix(view: *mut AwraWidget, matrix: c_int);
     pub fn awra_video_view_has_frame(view: *mut AwraWidget) -> bool;
     pub fn awra_video_view_frame_size(view: *mut AwraWidget, r_width: *mut c_int, r_height: *mut c_int, r_aspect: *mut f64);
     pub fn awra_video_view_set_content_fit(view: *mut AwraWidget, fit: c_int);

@@ -43,6 +43,11 @@ typedef struct WinExt {
   AwraWidget *path[MAX_PATH];
   int npath;
   bool hover_repick; /* a widget under the pointer went: pick again on idle */
+  /* the root surface's rounded clip over the content (a video reaching
+   * the corners): what lay under the corners while it draws */
+  uint32_t *corners;
+  size_t corners_cap;
+  bool corners_saved;
   AwraWidget *transient_for; /* not held: cleared when it closes */
   bool modal;
   AwraWidget *focus;
@@ -96,6 +101,7 @@ static void window_init(AwraWidget *w)
 static void window_finalize(AwraWidget *w)
 {
   WinExt *x = WEXT(w);
+  free(x->corners);
   if (x->focus_visible_timer) {
     awra_source_remove(x->focus_visible_timer);
     x->focus_visible_timer = 0;
@@ -294,17 +300,53 @@ static void window_allocate(AwraWidget *w)
   }
 }
 
-static void window_draw(AwraWidget *w, AwraDraw *d)
+static void window_material(AwraWidget *w, AwraResolvedMaterial *m)
 {
-  AwraResolvedMaterial m;
   /* Awra 1's AwraDialog gives its root surface the Floating material at the
    * modal elevation; other windows' are the canvas */
   const bool floating = WEXT(w)->floating;
   awra_material_resolve(floating ? AWRA_MATERIAL_FLOATING : AWRA_MATERIAL_CANVAS, AWRA_ROLE_WINDOW,
-                        floating ? AWRA_ELEVATION_MODAL : AWRA_ELEVATION_FLAT, blur_active(w), &m);
+                        floating ? AWRA_ELEVATION_MODAL : AWRA_ELEVATION_FLAT, blur_active(w), m);
+}
+
+static void window_draw(AwraWidget *w, AwraDraw *d)
+{
+  AwraResolvedMaterial m;
+  window_material(w, &m);
   const bool sq = squared(w);
-  awra_paint_material(d, awra_box_of(w), &m, sq ? 0.0f : awra_pxf(m.radius), 15,
-                      sq ? 0 : AWRA_EDGE_ALL, AWRA_ELEVATION_FLAT);
+  awra_paint_material(d, awra_box_of(w), &m, sq ? 0.0f : awra_pxf(m.radius), 15, 0, AWRA_ELEVATION_FLAT);
+  WinExt *x = WEXT(w);
+  x->corners_saved = false;
+  if (!sq) {
+    const AwraBox b = awra_box_of(w);
+    const float r = awra_pxf(m.radius), radii[4] = {r, r, r, r};
+    const size_t n = (size_t)BUI_raster_corners_size(b.w, b.h, radii);
+    if (n > x->corners_cap) {
+      free(x->corners);
+      x->corners = (uint32_t *)malloc(sizeof(uint32_t) * n);
+      x->corners_cap = x->corners ? n : 0;
+    }
+    x->corners_saved = x->corners && BUI_raster_corners_save(d->r, b.x, b.y, b.w, b.h, radii, x->corners);
+  }
+}
+
+/* the root surface's outline and rim, over everything in it (AwraSurface
+ * draws them after its child: over a video too) */
+static void window_draw_over(AwraWidget *w, AwraDraw *d)
+{
+  WinExt *x = WEXT(w);
+  AwraResolvedMaterial m;
+  window_material(w, &m);
+  if (x->corners_saved) { /* the content clipped to the rounded corners */
+    x->corners_saved = false;
+    const AwraBox b = awra_box_of(w);
+    const float r = awra_pxf(m.radius), radii[4] = {r, r, r, r};
+    BUI_raster_corners_clip(d->r, b.x, b.y, b.w, b.h, radii, x->corners);
+  }
+  if (squared(w)) {
+    return;
+  }
+  awra_paint_material_edges(d, awra_box_of(w), &m, awra_pxf(m.radius), 15, AWRA_EDGE_ALL);
 }
 
 /* Client-side resize: the 6 px band inside the window's edge (corners 16). */
@@ -394,6 +436,7 @@ static AwraClass window_class = {
     .measure = window_measure,
     .allocate = window_allocate,
     .draw = window_draw,
+    .draw_over = window_draw_over,
     .press = window_press,
     .cursor = window_cursor,
     .key = window_key,

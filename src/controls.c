@@ -490,7 +490,11 @@ static void slider_draw(AwraWidget *w, AwraDraw *d)
                           (AwraBox){trough.x + th * 0.5f - ts * 0.5f, cxy - ts * 0.5f, ts, ts};
   const AwraRGBA shadow = {0, 0, 0, 0.30f}, edge = {0, 0, 0, 0.12f};
   awra_paint_shadow(d, thumb, ts * 0.5f, 0, awra_pxf(2), 0, awra_pxf(6), &shadow, true);
-  awra_paint_rbox(d, thumb, ts * 0.5f, &t->control_thumb, awra_pxf(1), &edge);
+  /* background-clip: padding-box: the thumb inside its 12 % black border */
+  const float one = awra_pxf(1);
+  const AwraBox fill = {thumb.x + one, thumb.y + one, thumb.w - 2 * one, thumb.h - 2 * one};
+  awra_paint_rbox(d, fill, fill.w * 0.5f, &t->control_thumb, 0, NULL);
+  awra_paint_rbox(d, thumb, ts * 0.5f, NULL, one, &edge);
   if (vh) {
     /* scale > value { color: alpha(currentColor, .55) }, centered on the
      * thumb and kept inside the slider */

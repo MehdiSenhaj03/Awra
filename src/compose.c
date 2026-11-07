@@ -36,6 +36,7 @@ typedef struct BinExt {
   short inset;               /* sidebars: logical px around the painted surface,
                               * inside the size request (Awra 1's inner surface margins) */
   short inset_end;           /* sidebars: at the end edge (-1: inset) */
+  bool drew_backdrop;        /* surfaces: the last draw went over the backdrop */
 } BinExt;
 
 bool awra_paint_material_backdrop(AwraDraw *d, AwraBox b, AwraMaterial material, int role,
@@ -126,20 +127,37 @@ static void surface_save_corners(AwraWidget *w, AwraDraw *d)
   }
 }
 
+static AwraBox surface_paint_box(AwraWidget *w)
+{
+  BinExt *x = BINX(w);
+  AwraBox box = awra_box_inset(awra_box_of(w), awra_pxf(x->inset));
+  if (x->inset_end >= 0) {
+    box.w += awra_pxf(x->inset) - awra_pxf(x->inset_end);
+  }
+  return box;
+}
+
 static void surface_draw_over(AwraWidget *w, AwraDraw *d)
 {
   AwraBox b;
   float radii[4];
-  if (!awra_aux(w)->corners_saved) {
+  if (awra_aux(w)->corners_saved) {
+    awra_aux(w)->corners_saved = 0;
+    if (surface_clip_box(w, &b, radii)) { /* (it can't change while it draws) */
+      const size_t n = (size_t)BUI_raster_corners_size(b.w, b.h, radii);
+      g_corners_top -= n;
+      BUI_raster_corners_clip(d->r, b.x, b.y, b.w, b.h, radii, g_corners + g_corners_top);
+    }
+  }
+  BinExt *x = BINX(w);
+  if (!x->paints) {
     return;
   }
-  awra_aux(w)->corners_saved = 0;
-  if (!surface_clip_box(w, &b, radii)) {
-    return; /* (it can't change while it draws) */
-  }
-  const size_t n = (size_t)BUI_raster_corners_size(b.w, b.h, radii);
-  g_corners_top -= n;
-  BUI_raster_corners_clip(d->r, b.x, b.y, b.w, b.h, radii, g_corners + g_corners_top);
+  AwraResolvedMaterial m;
+  awra_material_resolve((AwraMaterial)x->material, x->role, (AwraElevation)x->elevation,
+                        x->drew_backdrop, &m);
+  const float r = x->radius >= 0 ? awra_pxf(x->radius) : awra_pxf(m.radius);
+  awra_paint_material_edges(d, surface_paint_box(w), &m, r, x->corner_mask, x->edge_mask);
 }
 
 static void surface_draw(AwraWidget *w, AwraDraw *d)
@@ -151,16 +169,15 @@ static void surface_draw(AwraWidget *w, AwraDraw *d)
   AwraResolvedMaterial m;
   awra_material_resolve((AwraMaterial)x->material, x->role, (AwraElevation)x->elevation, false, &m);
   const float r = x->radius >= 0 ? awra_pxf(x->radius) : awra_pxf(m.radius);
-  AwraBox box = awra_box_inset(awra_box_of(w), awra_pxf(x->inset));
-  if (x->inset_end >= 0) {
-    box.w += awra_pxf(x->inset) - awra_pxf(x->inset_end);
-  }
-  if (!(x->backdrop &&
-        awra_paint_material_backdrop(d, box, (AwraMaterial)x->material, x->role,
-                                     (AwraElevation)x->elevation, r, x->corner_mask, x->edge_mask,
-                                     x->backdrop)))
-  {
-    awra_paint_material(d, box, &m, r, x->corner_mask, x->edge_mask, (AwraElevation)x->elevation);
+  AwraBox box = surface_paint_box(w);
+  /* the fill under the content; the outline and rim over it
+   * (surface_draw_over), as AwraSurface's snapshot */
+  x->drew_backdrop = x->backdrop &&
+                     awra_paint_material_backdrop(d, box, (AwraMaterial)x->material, x->role,
+                                                  (AwraElevation)x->elevation, r, x->corner_mask, 0,
+                                                  x->backdrop);
+  if (!x->drew_backdrop) {
+    awra_paint_material(d, box, &m, r, x->corner_mask, 0, (AwraElevation)x->elevation);
   }
   surface_save_corners(w, d);
 }

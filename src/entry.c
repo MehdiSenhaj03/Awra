@@ -32,6 +32,7 @@ typedef struct EditExt {
   /* spin */
   double min, max, step, value;
   int digits;
+  int width_chars; /* spin buttons: the text's width in chars (Awra 1's) */
   int spin_hot; /* -1 none, 0 down, 1 up */
   bool dragging;
   char masked[1]; /* (unused) */
@@ -215,11 +216,16 @@ static void edit_measure(AwraWidget *w, int o, int for_size, int *r_min, int *r_
   layout_sync(w);
   if (o == AWRA_ORIENTATION_HORIZONTAL) {
     if (x->spin) {
+      /* GtkText with width-chars: char_pixels (the larger of Pango's
+       * approximate char and digit widths, rounded up) times the chars */
       AwraFont f = edit_font(w);
-      char buf[64];
-      snprintf(buf, sizeof(buf), "%.*f", x->digits, x->max);
-      const int tw = (int)ceilf(awra_text_width(&f, buf, -1));
-      *r_min = *r_nat = l + r + BK_MAX(tw, awra_px(16));
+      static const char sample[] = "The quick brown fox jumps over the lazy dog.";
+      float cw = awra_text_width(&f, sample, (int)sizeof(sample) - 1) / (float)(sizeof(sample) - 1);
+      for (char d = '0'; d <= '9'; d++) {
+        cw = fmaxf(cw, awra_text_width(&f, &d, 1));
+      }
+      const int tw = (int)ceilf(cw) * x->width_chars;
+      *r_min = *r_nat = l + r + tw;
       return;
     }
     *r_min = l + r + (inline_edit(w) ? 0 : awra_px(64));
@@ -1196,6 +1202,13 @@ AwraWidget *awra_spin_button_new(double min, double max, double step)
   x->step = step;
   x->value = min;
   x->digits = step > 0 && step < 1 ? (step < 0.1 ? 2 : 1) : 0;
+  /* Awra 1's fit_width_to_range, at construction while its GtkSpinButton
+   * still shows no decimals: the widest of the bounds as integers, 2 at
+   * least (decimals set later don't widen it) */
+  char lo[64], hi[64];
+  snprintf(lo, sizeof(lo), "%.0f", min);
+  snprintf(hi, sizeof(hi), "%.0f", max);
+  x->width_chars = BK_MAX(2, (int)BK_MAX(strlen(lo), strlen(hi)));
   awra_widget_set_data(w, "awra-type", (void *)"AwraSpinButton", NULL);
   spin_show(w);
   return w;
