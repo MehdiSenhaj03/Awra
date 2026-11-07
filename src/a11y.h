@@ -255,6 +255,9 @@ void awra_a11y_flush(void);
 int awra_utf8_chars(const char *s, int bytes); /* bytes -1: to the end */
 int awra_utf8_offset(const char *s, int chars); /* byte index of char `chars` */
 
+/* The window's top-left on the screen (logical px); false: unknown. */
+bool awra_window_screen_origin(AwraWidget *window, double *x, double *y);
+
 /* Platform backends (atspi.c, uia.c): started when the first window shows. */
 void awra_a11y_platform_start(void);
 void awra_a11y_platform_stop(void);

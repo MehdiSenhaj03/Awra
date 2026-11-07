@@ -93,6 +93,10 @@ struct AwraClass {
   int (*a11y_items)(AwraWidget *w);
   void (*a11y_item)(AwraWidget *w, int item, struct AwraA11yInfo *info, double rect[4]);
   bool (*a11y_do)(AwraWidget *w, int item, int verb, double value);
+  /* a container describing its children (list cells: role, selected) and
+   * acting on them (select, activate) */
+  void (*a11y_child)(AwraWidget *w, AwraWidget *child, struct AwraA11yInfo *info);
+  bool (*a11y_child_do)(AwraWidget *w, AwraWidget *child, int verb, double value);
 };
 
 /* Declares the kit side of an Awra class: every hook goes to Awra's

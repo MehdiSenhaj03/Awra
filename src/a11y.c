@@ -553,7 +553,7 @@ static const struct {
   unsigned char role;
 } g_class_roles[] = {
     {"AwraWindow", AWRA_ACCESSIBLE_ROLE_WINDOW},
-    {"AwraHeader", AWRA_ACCESSIBLE_ROLE_GROUP},
+    {"AwraHeader", AWRA_ACCESSIBLE_ROLE_BANNER}, /* Awra 1 */
     {"AwraLabel", AWRA_ACCESSIBLE_ROLE_LABEL},
     {"AwraRichLabel", AWRA_ACCESSIBLE_ROLE_PRESENTATION}, /* its label speaks */
     {"AwraImage", AWRA_ACCESSIBLE_ROLE_IMG},
@@ -611,7 +611,7 @@ static const struct {
     {"AwraKeyboardView", AWRA_ACCESSIBLE_ROLE_GROUP},
     {"AwraWaveformView", AWRA_ACCESSIBLE_ROLE_SLIDER},
     {"AwraMediaRow", AWRA_ACCESSIBLE_ROLE_GROUP},
-    {"AwraDropZone", AWRA_ACCESSIBLE_ROLE_BUTTON},
+    {"AwraDropZone", AWRA_ACCESSIBLE_ROLE_GROUP},
     {"AwraDrawingArea", AWRA_ACCESSIBLE_ROLE_GENERIC},
     {"AwraVideoView", AWRA_ACCESSIBLE_ROLE_GENERIC},
     {"AwraTimeline", AWRA_ACCESSIBLE_ROLE_SLIDER},
@@ -802,6 +802,9 @@ void awra_a11y_info(AwraWidget *w, AwraA11yInfo *info)
   }
   if (cls->a11y) {
     cls->a11y(w, info);
+  }
+  if (w->parent && awra_is_widget(w->parent) && AWRA_CLASS_OF(w->parent)->a11y_child) {
+    AWRA_CLASS_OF(w->parent)->a11y_child(w->parent, w, info);
   }
   apply_explicit(w, info);
 }
@@ -1335,6 +1338,12 @@ bool awra_a11y_do(AwraWidget *w, int item, int verb, double value)
   if (cls->a11y_do && cls->a11y_do(w, item, verb, value)) {
     return true;
   }
+  if (item < 0 && w->parent && awra_is_widget(w->parent) &&
+      AWRA_CLASS_OF(w->parent)->a11y_child_do &&
+      AWRA_CLASS_OF(w->parent)->a11y_child_do(w->parent, w, verb, value))
+  {
+    return true;
+  }
   if (item >= 0 || !awra_sensitive(w)) {
     return false;
   }
@@ -1816,6 +1825,41 @@ void awra_a11y_flush(void)
         mark(g_holders[k]);
       }
     }
+    if (AWRA_CLASS_OF(w)->a11y_child) {
+      AwraWidget *win = awra_window_of(w);
+      const bool focused = win && awra_focus_of(win) == w;
+      for (int k = 0; k < w->nkids; k++) {
+        AwraWidget *c = w->kids[k];
+        if (focused && awra_is_widget(c) && !awra_a11y_snap(c)) {
+          /* the focused one of its cells (a list's cursor) is told */
+          AwraA11yInfo ci;
+          awra_a11y_info(c, &ci);
+          if (ci.flags & AWRA_A11Y_FOCUSED) {
+            awra_a11y_expose(c);
+            awra_a11y_snap(c)->states &= ~(unsigned)AWRA_A11Y_FOCUSED;
+          }
+        }
+        mark(c);
+      }
+    }
+  }
+  /* the widget losing the focus is told first, the one gaining it last */
+  for (int pass = 0; pass < 2; pass++) {
+    for (int i = 0; i < g_ndirty && g_backend; i++) {
+      AwraWidget *w = g_dirty[i];
+      struct AwraA11y *x = w ? a11y_of(w) : NULL;
+      if (!x || !x->snap) {
+        continue;
+      }
+      if (pass == 0 && !(x->snap->states & AWRA_A11Y_FOCUSED)) {
+        continue;
+      }
+      x->dirty = 0;
+      g_dirty[i] = NULL;
+      awra_widget_ref(w);
+      compare(w, x);
+      awra_widget_unref(w);
+    }
   }
   for (int i = 0; i < g_ndirty; i++) {
     AwraWidget *w = g_dirty[i];
@@ -1987,7 +2031,8 @@ void awra_a11y_free(AwraWidget *w)
   }
 }
 
-#if !defined(__linux__) && !defined(_WIN32)
+#if !defined(__linux__) && !defined(__FreeBSD__) && !defined(__OpenBSD__) && \
+    !defined(__NetBSD__) && !defined(_WIN32)
 void awra_a11y_platform_start(void) {}
 void awra_a11y_platform_stop(void) {}
 #endif

@@ -1376,6 +1376,25 @@ void *awra_window_native_handle(AwraWidget *w)
   return x->bkw ? BK_window_handle(x->bkw) : NULL;
 }
 
+/* the window's top-left on the screen, logical px (false: unknown, as on
+ * Wayland) */
+bool awra_window_screen_origin(AwraWidget *w, double *x, double *y);
+bool awra_window_screen_origin(AwraWidget *w, double *x, double *y)
+{
+  *x = *y = 0.0;
+  if (!awra_widget_is(w, "AwraWindow") || !WEXT(w)->bkw) {
+    return false;
+  }
+  double a, b;
+  if (!BK_window_wm_get(WEXT(w)->bkw, "pos", &a, &b)) {
+    return false;
+  }
+  const double s = WEXT(w)->scale > 0 ? WEXT(w)->scale : 1.0;
+  *x = a / s;
+  *y = b / s;
+  return true;
+}
+
 int awra_window_count(void)
 {
   return g_nwindows;
