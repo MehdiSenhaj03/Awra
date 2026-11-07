@@ -9,6 +9,7 @@
  * SPDX-License-Identifier: GPL-3.0-or-later */
 
 #include "awra-private.h"
+#include "a11y.h"
 
 #include <ctype.h>
 #include <stdio.h>
@@ -207,12 +208,61 @@ static void pop_finalize(AwraWidget *w)
   }
 }
 
+AwraWidget *awra_first_focusable(AwraWidget *root);
+
+static void collect_focus_chain(AwraWidget *n, AwraWidget **out, int *count, int max)
+{
+  if (!(n->flags & NF_VISIBLE) || *count >= max) {
+    return;
+  }
+  if (awra_is_widget(n) && awra_sensitive(n) &&
+      (AWRA_CLASS_OF(n)->flags & (AWRA_CLASS_FOCUSABLE | AWRA_CLASS_TEXT_INPUT)))
+  {
+    out[(*count)++] = n;
+  }
+  for (int i = 0; i < n->nkids; i++) {
+    collect_focus_chain(n->kids[i], out, count, max);
+  }
+}
+
+/* Menus: the arrow keys move between rows (GtkPopoverMenu) */
 static int pop_key(AwraWidget *w, BKEvent *e)
 {
-  return 0;
+  const bool down = bk_keysym_is(e->keysym, "Down"), up = bk_keysym_is(e->keysym, "Up");
+  const bool home = bk_keysym_is(e->keysym, "Home"), end = bk_keysym_is(e->keysym, "End");
+  if (!POPX(w)->menu || !(down || up || home || end)) {
+    return 0;
+  }
+  AwraWidget *win = awra_window_of(POPX(w)->anchor ? POPX(w)->anchor : w);
+  if (!win) {
+    return 0;
+  }
+  AwraWidget *list[256];
+  int n = 0;
+  collect_focus_chain(w, list, &n, 256);
+  if (!n) {
+    return 0;
+  }
+  AwraWidget *f = awra_window_focus(win);
+  int cur = -1;
+  for (int i = 0; i < n; i++) {
+    if (list[i] == f) {
+      cur = i;
+    }
+  }
+  int next = home ? 0 : end ? n - 1 : cur < 0 ? (down ? 0 : n - 1) : (cur + (down ? 1 : -1) + n) % n;
+  awra_set_focus(win, list[next], true);
+  return 1;
+}
+
+/* GtkPopover is a dialog, GtkPopoverMenu a menu */
+static void pop_a11y(AwraWidget *w, AwraA11yInfo *info)
+{
+  info->role = POPX(w)->menu ? AWRA_ACCESSIBLE_ROLE_MENU : AWRA_ACCESSIBLE_ROLE_DIALOG;
 }
 
 AwraClass awra_popover_class = {
+    .a11y = pop_a11y,
     .bk = AWRA_BK("AwraPopover", CLS_POPUP),
     .type = "AwraPopover",
     .flags = AWRA_CLASS_CONTAINER | AWRA_CLASS_POPUP,
@@ -291,13 +341,15 @@ static void popup_with(AwraWidget *w, AwraWidget *owner)
   bk_ctx_request(ctx);
   awra_anim_start(w, 120, unfold_anim, NULL, NULL);
   awra_emit_simple(w, AWRA_SIGNAL_SHOW);
-  /* keyboard focus moves in: its first focusable widget */
+  /* keyboard focus moves in: its first focusable widget (a text field
+   * always; any widget when the popover was opened from the keyboard, its
+   * ring shown, as GTK's popovers take the focus) */
   AwraWidget *win = awra_window_of(owner);
   if (win) {
-    extern AwraWidget *awra_first_focusable(AwraWidget *root);
     AwraWidget *f = awra_first_focusable(w);
-    if (f && (AWRA_CLASS_OF(f)->flags & AWRA_CLASS_TEXT_INPUT)) {
-      awra_set_focus(win, f, false);
+    const bool keyboard = awra_focus_visible(owner);
+    if (f && ((AWRA_CLASS_OF(f)->flags & AWRA_CLASS_TEXT_INPUT) || keyboard)) {
+      awra_set_focus(win, f, keyboard);
     }
   }
 }
@@ -565,7 +617,30 @@ static void row_finalize(AwraWidget *w)
   free(x->accel);
 }
 
+/* menu items (check items), dropdown choices, palette commands */
+static void row_a11y(AwraWidget *w, AwraA11yInfo *info)
+{
+  RowExt *x = RX(w);
+  info->label = x->label;
+  info->shortcut = x->accel;
+  if (x->kind == 0) {
+    info->role = x->check >= 0 ? AWRA_ACCESSIBLE_ROLE_MENU_ITEM_CHECKBOX : AWRA_ACCESSIBLE_ROLE_MENU_ITEM;
+    if (x->check >= 0) {
+      awra_a11y_set_state(info, AWRA_ACCESSIBLE_STATE_CHECKED, x->check == 1);
+    }
+  }
+  else if (x->kind == 1) {
+    info->role = AWRA_ACCESSIBLE_ROLE_MENU_ITEM_RADIO;
+    awra_a11y_set_state(info, AWRA_ACCESSIBLE_STATE_CHECKED, x->selected);
+  }
+  else {
+    info->role = AWRA_ACCESSIBLE_ROLE_LIST_ITEM;
+    awra_a11y_set_state(info, AWRA_ACCESSIBLE_STATE_SELECTED, x->selected);
+  }
+}
+
 static AwraClass row_class = {
+    .a11y = row_a11y,
     .bk = AWRA_BK("AwraMenuRow", CLS_INTERACTIVE),
     .type = "AwraMenuRow",
     .flags = AWRA_CLASS_HOVER | AWRA_CLASS_FOCUSABLE | AWRA_CLASS_ACTIVATABLE,
@@ -740,6 +815,28 @@ static MenuBtnData *mb(AwraWidget *w)
   return (MenuBtnData *)awra_widget_get_data(w, "awra-menu-button");
 }
 
+typedef struct DropData DropData;
+static DropData *dd(AwraWidget *w);
+static AwraWidget *drop_popover(DropData *d);
+
+/* A button that opens a popover (menu buttons, dropdowns): has-popup and
+ * expanded while it shows (button.c asks). */
+void awra_popover_owner_a11y(AwraWidget *w, AwraA11yInfo *info);
+void awra_popover_owner_a11y(AwraWidget *w, AwraA11yInfo *info)
+{
+  MenuBtnData *m = mb(w);
+  DropData *d = m ? NULL : dd(w);
+  if (!m && !d) {
+    return;
+  }
+  AwraWidget *pop = m ? m->popover : drop_popover(d);
+  info->flags |= AWRA_A11Y_HAS_POPUP;
+  awra_a11y_set_state(info, AWRA_ACCESSIBLE_STATE_EXPANDED, pop && awra_popover_visible(pop));
+  if (d) {
+    info->role = AWRA_ACCESSIBLE_ROLE_COMBO_BOX;
+  }
+}
+
 static void mb_clicked(AwraWidget *b, const AwraArgs *a, void *data)
 {
   MenuBtnData *m = mb(b);
@@ -893,16 +990,21 @@ void awra_context_menu_attach(AwraWidget *w, const AwraMenuItem *items, int n)
 /* ======================================================================= */
 /* Dropdown (spec B §10) */
 
-typedef struct DropData {
+struct DropData {
   char **items;
   int n;
   int selected;
   AwraWidget *label, *popover, *list;
-} DropData;
+};
 
 static DropData *dd(AwraWidget *w)
 {
   return (DropData *)awra_widget_get_data(w, "awra-dropdown");
+}
+
+static AwraWidget *drop_popover(DropData *d)
+{
+  return d->popover;
 }
 
 static void drop_free(void *p)
@@ -1263,6 +1365,7 @@ unsigned awra_toast_overlay_show_with_action(AwraWidget *w, const char *title, c
   t->next = x->toasts;
   x->toasts = t;
   awra_child_insert(w, t->surface, -1);
+  awra_accessible_announce(t->surface, title, AWRA_ACCESSIBLE_ANNOUNCEMENT_PRIORITY_MEDIUM);
   if (timeout > 0) {
     ToastTimer *tt = (ToastTimer *)malloc(sizeof(ToastTimer));
     tt->overlay = w;

@@ -41,6 +41,7 @@ enum {
 
 typedef struct AwraClass AwraClass;
 typedef struct AwraDraw AwraDraw;
+struct AwraA11yInfo; /* a11y.h */
 
 struct AwraClass {
   BKClass bk; /* first: node->cls points here */
@@ -85,6 +86,13 @@ struct AwraClass {
   /* GtkSizeRequestMode: 1 height-for-width, 0 constant size; NULL: from
    * the children (height-for-width when one is) */
   int (*request_mode)(AwraWidget *w);
+  /* accessibility (a11y.h): what an instance is (role variant, states,
+   * value, text) after the class's defaults; virtual children it draws
+   * (tabs, cells); the actions assistive technologies perform */
+  void (*a11y)(AwraWidget *w, struct AwraA11yInfo *info);
+  int (*a11y_items)(AwraWidget *w);
+  void (*a11y_item)(AwraWidget *w, int item, struct AwraA11yInfo *info, double rect[4]);
+  bool (*a11y_do)(AwraWidget *w, int item, int verb, double value);
 };
 
 /* Declares the kit side of an Awra class: every hook goes to Awra's
@@ -169,6 +177,7 @@ typedef struct AwraAux {
   AwraHandlerEntry *handlers;
   unsigned long handler_mask; /* bit per signal with handlers */
   AwraDataEntry *data;
+  struct AwraA11y *a11y; /* accessibility attributes / exposure (a11y.c), NULL: none */
 } AwraAux;
 
 static inline AwraAux *awra_aux(const AwraWidget *w)

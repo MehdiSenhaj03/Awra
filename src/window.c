@@ -7,6 +7,7 @@
  * SPDX-License-Identifier: GPL-3.0-or-later */
 
 #include "awra-private.h"
+#include "a11y.h"
 
 #include <ctype.h>
 #include <stdio.h>
@@ -939,6 +940,10 @@ static void on_state(void *data, BKWindow *bkw, int state)
     x->scale = s;
     awra_window_style_changed_all(); /* every measurement is in raster px */
   }
+  if ((old_state ^ x->state) & AWRA_WINDOW_STATE_ACTIVE) {
+    awra_a11y_window_changed(w, (x->state & AWRA_WINDOW_STATE_ACTIVE) ? AWRA_A11Y_WINDOW_ACTIVATE
+                                                                       : AWRA_A11Y_WINDOW_DEACTIVATE);
+  }
   if (old_state != x->state || old_blur != x->blur_state) {
     awra_aux(w)->needs_allocate = 1;
     memset(x->blur_rect, 0, sizeof(x->blur_rect));
@@ -1069,8 +1074,12 @@ void awra_window_present(AwraWidget *w)
       awra_timeout_add((unsigned)atoi(dump) * 1000, dump_later, w, NULL);
     }
     awra_map_tree(w, true);
+    awra_a11y_window_changed(w, AWRA_A11Y_WINDOW_CREATE);
   }
   x->state &= ~AWRA_WINDOW_STATE_HIDDEN;
+  if (!x->offscreen) {
+    awra_a11y_platform_start(); /* assistive technologies may look (on demand) */
+  }
   if (x->bkw) {
     BK_window_show(x->bkw);
     BK_window_wm(x->bkw, "focus", 0, 0);
@@ -1085,6 +1094,7 @@ void awra_window_hide(AwraWidget *w)
   }
   x->state |= AWRA_WINDOW_STATE_HIDDEN;
   if (x->presented) {
+    awra_a11y_window_changed(w, AWRA_A11Y_WINDOW_DESTROY);
     x->presented = false;
     awra_map_tree(w, false);
   }
@@ -1117,6 +1127,9 @@ static void window_destroy(AwraWidget *w)
     return;
   }
   x->closed = true;
+  if (x->presented) {
+    awra_a11y_window_changed(w, AWRA_A11Y_WINDOW_DESTROY);
+  }
   awra_map_tree(w, false);
   for (int i = 0; i < x->npath; i++) {
     awra_widget_unref(x->path[i]);
@@ -1144,6 +1157,7 @@ void awra_window_set_title(AwraWidget *w, const char *title)
   if (x->bkw) {
     BK_window_set_title(x->bkw, x->title);
   }
+  awra_a11y_dirty(w);
   if (x->titlebar && awra_widget_is(x->titlebar, "AwraHeader") &&
       awra_widget_get_data(x->titlebar, "awra-default-header"))
   {

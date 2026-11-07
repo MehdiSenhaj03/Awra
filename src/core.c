@@ -4,6 +4,7 @@
  * SPDX-License-Identifier: GPL-3.0-or-later */
 
 #include "awra-private.h"
+#include "a11y.h"
 #include "kit_loop.h"
 
 #include <stdio.h>
@@ -399,6 +400,7 @@ static void widget_dispose(AwraWidget *w)
   awra_emit_simple(w, AWRA_SIGNAL_DESTROY);
   if (w->parent) {
     BKNode *p = w->parent;
+    awra_a11y_child_changed(p, w, false);
     /* the parent's reference is the one going: detach without releasing */
     for (int i = 0; i < p->nkids; i++) {
       if (p->kids[i] == w) {
@@ -448,6 +450,9 @@ void awra_bk_free(BKNode *n)
   a->data = NULL;
   free(a->name);
   a->name = NULL;
+  if (a->a11y) {
+    awra_a11y_free(n);
+  }
 }
 
 void awra_bk_finish_edit(BKNode *n, bool confirm)
@@ -474,6 +479,7 @@ void awra_child_insert(AwraWidget *parent, AwraWidget *child, int index)
       set_mapped_tree(child, true);
     }
   }
+  awra_a11y_child_changed(parent, child, true);
 }
 
 void awra_child_remove(AwraWidget *parent, AwraWidget *child)
@@ -486,6 +492,7 @@ void awra_child_remove(AwraWidget *parent, AwraWidget *child)
     bk_invalidate(child);
     bk_forget(ctx, child);
   }
+  awra_a11y_child_changed(parent, child, false);
   if (awra_is_widget(child)) {
     set_mapped_tree(child, false);
   }
@@ -833,6 +840,7 @@ BKContext *awra_ctx(const AwraWidget *w)
 
 void awra_invalidate(AwraWidget *w)
 {
+  awra_a11y_dirty(w);
   if (w && w->w > 0 && bk_ctx(w)) {
     bk_invalidate(w);
   }
@@ -862,6 +870,7 @@ void awra_widget_queue_resize(AwraWidget *w)
   if (!w) {
     return;
   }
+  awra_a11y_dirty(w);
   cache_clear_up(w);
   BKContext *ctx = bk_ctx(w);
   if (ctx) {
@@ -894,6 +903,9 @@ static void set_mapped_tree(AwraWidget *w, bool mapped)
   if ((bool)a->mapped == now) {
     return;
   }
+  if (!now && (AWRA_CLASS_OF(w)->flags & AWRA_CLASS_POPUP) && w->parent) {
+    awra_a11y_child_changed(w->parent, w, false); /* a popover closes */
+  }
   a->mapped = now;
   if (AWRA_CLASS_OF(w)->map) {
     AWRA_CLASS_OF(w)->map(w, now);
@@ -901,6 +913,10 @@ static void set_mapped_tree(AwraWidget *w, bool mapped)
   awra_emit_simple(w, now ? AWRA_SIGNAL_MAP : AWRA_SIGNAL_UNMAP);
   for (int i = 0; i < w->nkids; i++) {
     set_mapped_tree(w->kids[i], now);
+  }
+  awra_a11y_dirty(w);
+  if (now && (AWRA_CLASS_OF(w)->flags & AWRA_CLASS_POPUP) && w->parent) {
+    awra_a11y_child_changed(w->parent, w, true); /* a popover opens */
   }
 }
 
@@ -916,6 +932,9 @@ static void set_effective_visible(AwraWidget *w, bool visible)
     return;
   }
   if (!visible) {
+    if (w->parent) {
+      awra_a11y_child_changed(w->parent, w, false);
+    }
     awra_invalidate(w);
     BKContext *ctx = bk_ctx(w);
     if (ctx) {
@@ -927,6 +946,9 @@ static void set_effective_visible(AwraWidget *w, bool visible)
     w->flags |= NF_VISIBLE;
     if (awra_is_widget(w)) {
       awra_aux(w)->needs_allocate = 1;
+    }
+    if (w->parent) {
+      awra_a11y_child_changed(w->parent, w, true);
     }
   }
   if (w->parent && awra_is_widget(w->parent)) {
@@ -999,6 +1021,9 @@ void awra_widget_set_sensitive(AwraWidget *w, bool sensitive)
     }
   }
   awra_invalidate(w);
+  if (awra_a11y_on) {
+    awra_a11y_dirty_tree(w); /* descendants are disabled with it */
+  }
 }
 
 bool awra_widget_sensitive(const AwraWidget *w)
@@ -1165,6 +1190,7 @@ void awra_widget_set_tooltip(AwraWidget *w, const char *text)
     return;
   }
   bk_set_text(&w->desc, text && text[0] ? text : NULL);
+  awra_a11y_dirty(w);
 }
 
 void awra_widget_set_typography(AwraWidget *w, AwraTypography t)
