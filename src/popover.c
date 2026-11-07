@@ -2109,7 +2109,7 @@ unsigned awra_toast_overlay_show_with_action_full(AwraWidget *w, const char *tit
     AwraWidget *b = awra_button_new_with_label(action);
     awra_button_set_appearance(b, AWRA_BUTTON_GHOST);
     awra_widget_set_valign(b, AWRA_ALIGN_CENTER);
-    awra_widget_add_class(b, "accent");
+    awra_widget_add_class(b, "toast-action");
     awra_widget_set_data(b, "awra-toast-id", (void *)(uintptr_t)t->id, NULL);
     awra_signal_connect(b, AWRA_SIGNAL_CLICKED, toast_action, w, NULL);
     awra_box_append(box, b);

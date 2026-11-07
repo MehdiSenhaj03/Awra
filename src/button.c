@@ -329,6 +329,17 @@ static int eff_look(const AwraWidget *w)
   return r >= 0 ? r : BX(w)->look;
 }
 
+/* awra.css .awra-button.awra-toast-action: the action of a toast, in the
+ * accent's content colour, weight 700, 5 px 12 px, at least 20 px high */
+static bool toast_action(const AwraWidget *w)
+{
+  static int bit = -2;
+  if (bit == -2) {
+    bit = awra_class_bit("toast-action");
+  }
+  return bit >= 0 && awra_has_class_bit(w, bit);
+}
+
 /* padding (logical) and radius per variant (spec B §1.1) */
 static void geometry(const AwraWidget *w, float *pad_x, float *pad_y, float *min_w, float *min_h,
                      float *radius)
@@ -421,6 +432,11 @@ static void geometry(const AwraWidget *w, float *pad_x, float *pad_y, float *min
     *pad_y = 3;
     *min_h = 20;
   }
+  if (toast_action(w)) {
+    *pad_x = 12;
+    *pad_y = 5;
+    *min_h = 20;
+  }
 }
 
 static AwraFont button_font(AwraWidget *w)
@@ -428,6 +444,9 @@ static AwraFont button_font(AwraWidget *w)
   AwraFont f = awra_font_for(awra_widget_typography(w));
   if (BX(w)->look == AWRA_LOOK_PRIMARY) {
     f.weight = 640;
+  }
+  if (toast_action(w)) {
+    f.weight = 700;
   }
   return f;
 }
@@ -572,7 +591,7 @@ static void current_colors(AwraWidget *w, AwraButtonColors *c)
     c->bg.a = 0;
     c->rim.a = 0;
   }
-  if (x->accent_fg && sens) {
+  if ((x->accent_fg || toast_action(w)) && sens) {
     c->fg = awra_tokens()->accent_content;
   }
 }

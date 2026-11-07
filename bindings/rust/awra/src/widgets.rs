@@ -2561,7 +2561,12 @@ impl Dialog {
         let p = body.into_opt_ptr();
         if !p.is_null() {
             unsafe {
-                ffi::awra_widget_set_margins(p, 4, 16, 0, 16);
+                // Awra 1's awra_dialog_set_body: a body that sets no inset of
+                // its own lines up with the title and the responses
+                if (0..4).all(|side| ffi::awra_widget_margin(p, side) == 0) {
+                    let lg = crate::spacing(Spacing::Lg);
+                    ffi::awra_widget_set_margins(p, crate::spacing(Spacing::Xs), lg, 0, lg);
+                }
             }
         }
         unsafe { ffi::awra_dialog_set_child(ptr!(self), p) }

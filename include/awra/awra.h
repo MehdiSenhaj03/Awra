@@ -365,6 +365,10 @@ void awra_widget_add_class(AwraWidget *widget, const char *name);
  * while it waits). */
 void awra_widget_remove_class(AwraWidget *widget, const char *name);
 bool awra_widget_has_class(const AwraWidget *widget, const char *name);
+/* Style transitions in `widget` and its children (the "suggested" role's
+ * icon glow) jump to the state its classes give now: a recycled list cell
+ * whose classes changed with the item it shows, not for that item. */
+void awra_widget_finish_transitions(AwraWidget *widget);
 /* Sizes after layout, in logical pixels (0 before the first layout). */
 int awra_widget_width(const AwraWidget *widget);
 int awra_widget_height(const AwraWidget *widget);

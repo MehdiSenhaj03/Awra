@@ -447,6 +447,7 @@ extern "C" {
     pub fn awra_widget_add_class(widget: *mut AwraWidget, name: *const c_char);
     pub fn awra_widget_remove_class(widget: *mut AwraWidget, name: *const c_char);
     pub fn awra_widget_has_class(widget: *const AwraWidget, name: *const c_char) -> bool;
+    pub fn awra_widget_finish_transitions(widget: *mut AwraWidget);
     pub fn awra_widget_width(widget: *const AwraWidget) -> c_int;
     pub fn awra_widget_height(widget: *const AwraWidget) -> c_int;
     pub fn awra_widget_position(widget: *const AwraWidget, x: *mut f64, y: *mut f64) -> bool;

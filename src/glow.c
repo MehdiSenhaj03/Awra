@@ -190,6 +190,18 @@ static void glow_step(AwraWidget *w, double eased_cubic, void *data)
   awra_invalidate(w);
 }
 
+static bool glow_start(void *data)
+{
+  AwraWidget *w = (AwraWidget *)data;
+  Glow *g = (Glow *)awra_widget_get_data(w, GLOW_KEY);
+  if (g && g->running && awra_window_of(w)) {
+    awra_anim_stop_for(w);
+    g->from = g->p;
+    awra_anim_start(w, GLOW_MS, glow_step, g, NULL);
+  }
+  return false;
+}
+
 bool awra_icon_glow_wanted(const AwraWidget *w)
 {
   bits();
@@ -215,7 +227,7 @@ void awra_icon_glow_draw(AwraWidget *w, AwraDraw *d, const uint8_t *a8, const ui
     }
     /* an icon drawn for the first time has no previous style to move from:
      * lit at once; one already shown (a recycled cell) moves to it */
-    g->on = !fresh;
+    g->on = fresh;
     g->p = g->from = g->to = fresh ? 1.0 : 0.0;
     awra_widget_set_data(w, GLOW_KEY, g, glow_free);
     const int pad = (int)ceil(awra_pxf(10.0) * 0.5 * 3.0) + 1;
@@ -231,8 +243,10 @@ void awra_icon_glow_draw(AwraWidget *w, AwraDraw *d, const uint8_t *a8, const ui
     g->from = g->p;
     g->to = on ? 1.0 : 0.0;
     if (animate) {
+      /* a frame requested while this one draws is lost: the transition
+       * starts right after it */
       g->running = true;
-      awra_anim_start(w, GLOW_MS, glow_step, g, NULL);
+      awra_timeout_add(0, glow_start, awra_widget_ref(w), (AwraDestroyNotify)awra_widget_unref);
     }
     else {
       g->p = g->to;
@@ -270,4 +284,51 @@ void awra_icon_glow_draw(AwraWidget *w, AwraDraw *d, const uint8_t *a8, const ui
     BUI_raster_mask(d->r, (int)floorf(ix + 0.5f) - pad, (int)floorf(iy + 0.5f) - pad, m, mw, mh, mw, c);
   }
   free(frame);
+}
+
+/* An image's glow as its style says now, without a transition (its state
+ * changed with the item a recycled cell shows, not for the item). */
+static void settle(AwraWidget *w)
+{
+  if (!awra_widget_is_image_internal(w)) {
+    return;
+  }
+  const bool on = ancestor_has(w, g_suggested_bit);
+  Glow *g = (Glow *)awra_widget_get_data(w, GLOW_KEY);
+  if (!g) {
+    if (!on) {
+      return;
+    }
+    g = (Glow *)calloc(1, sizeof(Glow));
+    if (!g) {
+      return;
+    }
+    awra_widget_set_data(w, GLOW_KEY, g, glow_free);
+    const int pad = (int)ceil(awra_pxf(10.0) * 0.5 * 3.0) + 1;
+    if (w->overdraw < pad) {
+      w->overdraw = (short)pad;
+      bk_relayout(w);
+    }
+  }
+  if (g->running) {
+    awra_anim_stop_for(w);
+    g->running = false;
+  }
+  g->on = on;
+  g->p = g->from = g->to = on ? 1.0 : 0.0;
+  awra_invalidate(w);
+}
+
+void awra_widget_finish_transitions(AwraWidget *w)
+{
+  bits();
+  if (!w) {
+    return;
+  }
+  settle(w);
+  for (int i = 0; i < w->nkids; i++) {
+    if (awra_is_widget(w->kids[i])) {
+      awra_widget_finish_transitions(w->kids[i]);
+    }
+  }
 }

@@ -1150,21 +1150,20 @@ pub fn set_vertical_margin(widget: &impl IsWidget, s: Spacing) {
     widget.upcast_ref().set_margin_bottom(m);
 }
 
-/// Awra 1's layout presets: a box's spacing and margins.
+/// Awra 1's layout presets (awra-layout.c get_recipe): a box's margin on
+/// every side (inset) and its spacing (gap).
 pub fn apply_layout_preset(widget: &impl IsWidget, p: LayoutPreset) {
-    let (spacing, margin) = match p {
-        LayoutPreset::Compact => (Spacing::Xs, Spacing::None),
-        LayoutPreset::ControlGroup => (Spacing::Sm, Spacing::None),
-        LayoutPreset::Section => (Spacing::Md, Spacing::None),
-        LayoutPreset::Content => (Spacing::Md, Spacing::Md),
-        LayoutPreset::Page => (Spacing::Lg, Spacing::Lg),
-        LayoutPreset::Toolbar => (Spacing::Sm, Spacing::Sm),
-        LayoutPreset::Overlay => (Spacing::Md, Spacing::Md),
+    let (inset, gap) = match p {
+        LayoutPreset::Compact => (Spacing::Sm, Spacing::Xs),
+        LayoutPreset::ControlGroup => (Spacing::None, Spacing::Sm),
+        LayoutPreset::Section => (Spacing::None, Spacing::Xs),
+        LayoutPreset::Content => (Spacing::Lg, Spacing::Md),
+        LayoutPreset::Page => (Spacing::Xxl, Spacing::Xl),
+        LayoutPreset::Toolbar => (Spacing::Md, Spacing::Sm),
+        LayoutPreset::Overlay => (Spacing::Lg, Spacing::Md),
     };
-    set_spacing(widget, spacing);
-    if margin != Spacing::None {
-        widget.upcast_ref().set_margin(margin);
-    }
+    widget.upcast_ref().set_margin(inset);
+    set_spacing(widget, gap);
 }
 
 /// A context menu (right click, long press) on `widget` from a menu model.

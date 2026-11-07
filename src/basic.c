@@ -1019,6 +1019,11 @@ static AwraClass image_class = {
     .draw = image_draw,
 };
 
+bool awra_widget_is_image_internal(const AwraWidget *w)
+{
+  return w && awra_is_widget((BKNode *)w) && AWRA_CLASS_OF(w) == &image_class;
+}
+
 AwraWidget *awra_image_new(void)
 {
   AwraWidget *w = awra_widget_new(&image_class);
