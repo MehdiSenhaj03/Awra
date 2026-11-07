@@ -297,6 +297,11 @@ static float display_scale(void)
   if (env) {
     return (float)atof(env);
   }
+  /* BUI-Awra: GDK_SCALE, as GDK's X11 backend (a whole factor) */
+  const char *gdk = getenv("GDK_SCALE");
+  if (gdk && atoi(gdk) >= 1) {
+    return (float)atoi(gdk);
+  }
   float dpi = 96.0f;
   char *rms = XResourceManagerString(g_dpy);
   if (rms) {
