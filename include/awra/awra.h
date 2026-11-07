@@ -1425,6 +1425,12 @@ int awra_path_bar_item_at(AwraWidget *bar, double x, double y);
 void awra_path_bar_set_drop_item(AwraWidget *bar, int index);
 /* Menus driven from elsewhere (a field's suggestions): the highlighted row. */
 void awra_menu_popover_set_highlighted(AwraWidget *popover, int index);
+/* A list of choices that follows a text field (Awra 1's path bar
+ * suggestions): rows of plain words, no gaps, `width` logical px wide in
+ * all (210 at least); activating row i calls `handler` with args->index = i.
+ * awra_menu_popover_set_highlighted lights a row. */
+AwraWidget *awra_choice_popover_new(const char *const *labels, int n, int width,
+                                    AwraHandler handler, void *data);
 
 /* ----------------------------------------------------------------------- */
 /* Tab bar: the strip of Awra 1's AwraTabView (workspace tabs). Signals:

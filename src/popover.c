@@ -694,7 +694,8 @@ typedef struct RowExt {
   void *data;
   int index;
   AwraWidget *popover; /* closed on activation (dropdowns; menus find theirs) */
-  int kind;            /* 0 menu row, 1 dropdown row, 2 command row, 3 submenu row */
+  int kind;            /* 0 menu row, 1 dropdown row, 2 command row, 3 submenu row,
+                        * 4 choice row (a field's suggestions) */
   bool selected;       /* dropdown: the current item; palette: the Enter target */
   AwraWidget *submenu; /* kind 3: the menu it opens (owned) */
 } RowExt;
@@ -733,7 +734,8 @@ static void row_metrics(AwraWidget *w, int *px, int *py, int *min_h, int *gap, f
       *gap = awra_px(8);
       *radius = awra_pxf(9);
       break;
-    default:
+    default: /* menu rows; choice rows are Awra 1's plain buttons of class
+              * .awra-menu-item (the same box) holding a label */
       *px = awra_px(9);
       *py = awra_px(5);
       *min_h = awra_px(22);
@@ -749,7 +751,7 @@ static void row_measure(AwraWidget *w, int o, int f, int *r_min, int *r_nat)
   float rad;
   row_metrics(w, &px, &py, &mh, &gap, &rad);
   AwraFont font = row_font();
-  if (x->kind == 2) {
+  if (x->kind == 2 || x->kind == 4) {
     font.weight = 400;
   }
   if (o == AWRA_ORIENTATION_VERTICAL) {
@@ -785,7 +787,7 @@ static void row_draw(AwraWidget *w, AwraDraw *d)
   /* an insensitive widget takes no pointer in GTK: no hover */
   const bool hot = (awra_hovered(w) || awra_focus_visible(w)) && awra_sensitive(w);
   AwraRGBA bg = {0, 0, 0, 0};
-  if (x->kind == 0) {
+  if (x->kind == 0 || x->kind == 4) {
     bg = (hot || x->selected) ? t->selection : bg;
   }
   else if (x->kind == 3) { /* .awra-open too */
@@ -802,6 +804,9 @@ static void row_draw(AwraWidget *w, AwraDraw *d)
   awra_paint_rbox(d, b, rad, &bg, 0, NULL);
   const bool sens = awra_sensitive(w);
   AwraRGBA fg = x->destructive ? t->danger : t->foreground;
+  if (x->kind == 4 && x->selected) { /* .awra-path-bar-suggestion-highlighted */
+    fg = t->accent_content;
+  }
   /* Awra 1's menu items keep their colours when their action is off
    * (.awra-menu-item and its label, icon and accelerator set them at the
    * application's priority, over the theme's :disabled): only other rows dim */
@@ -862,14 +867,14 @@ static void row_draw(AwraWidget *w, AwraDraw *d)
     right -= aw + gap;
   }
   AwraFont f = row_font();
-  if (x->kind == 2) {
+  if (x->kind == 2 || x->kind == 4) {
     f.weight = 400;
   }
   AwraTextLayout *l = awra_text_layout_new();
   awra_text_layout_set_font(l, &f);
   awra_text_layout_set_base_dir(l, awra_widget_rtl(w));
   awra_text_layout_set_text(l, x->label ? x->label : "", false);
-  awra_text_layout_set_wrap(l, AWRA_WRAP_NONE, AWRA_ELLIPSIZE_END, 1);
+  awra_text_layout_set_wrap(l, AWRA_WRAP_NONE, x->kind == 4 ? AWRA_ELLIPSIZE_MIDDLE : AWRA_ELLIPSIZE_END, 1);
   int tw, th;
   const int avail = (int)(right - cx);
   awra_text_layout_size(l, avail, &tw, &th);
@@ -971,6 +976,9 @@ static void row_a11y(AwraWidget *w, AwraA11yInfo *info)
   else if (x->kind == 1) {
     info->role = AWRA_ACCESSIBLE_ROLE_MENU_ITEM_RADIO;
     awra_a11y_set_state(info, AWRA_ACCESSIBLE_STATE_CHECKED, x->selected);
+  }
+  else if (x->kind == 4) { /* a plain button */
+    info->role = AWRA_ACCESSIBLE_ROLE_BUTTON;
   }
   else if (x->kind == 3) {
     /* a submenu row: GtkPopoverMenu's item with a submenu */
@@ -1336,6 +1344,30 @@ static AwraWidget *menu_build(const AwraMenuItem *items, int from, int to)
 AwraWidget *awra_menu_popover_new(const AwraMenuItem *items, int n)
 {
   return menu_build(items, 0, n);
+}
+
+AwraWidget *awra_choice_popover_new(const char *const *labels, int n, int width,
+                                    AwraHandler handler, void *data)
+{
+  /* Awra 1's path bar suggestions: a .awra-menu box (padding 7, no
+   * spacing) of plain buttons, the box as wide as the field's content */
+  AwraWidget *pop = awra_popover_new();
+  awra_popover_set_padding_internal(pop, 7, false);
+  AwraWidget *box = awra_box_new(AWRA_ORIENTATION_VERTICAL, 0);
+  for (int i = 0; i < n; i++) {
+    AwraWidget *r = row_new(4, labels[i] ? labels[i] : "", NULL, NULL, -1);
+    RX(r)->handler = handler;
+    RX(r)->data = data;
+    RX(r)->index = i;
+    awra_box_append(box, r);
+    awra_widget_unref(r);
+  }
+  /* the .awra-menu box's size request covers its padding (the popover's
+   * here); its min-width, 210, only its content */
+  awra_widget_set_size_request(box, BK_MAX(width - 14, 210), -1);
+  awra_popover_set_child(pop, box);
+  awra_widget_unref(box);
+  return pop;
 }
 
 void awra_popover_set_menu(AwraWidget *popover, const AwraMenuItem *items, int n)

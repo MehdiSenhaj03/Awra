@@ -1077,6 +1077,7 @@ extern "C" {
     pub fn awra_path_bar_item_at(bar: *mut AwraWidget, x: f64, y: f64) -> c_int;
     pub fn awra_path_bar_set_drop_item(bar: *mut AwraWidget, index: c_int);
     pub fn awra_menu_popover_set_highlighted(popover: *mut AwraWidget, index: c_int);
+    pub fn awra_choice_popover_new(labels: *const *const c_char, n: c_int, width: c_int, handler: Option<unsafe extern "C" fn(*mut AwraWidget, *const AwraArgs, *mut c_void)>, data: *mut c_void) -> *mut AwraWidget;
     pub fn awra_tab_bar_new() -> *mut AwraWidget;
     pub fn awra_tab_bar_insert(bar: *mut AwraWidget, position: c_int, title: *const c_char, icon_name: *const c_char) -> c_int;
     pub fn awra_tab_bar_remove(bar: *mut AwraWidget, index: c_int);
