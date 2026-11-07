@@ -510,6 +510,40 @@ static void button_allocate(AwraWidget *w)
                 BK_MAX(0, w->h - 2 * ipy));
 }
 
+/* Awra 1's colour roles on buttons (awra.css L1261-1276): quiet-destructive
+ * is ghost at rest and danger under the pointer (a hang-up beside other
+ * controls); danger-when-on tints a checked toggle danger rather than
+ * accent (a muted microphone). */
+static void role_colors(const AwraWidget *w, AwraLook look, bool hover, bool checked, bool sens,
+                        AwraButtonColors *c)
+{
+  static int quiet = -2, danger_on = -2;
+  if (quiet == -2) {
+    quiet = awra_class_bit("quiet-destructive");
+    danger_on = awra_class_bit("danger-when-on");
+  }
+  if (!sens) {
+    return;
+  }
+  const AwraTokens *t = awra_tokens();
+  const AwraRGBA none = {0, 0, 0, 0};
+  if (hover && quiet >= 0 && awra_has_class_bit(w, quiet) &&
+      (look == AWRA_LOOK_GHOST || look == AWRA_LOOK_TOOLBAR))
+  {
+    c->fg = t->on_accent;
+    c->bg = t->danger;
+    c->rim = none;
+    c->ring = none;
+  }
+  if (checked && danger_on >= 0 && awra_has_class_bit(w, danger_on) &&
+      (look == AWRA_LOOK_SECONDARY || look == AWRA_LOOK_GHOST || look == AWRA_LOOK_TOOLBAR))
+  {
+    c->fg = t->danger;
+    c->bg = awra_with_alpha(t->danger, 0.16f);
+    c->rim = t->rim;
+  }
+}
+
 static void current_colors(AwraWidget *w, AwraButtonColors *c)
 {
   ButtonExt *x = BX(w);
@@ -519,12 +553,15 @@ static void current_colors(AwraWidget *w, AwraButtonColors *c)
   AwraButtonColors rest, hov, prs;
   const AwraLook look = (AwraLook)eff_look(w);
   awra_button_colors(look, false, false, checked, sens, &rest);
+  role_colors(w, look, false, checked, sens, &rest);
   if (ht <= 0.0f && pt <= 0.0f) {
     *c = rest;
   }
   else {
     awra_button_colors(look, true, false, checked, sens, &hov);
     awra_button_colors(look, true, true, checked, sens, &prs);
+    role_colors(w, look, true, checked, sens, &hov);
+    role_colors(w, look, true, checked, sens, &prs);
     c->fg = lerp_rgba(lerp_rgba(rest.fg, hov.fg, ht), prs.fg, pt);
     c->bg = lerp_rgba(lerp_rgba(rest.bg, hov.bg, ht), prs.bg, pt);
     c->rim = lerp_rgba(lerp_rgba(rest.rim, hov.rim, ht), prs.rim, pt);

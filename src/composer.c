@@ -717,10 +717,12 @@ AwraWidget *awra_completion_popover_new(void)
   awra_popover_set_autohide(x->popover, false); /* the text keeps the keyboard */
   awra_popover_set_padding_internal(x->popover, 0, false);
   x->scroller = awra_scrolled_new();
-  awra_scrolled_set_policy(x->scroller, AWRA_POLICY_NEVER, AWRA_POLICY_AUTOMATIC);
+  /* Awra 1's: between 220 and 420 px wide whatever its rows ask */
+  awra_scrolled_set_policy(x->scroller, AWRA_POLICY_AUTOMATIC, AWRA_POLICY_AUTOMATIC);
   awra_scrolled_set_propagate_natural(x->scroller, true, true);
+  awra_scrolled_set_min_content_width(x->scroller, MIN_WIDTH);
+  awra_scrolled_set_max_content_width(x->scroller, MAX_WIDTH);
   awra_scrolled_set_max_content_height(x->scroller, DEFAULT_ROW_HEIGHT * VISIBLE_ROWS);
-  awra_widget_set_size_request(x->scroller, MIN_WIDTH, -1);
   x->list = awra_list_view_new();
   awra_list_view_set_row_style(x->list, 1);
   awra_list_view_set_padding(x->list, 5, 5);

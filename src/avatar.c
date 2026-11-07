@@ -211,11 +211,12 @@ static float cutout_width(const AvatarExt *x)
   return fmaxf(1.5f, x->size * 0.07f);
 }
 
-static void dot_center(const AvatarExt *x, float *cx, float *cy)
+/* the bottom end corner: bottom left right to left (Awra 1's dot_center) */
+static void dot_center(const AwraWidget *w, const AvatarExt *x, float *cx, float *cy)
 {
   const float r = dot_diameter(x) / 2.0f;
   const float inset = x->shape == 0 ? r : r - 1.0f;
-  *cx = x->size - inset;
+  *cx = awra_widget_rtl(w) ? inset : x->size - inset;
   *cy = x->size - inset;
 }
 
@@ -336,7 +337,7 @@ static void compose_face(AwraWidget *w, int s)
   const bool cutout = x->shown_presence != AWRA_PRESENCE_NONE && x->presence_scale > 0.0f;
   float ccx = 0, ccy = 0, cr = 0;
   if (cutout) {
-    dot_center(x, &ccx, &ccy);
+    dot_center(w, x, &ccx, &ccy);
     cr = (dot_diameter(x) / 2.0f + cutout_width(x)) * x->presence_scale * scale;
     ccx *= scale;
     ccy *= scale;
@@ -420,7 +421,7 @@ static void avatar_draw(AwraWidget *w, AwraDraw *d)
   if (x->shown_presence != AWRA_PRESENCE_NONE && x->presence_scale > 0.0f) {
     const AwraTokens *t = awra_tokens();
     float cx, cy;
-    dot_center(x, &cx, &cy);
+    dot_center(w, x, &cx, &cy);
     cx = ox + cx * scale;
     cy = oy + cy * scale;
     const float r = dot_diameter(x) / 2.0f * x->presence_scale * scale;
@@ -450,7 +451,9 @@ static void avatar_draw(AwraWidget *w, AwraDraw *d)
         if (cov > 0.0f) {
           float hole = 0.0f;
           if (x->shown_presence == AWRA_PRESENCE_IDLE) {
-            hole = circle_coverage(fx, fy, cx - 0.42f * r, cy - 0.42f * r, r * 0.66f);
+            /* the crescent's bite faces the avatar's middle */
+            hole = circle_coverage(fx, fy, cx + (awra_widget_rtl(w) ? 0.42f : -0.42f) * r, cy - 0.42f * r,
+                                   r * 0.66f);
           }
           else if (x->shown_presence == AWRA_PRESENCE_BUSY) {
             hole = rbox_coverage(fx, fy, cx - r * 0.58f, cy - r * 0.2f, r * 1.16f, r * 0.4f, r * 0.2f);
@@ -556,6 +559,15 @@ static AwraClass avatar_class = {
     .overdraw = 8,
 };
 
+/* What it paints outside its box: the speaking ring at its widest (the
+ * gap, the ring, the breath; see avatar_draw), or the class's 8 px. */
+static void avatar_set_overdraw(AwraWidget *w)
+{
+  const float size = (float)AVX(w)->size;
+  const float ring = fmaxf(1.5f, size * 0.05f) + fmaxf(2.0f, size * 0.055f) + fmaxf(0.75f, size * 0.025f);
+  w->overdraw = (short)BK_MAX(awra_px(8), awra_px((int)ceilf(ring) + 1));
+}
+
 AwraWidget *awra_avatar_new(int size, const char *text)
 {
   AwraWidget *w = awra_widget_new(&avatar_class);
@@ -564,6 +576,7 @@ AwraWidget *awra_avatar_new(int size, const char *text)
   x->show_initials = true;
   x->face_dirty = true;
   x->radius_override = -1.0f;
+  avatar_set_overdraw(w);
   awra_avatar_set_text(w, text);
   return w;
 }
@@ -575,6 +588,7 @@ void awra_avatar_set_size(AwraWidget *w, int size)
     return;
   }
   x->size = size;
+  avatar_set_overdraw(w);
   face_changed(w);
   awra_widget_queue_resize(w);
 }

@@ -1332,6 +1332,7 @@ typedef struct ScrollExt {
   AwraPolicy hpolicy, vpolicy;
   bool prop_w, prop_h;
   int max_h, min_h; /* logical, -1 none */
+  int max_w, min_w; /* logical, 0 none (GtkScrolledWindow's content widths) */
   double vvalue, hvalue; /* raster px */
   int content_w, content_h;
   int view_w;       /* the width hvalue was kept for (right to left) */
@@ -1369,15 +1370,16 @@ static void scroll_measure(AwraWidget *w, int o, int for_size, int *r_min, int *
     if (policy == AWRA_POLICY_NEVER) {
       mn = cm;
     }
-    else if (!horizontal) {
-      const int lo = x->min_h > 0 ? awra_px(x->min_h) : 0;
-      const int hi = x->max_h > 0 ? awra_px(x->max_h) : INT32_MAX;
+    else {
+      const int lmin = horizontal ? x->min_w : x->min_h, lmax = horizontal ? x->max_w : x->max_h;
+      const int lo = lmin > 0 ? awra_px(lmin) : 0;
+      const int hi = lmax > 0 ? awra_px(lmax) : INT32_MAX;
       mn = BK_CLAMP(mn, lo, hi);
       nat = BK_CLAMP(nat, lo, hi);
     }
   }
-  else if (!horizontal && x->min_h > 0) {
-    mn = awra_px(x->min_h);
+  else if ((horizontal ? x->min_w : x->min_h) > 0) {
+    mn = awra_px(horizontal ? x->min_w : x->min_h);
   }
   *r_min = mn;
   *r_nat = BK_MAX(mn, nat);
@@ -1639,6 +1641,18 @@ void awra_scrolled_set_max_content_height(AwraWidget *w, int h)
 void awra_scrolled_set_min_content_height(AwraWidget *w, int h)
 {
   SX(w)->min_h = h;
+  awra_widget_queue_resize(w);
+}
+
+void awra_scrolled_set_min_content_width(AwraWidget *w, int width)
+{
+  SX(w)->min_w = width;
+  awra_widget_queue_resize(w);
+}
+
+void awra_scrolled_set_max_content_width(AwraWidget *w, int width)
+{
+  SX(w)->max_w = width;
   awra_widget_queue_resize(w);
 }
 

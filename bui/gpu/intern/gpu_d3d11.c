@@ -98,6 +98,10 @@ typedef struct Batch {
   int clip[4];
 } Batch;
 
+#  define SNAP_MAX BUI_GPU_SNAPS
+#  define SNAP_BASE 1000 /* a batch's img: SNAP_BASE + snapshot */
+#  define AWRA_BATCH (SNAP_BASE - 1) /* a batch's img: ps_awra, no texture of its own */
+
 /* An image too big for the atlas, or a video frame, in a texture of its own. */
 #  define BIG_MAX 32
 #  define BIG_BUDGET ((size_t)256 << 20) /* bytes of big-image textures kept */
@@ -141,6 +145,13 @@ struct BuiGpu {
 
   ID3D11VertexShader *vs_quad, *vs_tri, *vs_mesh;
   ID3D11PixelShader *ps_quad, *ps_tri, *ps_mesh;
+  ID3D11PixelShader *ps_awra; /* BUI-Awra: the kinds upstream's ps_quad lacks (BG_RESTORE...) */
+  /* BUI-Awra: copies of parts of the frame (fades, rounded clips), reused */
+  struct {
+    ID3D11Texture2D *tex;
+    ID3D11ShaderResourceView *srv;
+    int w, h;
+  } snap[SNAP_MAX];
   ID3D11InputLayout *il_quad, *il_tri, *il_mesh;
   ID3D11Buffer *cb, *ib, *tb, *mvb, *mib;
   UINT ib_cap, tb_cap, mvb_cap, mib_cap; /* in elements */
@@ -330,7 +341,8 @@ static int device_init(BuiGpu *g)
       FAILED(ID3D11Device_CreateVertexShader(d, g_vs_tri, sizeof(g_vs_tri), NULL, &g->vs_tri)) ||
       FAILED(ID3D11Device_CreatePixelShader(d, g_ps_tri, sizeof(g_ps_tri), NULL, &g->ps_tri)) ||
       FAILED(ID3D11Device_CreateVertexShader(d, g_vs_mesh, sizeof(g_vs_mesh), NULL, &g->vs_mesh)) ||
-      FAILED(ID3D11Device_CreatePixelShader(d, g_ps_mesh, sizeof(g_ps_mesh), NULL, &g->ps_mesh)))
+      FAILED(ID3D11Device_CreatePixelShader(d, g_ps_mesh, sizeof(g_ps_mesh), NULL, &g->ps_mesh)) ||
+      FAILED(ID3D11Device_CreatePixelShader(d, g_ps_awra, sizeof(g_ps_awra), NULL, &g->ps_awra)))
   {
     return fail("shaders", 0);
   }
@@ -510,6 +522,11 @@ void bui_gpu_free(BuiGpu *g)
   REL(g->il_mesh);
   REL(g->vs_mesh);
   REL(g->ps_mesh);
+  REL(g->ps_awra);
+  for (int i = 0; i < SNAP_MAX; i++) {
+    REL(g->snap[i].srv);
+    REL(g->snap[i].tex);
+  }
   REL(g->rtv);
   REL(g->target);
   REL(g->rs);
@@ -558,11 +575,13 @@ void bui_gpu_begin(BuiGpu *g, int w, int h)
 }
 
 static Batch *batch_new(BuiGpu *g, int tri, int first);
+static int ensure_target(BuiGpu *g);
 
 /* The batch to append to: the last one when it is of the same kind. */
 static Batch *batch_for(BuiGpu *g, int tri, int first)
 {
-  if (tri != 2 && g->n_b > 0 && g->b[g->n_b - 1].tri == tri) {
+  /* ps_awra's batches (snapshots, the kinds upstream lacks): nothing else joins them */
+  if (tri != 2 && g->n_b > 0 && g->b[g->n_b - 1].tri == tri && g->b[g->n_b - 1].img < AWRA_BATCH) {
     return &g->b[g->n_b - 1];
   }
   return batch_new(g, tri, first);
@@ -779,6 +798,80 @@ void bui_gpu_mesh(BuiGpu *g,
 
 /* Appends an instance to quad batch `b`. */
 static BuiGpuInst *inst_in(BuiGpu *g, Batch *b, int kind, int x0, int y0, int x1, int y1);
+
+int bui_gpu_snap_take(BuiGpu *g, int i, int w, int h)
+{
+  if (i < 0 || i >= SNAP_MAX || w <= 0 || h <= 0) {
+    return 0;
+  }
+  flush(g); /* what is queued lies under, and what restores this one is drawn */
+  if (!ensure_target(g)) {
+    return 0;
+  }
+  if (g->snap[i].w < w || g->snap[i].h < h) {
+    D3D11_TEXTURE2D_DESC td = {0};
+    td.Width = (UINT)(w > g->snap[i].w ? w : g->snap[i].w);
+    td.Height = (UINT)(h > g->snap[i].h ? h : g->snap[i].h);
+    REL(g->snap[i].srv);
+    REL(g->snap[i].tex);
+    g->snap[i].w = g->snap[i].h = 0;
+    td.MipLevels = td.ArraySize = 1;
+    td.Format = DXGI_FORMAT_B8G8R8A8_UNORM; /* the target's */
+    td.SampleDesc.Count = 1;
+    td.Usage = D3D11_USAGE_DEFAULT;
+    td.BindFlags = D3D11_BIND_SHADER_RESOURCE;
+    if (FAILED(ID3D11Device_CreateTexture2D(g->dev, &td, NULL, &g->snap[i].tex)) ||
+        FAILED(ID3D11Device_CreateShaderResourceView(g->dev, (ID3D11Resource *)g->snap[i].tex, NULL,
+                                                     &g->snap[i].srv)))
+    {
+      REL(g->snap[i].tex);
+      return 0;
+    }
+    g->snap[i].w = (int)td.Width;
+    g->snap[i].h = (int)td.Height;
+  }
+  return 1;
+}
+
+void bui_gpu_snap_copy(BuiGpu *g, int snap, int x, int y, int w, int h, int dx, int dy)
+{
+  if (snap < 0 || snap >= SNAP_MAX || !g->snap[snap].srv || w <= 0 || h <= 0 || !g->target) {
+    return;
+  }
+  const D3D11_BOX box = {(UINT)x, (UINT)y, 0, (UINT)(x + w), (UINT)(y + h), 1};
+  ID3D11DeviceContext_CopySubresourceRegion(g->ctx, (ID3D11Resource *)g->snap[snap].tex, 0, (UINT)dx,
+                                            (UINT)dy, 0, (ID3D11Resource *)g->target, 0, &box);
+}
+
+BuiGpuInst *bui_gpu_inst_snap(BuiGpu *g, int snap, int x0, int y0, int x1, int y1)
+{
+  if (snap < 0 || snap >= SNAP_MAX || !g->snap[snap].srv) {
+    return NULL;
+  }
+  /* a batch of its own: nothing else may sample the snapshot */
+  Batch *b = g->n_b > 0 ? &g->b[g->n_b - 1] : NULL;
+  if (!b || b->tri != 0 || b->img != SNAP_BASE + snap) {
+    b = batch_new(g, 0, g->n_inst);
+  }
+  if (!b) {
+    return NULL;
+  }
+  b->img = SNAP_BASE + snap;
+  return inst_in(g, b, BG_RESTORE, x0, y0, x1, y1);
+}
+
+BuiGpuInst *bui_gpu_inst_awra(BuiGpu *g, int kind, int x0, int y0, int x1, int y1)
+{
+  Batch *b = g->n_b > 0 ? &g->b[g->n_b - 1] : NULL;
+  if (!b || b->tri != 0 || b->img != AWRA_BATCH) {
+    b = batch_new(g, 0, g->n_inst);
+  }
+  if (!b) {
+    return NULL;
+  }
+  b->img = AWRA_BATCH;
+  return inst_in(g, b, kind, x0, y0, x1, y1);
+}
 
 BuiGpuInst *bui_gpu_inst_image(BuiGpu *g, int tex, int x0, int y0, int x1, int y1)
 {
@@ -1489,7 +1582,7 @@ static void flush(BuiGpu *g)
   ID3D11ShaderResourceView *srv[4] = {g->mask.srv, g->rgba.srv, g->curve_srv, g->band_srv};
   ID3D11DeviceContext_PSSetShaderResources(c, 0, 4, srv);
 
-  int cur = -1, img = 0;
+  int cur = -1, img = 0, ps_awra = 0;
   for (int i = 0; i < g->n_b; i++) {
     const Batch *b = &g->b[i];
     if (b->count == 0) {
@@ -1518,6 +1611,7 @@ static void flush(BuiGpu *g)
         ID3D11DeviceContext_IASetPrimitiveTopology(c, D3D11_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
         ID3D11DeviceContext_VSSetShader(c, g->vs_quad, NULL, 0);
         ID3D11DeviceContext_PSSetShader(c, g->ps_quad, NULL, 0);
+        ps_awra = 0;
       }
       else {
         UINT stride = sizeof(TriV);
@@ -1537,11 +1631,23 @@ static void flush(BuiGpu *g)
       ID3D11DeviceContext_DrawIndexed(c, (UINT)b->count, (UINT)b->first, 0);
     }
     else if (!b->tri) {
-      const int want = b->img > 0 && g->big[b->img - 1].srv ? b->img : 0;
-      if (want != img) { /* t1: the atlas, or a big image's own texture (t5: NV12 chroma) */
+      const int awra = b->img >= AWRA_BATCH;
+      if (awra != ps_awra) { /* BUI-Awra: the kinds upstream's ps_quad lacks */
+        ps_awra = awra;
+        ID3D11DeviceContext_PSSetShader(c, awra ? g->ps_awra : g->ps_quad, NULL, 0);
+      }
+      const int want = b->img >= SNAP_BASE                      ? b->img :
+                       b->img == AWRA_BATCH                     ? img :
+                       b->img > 0 && g->big[b->img - 1].srv ? b->img :
+                                                              0;
+      if (want != img) { /* t1: the atlas, or a big image's own texture (t5: NV12 chroma),
+                          * or a snapshot of the frame drawn back (BUI-Awra) */
+        const int snap = want >= SNAP_BASE;
         img = want;
-        ID3D11ShaderResourceView *t1 = img ? g->big[img - 1].srv : g->rgba.srv;
-        ID3D11ShaderResourceView *t5 = img ? g->big[img - 1].uv_srv : NULL;
+        ID3D11ShaderResourceView *t1 = snap ? g->snap[img - SNAP_BASE].srv :
+                                       img  ? g->big[img - 1].srv :
+                                              g->rgba.srv;
+        ID3D11ShaderResourceView *t5 = img && !snap ? g->big[img - 1].uv_srv : NULL;
         ID3D11DeviceContext_PSSetShaderResources(c, 1, 1, &t1);
         ID3D11DeviceContext_PSSetShaderResources(c, 5, 1, &t5);
       }
@@ -1733,6 +1839,45 @@ int bui_gpu_max_texture(BuiGpu *g)
 {
   (void)g;
   return 0;
+}
+int bui_gpu_snap_take(BuiGpu *g, int snap, int w, int h)
+{
+  (void)g;
+  (void)snap;
+  (void)w;
+  (void)h;
+  return 0;
+}
+BuiGpuInst *bui_gpu_inst_awra(BuiGpu *g, int kind, int x0, int y0, int x1, int y1)
+{
+  (void)g;
+  (void)kind;
+  (void)x0;
+  (void)y0;
+  (void)x1;
+  (void)y1;
+  return NULL;
+}
+void bui_gpu_snap_copy(BuiGpu *g, int snap, int x, int y, int w, int h, int dx, int dy)
+{
+  (void)g;
+  (void)snap;
+  (void)x;
+  (void)y;
+  (void)w;
+  (void)h;
+  (void)dx;
+  (void)dy;
+}
+BuiGpuInst *bui_gpu_inst_snap(BuiGpu *g, int snap, int x0, int y0, int x1, int y1)
+{
+  (void)g;
+  (void)snap;
+  (void)x0;
+  (void)y0;
+  (void)x1;
+  (void)y1;
+  return NULL;
 }
 BuiGpuInst *bui_gpu_inst_image(BuiGpu *g, int tex, int x0, int y0, int x1, int y1)
 {

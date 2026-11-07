@@ -951,6 +951,7 @@ AwraWidget *awra_metric_row_new(const char *label, const char *value)
   awra_widget_unref(l);
   awra_widget_unref(v);
   awra_widget_set_name(row, "AwraMetricRow");
+  awra_widget_set_size_request(row, -1, 30); /* awra.css: awrametricrow { min-height: 30px } */
   return row;
 }
 
@@ -979,5 +980,12 @@ AwraWidget *awra_metadata_group_append(AwraWidget *w, const char *label, const c
   AwraWidget *row = awra_metric_row_new(label, value);
   awra_box_append(w, row);
   awra_widget_unref(row);
+  /* its labels take the group's roles (prose-metadata) now they are in it */
+  for (int i = 0; i < row->nkids; i++) {
+    AwraWidget *k = row->kids[i];
+    if (awra_is_widget(k) && AWRA_CLASS_OF(k)->style_changed) {
+      AWRA_CLASS_OF(k)->style_changed(k);
+    }
+  }
   return row;
 }

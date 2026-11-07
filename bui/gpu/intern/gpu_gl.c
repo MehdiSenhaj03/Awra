@@ -133,6 +133,7 @@ typedef ptrdiff_t GLintptr;
       (GLenum, GLint, GLint, GLsizei, GLsizei, GLint, GLenum, GLenum, const void *)) \
     F(void, glTexSubImage2D, \
       (GLenum, GLint, GLint, GLint, GLsizei, GLsizei, GLenum, GLenum, const void *)) \
+    F(void, glCopyTexSubImage2D, (GLenum, GLint, GLint, GLint, GLint, GLint, GLsizei, GLsizei)) \
     F(void, glGenBuffers, (GLsizei, GLuint *)) \
     F(void, glDeleteBuffers, (GLsizei, const GLuint *)) \
     F(void, glBindBuffer, (GLenum, GLuint)) \
@@ -463,6 +464,10 @@ static const char *const k_fs_quad =
     "#define K_HSV 8\n"
     "#define K_SPHERE 9\n"
     "#define K_SLUG 10\n"
+    "#define K_RESTORE 11\n"
+    "#define K_RBOX 12\n"
+    "#define K_BOX_SHADOW 13\n"
+    "#define K_RBOX_GRADIENT 14\n"
     "#define W_SHADE_H 1u\n"
     "#define W_CHECKER 2u\n"
     "#define W_LEGACY 4u\n"
@@ -478,6 +483,26 @@ static const char *const k_fs_quad =
     "vec2 sat(vec2 x) { return clamp(x, 0.0, 1.0); }\n"
     "vec3 sat(vec3 x) { return clamp(x, 0.0, 1.0); }\n"
     /* rounded box with a per-corner radius mask (gpu_raster.c sd_widget_box) */
+    /* BUI-Awra: the software raster's rounded box (gpu_raster_awra.inc.c
+     * sd_rbox): b = x0 y0 x1 y1, r = radii TL TR BR BL */
+    "float sd_rbox4(vec2 s, vec4 b, vec4 r)\n"
+    "{\n"
+    "  vec2 c = (b.xy + b.zw) * 0.5, h = (b.zw - b.xy) * 0.5, p = s - c;\n"
+    "  float rr = p.y < 0.0 ? (p.x < 0.0 ? r.x : r.y) : (p.x < 0.0 ? r.w : r.z);\n"
+    "  vec2 q = abs(p) - (h - rr);\n"
+    "  if (q.x <= 0.0 || q.y <= 0.0) {\n"
+    "    return max(q.x, q.y) - rr;\n"
+    "  }\n"
+    "  return length(q) - rr;\n"
+    "}\n"
+    /* 0.5 * erfc(x), as the software raster's half_erfc (A&S 7.1.26) */
+    "float half_erfc(float x)\n"
+    "{\n"
+    "  float ax = abs(x), t = 1.0 / (1.0 + 0.3275911 * ax);\n"
+    "  float y = 1.0 - (((((1.061405429 * t - 1.453152027) * t) + 1.421413741) * t - 0.284496736) * t +\n"
+    "                    0.254829592) * t * exp(-ax * ax);\n"
+    "  return x >= 0.0 ? 0.5 * (1.0 - y) : 0.5 * (1.0 + y);\n"
+    "}\n"
     "float sd_box(vec2 s, vec2 c, vec2 hb, float rad, uint corners)\n"
     "{\n"
     "  vec2 p = s - c;\n"
@@ -757,6 +782,39 @@ static const char *const k_fs_quad =
     "    float hue = atan(dd.x, -dd.y) * 0.15915494309189535 + 0.5;\n"
     "    return premul(vec4(hsv_to_rgb(hue, min(dist / R.z, 1.0), R.w), 1.0), cov);\n"
     "  }\n"
+    "  if (kind == K_RBOX) {\n" /* BUI-Awra: BUI_raster_rbox */
+    "    vec4 b = vec4(R.xy, R.xy + R.zw);\n"
+    "    float co = sat(0.5 - sd_rbox4(s, b, v_c2));\n"
+    "    vec4 f = v_p.y > 0.5 ? premul(v_c0, co) : vec4(0.0);\n"
+    "    if (v_p.z > 0.5) {\n"
+    "      vec4 W = v_c3, rr = v_c2;\n" /* widths top right bottom left */
+    "      vec4 ib = vec4(b.x + W.w, b.y + W.x, b.z - W.y, b.w - W.z);\n"
+    "      vec4 ir = max(vec4(0.0), rr - vec4(max(W.w, W.x), max(W.y, W.x), max(W.y, W.z), max(W.w, W.z)));\n"
+    "      float ci = ib.z > ib.x && ib.w > ib.y ? sat(0.5 - sd_rbox4(s, ib, ir)) : 0.0;\n"
+    "      vec4 bo = premul(v_c1, max(co - ci, 0.0));\n"
+    "      f = bo + f * (1.0 - bo.a);\n"
+    "    }\n"
+    "    return f;\n"
+    "  }\n"
+    "  if (kind == K_BOX_SHADOW) {\n" /* BUI-Awra: BUI_raster_box_shadow */
+    "    float d = sd_rbox4(s, R, v_c1);\n"
+    "    float cov = v_uv.y > 0.5 ? half_erfc(d * v_uv.x) : sat(0.5 - d);\n"
+    "    if (v_uv.z > 0.5) {\n"
+    "      cov *= 1.0 - sat(0.5 - sd_rbox4(s, v_c2, v_c3));\n"
+    "    }\n"
+    "    return cov > 0.002 ? premul(v_c0, cov) : vec4(0.0);\n"
+    "  }\n"
+    "  if (kind == K_RBOX_GRADIENT) {\n" /* BUI-Awra: BUI_raster_rbox_gradient */
+    "    float cov = sat(0.5 - sd_rbox4(s, vec4(R.xy, R.xy + R.zw), v_c2));\n"
+    "    float t = v_p.y > 0.5 ? sat((s.x - R.x) / R.z) : sat((s.y - R.y) / R.w);\n"
+    "    return premul(mix(v_c0, v_c1, t), cov);\n"
+    "  }\n"
+    "  if (kind == K_RESTORE) {\n" /* BUI-Awra: what lay under, over what was drawn */
+    "    vec4 under = texelFetch(rgba_tex, ivec2(floor(s) - R.xy), 0);\n"
+    "    float a = v_p.y < 0.5 ? sat(v_c1.z + (v_c1.w - v_c1.z) * ((s.y - v_c1.x) / v_c1.y)) :\n"
+    "                            sat(0.5 - sd_rbox4(s, v_c1, v_c2));\n"
+    "    return under * (1.0 - a);\n"
+    "  }\n"
     "  if (kind == K_SPHERE) {\n"
     "    vec2 n2 = vec2(s.x - R.x, -(s.y - R.y)) / R.z;\n"
     "    float d2 = dot(n2, n2);\n"
@@ -889,6 +947,8 @@ typedef struct Batch {
 #  define BIG_MAX 32
 #  define BIG_BUDGET ((size_t)256 << 20)
 #  define BIG_IDLE 120
+#  define SNAP_MAX BUI_GPU_SNAPS
+#  define SNAP_BASE 1000 /* a batch's img: SNAP_BASE + snapshot */
 typedef struct BigTex {
   uint64_t key, base; /* 0 = empty */
   int w, h;
@@ -947,6 +1007,11 @@ struct BuiGpu {
 
   Atlas mask, rgba;
   BigTex big[BIG_MAX];
+  /* BUI-Awra: copies of parts of the frame (fades, rounded clips), reused */
+  struct {
+    GLuint tex;
+    int w, h;
+  } snap[SNAP_MAX];
   size_t big_bytes;
   uint32_t *conv; /* BUI-Awra: pixels converted for upload (bui_pixmap_upload) */
   size_t conv_cap;
@@ -1030,7 +1095,7 @@ static int gl_resolve(BuiGpu *g)
 }
 
 /* GLX: a core 3.3 context on `window` (0: on a 1x1 pbuffer). */
-static int glx_create(BuiGpu *g, XDisplay *dpy, XID window)
+static int glx_create(BuiGpu *g, XDisplay *dpy, XID window, unsigned long visual)
 {
   if (!x11_load() || !glx_load()) {
     return 0;
@@ -1085,10 +1150,11 @@ static int glx_create(BuiGpu *g, XDisplay *dpy, XID window)
     }
     return fail("glXChooseFBConfig");
   }
-  /* the kit's windows use the default visual: take the config made for it */
+  /* the config made for the window's visual (the default one unless the
+   * window has per-pixel alpha) */
   GLXFBConfig cfg = cfgs[0];
   if (window) {
-    const unsigned long want = p_XVisualIDFromVisual(p_XDefaultVisual(dpy, scr));
+    const unsigned long want = visual ? visual : p_XVisualIDFromVisual(p_XDefaultVisual(dpy, scr));
     for (int i = 0; i < n; i++) {
       int vid = 0;
       if (p_glXGetFBConfigAttrib(dpy, cfgs[i], GLX_VISUAL_ID, &vid) == 0 &&
@@ -1468,13 +1534,13 @@ BuiGpu *bui_gpu_create(void *handle)
   if (ok) {
     if (handle) { /* a window: GLX on the host's connection */
       const BuiGpuX11Window *xw = (const BuiGpuX11Window *)handle;
-      ok = xw->window && glx_create(g, xw->display, (XID)xw->window);
+      ok = xw->window && glx_create(g, xw->display, (XID)xw->window, xw->visual);
     }
     else { /* offscreen: EGL, else a GLX pbuffer */
       ok = egl_create(g);
       if (!ok) {
         context_free(g);
-        ok = glx_create(g, NULL, 0);
+        ok = glx_create(g, NULL, 0, 0);
       }
     }
   }
@@ -1580,6 +1646,7 @@ static void atlas_upload(BuiGpu *g, Atlas *a, int x, int y, int w, int h, const 
  * \{ */
 
 static void flush(BuiGpu *g);
+static int ensure_target(BuiGpu *g);
 
 static void big_sweep(BuiGpu *g);
 
@@ -1591,12 +1658,71 @@ void bui_gpu_begin(BuiGpu *g, int w, int h)
   big_sweep(g);
 }
 
+static BuiGpuInst *inst_in(BuiGpu *g, Batch *b, int kind, int x0, int y0, int x1, int y1);
+static Batch *batch_new(BuiGpu *g, int tri, int first);
+
+int bui_gpu_snap_take(BuiGpu *g, int i, int w, int h)
+{
+  if (i < 0 || i >= SNAP_MAX || w <= 0 || h <= 0) {
+    return 0;
+  }
+  flush(g); /* what is queued lies under, and what restores this one is drawn */
+  if (!make_current(g) || !ensure_target(g)) {
+    return 0;
+  }
+  if (g->snap[i].w < w || g->snap[i].h < h) {
+    if (g->snap[i].tex) {
+      GL(glDeleteTextures)(1, &g->snap[i].tex);
+    }
+    const int nw = w > g->snap[i].w ? w : g->snap[i].w, nh = h > g->snap[i].h ? h : g->snap[i].h;
+    g->snap[i].tex = tex_create(g, GL_RGBA8, nw, nh, GL_BGRA, GL_UNSIGNED_INT_8_8_8_8_REV);
+    g->snap[i].w = g->snap[i].tex ? nw : 0;
+    g->snap[i].h = g->snap[i].tex ? nh : 0;
+  }
+  return g->snap[i].tex != 0;
+}
+
+void bui_gpu_snap_copy(BuiGpu *g, int snap, int x, int y, int w, int h, int dx, int dy)
+{
+  if (snap < 0 || snap >= SNAP_MAX || !g->snap[snap].tex || w <= 0 || h <= 0) {
+    return;
+  }
+  /* the frame is stored top row first: GL y == BUI y, rows copy as they are */
+  GL(glBindFramebuffer)(GL_FRAMEBUFFER, g->fbo);
+  GL(glActiveTexture)(GL_TEXTURE0);
+  GL(glBindTexture)(GL_TEXTURE_2D, g->snap[snap].tex);
+  GL(glCopyTexSubImage2D)(GL_TEXTURE_2D, 0, dx, dy, x, y, w, h);
+}
+
+BuiGpuInst *bui_gpu_inst_snap(BuiGpu *g, int snap, int x0, int y0, int x1, int y1)
+{
+  if (snap < 0 || snap >= SNAP_MAX || !g->snap[snap].tex) {
+    return NULL;
+  }
+  /* a batch of its own: nothing else may sample the snapshot */
+  Batch *b = g->n_b > 0 ? &g->b[g->n_b - 1] : NULL;
+  if (!b || b->tri != 0 || b->img != SNAP_BASE + snap) {
+    b = batch_new(g, 0, g->n_inst);
+  }
+  if (!b) {
+    return NULL;
+  }
+  b->img = SNAP_BASE + snap;
+  return inst_in(g, b, BG_RESTORE, x0, y0, x1, y1);
+}
+
+BuiGpuInst *bui_gpu_inst_awra(BuiGpu *g, int kind, int x0, int y0, int x1, int y1)
+{
+  return bui_gpu_inst(g, kind, x0, y0, x1, y1); /* one program draws every kind here */
+}
+
 static Batch *batch_new(BuiGpu *g, int tri, int first);
 
 /* The batch to append to: the last one when it is of the same kind. */
 static Batch *batch_for(BuiGpu *g, int tri, int first)
 {
-  if (tri != 2 && g->n_b > 0 && g->b[g->n_b - 1].tri == tri) {
+  /* nothing joins a snapshot's batch: its images would sample the snapshot */
+  if (tri != 2 && g->n_b > 0 && g->b[g->n_b - 1].tri == tri && g->b[g->n_b - 1].img < SNAP_BASE) {
     return &g->b[g->n_b - 1];
   }
   return batch_new(g, tri, first);
@@ -2501,13 +2627,19 @@ static void flush(BuiGpu *g)
                          (const void *)(sizeof(uint32_t) * (size_t)b->first));
     }
     else if (!b->tri) {
-      const int want = b->img > 0 && g->big[b->img - 1].tex ? b->img : 0;
-      if (want != img) { /* unit 1: the atlas, or a big image's own texture (5: NV12 chroma) */
+      const int want = b->img >= SNAP_BASE                      ? b->img :
+                       b->img > 0 && g->big[b->img - 1].tex ? b->img :
+                                                              0;
+      if (want != img) { /* unit 1: the atlas, or a big image's own texture (5: NV12 chroma),
+                          * or a snapshot of the frame (BUI-Awra) */
         img = want;
+        const int snap = img >= SNAP_BASE;
         GL(glActiveTexture)(GL_TEXTURE0 + 1);
-        GL(glBindTexture)(GL_TEXTURE_2D, img ? g->big[img - 1].tex : g->rgba.tex);
+        GL(glBindTexture)(GL_TEXTURE_2D, snap ? g->snap[img - SNAP_BASE].tex :
+                                         img  ? g->big[img - 1].tex :
+                                                g->rgba.tex);
         GL(glActiveTexture)(GL_TEXTURE0 + 5);
-        GL(glBindTexture)(GL_TEXTURE_2D, img ? g->big[img - 1].uv_tex : 0);
+        GL(glBindTexture)(GL_TEXTURE_2D, img && !snap ? g->big[img - 1].uv_tex : 0);
         GL(glActiveTexture)(GL_TEXTURE0);
       }
       const size_t base = sizeof(BuiGpuInst) * (size_t)b->first;

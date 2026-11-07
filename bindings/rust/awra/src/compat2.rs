@@ -260,10 +260,11 @@ impl crate::ScrolledWindow {
         Adjustment { scrolled: self.upcast(), vertical: false }
     }
     pub fn set_min_content_width(&self, w: i32) {
-        let (_, h) = self.size_request();
-        self.set_size_request(w, h);
+        unsafe { ffi::awra_scrolled_set_min_content_width(self.as_ptr(), w.max(0)) }
     }
-    pub fn set_max_content_width(&self, _w: i32) {}
+    pub fn set_max_content_width(&self, w: i32) {
+        unsafe { ffi::awra_scrolled_set_max_content_width(self.as_ptr(), w.max(0)) }
+    }
     /// An end reached by scrolling (GtkScrolledWindow::edge-reached).
     pub fn connect_edge_reached<F: Fn(&crate::ScrolledWindow, PositionType) + 'static>(&self, f: F) -> SignalHandlerId {
         let weak = self.downgrade();
