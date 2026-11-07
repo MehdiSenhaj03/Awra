@@ -725,11 +725,12 @@ static void row_metrics(AwraWidget *w, int *px, int *py, int *min_h, int *gap, f
       *radius = awra_pxf(8);
       break;
     case 3: /* submenu row: Awra 1's awramenubutton.awra-menu-item button
-             * (min-height 24, padding 6 9, radius 9), content spacing 8 */
+             * (min-height 24, padding 6 9, radius 9); its content box spaces
+             * by 8 plus the CSS border-spacing 9, as GtkBoxLayout adds both */
       *px = awra_px(9);
       *py = awra_px(6);
       *min_h = awra_px(24);
-      *gap = awra_px(8);
+      *gap = awra_px(17);
       *radius = awra_pxf(9);
       break;
     default:
