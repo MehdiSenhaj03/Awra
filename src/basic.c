@@ -1111,25 +1111,14 @@ void awra_image_set_bytes(AwraWidget *w, const void *data, size_t len)
 
 void awra_image_set_rgba(AwraWidget *w, const uint8_t *rgba, int width, int height, int stride)
 {
-  ImageExt *x = IX(w);
-  picture_reset(w);
-  free(x->path);
-  x->path = NULL;
-  free(x->bytes);
-  x->bytes = NULL;
-  BKImBuf *ib = BK_imbuf_from_rgba(rgba, width, height, stride);
-  if (!ib) {
+  /* a texture of its own: drawn smaller, it is averaged down (texture.c) as
+   * GSK's mipmaps would, not sampled */
+  AwraTexture *t = awra_texture_new_rgba(rgba, width, height, stride);
+  if (!t) {
     return;
   }
-  x->argb = (uint32_t *)malloc(sizeof(uint32_t) * (size_t)width * height);
-  if (x->argb) {
-    memcpy(x->argb, BK_imbuf_pixels(ib, 0), sizeof(uint32_t) * (size_t)width * height);
-  }
-  BK_imbuf_free(ib);
-  x->iw = x->dw = width;
-  x->ih = x->dh = height;
-  awra_widget_queue_resize(w);
-  awra_invalidate(w);
+  awra_image_set_texture(w, t);
+  awra_texture_unref(t);
 }
 
 void awra_image_set_corner_radius(AwraWidget *w, double r)

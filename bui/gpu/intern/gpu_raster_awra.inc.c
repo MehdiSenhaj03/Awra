@@ -452,46 +452,40 @@ void BUI_raster_image_rounded(BuiRaster *r,
   const float sx = src ? src[0] : 0.0f, sy = src ? src[1] : 0.0f;
   const float sw = src ? src[2] : (float)img->w, sh = src ? src[3] : (float)img->h;
   const float kx = sw / w, ky = sh / h;
-  const struct {
-    float x0, y0, x1, y1;
-  } corners[4] = {{x, y, x + rl, y + rt},
-                  {x + w - rr, y, x + w, y + rt},
-                  {x + w - rr, y + h - rb, x + w, y + h},
-                  {x, y + h - rb, x + rl, y + h}};
-  int done_y0 = 0;
-  (void)done_y0;
-  for (int c = 0; c < 4; c++) {
-    int cx0, cy0, cx1, cy1;
-    if (!clip_box(r, corners[c].x0, corners[c].y0, corners[c].x1, corners[c].y1, &cx0, &cy0,
-                  &cx1, &cy1))
-    {
-      continue;
-    }
-    /* the bands above own whole pixels strictly inside them; corners own
-     * the rest (including partial pixels along the band edges) */
-    for (int py = cy0; py < cy1; py++) {
-      uint32_t *row = RASTER_ROW(r, py);
-      const float fy = (float)py + 0.5f;
-      for (int px = cx0; px < cx1; px++) {
-        const float fx = (float)px + 0.5f;
-        /* skip pixels a band drew */
-        int drawn = 0;
-        for (int i = 0; i < 3 && !drawn; i++) {
-          drawn = px >= (int)ceilf(bands[i].x0) && px < (int)floorf(bands[i].x1) &&
-                  py >= (int)ceilf(bands[i].y0) && py < (int)floorf(bands[i].y1);
-        }
-        if (drawn) {
-          continue;
-        }
-        const float cov = clampf(0.5f - sd_rbox(fx, fy, x, y, x + w, y + h, rad), 0.0f, 1.0f);
-        if (cov <= 0.0f) {
-          continue;
-        }
-        const int tx = clampi((int)(sx + (fx - x) * kx), 0, img->w - 1);
-        const int ty = clampi((int)(sy + (fy - y) * ky), 0, img->h - 1);
-        const uint32_t ga = (uint32_t)(clampf(alpha * cov, 0.0f, 1.0f) * 256.0f + 0.5f);
-        put_image_px(row + px, pixmap_texel(img, (size_t)ty * img->w + tx), ga);
+  /* every pixel the bands did not draw: the corners, and the partial
+   * pixels along the straight edges (a box at fractional coordinates) */
+  int ox0, oy0, ox1, oy1;
+  if (!clip_box(r, x, y, x + w, y + h, &ox0, &oy0, &ox1, &oy1)) {
+    return;
+  }
+  const int mx0 = (int)ceilf(bands[0].x0), mx1 = (int)floorf(bands[0].x1);
+  const int my0 = (int)ceilf(bands[0].y0), my1 = (int)floorf(bands[0].y1);
+  for (int py = oy0; py < oy1; py++) {
+    uint32_t *row = RASTER_ROW(r, py);
+    const float fy = (float)py + 0.5f;
+    const bool middle = py >= my0 && py < my1 && mx1 > mx0;
+    for (int px = ox0; px < ox1; px++) {
+      if (middle && px >= mx0 && px < mx1) {
+        px = mx1 - 1; /* the band drew the inside of this row */
+        continue;
       }
+      const float fx = (float)px + 0.5f;
+      int drawn = 0;
+      for (int i = 1; i < 3 && !drawn; i++) {
+        drawn = px >= (int)ceilf(bands[i].x0) && px < (int)floorf(bands[i].x1) &&
+                py >= (int)ceilf(bands[i].y0) && py < (int)floorf(bands[i].y1);
+      }
+      if (drawn) {
+        continue;
+      }
+      const float cov = clampf(0.5f - sd_rbox(fx, fy, x, y, x + w, y + h, rad), 0.0f, 1.0f);
+      if (cov <= 0.0f) {
+        continue;
+      }
+      const int tx = clampi((int)(sx + (fx - x) * kx), 0, img->w - 1);
+      const int ty = clampi((int)(sy + (fy - y) * ky), 0, img->h - 1);
+      const uint32_t ga = (uint32_t)(clampf(alpha * cov, 0.0f, 1.0f) * 256.0f + 0.5f);
+      put_image_px(row + px, pixmap_texel(img, (size_t)ty * img->w + tx), ga);
     }
   }
 }
