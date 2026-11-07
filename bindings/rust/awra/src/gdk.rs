@@ -257,3 +257,5 @@ impl MemoryTextureBuilder {
             .expect("a texture of these pixels")
     }
 }
+
+pub use crate::compat2::{DragAction, FileList, GdkDisplay as Display};

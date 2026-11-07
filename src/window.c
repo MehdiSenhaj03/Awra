@@ -1312,3 +1312,15 @@ void awra_windows_request_frame(void)
     }
   }
 }
+
+bool awra_widget_pointer_position(AwraWidget *w, double *r_x, double *r_y)
+{
+  BKContext *ctx = w ? bk_ctx(w) : NULL;
+  if (!ctx || !awra_widget_mapped(w)) {
+    return false;
+  }
+  const float s = awra_scale();
+  *r_x = (ctx->pointer_x - w->x) / s;
+  *r_y = (ctx->pointer_y - w->y) / s;
+  return *r_x >= 0 && *r_y >= 0 && *r_x < w->w / s && *r_y < w->h / s;
+}

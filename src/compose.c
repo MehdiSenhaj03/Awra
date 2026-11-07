@@ -1207,17 +1207,45 @@ void awra_sidebar_set_inset(AwraWidget *w, AwraSpacing inset)
 /* Navigation item (spec A §5): 42 px rows, radius 9, 22 px icon gap */
 
 typedef struct NavExt {
-  AwraWidget *box, *icon, *label, *badge;
-  bool selected;
+  AwraWidget *box, *icon, *label, *badge, *texts, *subtitle, *prefix, *suffix;
+  bool selected, muted, emphasized, has_label_color;
+  AwraRGBA label_color;
   AwraWidget *group_next;
   bool in_sidebar;
 } NavExt;
 
 #define NX(w) AWRA_EXT(w, NavExt)
 
+/* the list role an ancestor gives its items: 0 none, 1 compact navigation
+ * (32 px rows), 2 people list */
+static int nav_role(const AwraWidget *w)
+{
+  static int compact = -2, people = -2;
+  if (compact == -2) {
+    compact = awra_class_bit("compact-navigation");
+    people = awra_class_bit("people-list");
+  }
+  for (const BKNode *p = w->parent; p; p = p->parent) {
+    if (!awra_is_widget(p)) {
+      continue;
+    }
+    if (awra_has_class_bit(p, compact)) {
+      return 1;
+    }
+    if (awra_has_class_bit(p, people)) {
+      return 2;
+    }
+  }
+  return 0;
+}
+
 static void nav_margins(AwraWidget *w, int *mx)
 {
   *mx = 0;
+  if (nav_role(w)) {
+    *mx = awra_px(8);
+    return;
+  }
   for (BKNode *p = w->parent; p; p = p->parent) {
     if (awra_is_widget(p) && awra_widget_name(p) && !strcmp(awra_widget_name(p), "AwraSidebar")) {
       *mx = awra_px(8);
@@ -1226,19 +1254,29 @@ static void nav_margins(AwraWidget *w, int *mx)
   }
 }
 
+/* padding x, y and the least height of the content (logical) */
+static void nav_pads(AwraWidget *w, int *px, int *py, int *min_h)
+{
+  switch (nav_role(w)) {
+    case 1: *px = 8; *py = 6; *min_h = 20; break;
+    case 2: *px = 8; *py = 6; *min_h = 28; break;
+    default: *px = 11; *py = 7; *min_h = 28; break;
+  }
+}
+
 static void nav_measure(AwraWidget *w, int o, int f, int *mn, int *nt)
 {
-  int mx;
+  int mx, px, py, min_h;
   nav_margins(w, &mx);
-  const int ph = awra_px(22), pv = awra_px(14);
+  nav_pads(w, &px, &py, &min_h);
   awra_measure(NX(w)->box, o, -1, mn, nt);
   if (o == AWRA_ORIENTATION_HORIZONTAL) {
-    *mn += ph + 2 * mx;
-    *nt += ph + 2 * mx;
+    *mn += awra_px(2 * px) + 2 * mx;
+    *nt += awra_px(2 * px) + 2 * mx;
   }
   else {
-    *mn = BK_MAX(*mn, awra_px(28)) + pv + awra_px(2);
-    *nt = BK_MAX(*nt, awra_px(28)) + pv + awra_px(2);
+    *mn = BK_MAX(*mn, awra_px(min_h)) + awra_px(2 * py) + awra_px(2);
+    *nt = BK_MAX(*nt, awra_px(min_h)) + awra_px(2 * py) + awra_px(2);
   }
 }
 
@@ -1252,9 +1290,11 @@ static AwraBox nav_box(AwraWidget *w)
 
 static void nav_allocate(AwraWidget *w)
 {
+  int px, py, min_h;
+  nav_pads(w, &px, &py, &min_h);
   AwraBox b = nav_box(w);
-  awra_allocate(NX(w)->box, (int)b.x + awra_px(11), (int)b.y + awra_px(7), (int)b.w - awra_px(22),
-                (int)b.h - awra_px(14));
+  awra_allocate(NX(w)->box, (int)b.x + awra_px(px), (int)b.y + awra_px(py), (int)b.w - awra_px(2 * px),
+                (int)b.h - awra_px(2 * py));
 }
 
 static void nav_colors(AwraWidget *w, AwraButtonColors *c)
@@ -1263,6 +1303,14 @@ static void nav_colors(AwraWidget *w, AwraButtonColors *c)
   AwraButtonColors rest, hov;
   awra_button_colors(AWRA_LOOK_NAV_ITEM, false, awra_pressed(w), NX(w)->selected, awra_sensitive(w), &rest);
   awra_button_colors(AWRA_LOOK_NAV_ITEM, true, awra_pressed(w), NX(w)->selected, awra_sensitive(w), &hov);
+  const AwraTokens *t = awra_tokens();
+  const int role = nav_role(w);
+  if (role == 2 || NX(w)->emphasized) {
+    rest.fg = t->foreground; /* people, or something new: full contrast */
+  }
+  if (NX(w)->muted && !NX(w)->selected) {
+    rest.fg = role == 2 ? t->muted : awra_with_alpha(t->muted, t->muted.a * 0.6f);
+  }
   c->fg = awra_mix(rest.fg, hov.fg, ht);
   c->bg = awra_mix(rest.bg, hov.bg, ht);
   c->rim = NX(w)->selected ? rest.rim : awra_rgba(0, 0, 0, 0);
@@ -1274,13 +1322,23 @@ static void nav_draw(AwraWidget *w, AwraDraw *d)
 {
   AwraButtonColors c;
   nav_colors(w, &c);
-  awra_paint_button_bg(d, nav_box(w), awra_pxf(9), &c,
-                       awra_style_reduced_motion() ? 0.0f : awra_press_t(w), false);
+  const float radius = awra_pxf(nav_role(w) == 1 ? 8 : 9);
+  awra_paint_button_bg(d, nav_box(w), radius, &c, awra_style_reduced_motion() ? 0.0f : awra_press_t(w), false);
   if (awra_focus_visible(w)) {
     const float ow = awra_pxf(2), off = awra_pxf(1);
     AwraBox b = nav_box(w);
     AwraBox o = {b.x - off - ow, b.y - off - ow, b.w + 2 * (off + ow), b.h + 2 * (off + ow)};
-    awra_paint_rbox(d, o, awra_pxf(9) + off + ow, NULL, ow, &awra_tokens()->focus_ring);
+    awra_paint_rbox(d, o, radius + off + ow, NULL, ow, &awra_tokens()->focus_ring);
+  }
+}
+
+static int nav_label_weight(AwraWidget *w)
+{
+  NavExt *x = NX(w);
+  switch (nav_role(w)) {
+    case 1: return x->selected ? 600 : x->emphasized ? 650 : 400;
+    case 2: return x->emphasized ? 700 : 500;
+    default: return x->emphasized ? 700 : 560;
   }
 }
 
@@ -1289,8 +1347,37 @@ static bool nav_child_style(AwraWidget *w, AwraRGBA *col, int *weight)
   AwraButtonColors c;
   nav_colors(w, &c);
   *col = c.fg;
-  *weight = 560;
+  *weight = nav_label_weight(w);
   return true;
+}
+
+/* a colour a label reads in on this appearance (awra_rgba_readable) */
+static AwraRGBA readable(AwraRGBA c)
+{
+  const bool dark = awra_tokens()->dark;
+  const float l = 0.2126f * c.r + 0.7152f * c.g + 0.0722f * c.b;
+  if (dark && l < 0.35f) {
+    return awra_mix(c, awra_rgba(1, 1, 1, 1), (0.35f - l) / 0.65f + 0.15f);
+  }
+  if (!dark && l > 0.6f) {
+    return awra_mix(c, awra_rgba(0, 0, 0, 1), (l - 0.6f) / 0.4f + 0.2f);
+  }
+  return c;
+}
+
+static void nav_sync_label(AwraWidget *w)
+{
+  NavExt *x = NX(w);
+  awra_label_set_weight(x->label, nav_label_weight(w));
+  if (x->has_label_color) {
+    AwraRGBA c = readable(x->label_color);
+    awra_label_set_color(x->label, &c);
+  }
+  else {
+    awra_label_set_color(x->label, NULL);
+  }
+  const int role = nav_role(w);
+  awra_box_set_spacing(x->box, role == 1 ? 8 : role == 2 ? 12 : 22);
 }
 
 static void nav_select(AwraWidget *w, bool selected, bool notify)
@@ -1307,6 +1394,7 @@ static void nav_select(AwraWidget *w, bool selected, bool notify)
   else {
     awra_image_set_color(x->icon, NULL);
   }
+  nav_sync_label(w);
   awra_invalidate(w);
   if (selected) {
     for (AwraWidget *o = x->group_next; o && o != w; o = NX(o)->group_next) {
@@ -1336,6 +1424,14 @@ static void nav_style_changed(AwraWidget *w)
 {
   if (NX(w)->selected) {
     awra_image_set_color(NX(w)->icon, &awra_tokens()->accent_content);
+  }
+  nav_sync_label(w);
+}
+
+static void nav_map(AwraWidget *w, bool mapped)
+{
+  if (mapped) {
+    nav_sync_label(w); /* its list's role is known once it's in place */
   }
 }
 
@@ -1370,6 +1466,7 @@ static AwraClass nav_class = {
     .activate = nav_activate,
     .child_style = nav_child_style,
     .style_changed = nav_style_changed,
+    .map = nav_map,
     .overdraw = 4,
 };
 
@@ -1384,10 +1481,27 @@ AwraWidget *awra_navigation_item_new(const char *label, const char *icon)
   x->label = awra_label_new(label ? label : "");
   awra_label_set_xalign(x->label, 0.0f);
   awra_label_set_ellipsize(x->label, AWRA_ELLIPSIZE_END);
-  awra_widget_set_hexpand(x->label, true);
+  x->subtitle = awra_label_new("");
+  awra_label_set_xalign(x->subtitle, 0.0f);
+  awra_label_set_ellipsize(x->subtitle, AWRA_ELLIPSIZE_END);
+  awra_label_set_scale(x->subtitle, 0.86);
+  awra_label_set_weight(x->subtitle, 400);
+  awra_label_set_color(x->subtitle, &awra_tokens()->muted);
+  awra_widget_set_visible(x->subtitle, false);
+  x->texts = awra_box_new(AWRA_ORIENTATION_VERTICAL, 0);
+  awra_widget_set_hexpand(x->texts, true);
+  awra_widget_set_valign(x->texts, AWRA_ALIGN_CENTER);
+  awra_box_append(x->texts, x->label);
+  awra_box_append(x->texts, x->subtitle);
   awra_box_append(x->box, x->icon);
-  awra_box_append(x->box, x->label);
+  awra_box_append(x->box, x->texts);
   awra_child_insert(w, x->box, -1);
+  awra_widget_unref(x->label);
+  awra_widget_unref(x->subtitle);
+  awra_widget_unref(x->texts);
+  awra_widget_unref(x->icon);
+  awra_widget_unref(x->box);
+  nav_sync_label(w);
   return w;
 }
 
@@ -1399,7 +1513,7 @@ void awra_navigation_item_set_label(AwraWidget *w, const char *l)
 void awra_navigation_item_set_icon_name(AwraWidget *w, const char *icon)
 {
   awra_image_set_icon_name(NX(w)->icon, icon);
-  awra_widget_set_visible(NX(w)->icon, icon && icon[0]);
+  awra_widget_set_visible(NX(w)->icon, icon && icon[0] && !NX(w)->prefix);
 }
 
 void awra_navigation_item_set_selected(AwraWidget *w, bool s)
@@ -1420,6 +1534,7 @@ void awra_navigation_item_set_badge(AwraWidget *w, const char *badge)
     awra_widget_set_valign(x->badge, AWRA_ALIGN_CENTER);
     awra_widget_set_margin_start(x->badge, -18);
     awra_box_append(x->box, x->badge);
+    awra_widget_unref(x->badge);
   }
   if (x->badge) {
     awra_badge_set_label(x->badge, badge ? badge : "");
@@ -1434,6 +1549,81 @@ void awra_navigation_item_set_group(AwraWidget *w, AwraWidget *m)
   }
   NX(w)->group_next = NX(m)->group_next;
   NX(m)->group_next = w;
+}
+
+void awra_navigation_item_set_prefix(AwraWidget *w, AwraWidget *prefix)
+{
+  NavExt *x = NX(w);
+  if (x->prefix == prefix) {
+    return;
+  }
+  if (x->prefix) {
+    awra_box_remove(x->box, x->prefix);
+  }
+  x->prefix = prefix;
+  if (prefix) {
+    awra_widget_set_valign(prefix, AWRA_ALIGN_CENTER);
+    awra_widget_set_margins(prefix, -3, 0, -3, 0);
+    awra_box_prepend(x->box, prefix);
+  }
+  awra_widget_set_visible(x->icon, !prefix && awra_widget_visible(x->icon));
+}
+
+AwraWidget *awra_navigation_item_prefix(AwraWidget *w)
+{
+  return NX(w)->prefix;
+}
+
+void awra_navigation_item_set_suffix(AwraWidget *w, AwraWidget *suffix)
+{
+  NavExt *x = NX(w);
+  if (x->suffix == suffix) {
+    return;
+  }
+  if (x->suffix) {
+    awra_box_remove(x->box, x->suffix);
+  }
+  x->suffix = suffix;
+  if (suffix) {
+    awra_widget_set_valign(suffix, AWRA_ALIGN_CENTER);
+    awra_widget_set_margin_start(suffix, 4);
+    awra_box_append(x->box, suffix);
+  }
+}
+
+AwraWidget *awra_navigation_item_suffix(AwraWidget *w)
+{
+  return NX(w)->suffix;
+}
+
+void awra_navigation_item_set_subtitle(AwraWidget *w, const char *subtitle)
+{
+  NavExt *x = NX(w);
+  awra_label_set_text(x->subtitle, subtitle ? subtitle : "");
+  awra_widget_set_visible(x->subtitle, subtitle && subtitle[0]);
+}
+
+void awra_navigation_item_set_muted(AwraWidget *w, bool muted)
+{
+  NX(w)->muted = muted;
+  awra_invalidate(w);
+}
+
+void awra_navigation_item_set_emphasized(AwraWidget *w, bool emphasized)
+{
+  NX(w)->emphasized = emphasized;
+  nav_sync_label(w);
+  awra_invalidate(w);
+}
+
+void awra_navigation_item_set_label_color(AwraWidget *w, const AwraRGBA *color)
+{
+  NavExt *x = NX(w);
+  x->has_label_color = color != NULL;
+  if (color) {
+    x->label_color = *color;
+  }
+  nav_sync_label(w);
 }
 
 /* ======================================================================= */

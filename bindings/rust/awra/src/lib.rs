@@ -17,6 +17,7 @@ pub use awra_sys as ffi;
 
 pub mod object;
 mod compat;
+mod compat2;
 mod content;
 mod signal;
 mod enums;
@@ -39,6 +40,7 @@ pub use signal::{raw_args as signal_args, sig, Args, SignalHandlerId};
 pub use widget::*;
 pub use widgets::*;
 pub use compat::*;
+pub use compat2::*;
 pub use content::*;
 pub use window::{accel_label, ApplicationWindow, Window};
 
@@ -47,6 +49,18 @@ pub mod prelude {
     pub use crate::gio::ToVariant;
     pub use crate::object::{IsWidget, StaticType};
     pub use crate::widget::{Cast, Controller};
+    pub use crate::content::EmojiItemExt;
+    pub use crate::compat2::{StaticTypeExt, WidgetExt};
+
+    /// gtk-rs `and_downcast`: an optional widget as a `T`.
+    pub trait OptionDowncast {
+        fn and_downcast<T: crate::object::StaticType>(self) -> Option<T>;
+    }
+    impl<W: Into<crate::Widget>> OptionDowncast for Option<W> {
+        fn and_downcast<T: crate::object::StaticType>(self) -> Option<T> {
+            self.and_then(|w| w.into().downcast().ok())
+        }
+    }
 
     /// gtk-rs's `IsA<T>` bound: anything that is a `T`.
     pub trait IsA<T>: AsRef<T> + Clone {}

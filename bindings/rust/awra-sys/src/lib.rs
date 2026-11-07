@@ -253,6 +253,8 @@ extern "C" {
     pub fn awra_widget_grab_focus(widget: *mut AwraWidget);
     pub fn awra_widget_has_focus(widget: *const AwraWidget) -> bool;
     pub fn awra_widget_set_cursor(widget: *mut AwraWidget, name: *const c_char);
+    pub fn awra_widget_set_overflow_hidden(widget: *mut AwraWidget, hidden: bool);
+    pub fn awra_widget_pointer_position(widget: *mut AwraWidget, x: *mut f64, y: *mut f64) -> bool;
     pub fn awra_widget_add_class(widget: *mut AwraWidget, name: *const c_char);
     pub fn awra_widget_remove_class(widget: *mut AwraWidget, name: *const c_char);
     pub fn awra_widget_has_class(widget: *const AwraWidget, name: *const c_char) -> bool;
@@ -368,6 +370,7 @@ extern "C" {
     pub fn awra_overlay_new() -> *mut AwraWidget;
     pub fn awra_overlay_set_child(overlay: *mut AwraWidget, child: *mut AwraWidget);
     pub fn awra_overlay_add_overlay(overlay: *mut AwraWidget, child: *mut AwraWidget);
+    pub fn awra_overlay_set_position_func(overlay: *mut AwraWidget, fn_: Option<unsafe extern "C" fn(*mut AwraWidget, *mut AwraWidget, *mut c_int, *mut c_int, *mut c_int, *mut c_int, *mut c_void) -> bool>, data: *mut c_void, destroy: Option<unsafe extern "C" fn(*mut c_void)>);
     pub fn awra_scrolled_new() -> *mut AwraWidget;
     pub fn awra_scrolled_set_child(scrolled: *mut AwraWidget, child: *mut AwraWidget);
     pub fn awra_scrolled_child(scrolled: *mut AwraWidget) -> *mut AwraWidget;
@@ -599,6 +602,14 @@ extern "C" {
     pub fn awra_navigation_item_selected(item: *mut AwraWidget) -> bool;
     pub fn awra_navigation_item_set_badge(item: *mut AwraWidget, badge: *const c_char);
     pub fn awra_navigation_item_set_group(item: *mut AwraWidget, group_member: *mut AwraWidget);
+    pub fn awra_navigation_item_set_prefix(item: *mut AwraWidget, prefix: *mut AwraWidget);
+    pub fn awra_navigation_item_prefix(item: *mut AwraWidget) -> *mut AwraWidget;
+    pub fn awra_navigation_item_set_suffix(item: *mut AwraWidget, suffix: *mut AwraWidget);
+    pub fn awra_navigation_item_suffix(item: *mut AwraWidget) -> *mut AwraWidget;
+    pub fn awra_navigation_item_set_subtitle(item: *mut AwraWidget, subtitle: *const c_char);
+    pub fn awra_navigation_item_set_muted(item: *mut AwraWidget, muted: bool);
+    pub fn awra_navigation_item_set_emphasized(item: *mut AwraWidget, emphasized: bool);
+    pub fn awra_navigation_item_set_label_color(item: *mut AwraWidget, color: *const AwraRGBA);
     pub fn awra_split_view_new() -> *mut AwraWidget;
     pub fn awra_split_view_set_sidebar(split: *mut AwraWidget, sidebar: *mut AwraWidget);
     pub fn awra_split_view_set_content(split: *mut AwraWidget, content: *mut AwraWidget);
@@ -623,6 +634,11 @@ extern "C" {
     pub fn awra_dialog_present(dialog: *mut AwraWidget, parent_window: *mut AwraWidget);
     pub fn awra_dialog_close(dialog: *mut AwraWidget);
     pub fn awra_dialog_set_content_width(dialog: *mut AwraWidget, width: c_int);
+    pub fn awra_dialog_set_response_appearance(dialog: *mut AwraWidget, response: c_int, appearance: c_int);
+    pub fn awra_dialog_set_response_enabled(dialog: *mut AwraWidget, response: c_int, enabled: bool);
+    pub fn awra_dialog_set_response_label(dialog: *mut AwraWidget, response: c_int, label: *const c_char);
+    pub fn awra_dialog_set_response_busy(dialog: *mut AwraWidget, response: c_int, busy: bool);
+    pub fn awra_dialog_set_default_response(dialog: *mut AwraWidget, response: c_int);
     pub fn awra_toast_overlay_new() -> *mut AwraWidget;
     pub fn awra_toast_overlay_set_child(overlay: *mut AwraWidget, child: *mut AwraWidget);
     pub fn awra_toast_overlay_show(overlay: *mut AwraWidget, title: *const c_char, timeout_ms: c_uint) -> c_uint;

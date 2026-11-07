@@ -402,3 +402,4 @@ impl Priority {
     pub const LOW: Priority = Priority(300);
     pub const HIGH: Priority = Priority(-100);
 }
+pub use crate::compat2::Type;

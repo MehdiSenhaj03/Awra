@@ -1100,6 +1100,9 @@ void awra_stack_set_vhomogeneous(AwraWidget *s, bool h)
 
 typedef struct OverlayExt {
   AwraWidget *child;
+  AwraOverlayPositionFunc position;
+  void *position_data;
+  AwraDestroyNotify position_destroy;
 } OverlayExt;
 
 static void overlay_measure(AwraWidget *w, int o, int for_size, int *r_min, int *r_nat)
@@ -1117,9 +1120,36 @@ static void overlay_allocate(AwraWidget *w)
 {
   OverlayExt *x = AWRA_EXT(w, OverlayExt);
   for (int i = 0; i < w->nkids; i++) {
-    awra_allocate(w->kids[i], w->x, w->y, w->w, w->h);
+    AwraWidget *c = w->kids[i];
+    int rx, ry, rw, rh;
+    /* get-child-position: the application places an overlay child itself */
+    if (c != x->child && x->position && x->position(w, c, &rx, &ry, &rw, &rh, x->position_data)) {
+      awra_allocate(c, w->x + awra_px(rx), w->y + awra_px(ry), awra_px(rw), awra_px(rh));
+      continue;
+    }
+    awra_allocate(c, w->x, w->y, w->w, w->h);
   }
-  (void)x;
+}
+
+static void overlay_finalize(AwraWidget *w)
+{
+  OverlayExt *x = AWRA_EXT(w, OverlayExt);
+  if (x->position_destroy) {
+    x->position_destroy(x->position_data);
+  }
+}
+
+void awra_overlay_set_position_func(AwraWidget *w, AwraOverlayPositionFunc fn, void *data,
+                                    AwraDestroyNotify destroy)
+{
+  OverlayExt *x = AWRA_EXT(w, OverlayExt);
+  if (x->position_destroy) {
+    x->position_destroy(x->position_data);
+  }
+  x->position = fn;
+  x->position_data = data;
+  x->position_destroy = destroy;
+  awra_queue_allocate(w);
 }
 
 static AwraClass overlay_class = {
@@ -1129,6 +1159,7 @@ static AwraClass overlay_class = {
     .ext_size = sizeof(OverlayExt),
     .measure = overlay_measure,
     .allocate = overlay_allocate,
+    .finalize = overlay_finalize,
 };
 
 AwraWidget *awra_overlay_new(void)

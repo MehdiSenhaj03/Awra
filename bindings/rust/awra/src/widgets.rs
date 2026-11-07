@@ -611,6 +611,8 @@ impl Button {
         unsafe { from_cstr_opt(ffi::awra_button_label(ptr!(self))) }
     }
     pub fn set_icon_name(&self, name: impl IntoOptStr) {
+        let name = name.into_opt_string();
+        self.0.set_rust_data("p:icon-name", name.clone());
         let n = OptC::new(name);
         unsafe { ffi::awra_button_set_icon_name(ptr!(self), n.ptr()) }
     }
@@ -619,6 +621,9 @@ impl Button {
     }
     pub fn set_appearance(&self, a: ButtonAppearance) {
         unsafe { ffi::awra_button_set_appearance(ptr!(self), a as _) }
+    }
+    pub fn icon_name(&self) -> Option<String> {
+        self.0.rust_data::<Option<String>>("p:icon-name").flatten()
     }
     pub fn appearance(&self) -> ButtonAppearance {
         match unsafe { ffi::awra_button_appearance(ptr!(self)) } {
@@ -658,6 +663,18 @@ impl ToggleButton {
     }
     pub fn as_button(&self) -> Button {
         Button(self.0.clone())
+    }
+    pub fn icon_name(&self) -> Option<String> {
+        self.as_button().icon_name()
+    }
+    pub fn appearance(&self) -> ButtonAppearance {
+        self.as_button().appearance()
+    }
+    pub fn label(&self) -> Option<String> {
+        self.as_button().label()
+    }
+    pub fn emit_clicked(&self) {
+        self.as_button().emit_clicked()
     }
     pub fn set_label(&self, label: impl IntoOptStr) {
         self.as_button().set_label(label)
@@ -842,6 +859,7 @@ unsafe extern "C" fn menu_item_activated(_w: *mut ffi::AwraWidget, args: *const 
 
 /// AwraMenuItems for a menu model; strings live in `keep`.
 fn menu_items(menu: &Menu, keep: &mut Vec<std::ffi::CString>, dispatch: *mut c_void) -> (Vec<ffi::AwraMenuItem>, Vec<ActivateItem>) {
+    let owner = unsafe { (*(dispatch as *const MenuDispatch)).owner.upgrade() };
     let mut items = Vec::new();
     let mut acts = Vec::new();
     let push_str = |s: Option<&str>, keep: &mut Vec<std::ffi::CString>| -> *const c_char {
@@ -866,7 +884,25 @@ fn menu_items(menu: &Menu, keep: &mut Vec<std::ffi::CString>, dispatch: *mut c_v
                 it.check = -2;
                 acts.push((None, None));
             }
+            FlatEntry::Custom(id) => {
+                it.label = push_str(Some(&id), keep);
+                it.check = -3;
+                acts.push((None, None));
+            }
             FlatEntry::Item(d, _) => {
+                // GTK greys an item whose action doesn't exist or is off,
+                // and checks one whose action's state is true
+                if let (Some(action), Some(owner)) = (d.action.as_deref(), owner.as_ref()) {
+                    match crate::gio::find_action(owner, action) {
+                        Some(a) => {
+                            it.sensitive = a.is_enabled();
+                            if let Some(state) = a.state() {
+                                it.check = i32::from(state.get::<bool>().unwrap_or(false));
+                            }
+                        }
+                        None => it.sensitive = false,
+                    }
+                }
                 it.label = push_str(Some(d.label.as_deref().unwrap_or("")), keep);
                 it.icon_name = push_str(d.icon.as_deref(), keep);
                 it.accel = push_str(d.accel.as_deref().map(crate::window::accel_label).as_deref(), keep);
@@ -999,10 +1035,21 @@ impl Popover {
                 ffi::awra_widget_unref(content);
             }
             ffi::awra_widget_unref(m);
+            place_menu_widgets(w);
         });
     }
     pub fn set_child(&self, child: impl IntoOptWidget) {
         unsafe { ffi::awra_popover_set_child(ptr!(self), child.into_opt_ptr()) }
+    }
+    /// The application's own widget for the menu item whose "custom"
+    /// attribute is `id` (GtkPopoverMenu::add_child).
+    pub fn add_menu_widget(&self, widget: &impl IsWidget, id: &str) -> bool {
+        let mut map: Vec<(String, Widget)> = self.0.rust_data("menu-widgets").unwrap_or_default();
+        map.retain(|(i, _)| i != id);
+        map.push((id.to_owned(), widget.upcast()));
+        self.0.set_rust_data("menu-widgets", map);
+        place_menu_widgets(&self.0);
+        true
     }
     /// Anchors the popover to `parent` (GTK's set_parent on popovers).
     pub fn set_parent(&self, parent: &impl IsWidget) {
@@ -1654,6 +1701,7 @@ impl Default for FormRow {
 }
 
 awra_wrapper!(ActionRow, ["AwraActionRow"]);
+actionable!(ActionRow);
 impl ActionRow {
     pub fn new(title: &str, subtitle: &str) -> ActionRow {
         let (t, s) = (cstring(title), OptC::new((!subtitle.is_empty()).then_some(subtitle)));
@@ -1664,8 +1712,16 @@ impl ActionRow {
         unsafe { ffi::awra_action_row_set_title(ptr!(self), t.ptr()) }
     }
     pub fn set_subtitle(&self, t: impl IntoOptStr) {
+        let t = t.into_opt_string();
+        self.0.set_rust_data("p:subtitle", t.clone());
         let t = OptC::new(t);
         unsafe { ffi::awra_action_row_set_subtitle(ptr!(self), t.ptr()) }
+    }
+    pub fn subtitle(&self) -> Option<String> {
+        self.0.rust_data::<Option<String>>("p:subtitle").flatten()
+    }
+    pub fn connect_clicked<F: Fn(&ActionRow) + 'static>(&self, f: F) -> SignalHandlerId {
+        self.connect_activated(f)
     }
     pub fn set_description(&self, t: impl IntoOptStr) {
         self.set_subtitle(t)
@@ -1702,11 +1758,22 @@ impl Badge {
         unsafe { Badge::from_full(ffi::awra_badge_new(l.as_ptr(), 1)) }
     }
     pub fn set_label(&self, label: &str) {
+        self.0.set_rust_data("p:label", label.to_owned());
         let l = cstring(label);
         unsafe { ffi::awra_badge_set_label(ptr!(self), l.as_ptr()) }
     }
+    pub fn label(&self) -> String {
+        self.0.rust_data::<String>("p:label").unwrap_or_default()
+    }
+    pub fn text(&self) -> String {
+        self.label()
+    }
     pub fn set_appearance(&self, a: BadgeAppearance) {
+        self.0.set_rust_data("p:appearance", a);
         unsafe { ffi::awra_badge_set_appearance(ptr!(self), a as _) }
+    }
+    pub fn appearance(&self) -> BadgeAppearance {
+        self.0.rust_data::<BadgeAppearance>("p:appearance").unwrap_or(BadgeAppearance::Accent)
     }
     pub fn set_icon_name(&self, n: impl IntoOptStr) {
         let n = OptC::new(n);
@@ -1733,15 +1800,36 @@ impl StatusBanner {
         unsafe { StatusBanner::from_full(ffi::awra_status_banner_new(std::ptr::null(), std::ptr::null(), 0)) }
     }
     pub fn set_title(&self, t: impl IntoOptStr) {
+        let t = t.into_opt_string();
+        self.0.set_rust_data("p:title", t.clone());
         let t = OptC::new(t);
         unsafe { ffi::awra_status_banner_set_title(ptr!(self), t.ptr()) }
     }
+    pub fn title(&self) -> Option<String> {
+        self.0.rust_data::<Option<String>>("p:title").flatten()
+    }
     pub fn set_description(&self, t: impl IntoOptStr) {
+        let t = t.into_opt_string();
+        self.0.set_rust_data("p:description", t.clone());
         let t = OptC::new(t);
         unsafe { ffi::awra_status_banner_set_description(ptr!(self), t.ptr()) }
     }
+    pub fn description(&self) -> Option<String> {
+        self.0.rust_data::<Option<String>>("p:description").flatten()
+    }
     pub fn set_appearance(&self, a: StatusAppearance) {
+        self.0.set_rust_data("p:appearance", a);
         unsafe { ffi::awra_status_banner_set_appearance(ptr!(self), a as _) }
+    }
+    pub fn appearance(&self) -> StatusAppearance {
+        self.0.rust_data::<StatusAppearance>("p:appearance").unwrap_or_default()
+    }
+    pub fn is_revealed(&self) -> bool {
+        self.0.is_visible()
+    }
+    /// The close button hid it.
+    pub fn connect_dismissed<F: Fn(&StatusBanner) + 'static>(&self, f: F) -> SignalHandlerId {
+        self.0.connect_typed::<StatusBanner, _>(sig::HIDE, move |w, _| f(w))
     }
     pub fn add_action(&self, w: &impl IsWidget) {
         unsafe { ffi::awra_status_banner_add_action(ptr!(self), w.widget_ptr()) }
@@ -1994,7 +2082,36 @@ impl NavigationItem {
         unsafe { ffi::awra_navigation_item_set_group(ptr!(self), g.0.as_ptr()) }
     }
     pub fn set_suffix(&self, w: impl IntoOptWidget) {
-        unsafe { ffi::awra_container_add(ptr!(self), w.into_opt_ptr()) }
+        unsafe { ffi::awra_navigation_item_set_suffix(ptr!(self), w.into_opt_ptr()) }
+    }
+    pub fn suffix(&self) -> Option<Widget> {
+        unsafe { Widget::from_none_opt(ffi::awra_navigation_item_suffix(ptr!(self))) }
+    }
+    pub fn set_prefix(&self, w: impl IntoOptWidget) {
+        unsafe { ffi::awra_navigation_item_set_prefix(ptr!(self), w.into_opt_ptr()) }
+    }
+    pub fn prefix(&self) -> Option<Widget> {
+        unsafe { Widget::from_none_opt(ffi::awra_navigation_item_prefix(ptr!(self))) }
+    }
+    pub fn set_subtitle(&self, s: impl IntoOptStr) {
+        let s = OptC::new(s);
+        unsafe { ffi::awra_navigation_item_set_subtitle(ptr!(self), s.ptr()) }
+    }
+    pub fn set_muted(&self, m: bool) {
+        unsafe { ffi::awra_navigation_item_set_muted(ptr!(self), m) }
+    }
+    pub fn set_emphasized(&self, e: bool) {
+        unsafe { ffi::awra_navigation_item_set_emphasized(ptr!(self), e) }
+    }
+    pub fn set_label_color(&self, c: Option<&RGBA>) {
+        with_rgba!(c, |p| unsafe { ffi::awra_navigation_item_set_label_color(ptr!(self), p) })
+    }
+    /// gtk-rs ToggleButton's active: selected.
+    pub fn set_active(&self, a: bool) {
+        self.set_selected(a)
+    }
+    pub fn is_active(&self) -> bool {
+        self.is_selected()
     }
     pub fn connect_selected_notify<F: Fn(&NavigationItem) + 'static>(&self, f: F) -> SignalHandlerId {
         self.0.connect_typed::<NavigationItem, _>(sig::TOGGLED, move |w, _| f(w))
@@ -2178,6 +2295,16 @@ awra_wrapper!(
     /// A modal dialog window.
     Dialog, ["AwraDialog"]
 );
+#[derive(Default)]
+struct DialogState {
+    ids: Vec<String>,
+    closes: std::collections::HashSet<String>,
+    close_response: Option<String>,
+    responding: bool,
+}
+
+type ResponseFn = std::rc::Rc<dyn Fn(&Dialog, &str)>;
+
 impl Dialog {
     pub fn new(parent: Option<&crate::Window>) -> Dialog {
         let d = unsafe { Dialog::from_full(ffi::awra_dialog_new(std::ptr::null())) };
@@ -2187,7 +2314,54 @@ impl Dialog {
         if let Ok(w) = d.0.clone().downcast::<crate::Window>() {
             crate::window::window_added(&w);
         }
+        d.0.set_rust_data("dialog-state", std::rc::Rc::new(RefCell::new(DialogState::default())));
+        d.0.set_rust_data("dialog-handlers", std::rc::Rc::new(RefCell::new(Vec::<ResponseFn>::new())));
+        // a response closes the dialog unless told otherwise
+        d.0.connect_typed::<Dialog, _>(sig::SELECTED, |w, a| {
+            let Some(id) = w.response_id(a.index()) else { return };
+            w.respond(&id);
+        });
+        // closing gives the close response
+        d.0.connect_typed::<Dialog, _>(sig::CLOSE_REQUEST, |w, _| {
+            let state = w.state();
+            let (respond, id) = {
+                let s = state.borrow();
+                (!s.responding, s.close_response.clone())
+            };
+            if respond {
+                if let Some(id) = id {
+                    w.emit_response(&id);
+                }
+            }
+        });
         d
+    }
+    fn state(&self) -> std::rc::Rc<RefCell<DialogState>> {
+        self.0.rust_data("dialog-state").expect("a dialog's state")
+    }
+    fn handlers(&self) -> std::rc::Rc<RefCell<Vec<ResponseFn>>> {
+        self.0.rust_data("dialog-handlers").expect("a dialog's handlers")
+    }
+    fn response_index(&self, id: &str) -> Option<i32> {
+        self.state().borrow().ids.iter().position(|i| i == id).map(|i| i as i32)
+    }
+    fn response_id(&self, index: i32) -> Option<String> {
+        self.state().borrow().ids.get(index as usize).cloned()
+    }
+    fn emit_response(&self, id: &str) {
+        let hs: Vec<ResponseFn> = self.handlers().borrow().clone();
+        for h in hs {
+            h(self, id);
+        }
+    }
+    /// Gives the response `id`: its handlers run, then the dialog closes
+    /// unless the response keeps it open.
+    pub fn respond(&self, id: &str) {
+        self.emit_response(id);
+        if self.is_response_closes(id) {
+            self.state().borrow_mut().responding = true;
+            self.close();
+        }
     }
     pub fn set_title(&self, t: impl IntoOptStr) {
         let t = OptC::new(t);
@@ -2200,30 +2374,98 @@ impl Dialog {
     pub fn set_child(&self, w: impl IntoOptWidget) {
         self.set_content(w)
     }
-    pub fn set_body(&self, text: &str) {
+    /// The body: what the dialog says or asks (above its responses).
+    pub fn set_body(&self, body: impl IntoOptWidget) {
+        let p = body.into_opt_ptr();
+        if !p.is_null() {
+            unsafe {
+                ffi::awra_widget_set_margins(p, 4, 16, 0, 16);
+            }
+        }
+        unsafe { ffi::awra_dialog_set_child(ptr!(self), p) }
+    }
+    pub fn set_body_text(&self, text: &str) {
         let t = cstring(text);
         unsafe { ffi::awra_dialog_set_body(ptr!(self), t.as_ptr()) }
     }
-    pub fn add_response(&self, id: i32, label: &str, appearance: ButtonAppearance) {
+    pub fn add_response(&self, id: &str, label: &str) {
+        let index = {
+            let state = self.state();
+            let mut s = state.borrow_mut();
+            s.ids.push(id.to_owned());
+            s.closes.insert(id.to_owned());
+            s.ids.len() as i32 - 1
+        };
         let l = cstring(label);
-        unsafe { ffi::awra_dialog_add_response(ptr!(self), id, l.as_ptr(), appearance as _) }
+        unsafe { ffi::awra_dialog_add_response(ptr!(self), index, l.as_ptr(), ButtonAppearance::Secondary as _) }
     }
-    pub fn connect_response<F: Fn(&Dialog, i32) + 'static>(&self, f: F) -> SignalHandlerId {
-        self.0.connect_typed::<Dialog, _>(sig::SELECTED, move |w, a| f(w, a.index()))
+    pub fn set_response_appearance(&self, id: &str, appearance: ButtonAppearance) {
+        if let Some(i) = self.response_index(id) {
+            unsafe { ffi::awra_dialog_set_response_appearance(ptr!(self), i, appearance as _) }
+        }
+    }
+    pub fn set_response_enabled(&self, id: &str, enabled: bool) {
+        if let Some(i) = self.response_index(id) {
+            unsafe { ffi::awra_dialog_set_response_enabled(ptr!(self), i, enabled) }
+        }
+    }
+    pub fn set_response_busy(&self, id: &str, busy: bool) {
+        if let Some(i) = self.response_index(id) {
+            unsafe { ffi::awra_dialog_set_response_busy(ptr!(self), i, busy) }
+        }
+    }
+    pub fn set_response_label(&self, id: &str, label: &str) {
+        if let Some(i) = self.response_index(id) {
+            let l = cstring(label);
+            unsafe { ffi::awra_dialog_set_response_label(ptr!(self), i, l.as_ptr()) }
+        }
+    }
+    pub fn set_response_closes(&self, id: &str, closes: bool) {
+        let state = self.state();
+        let mut s = state.borrow_mut();
+        if closes {
+            s.closes.insert(id.to_owned());
+        } else {
+            s.closes.remove(id);
+        }
+    }
+    pub fn is_response_closes(&self, id: &str) -> bool {
+        self.state().borrow().closes.contains(id)
+    }
+    pub fn set_close_response(&self, id: Option<&str>) {
+        self.state().borrow_mut().close_response = id.map(str::to_owned);
+    }
+    pub fn set_default_response(&self, id: Option<&str>) {
+        if let Some(i) = id.and_then(|id| self.response_index(id)) {
+            unsafe { ffi::awra_dialog_set_default_response(ptr!(self), i) }
+        }
+    }
+    /// Responses (`detail`: only that one).
+    pub fn connect_response<F: Fn(&Dialog, &str) + 'static>(&self, detail: Option<&str>, f: F) {
+        let detail = detail.map(str::to_owned);
+        self.handlers().borrow_mut().push(std::rc::Rc::new(move |d, id| {
+            if detail.as_deref().is_none_or(|x| x == id) {
+                f(d, id)
+            }
+        }));
     }
     pub fn set_content_width(&self, w: i32) {
         unsafe { ffi::awra_dialog_set_content_width(ptr!(self), w) }
     }
-    pub fn set_default_size(&self, w: i32, _h: i32) {
-        self.set_content_width(w)
+    pub fn set_default_size(&self, w: i32, h: i32) {
+        unsafe { ffi::awra_window_set_default_size(ptr!(self), w, h) }
     }
     pub fn present(&self) {
+        self.state().borrow_mut().responding = false;
         let parent = self.0.rust_data::<crate::WeakRef<crate::Window>>("dialog-parent").and_then(|w| w.upgrade());
         let pp = parent.as_ref().map_or(std::ptr::null_mut(), |w| w.as_ptr());
         unsafe { ffi::awra_dialog_present(ptr!(self), pp) }
     }
     pub fn close(&self) {
         unsafe { ffi::awra_dialog_close(ptr!(self)) }
+    }
+    pub fn is_open(&self) -> bool {
+        unsafe { ffi::awra_window_state(ptr!(self)) & ffi::AWRA_WINDOW_STATE_HIDDEN == 0 && ffi::awra_widget_mapped(ptr!(self)) }
     }
     pub fn connect_close_request<F: Fn(&Dialog) -> crate::glib::Propagation + 'static>(&self, f: F) -> SignalHandlerId {
         self.0.connect_typed::<Dialog, _>(sig::CLOSE_REQUEST, move |w, a| {
@@ -2577,5 +2819,24 @@ impl DropZone {
 impl Default for DropZone {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+/// Puts a popover's custom menu widgets in their slots.
+fn place_menu_widgets(popover: &Widget) {
+    let map: Vec<(String, Widget)> = popover.rust_data("menu-widgets").unwrap_or_default();
+    fn find(w: &Widget, name: &str) -> Option<Widget> {
+        if w.widget_name() == name && w.is::<Box>() {
+            return Some(w.clone());
+        }
+        w.children().iter().find_map(|c| find(c, name))
+    }
+    for (id, widget) in map {
+        if let Some(slot) = find(popover, &id) {
+            if widget.parent().as_ref() != Some(&slot) {
+                widget.unparent();
+                unsafe { ffi::awra_box_append(slot.as_ptr(), widget.as_ptr()) }
+            }
+        }
     }
 }

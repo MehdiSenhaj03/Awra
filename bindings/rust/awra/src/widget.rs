@@ -174,6 +174,8 @@ impl Widget {
         self.size_request().1
     }
     pub fn set_tooltip_text(&self, text: impl IntoOptStr) {
+        let text = text.into_opt_string();
+        self.set_rust_data("p:tooltip", text.clone());
         let t = OptC::new(text);
         unsafe { ffi::awra_widget_set_tooltip(self.as_ptr(), t.ptr()) }
     }
@@ -353,6 +355,13 @@ impl Display {
 pub struct Clipboard(Widget);
 
 impl Clipboard {
+    /// The clipboard of any of the application's windows.
+    pub fn of_any_window() -> Clipboard {
+        let w = crate::Window::toplevels().into_iter().next().map(|w| w.upcast()).unwrap_or_else(|| {
+            crate::Box::new(crate::Orientation::Horizontal, 0).upcast()
+        });
+        Clipboard(w)
+    }
     pub fn text(&self) -> Option<String> {
         self.0.clipboard_text()
     }

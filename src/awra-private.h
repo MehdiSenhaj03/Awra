@@ -147,7 +147,7 @@ typedef struct AwraAux {
   unsigned typography_set : 1, in_dispose : 1, expand_isolated : 1;
   /* GTK's visible (the application's) and child-visible (the parent's):
    * the node's NF_VISIBLE is set when both are */
-  unsigned user_hidden : 1, child_hidden : 1;
+  unsigned user_hidden : 1, child_hidden : 1, overflow_hidden : 1;
   unsigned char typography;
   float opacity;
   /* measurement cache: [orientation] for one for_size each */

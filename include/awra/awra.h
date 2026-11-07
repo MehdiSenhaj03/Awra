@@ -322,6 +322,10 @@ void awra_widget_set_focusable(AwraWidget *widget, bool focusable);
 void awra_widget_grab_focus(AwraWidget *widget);
 bool awra_widget_has_focus(const AwraWidget *widget);
 void awra_widget_set_cursor(AwraWidget *widget, const char *name); /* "pointer", "text", ... */
+/* overflow: hidden — children are clipped to the widget's box. */
+void awra_widget_set_overflow_hidden(AwraWidget *widget, bool hidden);
+/* The pointer's place in the widget (logical px); false when it's elsewhere. */
+bool awra_widget_pointer_position(AwraWidget *widget, double *x, double *y);
 /* Style roles and classes (Awra 1's add_style_role / add_css_class names
  * that change a component's look: "accent", "muted", "flat", "circular",
  * "dim-label", "numeric", "success", "warning", "error", ...). */
@@ -501,6 +505,12 @@ void awra_stack_set_vhomogeneous(AwraWidget *stack, bool homogeneous);
 AwraWidget *awra_overlay_new(void);
 void awra_overlay_set_child(AwraWidget *overlay, AwraWidget *child);
 void awra_overlay_add_overlay(AwraWidget *overlay, AwraWidget *child);
+/* GtkOverlay::get-child-position: places an overlay child (logical px,
+ * relative to the overlay; it may reach outside it); false: the default. */
+typedef bool (*AwraOverlayPositionFunc)(AwraWidget *overlay, AwraWidget *child, int *x, int *y,
+                                        int *width, int *height, void *data);
+void awra_overlay_set_position_func(AwraWidget *overlay, AwraOverlayPositionFunc fn, void *data,
+                                    AwraDestroyNotify destroy);
 
 AwraWidget *awra_scrolled_new(void);
 void awra_scrolled_set_child(AwraWidget *scrolled, AwraWidget *child);
@@ -614,7 +624,8 @@ typedef struct AwraMenuItem {
   const char *label;
   const char *icon_name;
   const char *accel;     /* shown on the right, e.g. "Ctrl+K" */
-  int check;             /* -1 none, 0/1 a check mark, -2 a section heading */
+  int check;             /* -1 none, 0/1 a check mark, -2 a section heading, -3 a slot
+                            for the application's widget, named `label` */
   bool sensitive;
   bool destructive;
   AwraHandler handler;   /* called with args->index = the item's index */
@@ -809,6 +820,20 @@ bool awra_navigation_item_selected(AwraWidget *item);
 void awra_navigation_item_set_badge(AwraWidget *item, const char *badge);
 /* Items of one group: selecting one unselects the others. */
 void awra_navigation_item_set_group(AwraWidget *item, AwraWidget *group_member);
+/* Before the label (an avatar, a glyph), after it (a count, a button). */
+void awra_navigation_item_set_prefix(AwraWidget *item, AwraWidget *prefix);
+AwraWidget *awra_navigation_item_prefix(AwraWidget *item);
+void awra_navigation_item_set_suffix(AwraWidget *item, AwraWidget *suffix);
+AwraWidget *awra_navigation_item_suffix(AwraWidget *item);
+void awra_navigation_item_set_subtitle(AwraWidget *item, const char *subtitle);
+/* Silenced: it recedes until hovered or selected. */
+void awra_navigation_item_set_muted(AwraWidget *item, bool muted);
+/* Something new: the label at full contrast and weight. */
+void awra_navigation_item_set_emphasized(AwraWidget *item, bool emphasized);
+/* The label in a colour (a role's), made readable; NULL: the item's. */
+void awra_navigation_item_set_label_color(AwraWidget *item, const AwraRGBA *color);
+/* Items inside a widget with the "compact-navigation" class are 32 px rows;
+ * inside "people-list", names at full contrast. */
 
 AwraWidget *awra_split_view_new(void);
 void awra_split_view_set_sidebar(AwraWidget *split, AwraWidget *sidebar);
@@ -843,6 +868,14 @@ void awra_dialog_add_response(AwraWidget *dialog, int response, const char *labe
 void awra_dialog_present(AwraWidget *dialog, AwraWidget *parent_window);
 void awra_dialog_close(AwraWidget *dialog);
 void awra_dialog_set_content_width(AwraWidget *dialog, int width);
+void awra_dialog_set_response_appearance(AwraWidget *dialog, int response,
+                                         AwraButtonAppearance appearance);
+void awra_dialog_set_response_enabled(AwraWidget *dialog, int response, bool enabled);
+void awra_dialog_set_response_label(AwraWidget *dialog, int response, const char *label);
+/* A response at work: a spinner in its button, which takes no clicks. */
+void awra_dialog_set_response_busy(AwraWidget *dialog, int response, bool busy);
+/* Return gives this response. */
+void awra_dialog_set_default_response(AwraWidget *dialog, int response);
 
 AwraWidget *awra_toast_overlay_new(void);
 void awra_toast_overlay_set_child(AwraWidget *overlay, AwraWidget *child);

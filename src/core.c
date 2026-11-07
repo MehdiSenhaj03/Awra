@@ -1788,7 +1788,7 @@ void awra_bk_draw_tree(BKNode *n)
       c->draw(n, &g_draw);
     }
     if (n->nkids) {
-      const bool clip = (c->flags & AWRA_CLASS_CLIP) != 0;
+      const bool clip = (c->flags & AWRA_CLASS_CLIP) != 0 || a->overflow_hidden;
       if (clip) {
         bk_clip_push(n->x, n->y, n->w, n->h);
       }
@@ -2163,4 +2163,12 @@ void awra_animate_state(AwraWidget *w)
   g_anims = a;
   awra_invalidate(w);
   awra_windows_request_frame();
+}
+
+void awra_widget_set_overflow_hidden(AwraWidget *w, bool hidden)
+{
+  if (awra_is_widget(w)) {
+    awra_aux(w)->overflow_hidden = hidden;
+    awra_invalidate(w);
+  }
 }
