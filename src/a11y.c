@@ -1370,17 +1370,57 @@ bool awra_a11y_do(AwraWidget *w, int item, int verb, double value)
   }
 }
 
+/* byte offset of character `chars` in `t` */
+static int utf8_byte_of(const char *t, int chars)
+{
+  int i = 0;
+  for (int c = 0; t[i] && c < chars; c++) {
+    i++;
+    while (((unsigned char)t[i] & 0xC0) == 0x80) {
+      i++;
+    }
+  }
+  return i;
+}
+
+/* The widget's text layout when it shows the accessible text itself. */
+static AwraTextLayout *a11y_layout(AwraWidget *w, const char *text, float *ox, float *oy,
+                                   int *width)
+{
+  AwraTextLayout *l = NULL;
+  const AwraClass *cls = AWRA_CLASS_OF(w);
+  if (!text || !cls->a11y_layout || !cls->a11y_layout(w, &l, ox, oy, width) || !l) {
+    return NULL;
+  }
+  const char *lt = awra_text_layout_text(l);
+  return lt == text || strcmp(lt, text) == 0 ? l : NULL;
+}
+
 bool awra_a11y_char_rect(AwraWidget *w, int offset, double r[4])
 {
-  /* the caret of editables, else the widget's box split evenly */
   AwraA11yInfo info;
   awra_a11y_info(w, &info);
-  double b[4];
-  awra_a11y_bounds(w, b);
   const int n = info.text ? awra_utf8_chars(info.text, -1) : 0;
   if (n <= 0 || offset < 0 || offset > n) {
     return false;
   }
+  /* the character's box in the layout (bidi text: where it is drawn) */
+  float ox, oy;
+  int width;
+  AwraTextLayout *l = a11y_layout(w, info.text, &ox, &oy, &width);
+  if (l) {
+    float b[4];
+    awra_text_layout_char_rect(l, width, utf8_byte_of(info.text, offset), b);
+    const double s = awra_scale();
+    r[0] = (ox + b[0]) / s;
+    r[1] = (oy + b[1]) / s;
+    r[2] = b[2] / s;
+    r[3] = b[3] / s;
+    return true;
+  }
+  /* else the widget's box split evenly */
+  double b[4];
+  awra_a11y_bounds(w, b);
   r[0] = b[0] + b[2] * offset / n;
   r[1] = b[1];
   r[2] = b[2] / n;
@@ -1397,6 +1437,14 @@ int awra_a11y_offset_at(AwraWidget *w, double x, double y)
   const int n = info.text ? awra_utf8_chars(info.text, -1) : 0;
   if (n <= 0 || x < b[0] || y < b[1] || x >= b[0] + b[2] || y >= b[1] + b[3]) {
     return -1;
+  }
+  float ox, oy;
+  int width;
+  AwraTextLayout *l = a11y_layout(w, info.text, &ox, &oy, &width);
+  if (l) {
+    const double s = awra_scale();
+    const int idx = awra_text_layout_char_at(l, width, (float)(x * s - ox), (float)(y * s - oy));
+    return awra_utf8_chars(info.text, idx);
   }
   return (int)((x - b[0]) * n / b[2]);
 }

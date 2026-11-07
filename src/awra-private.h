@@ -42,6 +42,7 @@ enum {
 typedef struct AwraClass AwraClass;
 typedef struct AwraDraw AwraDraw;
 struct AwraA11yInfo; /* a11y.h */
+struct AwraTextLayout; /* text.c */
 
 struct AwraClass {
   BKClass bk; /* first: node->cls points here */
@@ -97,6 +98,11 @@ struct AwraClass {
    * acting on them (select, activate) */
   void (*a11y_child)(AwraWidget *w, AwraWidget *child, struct AwraA11yInfo *info);
   bool (*a11y_child_do)(AwraWidget *w, AwraWidget *child, int verb, double value);
+  /* text widgets: the layout showing their accessible text, where it is
+   * (raster px) and the width it is laid out at, for the Text interface's
+   * character boxes and hit-testing; false: none (the box split evenly) */
+  bool (*a11y_layout)(AwraWidget *w, struct AwraTextLayout **r_layout, float *r_x, float *r_y,
+                      int *r_width);
 };
 
 /* Declares the kit side of an Awra class: every hook goes to Awra's
@@ -390,6 +396,35 @@ void awra_text_layout_index_to_pos(AwraTextLayout *l, int width, int index, floa
                                    float *r_y, float *r_h);
 int awra_text_layout_pos_to_index(AwraTextLayout *l, int width, float px, float py);
 const char *awra_text_layout_text(const AwraTextLayout *l);
+/* Bidi editing, as Pango does it: the strong and weak cursors at `index`
+ * (pango_layout_get_cursor_pos; GTK draws the strong one), the cursor
+ * position one step to the left (dir < 0) or right on screen
+ * (pango_layout_move_cursor_visually), the next / previous grapheme
+ * boundary in the text (dir > 0 / < 0), and the layout's logical extents
+ * (x of its leftmost line, width) as Pango reports them, which labels that
+ * wrap or ellipsize place by. */
+void awra_text_layout_cursor_pos(AwraTextLayout *l, int width, int index, float *r_strong,
+                                 float *r_weak, float *r_y, float *r_h);
+int awra_text_layout_move_visually(AwraTextLayout *l, int width, int index, int dir);
+int awra_text_layout_cursor_step(AwraTextLayout *l, int index, int dir);
+void awra_text_layout_logical(AwraTextLayout *l, int width, float *r_x, float *r_w);
+/* GtkTextView's paragraph directions: a paragraph without a strong
+ * character takes the previous one's direction, else the next one's. */
+void awra_text_layout_set_text_view(AwraTextLayout *l, bool on);
+/* The box of the character at byte `index` (from its leading to its
+ * trailing edge, as pango_layout_index_to_pos) and the character under a
+ * point (pango_layout_xy_to_index without the trailing step). */
+void awra_text_layout_char_rect(AwraTextLayout *l, int width, int index, float r[4]);
+int awra_text_layout_char_at(AwraTextLayout *l, int width, float px, float py);
+/* The selection of a text view (GtkTextView: a line's ends out to the
+ * edge of the area `area_w` wide from x where the selection goes on past
+ * them), and of a single-line entry (GtkText: one box around the ranges of
+ * a bidi selection). */
+void awra_text_layout_draw_selection_view(AwraTextLayout *l, AwraDraw *d, float x, float y,
+                                          int width, int start, int end, const AwraRGBA *color,
+                                          float area_w);
+void awra_text_layout_draw_selection_box(AwraTextLayout *l, AwraDraw *d, float x, float y, int width,
+                                         int start, int end, const AwraRGBA *color);
 /* links (<a href>): index under a point (layout coordinates), their target */
 int awra_text_layout_n_links(const AwraTextLayout *l);
 const char *awra_text_layout_link(const AwraTextLayout *l, int index);
