@@ -205,6 +205,7 @@ void awra_check_button_set_label(AwraWidget *w, const char *label)
     x->label = awra_label_new(label);
     awra_label_set_xalign(x->label, 0.0f);
     awra_child_insert(w, x->label, -1);
+    awra_widget_unref(x->label); /* its parent holds it */
   }
   else {
     awra_label_set_text(x->label, label);
@@ -741,7 +742,9 @@ AwraWidget *awra_volume_control_new(void)
   awra_widget_set_hexpand(x->slider, true);
   awra_widget_set_valign(x->slider, AWRA_ALIGN_CENTER);
   awra_box_append(w, x->button);
+  awra_widget_unref(x->button); /* its parent holds it */
   awra_box_append(w, x->slider);
+  awra_widget_unref(x->slider); /* its parent holds it */
   awra_signal_connect(x->slider, AWRA_SIGNAL_VALUE_CHANGED, volume_slider_changed, w, NULL);
   awra_signal_connect(x->button, AWRA_SIGNAL_CLICKED, volume_button_clicked, w, NULL);
   awra_slider_set_value(x->slider, 1.0);
@@ -825,6 +828,7 @@ AwraWidget *awra_segmented_control_new(void)
   x->box = awra_box_new(AWRA_ORIENTATION_HORIZONTAL, 0);
   x->selected = -1;
   awra_child_insert(w, x->box, -1);
+  awra_widget_unref(x->box); /* its parent holds it */
   awra_widget_set_halign(w, AWRA_ALIGN_START);
   return w;
 }
@@ -858,6 +862,7 @@ int awra_segmented_control_append(AwraWidget *w, const char *label, const char *
     awra_toggle_button_set_group(b, x->box->kids[0]);
   }
   awra_box_append(x->box, b);
+  awra_widget_unref(b); /* its parent holds it */
   awra_signal_connect(b, AWRA_SIGNAL_TOGGLED, seg_toggled, w, NULL);
   const int index = x->box->nkids - 1;
   if (index == 0) {

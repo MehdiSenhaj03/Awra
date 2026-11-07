@@ -1256,8 +1256,16 @@ static void dump_tree(AwraWidget *w, int depth)
 
 static bool dump_later(void *data)
 {
-  dump_tree((AwraWidget *)data, 0);
+  AwraWidget *w = (AwraWidget *)data;
+  if (!WEXT(w)->closed) {
+    dump_tree(w, 0);
+  }
   return false;
+}
+
+static void dump_unref(void *data)
+{
+  awra_widget_unref((AwraWidget *)data);
 }
 
 void awra_window_present(AwraWidget *w)
@@ -1271,7 +1279,7 @@ void awra_window_present(AwraWidget *w)
     x->presented = true;
     const char *dump = getenv("AWRA_DUMP_TREE");
     if (dump && atoi(dump) > 0) {
-      awra_timeout_add((unsigned)atoi(dump) * 1000, dump_later, w, NULL);
+      awra_timeout_add((unsigned)atoi(dump) * 1000, dump_later, awra_widget_ref(w), dump_unref);
     }
     awra_map_tree(w, true);
     /* gtk_window_show: a window without focus moves it forward, to the
@@ -1337,6 +1345,12 @@ void awra_window_begin_move_internal(AwraWidget *w)
   }
 }
 
+static bool release_closed(void *data)
+{
+  awra_widget_unref((AwraWidget *)data);
+  return false;
+}
+
 static void window_destroy(AwraWidget *w)
 {
   WinExt *x = WEXT(w);
@@ -1364,7 +1378,9 @@ static void window_destroy(AwraWidget *w)
       break;
     }
   }
-  awra_widget_unref(w);
+  /* the list's reference goes once the event that closed the window is
+   * handled: a button of a dialog that closes it is still in its press */
+  awra_idle_add(release_closed, w, NULL);
 }
 
 void awra_window_set_title(AwraWidget *w, const char *title)
