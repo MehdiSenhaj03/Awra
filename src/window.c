@@ -728,6 +728,46 @@ static bool focusable(const AwraWidget *n)
   return (AWRA_CLASS_OF(n)->flags & (AWRA_CLASS_FOCUSABLE | AWRA_CLASS_TEXT_INPUT)) != 0;
 }
 
+/* gtk_widget_focus_sort for GTK_DIR_TAB_FORWARD, without a focus inside
+ * yet: a box's children from left to right or top to bottom as they show
+ * (a right-to-left row starts at its left, its end), any other container's
+ * by their centres' rows, then along each row in the reading direction
+ * (tab_sort_func). Children not laid out yet keep their order. */
+static int focus_compare(const AwraWidget *a, const AwraWidget *b, int axis, bool rtl)
+{
+  if (a->w <= 0 || a->h <= 0 || b->w <= 0 || b->h <= 0) {
+    return 0;
+  }
+  const double ax = a->x + a->w / 2.0, bx = b->x + b->w / 2.0;
+  const double ay = a->y + a->h / 2.0, by = b->y + b->h / 2.0;
+  if (axis == AWRA_ORIENTATION_HORIZONTAL) {
+    return ax < bx ? -1 : ax > bx ? 1 : 0;
+  }
+  if (axis == AWRA_ORIENTATION_VERTICAL || ay != by) {
+    return ay < by ? -1 : ay > by ? 1 : 0;
+  }
+  return (ax < bx ? -1 : ax > bx ? 1 : 0) * (rtl ? -1 : 1);
+}
+
+static void focus_sort(const AwraWidget *n, AwraWidget **kids, int count)
+{
+  if (!awra_is_widget(n) || count < 2) {
+    return;
+  }
+  const int axis = awra_box_axis(n); /* -1: not a box */
+  const bool rtl = awra_widget_rtl(n);
+  /* stable: equal places keep the tree's order */
+  for (int i = 1; i < count; i++) {
+    AwraWidget *k = kids[i];
+    int j = i;
+    while (j > 0 && focus_compare(k, kids[j - 1], axis, rtl) < 0) {
+      kids[j] = kids[j - 1];
+      j--;
+    }
+    kids[j] = k;
+  }
+}
+
 static void collect_focusable(AwraWidget *n, AwraWidget **out, int *count, int max)
 {
   static int leaving = -2;
@@ -742,8 +782,20 @@ static void collect_focusable(AwraWidget *n, AwraWidget **out, int *count, int m
   if (focusable(n)) {
     out[(*count)++] = n;
   }
+  AwraWidget *stack[64];
+  AwraWidget **kids = n->nkids <= 64 ? stack : (AwraWidget **)malloc(sizeof(*kids) * (size_t)n->nkids);
+  if (!kids) {
+    return;
+  }
   for (int i = 0; i < n->nkids; i++) {
-    collect_focusable(n->kids[i], out, count, max);
+    kids[i] = n->kids[i];
+  }
+  focus_sort(n, kids, n->nkids);
+  for (int i = 0; i < n->nkids; i++) {
+    collect_focusable(kids[i], out, count, max);
+  }
+  if (kids != stack) {
+    free(kids);
   }
 }
 
@@ -908,6 +960,25 @@ static void move_focus(AwraWidget *win, int dir)
   awra_set_focus(win, list[next], true);
 }
 
+/* Lays the window out now at its size (GTK moves the focus with widgets
+ * allocated: at show, and after paint once the focused widget went), so
+ * the focus order follows where widgets show. */
+static void layout_now(AwraWidget *win)
+{
+  WinExt *x = WEXT(win);
+  if (!x->offscreen && !x->bkw) {
+    return;
+  }
+  const float s = x->scale > 0 ? x->scale : awra_scale();
+  int pw = x->offscreen ? x->off_w : x->ctx->win_w, ph = x->offscreen ? x->off_h : x->ctx->win_h;
+  if (pw <= 0 || ph <= 0) {
+    pw = (int)(x->default_w * s);
+    ph = (int)(x->default_h * s);
+  }
+  BK_set_scale(s);
+  BK_context_layout(x->ctx, pw, ph);
+}
+
 /* The first focusable widget of `n`'s subtree, in tab order. */
 static AwraWidget *first_focusable(AwraWidget *n)
 {
@@ -949,6 +1020,7 @@ static bool focus_move(void *data)
     }
   }
   if (!next) {
+    layout_now(win);
     next = first_focusable(x->child);
   }
   if (!next) {
@@ -1605,6 +1677,9 @@ void awra_window_present(AwraWidget *w)
      * first focusable widget of its content, then of its titlebar (not
      * shown as keyboard focus) */
     if (!x->focus) {
+      /* gtk_window_show moves the focus with the window laid out: the
+       * order follows where widgets show */
+      layout_now(w);
       AwraWidget *list[512];
       int n = 0;
       if (x->child) {

@@ -584,6 +584,10 @@ BKNode *BK_context_root(BKContext *ctx);
 /* Render into `r` (w x h). Redraws only damaged regions unless `full`.
  * Returns the number of redrawn regions (0 = nothing changed). */
 int BK_render(BKContext *ctx, BuiRaster *r, int w, int h, int full);
+/* Lays the context out for a w x h pixel frame now, without drawing (a host
+ * that needs positions before its first frame, such as a window choosing
+ * its first focus); BK_render at that size then only draws. */
+void BK_context_layout(BKContext *ctx, int w, int h);
 int BK_needs_render(BKContext *ctx);
 
 /* Input; each returns non-zero when something changed. */
