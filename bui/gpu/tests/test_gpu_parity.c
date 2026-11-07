@@ -163,6 +163,13 @@ static void scene(BuiRaster *r, int pass)
     BUI_raster_set_font(r, "", BUI_FONT_BOLD);
     BUI_raster_text(r, 240, 330, "Bold text 123", 13, 20, green);
   }
+  /* CSS box shadows (BUI-Awra): outer, and inset with and without blur */
+  const float rad4[4] = {8, 8, 8, 8}, sh[4] = {0, 0, 0, 0.45f};
+  const float well[4] = {0.55f, 0.55f, 0.58f, 1};
+  BUI_raster_round_rect(r, 300, 248, 80, 30, 8, well);
+  BUI_raster_box_shadow_inset(r, 300, 248, 80, 30, rad4, 0, 1, 0, 2, sh);
+  BUI_raster_round_rect(r, 390, 248, 80, 30, 8, well);
+  BUI_raster_box_shadow_inset(r, 390, 248, 80, 30, rad4, 0, 1, 1, 0, sh);
   meshes(r);
   (void)pass;
   BUI_raster_end_frame(r);
@@ -190,7 +197,7 @@ static void ppm(const char *dir, const char *name, const uint32_t *px)
  * may differ by a few levels of AA; only gross differences count there. */
 static int compare(const uint32_t *a, const uint32_t *b, const char *label, int slug)
 {
-  int bad = 0, gross = 0, maxd = 0, mesh_bad = 0, mesh_max = 0;
+  int bad = 0, gross = 0, maxd = 0, mesh_bad = 0, mesh_max = 0, inset_bad = 0;
   static uint32_t diff[W * H];
   for (int i = 0; i < W * H; i++) {
     int d = 0;
@@ -201,6 +208,9 @@ static int compare(const uint32_t *a, const uint32_t *b, const char *label, int 
     maxd = d > maxd ? d : maxd;
     bad += d > 3;
     gross += d > 64;
+    if (i / W >= 246 && i / W < 280 && i % W >= 298) { /* the inset shadows */
+      inset_bad += d > 3;
+    }
     if (i / W >= 360) { /* the textured meshes */
       mesh_bad += d > 3;
       mesh_max = d > mesh_max ? d : mesh_max;
@@ -221,6 +231,10 @@ static int compare(const uint32_t *a, const uint32_t *b, const char *label, int 
   printf("gpu parity (%s): meshes: %d pixels differ by more than 3 (max %d)\n", label, mesh_bad,
          mesh_max);
   if (mesh_bad > W * 80 / 200) { /* > 0.5% of the mesh band */
+    return 0;
+  }
+  if (inset_bad) {
+    printf("gpu parity (%s): inset shadows: %d pixels differ by more than 3\n", label, inset_bad);
     return 0;
   }
   if (slug) {
