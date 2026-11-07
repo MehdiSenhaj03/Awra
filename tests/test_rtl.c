@@ -173,18 +173,26 @@ static AwraWidget *first_focus(AwraTextDirection dir, bool grid, AwraWidget **a,
     awra_grid_attach(g, *a, 1, 0, 1, 1);
     awra_grid_attach(g, *b, 0, 0, 1, 1);
     awra_window_set_child(win, g);
+    awra_widget_unref(g);
   }
   else {
     /* a rail and a column: Dawra's sidebar */
     AwraWidget *row = awra_box_new(AWRA_ORIENTATION_HORIZONTAL, 0);
     AwraWidget *column = awra_box_new(AWRA_ORIENTATION_VERTICAL, 0);
+    AwraWidget *title = awra_label_new("Direct messages");
     awra_box_append(row, *a);
-    awra_box_append(column, awra_label_new("Direct messages"));
+    awra_box_append(column, title);
     awra_box_append(column, *b);
     awra_widget_set_hexpand(column, true);
     awra_box_append(row, column);
     awra_window_set_child(win, row);
+    awra_widget_unref(title);
+    awra_widget_unref(column);
+    awra_widget_unref(row);
   }
+  /* compared by address only once the window has gone */
+  awra_widget_unref(*a);
+  awra_widget_unref(*b);
   awra_window_present(win);
   AwraWidget *focus = awra_window_focus(win);
   awra_window_close(win);

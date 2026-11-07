@@ -38,9 +38,11 @@ static AwraWidget *rows(int n)
 {
   AwraWidget *box = awra_box_new(AWRA_ORIENTATION_VERTICAL, 8);
   for (int i = 0; i < n; i++) {
-    awra_box_append(box, awra_label_new("A line of the dialog's body"));
+    AwraWidget *line = awra_label_new("A line of the dialog's body");
+    awra_box_append(box, line);
+    awra_widget_unref(line);
   }
-  return box;
+  return box; /* the caller's reference */
 }
 
 int main(void)
@@ -60,6 +62,7 @@ int main(void)
   awra_window_present(dialog);
   AwraWidget *body = rows(20);
   awra_dialog_set_child(dialog, body);
+  awra_widget_unref(body);
   pump_for(300);
   int nat = 0, min = 0;
   awra_measure(body, AWRA_ORIENTATION_VERTICAL, 380, &min, &nat);
@@ -72,7 +75,9 @@ int main(void)
   /* a width and height given: no natural size, whatever comes after */
   AwraWidget *fixed = awra_window_new("fixed", 300, 200);
   awra_window_present(fixed);
-  awra_window_set_child(fixed, rows(40));
+  AwraWidget *forty = rows(40);
+  awra_window_set_child(fixed, forty);
+  awra_widget_unref(forty);
   pump_for(300);
   int fw = 0, fh = 0;
   awra_window_get_size(fixed, &fw, &fh);
@@ -84,7 +89,9 @@ int main(void)
   awra_window_set_default_size(later, 320, -1);
   awra_window_present(later);
   awra_window_hide(later);
-  awra_dialog_set_child(later, rows(10));
+  AwraWidget *ten = rows(10);
+  awra_dialog_set_child(later, ten);
+  awra_widget_unref(ten);
   pump_for(100);
   awra_window_present(later);
   pump_for(300);
@@ -99,12 +106,15 @@ int main(void)
   awra_window_set_default_size(grows, 360, -1);
   AwraWidget *list = rows(4);
   awra_dialog_set_child(grows, list);
+  awra_widget_unref(list);
   awra_window_present(grows);
   pump_for(300);
   int h4 = 0, h12 = 0, gw = 0;
   awra_window_get_size(grows, &gw, &h4);
   for (int i = 0; i < 8; i++) {
-    awra_box_append(list, awra_label_new("A line that came later"));
+    AwraWidget *line = awra_label_new("A line that came later");
+    awra_box_append(list, line);
+    awra_widget_unref(line);
   }
   pump_for(300);
   awra_window_get_size(grows, &gw, &h12);
@@ -114,12 +124,15 @@ int main(void)
   AwraWidget *keeps = awra_window_new("keeps", 360, -1);
   AwraWidget *klist = rows(4);
   awra_window_set_child(keeps, klist);
+  awra_widget_unref(klist);
   awra_window_present(keeps);
   pump_for(300);
   int k4 = 0, k12 = 0;
   awra_window_get_size(keeps, &gw, &k4);
   for (int i = 0; i < 8; i++) {
-    awra_box_append(klist, awra_label_new("A line that came later"));
+    AwraWidget *line = awra_label_new("A line that came later");
+    awra_box_append(klist, line);
+    awra_widget_unref(line);
   }
   pump_for(300);
   awra_window_get_size(keeps, &gw, &k12);
