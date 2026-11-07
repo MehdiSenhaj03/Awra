@@ -18,6 +18,18 @@ Awra 2: the same look, without GTK.
   shadow, snap and resize band, OLE drops, physical key codes).
 - Rust: `awra-sys` (generated, builds the library with CMake) and `awra`, a
   gtk-rs-like safe API so Awra 1 applications port by renaming.
+- Collections and workspaces (for ExplorerAwra): `AwraCollectionView`, a
+  virtualized grid / list with column headers (only visible cells exist,
+  recycled; selection by click, keys and rubberband; drag-begin; drop
+  index), `AwraPathBar` (breadcrumbs and a path field in one frame, with
+  suggestions), `AwraTabBar` (workspace tabs, reorder, drag out) and
+  `AwraPaned`; Rust `CollectionView`, `PathBar`, `TabBar`, `Paned`,
+  `DrawingArea`/`Canvas`.
+- Compact navigation items (class `compact`), compact toolbar buttons in a
+  compact header, the `view-switcher` box, frameless entries and
+  `awra_entry_select_region`, `awra_header_set_expand_center`, suffixes on
+  navigation items, drop-hover / files-dropped with the pointer position,
+  GTK's chevrons for pan-* icons, place and device icons.
 - License: GPL-3.0-or-later (BUI derives from Blender, GPL-2.0-or-later).
   Awra 1 was LGPL-2.1-or-later.
 
