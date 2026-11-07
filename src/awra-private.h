@@ -22,6 +22,7 @@
 
 #include "awra/awra.h"
 #include "kit_intern.h"
+#include "raster-shift.h"
 
 /* ----------------------------------------------------------------------- */
 /* Classes */
@@ -188,6 +189,9 @@ typedef struct AwraAux {
   unsigned user_hidden : 1, child_hidden : 1, overflow_hidden : 1;
   unsigned char typography;
   float opacity;
+  /* GTK's fractional child transform (raster px): the subtree draws this
+   * much further right and down (an AwraPage's column centred at x.5) */
+  float shift_x, shift_y;
   /* measurement cache: [orientation] for one for_size each */
   int cache_for[2], cache_min[2], cache_nat[2];
   unsigned cache_valid : 2;
@@ -601,7 +605,6 @@ void awra_paint_button_bg(AwraDraw *d, AwraBox b, float radius, const AwraButton
                           float press_t, bool focus_ring);
 
 void awra_button_set_padding_internal(AwraWidget *w, int pad_x, int pad_y, int min_w);
-void awra_button_set_bg_inset_internal(AwraWidget *w, int inset);
 void awra_header_set_drag_enabled(AwraWidget *w, bool drag);
 void awra_header_set_dialog(AwraWidget *w, bool dialog);
 void awra_header_set_compact(AwraWidget *w, bool compact);
@@ -653,3 +656,28 @@ struct BuiRaster *awra_window_raster(AwraWidget *window);
 /* PNG writing (png.c), premultiplied ARGB in */
 bool awra_write_png(const char *path, const uint32_t *argb, int w, int h);
 const char *awra_key_code_name(int evdev);
+
+/* Group opacity (group.c): between begin and end, what is drawn inside `b`
+ * fades to `alpha` as one layer (GTK's CSS opacity), not primitive by
+ * primitive. Each primitive takes the opacity instead where the raster
+ * cannot read back. */
+typedef struct AwraGroup {
+  int x, y, w, h;
+  uint32_t *saved;
+  float alpha, opacity;
+} AwraGroup;
+bool awra_group_begin(AwraDraw *d, AwraBox b, float alpha, AwraGroup *g);
+void awra_group_end(AwraDraw *d, AwraGroup *g);
+
+/* A dashed border as GTK strokes `border: <width>px dashed` round a box
+ * with corner `radius` (dash.c). */
+void awra_paint_dashed_rbox(AwraDraw *d, AwraBox b, float radius, float width, const AwraRGBA *color);
+
+/* Scrolled windows (containers.c): the pointer moved over one (its overlay
+ * indicator shows, as GtkScrolledWindow's captured motion does). */
+bool awra_is_scrolled(const AwraWidget *w);
+void awra_scrolled_pointer_moved(AwraWidget *w);
+
+/* A widget's subtree drawn shifted by a fraction of a pixel, as GTK
+ * allocates a child with a fractional translation (core.c). */
+void awra_widget_set_draw_shift(AwraWidget *w, float dx, float dy);

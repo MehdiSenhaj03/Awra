@@ -254,7 +254,7 @@ static void vv_draw(AwraWidget *w, AwraDraw *d)
   if (clip) {
     bk_clip_push(w->x, w->y, w->w, w->h);
   }
-  BUI_raster_image(d->r, fx, fy, fw, fh, &pm, NULL, d->opacity, 0);
+  SR_image(d->r, fx, fy, fw, fh, &pm, NULL, d->opacity, 0);
   if (clip) {
     bk_clip_pop();
   }
@@ -930,7 +930,7 @@ bool awra_backdrop_paint(AwraWidget *source, AwraDraw *d, AwraBox b, const float
     }
     const BuiPixmap pm = {q, W, H, 0, BUI_PIXMAP_ARGB, 0};
     const float src[4] = {(b.x - source->x) / 4.0f, (b.y - source->y) / 4.0f, b.w / 4.0f, b.h / 4.0f};
-    BUI_raster_image_rounded(d->r, b.x, b.y, b.w, b.h, &pm, src, d->opacity, radii);
+    SR_image_rounded(d->r, b.x, b.y, b.w, b.h, &pm, src, d->opacity, radii);
     return true;
   }
   const uint32_t *px = vv_backdrop(source, b, &W, &H);
@@ -938,7 +938,7 @@ bool awra_backdrop_paint(AwraWidget *source, AwraDraw *d, AwraBox b, const float
     return false;
   }
   const BuiPixmap pm = {px, W, H, 0, BUI_PIXMAP_ARGB, 0};
-  BUI_raster_image_rounded(d->r, floorf(b.x), floorf(b.y), (float)W, (float)H, &pm, NULL, d->opacity, radii);
+  SR_image_rounded(d->r, floorf(b.x), floorf(b.y), (float)W, (float)H, &pm, NULL, d->opacity, radii);
   return true;
 }
 

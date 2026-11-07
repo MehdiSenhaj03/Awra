@@ -161,9 +161,10 @@ pub(crate) fn add_action(window: &Widget, action: &SimpleAction) {
             MAPS.with(|m| m.borrow_mut().remove(&key));
         });
     }
-    if !action.is_enabled() {
-        sync_bound_widgets(&action.name(), false);
-    }
+    // GtkActionHelper: an action that appears sets the sensitivity of the
+    // widgets bound to it (an enabled one makes them sensitive again, even
+    // after a set_sensitive(false) made while the action was missing).
+    sync_bound_widgets(&action.name(), action.is_enabled());
 }
 
 pub(crate) fn remove_action(window: &Widget, name: &str) {

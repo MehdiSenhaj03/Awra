@@ -121,7 +121,7 @@ static void surface_save_corners(AwraWidget *w, AwraDraw *d)
     g_corners = grown;
     g_corners_cap = cap;
   }
-  if (BUI_raster_corners_save(d->r, b.x, b.y, b.w, b.h, radii, g_corners + g_corners_top)) {
+  if (SR_corners_save(d->r, b.x, b.y, b.w, b.h, radii, g_corners + g_corners_top)) {
     g_corners_top += n;
     awra_aux(w)->corners_saved = 1;
   }
@@ -146,7 +146,7 @@ static void surface_draw_over(AwraWidget *w, AwraDraw *d)
     if (surface_clip_box(w, &b, radii)) { /* (it can't change while it draws) */
       const size_t n = (size_t)BUI_raster_corners_size(b.w, b.h, radii);
       g_corners_top -= n;
-      BUI_raster_corners_clip(d->r, b.x, b.y, b.w, b.h, radii, g_corners + g_corners_top);
+      SR_corners_clip(d->r, b.x, b.y, b.w, b.h, radii, g_corners + g_corners_top);
     }
   }
   BinExt *x = BINX(w);
@@ -414,6 +414,9 @@ static void pagecol_allocate(AwraWidget *w)
   const intptr_t mw = (intptr_t)awra_widget_get_data(w, "awra-maxw");
   const int cw = BK_MIN(w->w, awra_px(mw > 0 ? (int)mw : 960));
   awra_allocate(c, w->x + (w->w - cw) / 2, w->y, cw, w->h);
+  /* Awra 1: translated by (width - child_width) / 2.0f, half a pixel
+   * further when that is odd */
+  awra_widget_set_draw_shift(c, (float)((w->w - cw) & 1) * 0.5f, 0.0f);
 }
 
 static AwraClass pagecol_class = {
@@ -1349,8 +1352,7 @@ AwraWidget *awra_status_banner_new(const char *title, const char *description,
   x->variant = appearance;
   AwraWidget *root = awra_box_new(AWRA_ORIENTATION_HORIZONTAL, 12);
   x->a = awra_image_new_from_icon_name(status_icons[appearance & 3]);
-  awra_image_set_pixel_size(x->a, 20);
-  awra_widget_set_valign(x->a, AWRA_ALIGN_START);
+  awra_image_set_pixel_size(x->a, 20); /* -gtk-icon-size: 20px, centred in the row (Awra 1) */
   AwraWidget *copy = awra_box_new(AWRA_ORIENTATION_VERTICAL, 4);
   awra_widget_set_hexpand(copy, true);
   x->b = awra_label_new(title ? title : "");
@@ -2047,7 +2049,7 @@ void awra_navigation_item_set_suffix(AwraWidget *w, AwraWidget *suffix)
   }
   x->suffix = suffix;
   if (suffix) {
-    awra_widget_set_valign(suffix, AWRA_ALIGN_CENTER);
+    /* Awra 1 leaves its alignment alone: a badge fills the row's height */
     awra_widget_set_margin_start(suffix, 4);
     awra_box_append(x->box, suffix);
   }

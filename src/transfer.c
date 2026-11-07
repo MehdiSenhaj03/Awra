@@ -737,7 +737,7 @@ static void drag_icon_draw(BKContext *ctx)
     return;
   }
   const BuiPixmap pm = awra_texture_pixmap(d->icon);
-  BUI_raster_image(bk_draw.r, (float)(d->x - d->hot_x), (float)(d->y - d->hot_y), (float)pm.w,
+  SR_image(bk_draw.r, (float)(d->x - d->hot_x), (float)(d->y - d->hot_y), (float)pm.w,
                    (float)pm.h, &pm, NULL, 1.0f, 0);
 }
 

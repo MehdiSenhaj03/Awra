@@ -119,10 +119,10 @@ static void cap_draw(AwraWidget *w, AwraDraw *d)
 {
   CapExt *x = KX(w);
   const AwraTokens *t = awra_tokens();
-  const float saved = d->opacity;
-  if (x->dimmed) {
-    d->opacity *= 0.38f;
-  }
+  /* a dimmed key fades as one layer (gtk_snapshot_push_opacity .38), its
+   * focus ring (3 px out) included */
+  AwraGroup group;
+  awra_group_begin(d, awra_box_inset(awra_box_of(w), -awra_pxf(12)), x->dimmed ? 0.38f : 1.0f, &group);
   AwraBox b = awra_box_of(w);
   const float r = fminf(awra_pxf(7), fminf(b.w, b.h) * 0.22f);
   const bool hover = awra_hovered(w) && !x->dimmed; /* dimmed keys don't hover */
@@ -167,8 +167,20 @@ static void cap_draw(AwraWidget *w, AwraDraw *d)
   }
   const float r4[4] = {r, r, r, r};
   if (x->has_edge) {
-    const float w4[4] = {0, 0, awra_pxf(3), 0};
-    awra_paint_rbox4(d, b, r4, NULL, w4, &x->edge);
+    /* Awra 1: a 3 px band along the bottom, clipped to the rounded face */
+    const float bottom[4] = {0, 0, r, r};
+    uint32_t under[512];
+    const AwraBox band = {b.x, b.y + b.h - awra_pxf(3), b.w, awra_pxf(3)};
+    if (BUI_raster_corners_size(b.w, b.h, bottom) <= 512 &&
+        SR_corners_save(d->r, b.x, b.y, b.w, b.h, bottom, under))
+    {
+      awra_paint_rect(d, band, &x->edge);
+      SR_corners_clip(d->r, b.x, b.y, b.w, b.h, bottom, under);
+    }
+    else {
+      const float w4[4] = {0, 0, awra_pxf(3), 0};
+      awra_paint_rbox4(d, b, r4, NULL, w4, &x->edge);
+    }
   }
   if (x->bound && x->depth < 1) { /* inset 0 1px rim */
     AwraRGBA rim = t->rim;
@@ -202,19 +214,17 @@ static void cap_draw(AwraWidget *w, AwraDraw *d)
   }
   bk_clip_push((int)b.x, (int)b.y, (int)ceilf(b.w), (int)ceilf(b.h));
   float badge_w = 0;
+  AwraFont bf = awra_font_for(AWRA_TYPOGRAPHY_BODY);
+  AwraBox bb = {0};
   if (x->badge && x->badge[0]) {
-    /* .awra-key-cap-badge: .62em 800, padding 0 4px, a pill 3 px from the corner */
-    AwraFont bf = awra_font_for(AWRA_TYPOGRAPHY_BODY);
+    /* .awra-key-cap-badge: .62em 800, padding 0 4px; a GtkLabel allocated
+     * its whole-pixel size, 3 px from the corner */
     bf.size *= 0.62f;
     bf.weight = 800;
     const float tw = awra_text_width(&bf, x->badge, -1);
-    const float bh = awra_font_line_height(&bf);
+    const float bh = ceilf(awra_font_line_height(&bf));
     badge_w = fminf(fmaxf(ceilf(tw) + awra_pxf(8), bh), fmaxf(b.w - awra_pxf(4), 0));
-    AwraBox bb = {rtl ? b.x + awra_pxf(3) : b.x + b.w - badge_w - awra_pxf(3), b.y + awra_pxf(3), badge_w,
-                  bh};
-    awra_paint_rbox(d, bb, bh * 0.5f, &t->accent, 0, NULL);
-    awra_draw_text(d, &bf, bb.x + floorf((badge_w - tw) * 0.5f), bb.y + awra_font_ascent(&bf),
-                   x->badge, -1, &t->on_accent);
+    bb = (AwraBox){rtl ? b.x + awra_pxf(3) : b.x + b.w - badge_w - awra_pxf(3), b.y + awra_pxf(3), badge_w, bh};
   }
   if (x->label && x->label[0]) {
     AwraFont lf = legend_font(x, 1.0f);
@@ -245,12 +255,18 @@ static void cap_draw(AwraWidget *w, AwraDraw *d)
                  0.5f, nat, rtl, &fg);
     }
   }
+  if (badge_w > 0) { /* over the legends, as Awra 1 snapshots it after them */
+    const float tw = awra_text_width(&bf, x->badge, -1);
+    awra_paint_rbox(d, bb, bb.h * 0.5f, &t->accent, 0, NULL);
+    awra_draw_text(d, &bf, bb.x + floorf((badge_w - tw) * 0.5f), bb.y + awra_font_ascent(&bf), x->badge, -1,
+                   &t->on_accent);
+  }
   bk_clip_pop();
   if (awra_focus_visible(w)) {
     AwraBox o = awra_box_inset(awra_box_of(w), -awra_pxf(3));
     awra_paint_rbox(d, o, r + awra_pxf(3), NULL, awra_pxf(2), &t->focus_ring);
   }
-  d->opacity = saved;
+  awra_group_end(d, &group);
 }
 
 static void depth_anim(AwraWidget *w, double t, void *data)
@@ -398,8 +414,23 @@ const char *awra_key_cap_code(AwraWidget *w)
     awra_invalidate(w);                                       \
   }
 CAP_STR(awra_key_cap_set_label, label)
-CAP_STR(awra_key_cap_set_secondary_label, secondary)
 CAP_STR(awra_key_cap_set_badge, badge)
+
+/* Awra 1: a new secondary label also becomes the key's tooltip (replacing
+ * one set before); setting the same one again changes nothing. */
+void awra_key_cap_set_secondary_label(AwraWidget *w, const char *v)
+{
+  CapExt *x = KX(w);
+  if (v && !v[0]) {
+    v = NULL;
+  }
+  if ((!x->secondary && !v) || (x->secondary && v && !strcmp(x->secondary, v))) {
+    return;
+  }
+  awra_set_str(&x->secondary, v);
+  awra_widget_set_tooltip(w, v);
+  awra_invalidate(w);
+}
 
 #define CAP_BOOL(fn, field)          \
   void fn(AwraWidget *w, bool v)     \
@@ -1035,8 +1066,11 @@ static void wave_draw(AwraWidget *w, AwraDraw *d)
   if (mark_x > -1e8f) {
     awra_paint_rect(d, (AwraBox){mark_x - awra_pxf(1), b.y, awra_pxf(2), b.h}, &t->accent_content);
     const float cy = b.y + fminf(awra_pxf(5.5f), b.h * 0.5f);
-    awra_paint_circle(d, mark_x, cy, awra_pxf(4.5f) + awra_pxf(1), &t->control_thumb);
-    awra_paint_circle(d, mark_x, cy, awra_pxf(4.5f), &t->accent_content);
+    /* Awra 1's handle: a 4.5 px circle of the accent, its 1 px border
+     * (inside it) in the thumb colour */
+    const float hr = awra_pxf(4.5f);
+    awra_paint_rbox(d, (AwraBox){mark_x - hr, cy - hr, 2 * hr, 2 * hr}, hr, &t->accent_content, awra_pxf(1),
+                    &t->control_thumb);
   }
   if (awra_focus_visible(w)) {
     awra_paint_rbox(d, awra_box_inset(b, -awra_pxf(3)), wr + awra_pxf(3), NULL, awra_pxf(2), &t->focus_ring);
@@ -1636,33 +1670,9 @@ static void zone_paint_frame(AwraWidget *w, AwraDraw *d, AwraBox b)
   ZoneExt *x = ZX(w);
   const AwraTokens *t = awra_tokens();
   awra_paint_rbox(d, b, awra_pxf(17), x->hover ? &t->accent_soft : &t->control_well, 0, NULL);
-  /* 2 px dashed border */
+  /* border: 2px dashed, radius 17px */
   const AwraRGBA c = x->hover ? t->accent : (t->high_contrast ? t->outline : t->border);
-  const float bw = awra_pxf(2), dash = awra_pxf(6), r = awra_pxf(17);
-  for (float px = b.x + r; px < b.x + b.w - r; px += dash * 2) {
-    const float len = fminf(dash, b.x + b.w - r - px);
-    awra_paint_rect(d, (AwraBox){px, b.y, len, bw}, &c);
-    awra_paint_rect(d, (AwraBox){px, b.y + b.h - bw, len, bw}, &c);
-  }
-  for (float py = b.y + r; py < b.y + b.h - r; py += dash * 2) {
-    const float len = fminf(dash, b.y + b.h - r - py);
-    awra_paint_rect(d, (AwraBox){b.x, py, bw, len}, &c);
-    awra_paint_rect(d, (AwraBox){b.x + b.w - bw, py, bw, len}, &c);
-  }
-  /* corners as solid arcs (short) */
-  const float r4[4] = {r, r, r, r}, w4[4] = {bw, bw, bw, bw};
-  bk_clip_push((int)b.x, (int)b.y, (int)r, (int)r);
-  awra_paint_rbox4(d, b, r4, NULL, w4, &c);
-  bk_clip_pop();
-  bk_clip_push((int)(b.x + b.w - r), (int)b.y, (int)r + 1, (int)r);
-  awra_paint_rbox4(d, b, r4, NULL, w4, &c);
-  bk_clip_pop();
-  bk_clip_push((int)b.x, (int)(b.y + b.h - r), (int)r, (int)r + 1);
-  awra_paint_rbox4(d, b, r4, NULL, w4, &c);
-  bk_clip_pop();
-  bk_clip_push((int)(b.x + b.w - r), (int)(b.y + b.h - r), (int)r + 1, (int)r + 1);
-  awra_paint_rbox4(d, b, r4, NULL, w4, &c);
-  bk_clip_pop();
+  awra_paint_dashed_rbox(d, b, awra_pxf(17), awra_pxf(2), &c);
 }
 
 /* a drop zone: a group named by its title, described by its subtitle */

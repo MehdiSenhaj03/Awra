@@ -264,8 +264,11 @@ static void window_allocate(AwraWidget *w)
   int mw, nw, mh, nh;
   window_measure(w, AWRA_ORIENTATION_HORIZONTAL, -1, &mw, &nw);
   window_measure(w, AWRA_ORIENTATION_VERTICAL, mw, &mh, &nh);
-  if (x->bkw && x->min_w <= 0 && x->min_h <= 0) {
-    const int lw = (int)ceilf(mw / awra_scale()), lh = (int)ceilf(mh / awra_scale());
+  if (x->bkw) {
+    /* gtk_window_compute_min_size: the size request, or the contents'
+     * minimum when that is more */
+    const int lw = BK_MAX(x->min_w, (int)ceilf(mw / awra_scale()));
+    const int lh = BK_MAX(x->min_h, (int)ceilf(mh / awra_scale()));
     if (lw != x->content_min_w || lh != x->content_min_h) {
       x->content_min_w = lw;
       x->content_min_h = lh;
@@ -329,7 +332,7 @@ static void window_draw(AwraWidget *w, AwraDraw *d)
       x->corners = (uint32_t *)malloc(sizeof(uint32_t) * n);
       x->corners_cap = x->corners ? n : 0;
     }
-    x->corners_saved = x->corners && BUI_raster_corners_save(d->r, b.x, b.y, b.w, b.h, radii, x->corners);
+    x->corners_saved = x->corners && SR_corners_save(d->r, b.x, b.y, b.w, b.h, radii, x->corners);
   }
 }
 
@@ -344,7 +347,7 @@ static void window_draw_over(AwraWidget *w, AwraDraw *d)
     x->corners_saved = false;
     const AwraBox b = awra_box_of(w);
     const float r = awra_pxf(m.radius), radii[4] = {r, r, r, r};
-    BUI_raster_corners_clip(d->r, b.x, b.y, b.w, b.h, radii, x->corners);
+    SR_corners_clip(d->r, b.x, b.y, b.w, b.h, radii, x->corners);
   }
   if (squared(w)) {
     return;
@@ -548,6 +551,9 @@ static void update_hover(AwraWidget *win, int x, int y, bool leave)
   if (!leave && !wx->ctx->blocked) {
     for (int k = nn - 1; k >= 0; k--) {
       AwraWidget *n = np[k];
+      if (awra_is_scrolled(n)) { /* GtkScrolledWindow's captured motion */
+        awra_scrolled_pointer_moved(n);
+      }
       if (awra_has_handlers(n, AWRA_SIGNAL_MOTION) && !(wx->ctx->grab == n)) {
         AwraArgs a = {0};
         a.signal = AWRA_SIGNAL_MOTION;
@@ -2028,6 +2034,7 @@ void awra_window_set_min_size(AwraWidget *w, int width, int height)
   WinExt *x = WEXT(w);
   x->min_w = width;
   x->min_h = height;
+  x->content_min_w = x->content_min_h = -1; /* the next layout sends the larger */
   if (x->bkw) {
     BK_window_wm(x->bkw, "minsize", width, height);
   }

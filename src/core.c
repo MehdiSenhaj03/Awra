@@ -2274,6 +2274,9 @@ void awra_bk_draw_tree(BKNode *n)
       awra_paint_rbox(&g_draw, awra_box_of(n), awra_pxf(8), &awra_tokens()->selection, 0, NULL);
     }
     const bool saved_rtl = g_draw.rtl;
+    const float saved_sx = awra_shift_x, saved_sy = awra_shift_y;
+    awra_shift_x += a->shift_x;
+    awra_shift_y += a->shift_y;
     g_draw.rtl = awra_widget_rtl(n);
     if (c->draw) {
       c->draw(n, &g_draw);
@@ -2296,6 +2299,8 @@ void awra_bk_draw_tree(BKNode *n)
       c->draw_over(n, &g_draw);
     }
     g_draw.rtl = saved_rtl;
+    awra_shift_x = saved_sx;
+    awra_shift_y = saved_sy;
     if (dropping) {
       const AwraBox b = awra_box_inset(awra_box_of(n), awra_pxf(1));
       awra_paint_rbox(&g_draw, b, awra_pxf(7), NULL, awra_pxf(2), &awra_tokens()->focus_ring);
@@ -2667,6 +2672,19 @@ void awra_widget_set_overflow_hidden(AwraWidget *w, bool hidden)
 {
   if (awra_is_widget(w)) {
     awra_aux(w)->overflow_hidden = hidden;
+    awra_invalidate(w);
+  }
+}
+
+void awra_widget_set_draw_shift(AwraWidget *w, float dx, float dy)
+{
+  if (!awra_is_widget(w)) {
+    return;
+  }
+  AwraAux *a = awra_aux(w);
+  if (a->shift_x != dx || a->shift_y != dy) {
+    a->shift_x = dx;
+    a->shift_y = dy;
     awra_invalidate(w);
   }
 }
