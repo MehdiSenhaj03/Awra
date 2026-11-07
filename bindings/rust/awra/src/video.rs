@@ -398,3 +398,10 @@ impl Default for EdgePanel {
         Self::new()
     }
 }
+
+impl crate::ToastOverlay {
+    /// Space kept under toasts (logical px; -1: the default 24).
+    pub fn set_bottom_inset(&self, inset: i32) {
+        unsafe { ffi::awra_toast_overlay_set_bottom_inset(AsRef::<Widget>::as_ref(self).as_ptr(), inset) }
+    }
+}

@@ -997,6 +997,7 @@ typedef struct ToastExt {
   AwraWidget *child;
   Toast *toasts;
   unsigned next_id;
+  int bottom_inset; /* logical, -1: the default 24 */
 } ToastExt;
 
 #define TX(w) AWRA_EXT(w, ToastExt)
@@ -1029,8 +1030,17 @@ static void toast_allocate(AwraWidget *w)
     nw = BK_MIN(nw, w->w - awra_px(32));
     awra_measure(t->surface, AWRA_ORIENTATION_VERTICAL, nw, &mn, &nh);
     const float slide = *(float *)awra_widget_get_data(t->surface, "awra-slide");
-    const int y = w->y + w->h - awra_px(24) - nh + (int)((1.0f - slide) * (nh + awra_px(24)));
+    const int inset = awra_px(x->bottom_inset >= 0 ? x->bottom_inset : 24);
+    const int y = w->y + w->h - inset - nh + (int)((1.0f - slide) * (nh + inset));
     awra_allocate(t->surface, w->x + (w->w - nw) / 2, y, nw, nh);
+  }
+}
+
+void awra_toast_overlay_set_bottom_inset(AwraWidget *w, int inset)
+{
+  if (TX(w)->bottom_inset != inset) {
+    TX(w)->bottom_inset = inset;
+    awra_queue_allocate(w);
   }
 }
 
@@ -1079,6 +1089,7 @@ AwraWidget *awra_toast_overlay_new(void)
 {
   AwraWidget *w = awra_widget_new(&toast_overlay_class);
   TX(w)->next_id = 1;
+  TX(w)->bottom_inset = -1;
   return w;
 }
 

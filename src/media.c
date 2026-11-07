@@ -1379,14 +1379,59 @@ static void zone_allocate(AwraWidget *w)
   awra_allocate(x->child ? x->child : x->well, w->x, w->y, w->w, w->h);
 }
 
+static void zone_paint_frame(AwraWidget *w, AwraDraw *d, AwraBox b);
+
 static void zone_draw(AwraWidget *w, AwraDraw *d)
 {
   ZoneExt *x = ZX(w);
   if (x->child) {
     return;
   }
+  zone_paint_frame(w, d, awra_box_of(w));
+}
+
+/* A zone wrapping content shows its message over it while files are
+ * dragged over (Awra 1's AwraDropZone:drop-message). */
+static void zone_draw_over(AwraWidget *w, AwraDraw *d)
+{
+  ZoneExt *x = ZX(w);
+  if (!x->child || !x->hover) {
+    return;
+  }
   const AwraTokens *t = awra_tokens();
-  AwraBox b = awra_box_of(w);
+  const AwraBox b = awra_box_inset(awra_box_of(w), awra_pxf(12));
+  AwraRGBA under = t->material_tint[AWRA_MATERIAL_FLOATING];
+  under.a = 0.94f;
+  awra_paint_rbox(d, b, awra_pxf(17), &under, 0, NULL);
+  zone_paint_frame(w, d, b);
+  const int s = awra_px(32);
+  const char *msg = awra_label_text(x->title);
+  float th = 0;
+  int lw = 0, lh = 0;
+  AwraTextLayout *l = NULL;
+  if (msg && msg[0]) {
+    l = awra_text_layout_new();
+    AwraFont f = awra_font_for(AWRA_TYPOGRAPHY_BODY);
+    f.weight = 640;
+    awra_text_layout_set_font(l, &f);
+    awra_text_layout_set_text(l, msg, false);
+    awra_text_layout_set_wrap(l, AWRA_WRAP_WORD, AWRA_ELLIPSIZE_NONE, -1);
+    awra_text_layout_set_justify(l, AWRA_JUSTIFY_CENTER);
+    awra_text_layout_size(l, (int)(b.w - awra_pxf(48)), &lw, &lh);
+    th = (float)lh + awra_pxf(8);
+  }
+  const float top = b.y + (b.h - s - th) * 0.5f;
+  awra_paint_icon(d, "document-send-symbolic", b.x + floorf((b.w - s) * 0.5f), floorf(top), s, &t->accent_content);
+  if (l) {
+    awra_text_layout_draw(l, d, b.x + floorf((b.w - lw) * 0.5f), top + s + awra_pxf(8), lw, &t->foreground);
+    awra_text_layout_free(l);
+  }
+}
+
+static void zone_paint_frame(AwraWidget *w, AwraDraw *d, AwraBox b)
+{
+  ZoneExt *x = ZX(w);
+  const AwraTokens *t = awra_tokens();
   awra_paint_rbox(d, b, awra_pxf(17), x->hover ? &t->accent_soft : &t->control_well, 0, NULL);
   /* 2 px dashed border */
   const AwraRGBA c = x->hover ? t->accent : (t->high_contrast ? t->outline : t->border);
@@ -1425,6 +1470,7 @@ static AwraClass zone_class = {
     .measure = zone_measure,
     .allocate = zone_allocate,
     .draw = zone_draw,
+    .draw_over = zone_draw_over,
 };
 
 static void zone_browse(AwraWidget *b, const AwraArgs *a, void *data)

@@ -825,6 +825,9 @@ unsigned awra_toast_overlay_show_with_action(AwraWidget *overlay, const char *ti
                                              const char *action_label, AwraHandler handler,
                                              void *data, unsigned timeout_ms);
 void awra_toast_overlay_dismiss(AwraWidget *overlay, unsigned id);
+/* Space kept under toasts (logical px; -1: the default 24), above a
+ * floating bar for instance. */
+void awra_toast_overlay_set_bottom_inset(AwraWidget *overlay, int inset);
 
 typedef struct AwraCommand {
   const char *title;
@@ -913,6 +916,8 @@ void awra_drop_zone_set_title(AwraWidget *zone, const char *title);
 void awra_drop_zone_set_subtitle(AwraWidget *zone, const char *subtitle);
 void awra_drop_zone_set_icon_name(AwraWidget *zone, const char *icon_name);
 void awra_drop_zone_set_browse_label(AwraWidget *zone, const char *label); /* NULL: no button */
+/* With a child, the zone shows it, and its icon and title over it while
+ * files are dragged over (the drop message). */
 void awra_drop_zone_set_child(AwraWidget *zone, AwraWidget *child);
 
 /* Any widget can take dropped files (files-dropped, args->text = paths,

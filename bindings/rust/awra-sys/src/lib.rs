@@ -579,6 +579,7 @@ extern "C" {
     pub fn awra_toast_overlay_show(overlay: *mut AwraWidget, title: *const c_char, timeout_ms: c_uint) -> c_uint;
     pub fn awra_toast_overlay_show_with_action(overlay: *mut AwraWidget, title: *const c_char, action_label: *const c_char, handler: Option<unsafe extern "C" fn(*mut AwraWidget, *const AwraArgs, *mut c_void)>, data: *mut c_void, timeout_ms: c_uint) -> c_uint;
     pub fn awra_toast_overlay_dismiss(overlay: *mut AwraWidget, id: c_uint);
+    pub fn awra_toast_overlay_set_bottom_inset(overlay: *mut AwraWidget, inset: c_int);
     pub fn awra_command_palette_new() -> *mut AwraWidget;
     pub fn awra_command_palette_set_commands(palette: *mut AwraWidget, commands: *const AwraCommand, n: c_int);
     pub fn awra_command_palette_set_placeholder(palette: *mut AwraWidget, text: *const c_char);
