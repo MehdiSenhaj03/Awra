@@ -1518,6 +1518,7 @@ static void zone_draw_over(AwraWidget *w, AwraDraw *d)
     AwraFont f = awra_font_for(AWRA_TYPOGRAPHY_BODY);
     f.weight = 640;
     awra_text_layout_set_font(l, &f);
+    awra_text_layout_set_base_dir(l, awra_widget_rtl(w));
     awra_text_layout_set_text(l, msg, false);
     awra_text_layout_set_wrap(l, AWRA_WRAP_WORD, AWRA_ELLIPSIZE_NONE, -1);
     awra_text_layout_set_justify(l, AWRA_JUSTIFY_CENTER);

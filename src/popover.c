@@ -661,6 +661,7 @@ static void row_draw(AwraWidget *w, AwraDraw *d)
   }
   AwraTextLayout *l = awra_text_layout_new();
   awra_text_layout_set_font(l, &f);
+  awra_text_layout_set_base_dir(l, awra_widget_rtl(w));
   awra_text_layout_set_text(l, x->label ? x->label : "", false);
   awra_text_layout_set_wrap(l, AWRA_WRAP_NONE, AWRA_ELLIPSIZE_END, 1);
   int tw, th;
@@ -2242,6 +2243,7 @@ static void tip_measure(BKContext *ctx, const char *text, int *r_w, int *r_h)
   AwraTextLayout *l = awra_text_layout_new();
   AwraFont f = tip_font();
   awra_text_layout_set_font(l, &f);
+  awra_text_layout_set_base_dir(l, awra_widget_rtl(NULL));
   awra_text_layout_set_text(l, text, false);
   awra_text_layout_set_wrap(l, AWRA_WRAP_WORD, AWRA_ELLIPSIZE_NONE, -1);
   const int maxw = (int)ceilf(awra_text_width(&f, "abcdefghijklmnopqrstuvwxyz", 26) / 26.0f * 50.0f);
@@ -2262,6 +2264,7 @@ static void tip_draw(BKContext *ctx, const char *text, const BKRect *rect)
   AwraTextLayout *l = awra_text_layout_new();
   AwraFont f = tip_font();
   awra_text_layout_set_font(l, &f);
+  awra_text_layout_set_base_dir(l, awra_widget_rtl(NULL));
   awra_text_layout_set_text(l, text, false);
   awra_text_layout_set_wrap(l, AWRA_WRAP_WORD, AWRA_ELLIPSIZE_NONE, -1);
   const AwraRGBA fg = awra_tokens()->dark ? awra_rgba(1, 1, 1, 1) : awra_tokens()->foreground;

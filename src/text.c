@@ -279,6 +279,9 @@ struct AwraTextLayout {
   uint8_t *levels;
   uint16_t *breaks; /* BUI_text_breaks of the text (len + 1), made on demand */
   bool bidi_done;
+  bool base_rtl;   /* the widget reads right to left: paragraphs without a
+                    * strong character are right to left (Pango's context
+                    * base direction) */
   bool dir_back;   /* a paragraph without a strong character takes the next one's
                     * direction when none before it has one (GtkTextView) */
   float wf;        /* the widest line, unrounded */
@@ -724,6 +727,15 @@ void awra_text_layout_set_text(AwraTextLayout *l, const char *text, bool markup)
   dirty_text(l);
 }
 
+void awra_text_layout_set_base_dir(AwraTextLayout *l, bool rtl)
+{
+  if (l->base_rtl != rtl) {
+    l->base_rtl = rtl;
+    dirty(l);
+    l->bidi_done = false;
+  }
+}
+
 void awra_text_layout_set_font(AwraTextLayout *l, const AwraFont *f)
 {
   if (l->font.family == f->family && l->font.size == f->size && l->font.weight == f->weight &&
@@ -858,15 +870,19 @@ static void ensure_bidi(AwraTextLayout *l)
   l->bidi_done = true;
   free(l->levels);
   l->levels = NULL;
-  if (!text_maybe_rtl(l->text, l->len)) {
+  if (!l->base_rtl && !text_maybe_rtl(l->text, l->len)) {
     return;
   }
   uint8_t *lv = (uint8_t *)malloc((size_t)l->len + 1);
   if (!lv) {
     return;
   }
-  /* Pango starts from the first strong character of the whole text */
+  /* Pango starts from the first strong character of the whole text, else
+   * the context's base direction */
   int prev = l->dir_back ? 0 : BUI_text_direction(l->text, l->len);
+  if (!prev && !l->dir_back && l->base_rtl) {
+    prev = 2;
+  }
   for (int pos = 0; pos <= l->len;) {
     int end = pos;
     while (end < l->len && l->text[end] != '\n') {
@@ -887,7 +903,7 @@ static void ensure_bidi(AwraTextLayout *l)
       }
     }
     if (!dir) {
-      dir = 1;
+      dir = l->base_rtl ? 2 : 1;
     }
     prev = dir;
     BUI_text_bidi(l->text + pos, end - pos, dir, lv + pos);

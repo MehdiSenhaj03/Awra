@@ -448,6 +448,7 @@ static void button_sync(AwraWidget *w)
   }
   AwraFont f = button_font(w);
   awra_text_layout_set_font(x->layout, &f);
+  awra_text_layout_set_base_dir(x->layout, awra_widget_rtl(w));
   awra_text_layout_set_text(x->layout, x->label, false);
   awra_text_layout_set_wrap(x->layout, AWRA_WRAP_NONE, AWRA_ELLIPSIZE_END, 1);
   x->style_gen = awra_style_generation();
@@ -564,16 +565,19 @@ static void button_draw(AwraWidget *w, AwraDraw *d)
   const int text_w = BK_MIN(tw, BK_MAX(0, avail - icon - gap));
   const int total = icon + gap + text_w;
   float cx = (float)w->x + floorf((w->w - total) * 0.5f + 0.5f);
+  /* the icon starts the button's box (at the right, right to left) */
   if (icon) {
-    awra_paint_icon(d, x->icon, cx, (float)w->y + floorf((w->h - icon) * 0.5f + 0.5f), icon, &c.fg);
+    awra_paint_icon(d, x->icon, awra_mirror_x(w, cx, (float)icon),
+                    (float)w->y + floorf((w->h - icon) * 0.5f + 0.5f), icon, &c.fg);
     cx += icon + gap;
   }
   if (tw) {
     if (text_w < tw) {
       awra_text_layout_size(x->layout, text_w, NULL, &th);
     }
-    awra_text_layout_draw(x->layout, d, cx, (float)w->y + floorf((w->h - th) * 0.5f + 0.5f),
-                          text_w < tw ? text_w : -1, &c.fg);
+    awra_text_layout_draw(x->layout, d, awra_mirror_x(w, cx, (float)text_w),
+                          (float)w->y + floorf((w->h - th) * 0.5f + 0.5f), text_w < tw ? text_w : -1,
+                          &c.fg);
   }
 }
 

@@ -211,10 +211,78 @@ const AwraIconMask *awra_icon_mask(const char *name, int size)
   return a ? &c->mask : NULL;
 }
 
+/* The icons GTK draws differently right to left: GTK's own (go-next,
+ * go-previous, pan-start, pan-end, edit-clear) and Adwaita's -rtl
+ * variants, all mirror images of the left-to-right ones. */
+static bool has_rtl_variant(const char *name)
+{
+  static const char *const names[] = {
+      "application-exit", "audio-speakers", "audio-volume-high", "audio-volume-low",
+      "audio-volume-medium", "audio-volume-muted", "audio-volume-overamplified", "document-revert",
+      "edit-clear", "format-indent-less", "format-indent-more", "go-jump", "go-next", "go-previous",
+      "mail-replied", "mail-reply-all", "pan-end", "pan-start", "security-medium", "semi-starred",
+      "system-log-out", "system-switch-user", "view-list-bullet", "view-list-ordered", "view-list",
+      "view-paged", "view-sort-ascending", "view-sort-descending", "view-wrapped"};
+  size_t n = strlen(name);
+  if (n > 9 && !strcmp(name + n - 9, "-symbolic")) {
+    n -= 9;
+  }
+  for (size_t i = 0; i < sizeof(names) / sizeof(names[0]); i++) {
+    if (strlen(names[i]) == n && !strncmp(name, names[i], n)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/* `name`'s right-to-left look (GtkIconTheme with GTK_ICON_LOOKUP_DIR_RTL):
+ * a registered "-rtl" icon, else the left-to-right one mirrored */
+static const AwraIconMask *icon_mask_rtl(const char *name, int size)
+{
+  char key[160];
+  const size_t n = strlen(name);
+  if (n + 8 >= sizeof(key)) {
+    return awra_icon_mask(name, size);
+  }
+  /* "x-symbolic" -> "x-rtl-symbolic" (Adwaita's file names), else "x-rtl" */
+  if (n > 9 && !strcmp(name + n - 9, "-symbolic")) {
+    snprintf(key, sizeof(key), "%.*s-rtl-symbolic", (int)(n - 9), name);
+  }
+  else {
+    snprintf(key, sizeof(key), "%s-rtl", name);
+  }
+  if (awra_icon_exists(key)) {
+    return awra_icon_mask(key, size);
+  }
+  snprintf(key, sizeof(key), "@rtl:%s", name);
+  Cached *c = lookup(key, size, false);
+  if (c) {
+    return c->mask.a ? &c->mask : NULL;
+  }
+  const AwraIconMask *m = awra_icon_mask(name, size);
+  c = lookup(key, size, true);
+  if (!c || !m) {
+    return m;
+  }
+  uint8_t *a = (uint8_t *)malloc((size_t)m->w * m->h);
+  if (a) {
+    for (int y = 0; y < m->h; y++) {
+      for (int x = 0; x < m->w; x++) {
+        a[y * m->w + x] = m->a[y * m->w + (m->w - 1 - x)];
+      }
+    }
+  }
+  c->mask.w = m->w;
+  c->mask.h = m->h;
+  c->mask.a = a;
+  return a ? &c->mask : m;
+}
+
 void awra_paint_icon(AwraDraw *d, const char *name, float x, float y, int size,
                      const AwraRGBA *color)
 {
-  const AwraIconMask *m = awra_icon_mask(name, size);
+  const AwraIconMask *m = name && d->rtl && size > 0 && has_rtl_variant(name) ? icon_mask_rtl(name, size) :
+                                                                                awra_icon_mask(name, size);
   if (!m || !color) {
     return;
   }

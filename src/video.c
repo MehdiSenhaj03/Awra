@@ -842,6 +842,7 @@ static void tl_draw(AwraWidget *w, AwraDraw *d)
       }
       const AwraFont f = awra_font_for(AWRA_TYPOGRAPHY_BODY);
       awra_text_layout_set_font(i->layout, &f);
+      awra_text_layout_set_base_dir(i->layout, awra_widget_rtl(w));
       awra_text_layout_set_wrap(i->layout, AWRA_WRAP_NONE, AWRA_ELLIPSIZE_END, 1);
       const int lw = (int)(right - left - awra_pxf(12));
       bk_clip_push((int)left, (int)(Y + p8), (int)(right - left), (int)(H - 2 * p8));

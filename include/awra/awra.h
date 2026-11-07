@@ -69,6 +69,8 @@ double awra_now_ms(void);
 /* Enumerations (same names and values as Awra 1) */
 
 typedef enum { AWRA_ORIENTATION_HORIZONTAL = 0, AWRA_ORIENTATION_VERTICAL = 1 } AwraOrientation;
+/* GtkTextDirection: a widget's direction; NONE takes the default one */
+typedef enum { AWRA_TEXT_DIR_NONE = 0, AWRA_TEXT_DIR_LTR, AWRA_TEXT_DIR_RTL } AwraTextDirection;
 typedef enum {
   AWRA_ALIGN_FILL = 0,
   AWRA_ALIGN_START,
@@ -311,6 +313,21 @@ bool awra_widget_vexpand(const AwraWidget *widget);
 void awra_widget_set_halign(AwraWidget *widget, AwraAlign align);
 void awra_widget_set_valign(AwraWidget *widget, AwraAlign align);
 void awra_widget_set_margins(AwraWidget *widget, int top, int end, int bottom, int start);
+/* Reading direction (gtk_widget_set_direction): right to left mirrors
+ * the widget as GTK does (children from the right, start and end
+ * swapped, sliders and progress from the right, icons that have
+ * right-to-left variants, text starting at the right). NONE (the
+ * default) follows awra_widget_set_default_direction. get returns LTR or
+ * RTL. */
+void awra_widget_set_direction(AwraWidget *widget, AwraTextDirection dir);
+AwraTextDirection awra_widget_get_direction(const AwraWidget *widget);
+/* The direction of widgets that have none of their own: at awra_init the
+ * locale's (gtk_get_locale_direction: right to left for Arabic, Hebrew,
+ * Persian, Urdu, Pashto, Uyghur, Yiddish, South Azerbaijani);
+ * GTK_DEBUG=invert-text-dir inverts it, as in GTK. */
+void awra_widget_set_default_direction(AwraTextDirection dir);
+AwraTextDirection awra_widget_get_default_direction(void);
+AwraTextDirection awra_get_locale_direction(void);
 void awra_widget_set_margin_top(AwraWidget *widget, int margin);
 void awra_widget_set_margin_bottom(AwraWidget *widget, int margin);
 void awra_widget_set_margin_start(AwraWidget *widget, int margin);

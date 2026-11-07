@@ -884,6 +884,15 @@ static bool focus_move(void *data)
   return false;
 }
 
+/* the default direction changed: every window lays itself out again */
+void awra_windows_direction_changed(void (*fn)(AwraWidget *));
+void awra_windows_direction_changed(void (*fn)(AwraWidget *))
+{
+  for (int i = 0; i < g_nwindows; i++) {
+    fn(g_windows[i]);
+  }
+}
+
 void awra_window_focus_unmapped(AwraWidget *w); /* core.c */
 void awra_window_focus_unmapped(AwraWidget *w)
 {
