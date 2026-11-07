@@ -945,7 +945,9 @@ static void tl_place_preview(AwraWidget *w)
   const float sc = awra_scale();
   const double cx = (w->x + s->hover_x * sc) / sc;
   const double top = w->y / sc;
-  awra_window_place_overlay(win, s->preview, cx - pw / sc / 2.0, top - ph / sc - 8);
+  /* GtkPopover above the pointed-to point, its bottom on the timeline
+   * (Awra 1's popover: no arrow, no margin) */
+  awra_window_place_overlay(win, s->preview, cx - pw / sc / 2.0, top - ph / sc);
 }
 
 static void tl_show_preview(AwraWidget *w, bool show)
