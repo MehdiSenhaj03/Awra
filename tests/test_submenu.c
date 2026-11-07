@@ -91,11 +91,11 @@ int main(int argc, char **argv)
   frame();
   AwraWidget *menu = awra_menu_button_popover(button);
 
-  /* keyboard: down to Share, Right opens it with Email focused */
+  /* keyboard: the menu opens with its first row focused (gtk_popover_show),
+   * down to Share, Right opens it with Email focused */
   awra_popover_popup(menu);
   frame();
   CHECK(popups() == 1, "menu not open");
-  key("Down");
   key("Down");
   key("Right");
   CHECK(popups() == 2, "Right did not open the submenu (%d)", popups());

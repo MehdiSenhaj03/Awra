@@ -661,10 +661,14 @@ AwraWidget *awra_first_focusable(AwraWidget *root)
   if (!root || !(root->flags & NF_VISIBLE)) {
     return NULL;
   }
-  if (awra_is_widget(root) && (AWRA_CLASS_OF(root)->flags & (AWRA_CLASS_FOCUSABLE | AWRA_CLASS_TEXT_INPUT)) &&
-      awra_sensitive(root))
-  {
-    return root;
+  if (awra_is_widget(root) && awra_sensitive(root)) {
+    /* as the window's Tab chain: gtk_widget_set_focusable wins over the class */
+    const AwraAux *a = awra_aux(root);
+    if (a->focusable_set ? a->focusable :
+                           (AWRA_CLASS_OF(root)->flags & (AWRA_CLASS_FOCUSABLE | AWRA_CLASS_TEXT_INPUT)) != 0)
+    {
+      return root;
+    }
   }
   for (int i = 0; i < root->nkids; i++) {
     AwraWidget *f = awra_first_focusable(root->kids[i]);
