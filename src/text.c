@@ -1987,12 +1987,14 @@ void awra_text_layout_foreach_object(AwraTextLayout *l, int width,
   }
 }
 
-/* Fills the selection [start, end) (byte offsets) behind the text: each
- * run's part (pango_layout_line_get_x_ranges). `extend` >= 0 (text views):
- * where the selection goes on past a line's end, it also fills from that
- * end to the edge of an area `extend` wide, as GtkTextView does. */
+/* Fills the selection [start, end) (byte offsets) behind the text, as GTK
+ * paints it: per line, each run's part of the range
+ * (pango_layout_line_get_x_ranges), and where the selection goes on before
+ * or after the line, the line's ends out to the edge of an area `area_w`
+ * wide (Pango's ranges: the layout's width; GtkTextView: the view's).
+ * `merge` (GtkText): one box around all of it. */
 static void draw_selection(AwraTextLayout *l, AwraDraw *d, float x, float y, int width, int start,
-                           int end, const AwraRGBA *color, float extend)
+                           int end, const AwraRGBA *color, float area_w, bool merge)
 {
   if (start > end) {
     const int t = start;
@@ -2003,44 +2005,91 @@ static void draw_selection(AwraTextLayout *l, AwraDraw *d, float x, float y, int
     return;
   }
   layout(l, width);
-  float ly = y;
+  const bool view = area_w >= 0.0f;
+  if (!view) {
+    /* Pango's right end reaches the layout's width: none without one */
+    const bool in_width = width >= 0 && (l->wrap != AWRA_WRAP_NONE || l->ellipsize != AWRA_ELLIPSIZE_NONE);
+    area_w = in_width ? (float)width : -1.0f;
+  }
+  float ly = y, mx0 = 1e9f, mx1 = -1e9f, my0 = 1e9f, my1 = -1e9f;
   for (int i = 0; i < l->n_lines; i++) {
     const Line *ln = &l->lines[i];
-    const float lx = x + line_x(l, ln, width);
+    const bool para_end = ln->end >= l->len || l->text[ln->end] == '\n';
+    /* the lines GDK's clip region (GtkTextView: its snapshot) takes */
+    const bool take = view ? (start < ln->end || (start == ln->end && para_end)) && end > ln->start :
+                             end >= ln->start && start < ln->end;
+    if (!take) {
+      ly += ln->height;
+      continue;
+    }
+    const bool before = start < ln->start, after = end > ln->end;
+    const float lxo = line_x(l, ln, width), lx = x + lxo;
+    float rx[2 * 64];
+    int nr = 0;
+    if (lxo > 0.0f && ((!ln->rtl && before) || (ln->rtl && after))) {
+      rx[nr++] = x;
+      rx[nr++] = lx;
+    }
     for (int k = 0; k < ln->n_runs; k++) {
       const Run *r = &l->runs[ln->first_run + k];
       if (r->start < 0 || r->zero || r->end <= start || r->start >= end) {
         continue;
       }
       const int a = BK_MAX(start, r->start), b = BK_MIN(end, r->end);
-      const float xa = run_index_x(l, r, a, false);
-      const float xb = b >= r->end ? ((r->level & 1) ? r->x : r->x + r->w) : run_index_x(l, r, b, false);
-      const float x0 = fminf(xa, xb), x1 = fmaxf(xa, xb);
-      awra_paint_rect(d, (AwraBox){lx + x0, ly, x1 - x0, ln->height}, color);
+      int pb = b - 1; /* the trailing edge of the last character in range */
+      while (pb > a && ((unsigned char)l->text[pb] & 0xC0) == 0x80) {
+        pb--;
+      }
+      const float xa = run_index_x(l, r, a, false), xb = run_index_x(l, r, pb, true);
+      if (nr + 2 <= (int)(sizeof(rx) / sizeof(rx[0]))) {
+        rx[nr++] = lx + fminf(xa, xb);
+        rx[nr++] = lx + fmaxf(xa, xb);
+      }
     }
-    if (extend >= 0.0f && start <= ln->end && end > ln->end) {
-      if (ln->rtl) {
-        awra_paint_rect(d, (AwraBox){x, ly, lx - x, ln->height}, color);
+    if (area_w >= 0.0f && lxo + ln->w < area_w && ((!ln->rtl && after) || (ln->rtl && before)) &&
+        nr + 2 <= (int)(sizeof(rx) / sizeof(rx[0])))
+    {
+      rx[nr++] = lx + ln->w;
+      rx[nr++] = x + area_w;
+    }
+    for (int k = 0; k < nr; k += 2) {
+      if (rx[k + 1] <= rx[k]) {
+        continue;
+      }
+      if (merge) {
+        mx0 = fminf(mx0, rx[k]);
+        mx1 = fmaxf(mx1, rx[k + 1]);
+        my0 = fminf(my0, ly);
+        my1 = fmaxf(my1, ly + ln->height);
       }
       else {
-        awra_paint_rect(d, (AwraBox){lx + ln->w, ly, x + extend - (lx + ln->w), ln->height}, color);
+        awra_paint_rect(d, (AwraBox){rx[k], ly, rx[k + 1] - rx[k], ln->height}, color);
       }
     }
     ly += ln->height;
+  }
+  if (merge && mx1 > mx0) {
+    awra_paint_rect(d, (AwraBox){mx0, my0, mx1 - mx0, my1 - my0}, color);
   }
 }
 
 void awra_text_layout_draw_selection(AwraTextLayout *l, AwraDraw *d, float x, float y, int width,
                                      int start, int end, const AwraRGBA *color)
 {
-  draw_selection(l, d, x, y, width, start, end, color, -1.0f);
+  draw_selection(l, d, x, y, width, start, end, color, -1.0f, false);
 }
 
 void awra_text_layout_draw_selection_view(AwraTextLayout *l, AwraDraw *d, float x, float y,
                                           int width, int start, int end, const AwraRGBA *color,
                                           float area_w)
 {
-  draw_selection(l, d, x, y, width, start, end, color, area_w);
+  draw_selection(l, d, x, y, width, start, end, color, area_w, false);
+}
+
+void awra_text_layout_draw_selection_box(AwraTextLayout *l, AwraDraw *d, float x, float y, int width,
+                                         int start, int end, const AwraRGBA *color)
+{
+  draw_selection(l, d, x, y, width, start, end, color, -1.0f, true);
 }
 
 /* The word around byte `index` (letters, digits and marks). */

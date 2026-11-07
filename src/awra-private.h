@@ -416,11 +416,15 @@ void awra_text_layout_set_text_view(AwraTextLayout *l, bool on);
  * point (pango_layout_xy_to_index without the trailing step). */
 void awra_text_layout_char_rect(AwraTextLayout *l, int width, int index, float r[4]);
 int awra_text_layout_char_at(AwraTextLayout *l, int width, float px, float py);
-/* The selection of a text view: also from a line's end to the area's edge
- * (`area_w` wide from x) where it goes on to the next line. */
+/* The selection of a text view (GtkTextView: a line's ends out to the
+ * edge of the area `area_w` wide from x where the selection goes on past
+ * them), and of a single-line entry (GtkText: one box around the ranges of
+ * a bidi selection). */
 void awra_text_layout_draw_selection_view(AwraTextLayout *l, AwraDraw *d, float x, float y,
                                           int width, int start, int end, const AwraRGBA *color,
                                           float area_w);
+void awra_text_layout_draw_selection_box(AwraTextLayout *l, AwraDraw *d, float x, float y, int width,
+                                         int start, int end, const AwraRGBA *color);
 /* links (<a href>): index under a point (layout coordinates), their target */
 int awra_text_layout_n_links(const AwraTextLayout *l);
 const char *awra_text_layout_link(const AwraTextLayout *l, int index);

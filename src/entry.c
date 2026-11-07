@@ -367,14 +367,15 @@ static void edit_draw(AwraWidget *w, AwraDraw *d)
   }
   else {
     if (x->te->anchor >= 0 && x->te->anchor != x->te->caret && focus) {
-      /* the selected runs (bidi text: several stretches per line) */
+      /* GtkTextView: each line's selected runs and its ends; GtkText: one
+       * box around them (a bidi selection spans what lies between) */
       const int s0 = shown_index(w, BK_MIN(x->te->anchor, x->te->caret));
       const int s1 = shown_index(w, BK_MAX(x->te->anchor, x->te->caret));
       if (x->multiline) {
         awra_text_layout_draw_selection_view(x->layout, d, tx, ty, lw, s0, s1, &t->selection, a.w);
       }
       else {
-        awra_text_layout_draw_selection(x->layout, d, tx, ty, lw, s0, s1, &t->selection);
+        awra_text_layout_draw_selection_box(x->layout, d, tx, ty, lw, s0, s1, &t->selection);
       }
     }
     awra_text_layout_draw(x->layout, d, tx, ty, lw, &fg);
