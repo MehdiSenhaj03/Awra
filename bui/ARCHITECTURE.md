@@ -94,9 +94,12 @@ The kit itself draws through `GPU_raster.h`:
   anti-aliased SDF primitives into a CPU frame buffer, in parallel bands.
   Text is a glyph-run cache with Inter (Blender's UI font) embedded as the
   default face (`gpu/extern/font_inter.h`). Glyphs are rendered by the
-  vendored FreeType 2.13.3 the way Blender's BLF does (light hinting, gamma
-  1.43, optical size; `BUI_TEXT_FREETYPE`, on by default), or by stb_truetype
-  with it off; stb_truetype also reads metrics and character maps.
+  vendored FreeType 2.13.3 as GTK 4 renders them (BUI-Awra: cairo-ft's load
+  flags from the fontconfig pattern and the desktop's font options,
+  `BUI_text_set_font_options`; GSK's glyph cache: quarter-pixel phases,
+  images cut to Pango's ink box, coverage blended as is;
+  `BUI_TEXT_FREETYPE`, on by default), or by stb_truetype with it off;
+  stb_truetype also reads metrics and character maps.
   `BUI_TEXT_GDI=ON` switches Windows to GDI and system fonts.
   The GPU renderer draws text one quad per glyph. Slug (`K_SLUG` in
   `bui_ui.hlsl`) is the default: glyph outlines are uploaded once as

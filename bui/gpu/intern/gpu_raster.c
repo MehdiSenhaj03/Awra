@@ -3550,9 +3550,9 @@ static int run_x_to_index(TextRun *e, float x, int *r_trailing)
 #  endif
 
 /* FreeType (BUI_TEXT_FT, the default): glyphs are loaded, hinted and
- * rasterized the way Blender's BLF does (blenfont/intern/blf_glyph.cc):
- * light hinting, the variable Inter at the text's optical size, gamma 1.43.
- * stb_truetype still reads cmaps, metrics and kern tables. */
+ * rasterized as GTK 4 has cairo-ft do it (BUI-Awra: glyph_raster_ft), the
+ * variable Inter at the text's optical size. stb_truetype still reads
+ * cmaps, metrics and kern tables. */
 #  ifdef BUI_TEXT_FT
 #    define TEXT_FT 1
 #    include <ft2build.h>

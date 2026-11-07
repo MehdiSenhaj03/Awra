@@ -37,8 +37,8 @@ if(BUI_TEXT_GDI)
   target_compile_definitions(bui_gpu PRIVATE BUI_TEXT_GDI=1)
 endif()
 # FreeType (extern/freetype, 2.13.3 as Blender uses): loads, hints and renders
-# glyphs the way Blender's BLF does (light hinting, the variable Inter at the
-# text's optical size, gamma 1.43). Compiled into bui_gpu itself
+# glyphs as GTK 4 does through cairo-ft (BUI-Awra: the fontconfig pattern's
+# and the desktop's hinting, synthetic bold with ftsynth.c). Compiled into bui_gpu itself
 # (BUI_TEXT_FREETYPE, features.json).
 if(BUI_TEXT_FREETYPE AND NOT BUI_TEXT_GDI)
   set(FT ${CMAKE_CURRENT_SOURCE_DIR}/extern/freetype)
