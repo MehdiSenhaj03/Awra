@@ -265,7 +265,7 @@ struct AwraTextLayout {
    * direction (bit 7: right to left), len + 1 bytes; NULL when the text
    * has nothing right-to-left (all levels 0) */
   uint8_t *levels;
-  uint8_t *breaks; /* BUI_text_breaks of the text (len + 1), made on demand */
+  uint16_t *breaks; /* BUI_text_breaks of the text (len + 1), made on demand */
   bool bidi_done;
   bool dir_back;   /* a paragraph without a strong character takes the next one's
                     * direction when none before it has one (GtkTextView) */
@@ -893,10 +893,10 @@ static int level_flags(const AwraTextLayout *l, int level)
   return l->levels ? ((level & 1) ? BUI_TEXT_RTL : BUI_TEXT_LTR) : 0;
 }
 
-static const uint8_t *ensure_breaks(AwraTextLayout *l)
+static const uint16_t *ensure_breaks(AwraTextLayout *l)
 {
   if (!l->breaks) {
-    l->breaks = (uint8_t *)malloc((size_t)l->len + 1);
+    l->breaks = (uint16_t *)malloc(sizeof(uint16_t) * ((size_t)l->len + 1));
     if (l->breaks) {
       BUI_text_breaks(l->text, l->len, l->breaks);
     }
@@ -906,7 +906,7 @@ static const uint8_t *ensure_breaks(AwraTextLayout *l)
 
 static bool is_cursor(AwraTextLayout *l, int i)
 {
-  const uint8_t *b = ensure_breaks(l);
+  const uint16_t *b = ensure_breaks(l);
   return i <= 0 || i >= l->len || !b || (b[i] & BUI_TEXT_CURSOR);
 }
 

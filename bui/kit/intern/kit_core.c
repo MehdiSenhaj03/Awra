@@ -3189,8 +3189,8 @@ static int te_grapheme(const BKTextEdit *te, int pos, bool next)
   if (next ? pos >= te->len : pos <= 0) {
     return next ? te->len : 0;
   }
-  uint8_t local[256];
-  uint8_t *br = te->len < 256 ? local : (uint8_t *)malloc((size_t)te->len + 1);
+  uint16_t local[256];
+  uint16_t *br = te->len < 256 ? local : (uint16_t *)malloc(sizeof(uint16_t) * ((size_t)te->len + 1));
   if (!br) {
     return next ? pos + 1 : pos - 1;
   }
@@ -3224,8 +3224,8 @@ static void te_backspace(BKTextEdit *te)
 {
   const int end = te->caret;
   const int prev = te_grapheme(te, end, false);
-  uint8_t local[256];
-  uint8_t *br = te->len < 256 ? local : (uint8_t *)malloc((size_t)te->len + 1);
+  uint16_t local[256];
+  uint16_t *br = te->len < 256 ? local : (uint16_t *)malloc(sizeof(uint16_t) * ((size_t)te->len + 1));
   bool one_char = false;
   if (br) {
     BUI_text_breaks(te->text, te->len, br);

@@ -37,88 +37,6 @@
 /** \name Unicode properties
  * \{ */
 
-/* Pango's _pango_EmojiSegmentationCategory */
-enum {
-  EMOJI_CAT = 0,
-  EMOJI_TEXT_PRESENTATION = 1,
-  EMOJI_EMOJI_PRESENTATION = 2,
-  EMOJI_MODIFIER_BASE = 3,
-  EMOJI_MODIFIER = 4,
-  EMOJI_VS_BASE = 5,
-  REGIONAL_INDICATOR = 6,
-  KEYCAP_BASE = 7,
-  COMBINING_ENCLOSING_KEYCAP = 8,
-  COMBINING_ENCLOSING_CIRCLE_BACKSLASH = 9,
-  ZWJ = 10,
-  VS15 = 11,
-  VS16 = 12,
-  TAG_BASE = 13,
-  TAG_SEQUENCE = 14,
-  TAG_TERM = 15,
-  kMaxEmojiScannerCategory = 16
-};
-
-static unsigned char emoji_category(uint32_t c)
-{
-  if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == ' ') {
-    return kMaxEmojiScannerCategory;
-  }
-  if (c >= '0' && c <= '9') {
-    return KEYCAP_BASE;
-  }
-  switch (c) {
-    case 0x20E3:
-      return COMBINING_ENCLOSING_KEYCAP;
-    case 0x20E0:
-      return COMBINING_ENCLOSING_CIRCLE_BACKSLASH;
-    case 0x200D:
-      return ZWJ;
-    case 0xFE0E:
-      return VS15;
-    case 0xFE0F:
-      return VS16;
-    case 0x1F3F4:
-      return TAG_BASE;
-    case 0xE007F:
-      return TAG_TERM;
-    default:
-      break;
-  }
-  if ((c >= 0xE0030 && c <= 0xE0039) || (c >= 0xE0061 && c <= 0xE007A)) {
-    return TAG_SEQUENCE;
-  }
-  if (c < 0xA9) { /* nothing below © is an emoji but the cases above */
-    return c == '#' || c == '*' ? KEYCAP_BASE : kMaxEmojiScannerCategory;
-  }
-  if (EMOJI_IS(modifier_base, c)) {
-    return EMOJI_MODIFIER_BASE;
-  }
-  if (EMOJI_IS(modifier, c)) {
-    return EMOJI_MODIFIER;
-  }
-  if (c >= 0x1F1E6 && c <= 0x1F1FF) {
-    return REGIONAL_INDICATOR;
-  }
-  if (EMOJI_IS(presentation, c)) {
-    return EMOJI_EMOJI_PRESENTATION;
-  }
-  if (EMOJI_IS(emoji, c)) {
-    return EMOJI_TEXT_PRESENTATION;
-  }
-  return kMaxEmojiScannerCategory;
-}
-
-typedef unsigned char *emoji_text_iter_t;
-#  if defined(__GNUC__)
-#    pragma GCC diagnostic push
-#    pragma GCC diagnostic ignored "-Wunused-const-variable"
-#    pragma GCC diagnostic ignored "-Wunused-variable"
-#  endif
-#  include "../extern/emoji/emoji_presentation_scanner.c"
-#  if defined(__GNUC__)
-#    pragma GCC diagnostic pop
-#  endif
-
 /* Pango's consider_as_space(): characters that never choose a font
  * (controls, format characters but Arabic's, separators, variation
  * selectors). */
@@ -855,110 +773,32 @@ static void text_reorder(const WItem *it, int n, int *order)
   }
 }
 
-/* The glyphs of `utf8` in slot `slot` and its fallbacks, in visual order.
- * `dir`: 0 a paragraph of its own (direction from its first strong
- * character, left-to-right when none), 1 one left-to-right level, 2 one
- * right-to-left level. */
-static void text_itemize(int slot, const char *utf8, int len, int dir, WRun *w)
+/* A character's place in Pango's items: its bidi level, script, emoji
+ * segment and font. */
+typedef struct TextCh {
+  int16_t slot; /* -1: a space (takes its run's font) */
+  uint8_t seg;  /* 1: emoji segment, 2: with a variation selector */
+  uint8_t level;
+  int pos;      /* the font's position in its list (Pango's font_position) */
+  hb_script_t script;
+} TextCh;
+
+#  define TEXT_CH_LOCAL 64
+
+/* Each character's level, script, emoji segment and font (slot `slot` or
+ * a fallback), as Pango's itemizer finds them: items are the stretches
+ * where none changes. `types`: n bytes of scratch. `dir` as text_itemize's.
+ * Returns 0 when out of memory. */
+static int text_chars(int slot, const uint32_t *cp, int n, int dir, TextCh *ch, unsigned char *types)
 {
-  wrun_init(w);
-  if (len <= 0) {
-    return;
-  }
   const FontSlot *s = &g_fonts[slot];
   const int face0 = s->face;
-  /* the common case: printable ASCII the font has, in a left-to-right run
-   * or paragraph: one item (Pango's itemizer finds nothing to split it:
-   * level 0, the Latin script, or Common without letters, no emoji, one
-   * font) */
-  if (dir != 2 && len <= 4096) {
-    int letters = 0, i = 0;
-    for (; i < len; i++) {
-      const unsigned char c = (unsigned char)utf8[i];
-      if (c < 0x20 || c >= 0x7F || !face_glyph(face0, c)) {
-        break;
-      }
-      letters |= (c | 0x20) >= 'a' && (c | 0x20) <= 'z';
-    }
-    if (i == len) {
-      uint32_t cps[256];
-      int offs[257];
-      uint32_t *cp = len <= 256 ? cps : (uint32_t *)malloc(sizeof(uint32_t) * (size_t)len);
-      int *off = len <= 256 ? offs : (int *)malloc(sizeof(int) * (size_t)(len + 1));
-      WItem *it = cp && off ? wrun_item(w) : NULL;
-      if (it) {
-        for (int k = 0; k < len; k++) {
-          cp[k] = (unsigned char)utf8[k];
-          off[k] = k;
-        }
-        off[len] = len;
-        it->start = 0;
-        it->end = len;
-        it->level = 0;
-        it->slot = (uint8_t)slot;
-        const hb_script_t script = letters ? HB_SCRIPT_LATIN : HB_SCRIPT_COMMON;
-        float pen = 0.0f;
-        text_shape_item(w, slot, cp, off, len, 0, len, 0, script, text_script_lang(script), &pen);
-        w->width = pen;
-      }
-      if (cp != cps) {
-        free(cp);
-      }
-      if (off != offs) {
-        free(off);
-      }
-      if (it) {
-        return;
-      }
-      wrun_free(w);
-      wrun_init(w);
-    }
-  }
-  /* characters: code points, their byte offsets, levels, scripts, emoji
-   * segments and fonts */
-  int n = 0;
-  for (int k = 0; k < len; n++) {
-    utf8_next(utf8, len, &k);
-  }
-  typedef struct Ch {
-    int16_t slot; /* -1: a space (takes its run's font) */
-    uint8_t seg;  /* 1: emoji segment, 2: with a variation selector */
-    uint8_t level;
-    int pos;      /* the font's position in its list (Pango's font_position) */
-    hb_script_t script;
-  } Ch;
-  enum { LOCAL = 64 };
-  Ch chl[LOCAL];
-  uint32_t cpl[LOCAL];
-  int offl[LOCAL + 1];
-  unsigned char tl[LOCAL];
-  Ch *ch = chl;
-  uint32_t *cp = cpl;
-  int *off = offl;
-  unsigned char *types = tl;
-  if (n > LOCAL) {
-    ch = (Ch *)malloc(sizeof(Ch) * (size_t)n);
-    cp = (uint32_t *)malloc(sizeof(uint32_t) * (size_t)n);
-    off = (int *)malloc(sizeof(int) * (size_t)(n + 1));
-    types = (unsigned char *)malloc((size_t)n);
-    if (!ch || !cp || !off || !types) {
-      goto out;
-    }
-  }
-  for (int k = 0, j = 0; k < len; j++) {
-    off[j] = k;
-    cp[j] = (uint32_t)utf8_next(utf8, len, &k);
-    if (cp[j] == '\t') {
-      cp[j] = ' ';
-    }
-  }
-  off[n] = len;
   /* bidi levels */
   {
-    uint8_t lvl[LOCAL];
-    uint8_t *lv = n <= LOCAL ? lvl : (uint8_t *)malloc((size_t)n);
+    uint8_t lvl[TEXT_CH_LOCAL];
+    uint8_t *lv = n <= TEXT_CH_LOCAL ? lvl : (uint8_t *)malloc((size_t)n);
     if (!lv) {
-      goto out;
+      return 0;
     }
     if (dir == 1 || dir == 2) {
       memset(lv, dir == 2 ? 1 : 0, (size_t)n);
@@ -975,10 +815,10 @@ static void text_itemize(int slot, const char *utf8, int len, int dir, WRun *w)
   }
   /* scripts */
   {
-    hb_script_t scl[LOCAL];
-    hb_script_t *sc = n <= LOCAL ? scl : (hb_script_t *)malloc(sizeof(hb_script_t) * (size_t)n);
+    hb_script_t scl[TEXT_CH_LOCAL];
+    hb_script_t *sc = n <= TEXT_CH_LOCAL ? scl : (hb_script_t *)malloc(sizeof(hb_script_t) * (size_t)n);
     if (!sc) {
-      goto out;
+      return 0;
     }
     text_scripts(cp, n, sc);
     for (int j = 0; j < n; j++) {
@@ -1017,7 +857,7 @@ static void text_itemize(int slot, const char *utf8, int len, int dir, WRun *w)
   const char *lang_of_list = NULL;
 #  endif
   for (int k = 0; k < n; k++) {
-    Ch *c = &ch[k];
+    TextCh *c = &ch[k];
     c->slot = -1;
     c->pos = 0xFFFF;
     if (text_space_like(cp[k])) {
@@ -1122,6 +962,103 @@ static void text_itemize(int slot, const char *utf8, int len, int dir, WRun *w)
   for (int j = item_start; j < n; j++) {
     ch[j].slot = (int16_t)(item_slot >= 0 ? item_slot : slot);
   }
+  return 1;
+}
+
+/* The glyphs of `utf8` in slot `slot` and its fallbacks, in visual order.
+ * `dir`: 0 a paragraph of its own (direction from its first strong
+ * character, left-to-right when none), 1 one left-to-right level, 2 one
+ * right-to-left level. */
+static void text_itemize(int slot, const char *utf8, int len, int dir, WRun *w)
+{
+  wrun_init(w);
+  if (len <= 0) {
+    return;
+  }
+  const FontSlot *s = &g_fonts[slot];
+  const int face0 = s->face;
+  /* the common case: printable ASCII the font has, in a left-to-right run
+   * or paragraph: one item (Pango's itemizer finds nothing to split it:
+   * level 0, the Latin script, or Common without letters, no emoji, one
+   * font) */
+  if (dir != 2 && len <= 4096) {
+    int letters = 0, i = 0;
+    for (; i < len; i++) {
+      const unsigned char c = (unsigned char)utf8[i];
+      if (c < 0x20 || c >= 0x7F || !face_glyph(face0, c)) {
+        break;
+      }
+      letters |= (c | 0x20) >= 'a' && (c | 0x20) <= 'z';
+    }
+    if (i == len) {
+      uint32_t cps[256];
+      int offs[257];
+      uint32_t *cp = len <= 256 ? cps : (uint32_t *)malloc(sizeof(uint32_t) * (size_t)len);
+      int *off = len <= 256 ? offs : (int *)malloc(sizeof(int) * (size_t)(len + 1));
+      WItem *it = cp && off ? wrun_item(w) : NULL;
+      if (it) {
+        for (int k = 0; k < len; k++) {
+          cp[k] = (unsigned char)utf8[k];
+          off[k] = k;
+        }
+        off[len] = len;
+        it->start = 0;
+        it->end = len;
+        it->level = 0;
+        it->slot = (uint8_t)slot;
+        const hb_script_t script = letters ? HB_SCRIPT_LATIN : HB_SCRIPT_COMMON;
+        float pen = 0.0f;
+        text_shape_item(w, slot, cp, off, len, 0, len, 0, script, text_script_lang(script), &pen);
+        w->width = pen;
+      }
+      if (cp != cps) {
+        free(cp);
+      }
+      if (off != offs) {
+        free(off);
+      }
+      if (it) {
+        return;
+      }
+      wrun_free(w);
+      wrun_init(w);
+    }
+  }
+  /* characters: code points, their byte offsets, levels, scripts, emoji
+   * segments and fonts */
+  int n = 0;
+  for (int k = 0; k < len; n++) {
+    utf8_next(utf8, len, &k);
+  }
+  enum { LOCAL = TEXT_CH_LOCAL };
+  TextCh chl[LOCAL];
+  uint32_t cpl[LOCAL];
+  int offl[LOCAL + 1];
+  unsigned char tl[LOCAL];
+  TextCh *ch = chl;
+  uint32_t *cp = cpl;
+  int *off = offl;
+  unsigned char *types = tl;
+  if (n > LOCAL) {
+    ch = (TextCh *)malloc(sizeof(TextCh) * (size_t)n);
+    cp = (uint32_t *)malloc(sizeof(uint32_t) * (size_t)n);
+    off = (int *)malloc(sizeof(int) * (size_t)(n + 1));
+    types = (unsigned char *)malloc((size_t)n);
+    if (!ch || !cp || !off || !types) {
+      goto out;
+    }
+  }
+  for (int k = 0, j = 0; k < len; j++) {
+    off[j] = k;
+    cp[j] = (uint32_t)utf8_next(utf8, len, &k);
+    if (cp[j] == '\t') {
+      cp[j] = ' ';
+    }
+  }
+  off[n] = len;
+  if (!text_chars(slot, cp, n, dir, ch, types)) {
+    goto out;
+  }
   /* items in logical order, then shaped in visual order */
   for (int k = 0; k < n;) {
     int e = k + 1;
@@ -1187,6 +1124,59 @@ out:
   if (types != tl) {
     free(types);
   }
+}
+
+/* Pango's items of `cp` in slot `slot` for tailoring its breaks
+ * (text_log_attrs), paragraph by paragraph: where the level, script,
+ * emoji segment or font changes. Nothing when no character's script has
+ * tailoring (the script runs then give the same attributes). */
+static void text_font_items(int slot, const uint32_t *cp, int n, uint8_t **r_start, hb_script_t **r_script)
+{
+  *r_start = NULL;
+  *r_script = NULL;
+  if (!text_needs_tailoring(cp, n)) {
+    return;
+  }
+  uint8_t *st = (uint8_t *)malloc((size_t)n);
+  hb_script_t *sc = (hb_script_t *)malloc(sizeof(hb_script_t) * (size_t)n);
+  TextCh chl[TEXT_CH_LOCAL];
+  unsigned char tl[TEXT_CH_LOCAL];
+  TextCh *ch = n <= TEXT_CH_LOCAL ? chl : (TextCh *)malloc(sizeof(TextCh) * (size_t)n);
+  unsigned char *types = n <= TEXT_CH_LOCAL ? tl : (unsigned char *)malloc((size_t)n);
+  int ok = st && sc && ch && types;
+  for (int p = 0; ok && p < n;) {
+    if (text_para_delim(cp[p])) {
+      st[p] = 1;
+      sc[p] = HB_SCRIPT_COMMON;
+      p++;
+      continue;
+    }
+    int e = p;
+    while (e < n && !text_para_delim(cp[e])) {
+      e++;
+    }
+    ok = text_chars(slot, cp + p, e - p, 0, ch, types);
+    for (int k = 0; ok && k < e - p; k++) {
+      const TextCh *c = &ch[k], *b = &ch[k > 0 ? k - 1 : 0];
+      st[p + k] = (uint8_t)(k == 0 || c->slot != b->slot || c->level != b->level ||
+                            c->script != b->script || c->seg != b->seg);
+      sc[p + k] = c->script;
+    }
+    p = e;
+  }
+  if (ch != chl) {
+    free(ch);
+  }
+  if (types != tl) {
+    free(types);
+  }
+  if (!ok) {
+    free(st);
+    free(sc);
+    return;
+  }
+  *r_start = st;
+  *r_script = sc;
 }
 
 /** \} */

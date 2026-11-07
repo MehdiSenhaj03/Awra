@@ -2976,6 +2976,16 @@ const uint8_t *BUI_text_run_mask(const BuiTextRun *run, int *r_w, int *r_h, int 
 /** \name Text backend: GDI
  * \{ */
 
+/* GDI does its own font fallback: breaks are tailored by script runs */
+static void text_font_items(int slot, const uint32_t *cp, int n, uint8_t **r_start, hb_script_t **r_script)
+{
+  (void)slot;
+  (void)cp;
+  (void)n;
+  *r_start = NULL;
+  *r_script = NULL;
+}
+
 #  ifndef BUI_NO_INTER
 #    include "../extern/font_inter.h"
 const void *BUI_text_default_font(int *r_len)
@@ -4824,7 +4834,7 @@ static int run_clusters(TextRun *e)
   for (int i = 0; i + 1 < n; i++) {
     cl[i].end = cl[i + 1].start;
   }
-  BUI_text_breaks(e->text, e->len, cur);
+  text_breaks(e->text, e->len, NULL, cur, -1);
   car->cl = cl;
   car->n = n;
   car->cur = cur;
@@ -5593,6 +5603,16 @@ int BUI_text_metrics(const char *family, int flags, float size, float *r_ascent,
   }
 #endif
   return 1;
+}
+
+/* BUI-Awra: BUI_text_breaks as PangoLayout finds the attributes of text
+ * in this font: tailored item by item, items split where the font changes
+ * too (libthai sees only the Thai of a "123ภาษา"). */
+void BUI_text_breaks_font(const char *family, int flags, float size, const char *utf8, int len,
+                          uint16_t *attrs)
+{
+  const int f = font_get(family, flags & ~TEXT_DIRS, size);
+  text_breaks(utf8, len, attrs, NULL, f);
 }
 
 /* BUI-Awra: the ascent and descent of a run of text (unrounded px): the
