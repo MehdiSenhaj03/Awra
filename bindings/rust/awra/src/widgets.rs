@@ -2333,25 +2333,27 @@ impl ToastOverlay {
     /// A toast with a button running `f`.
     pub fn show_with_callback<F: Fn() + 'static>(&self, message: &str, action: &str, timeout: u32, f: F) -> u32 {
         let (m, a) = (cstring(message), cstring(action));
-        // the closure lives with the overlay (toasts are short lived)
+        // the closure lives as long as the toast (freed when it goes)
         let data: std::boxed::Box<ToastAction> = std::boxed::Box::new(std::boxed::Box::new(f));
         let raw = std::boxed::Box::into_raw(data);
-        let id = unsafe {
-            ffi::awra_toast_overlay_show_with_action(ptr!(self), m.as_ptr(), a.as_ptr(), Some(toast_action), raw as *mut c_void, timeout)
-        };
-        let keep: Rc<ToastHolder> = Rc::new(ToastHolder(raw));
-        self.0.set_rust_data(&format!("toast-{id}"), keep);
-        id
+        unsafe {
+            ffi::awra_toast_overlay_show_with_action_full(
+                ptr!(self),
+                m.as_ptr(),
+                a.as_ptr(),
+                Some(toast_action),
+                raw as *mut c_void,
+                Some(toast_action_free),
+                timeout,
+            )
+        }
     }
     pub fn dismiss(&self, id: u32) {
         unsafe { ffi::awra_toast_overlay_dismiss(ptr!(self), id) }
     }
 }
-struct ToastHolder(*mut ToastAction);
-impl Drop for ToastHolder {
-    fn drop(&mut self) {
-        unsafe { drop(std::boxed::Box::from_raw(self.0)) }
-    }
+unsafe extern "C" fn toast_action_free(data: *mut c_void) {
+    drop(std::boxed::Box::from_raw(data as *mut ToastAction));
 }
 impl Default for ToastOverlay {
     fn default() -> Self {

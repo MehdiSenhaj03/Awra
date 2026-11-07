@@ -1005,6 +1005,12 @@ unsigned awra_toast_overlay_show(AwraWidget *overlay, const char *title, unsigne
 unsigned awra_toast_overlay_show_with_action(AwraWidget *overlay, const char *title,
                                              const char *action_label, AwraHandler handler,
                                              void *data, unsigned timeout_ms);
+/* As above; `destroy` frees `data` when the toast goes (expired, dismissed,
+ * acted on, or with the overlay). */
+unsigned awra_toast_overlay_show_with_action_full(AwraWidget *overlay, const char *title,
+                                                  const char *action_label, AwraHandler handler,
+                                                  void *data, AwraDestroyNotify destroy,
+                                                  unsigned timeout_ms);
 void awra_toast_overlay_dismiss(AwraWidget *overlay, unsigned id);
 /* Space kept under toasts (logical px; -1: the default 24), above a
  * floating bar for instance. */

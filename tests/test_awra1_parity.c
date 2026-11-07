@@ -194,6 +194,36 @@ static void waveform_hint(void)
   awra_widget_unref(w);
 }
 
+static int toast_freed;
+static void toast_free(void *data)
+{
+  toast_freed++;
+}
+
+static void toast_dismissing(AwraWidget *w, const AwraArgs *a, void *data)
+{
+  awra_toast_overlay_dismiss(w, *(unsigned *)data); /* the handler dismisses its own toast */
+}
+
+static void toasts(void)
+{
+  AwraWidget *win = awra_window_new_offscreen("toasts", 400, 300, 1.0);
+  AwraWidget *overlay = awra_toast_overlay_new();
+  awra_window_set_child(win, overlay);
+  awra_window_present(win);
+  static unsigned id;
+  id = awra_toast_overlay_show_with_action_full(overlay, "Done", "Undo", toast_dismissing, &id,
+                                                toast_free, 0);
+  awra_toast_overlay_show_with_action_full(overlay, "Kept", "Undo", NULL, NULL, toast_free, 0);
+  frame(win);
+  awra_toast_overlay_dismiss(overlay, id + 1);
+  CHECK(toast_freed == 1, "a dismissed toast frees its data (%d)", toast_freed);
+  awra_widget_unref(overlay);
+  awra_window_close(win);
+  awra_pump();
+  CHECK(toast_freed == 2, "the overlay frees its toasts' data (%d)", toast_freed);
+}
+
 static void inset_shadow(void)
 {
   BuiRaster *r = BUI_raster_create(40, 40);
@@ -221,6 +251,7 @@ int main(int argc, char **argv)
   media_rows();
   waveform_hint();
   inset_shadow();
+  toasts();
   awra_pump();
   if (failures) {
     fprintf(stderr, "%d failure(s)\n", failures);

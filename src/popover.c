@@ -1799,6 +1799,8 @@ typedef struct Toast {
   unsigned timeout;
   AwraHandler handler;
   void *data;
+  AwraDestroyNotify destroy; /* the data's, when the toast goes */
+  int running;               /* its handler runs: the data stays until it returns */
   struct Toast *next;
 } Toast;
 
@@ -1864,6 +1866,9 @@ static void toast_overlay_finalize(AwraWidget *w)
     if (t->timer) {
       awra_source_remove(t->timer);
       free(t->timer_data);
+    }
+    if (t->destroy) {
+      t->destroy(t->data);
     }
     free(t);
   }
@@ -1948,7 +1953,15 @@ static void toast_remove(AwraWidget *w, Toast *t)
     free(t->timer_data);
   }
   awra_child_remove(w, t->surface);
-  free(t);
+  if (t->running) {
+    t->running = -1; /* toast_action frees it once the handler returns */
+  }
+  else {
+    if (t->destroy) {
+      t->destroy(t->data);
+    }
+    free(t);
+  }
   awra_queue_allocate(w);
   awra_invalidate(w);
 }
@@ -1990,12 +2003,24 @@ static void toast_action(AwraWidget *b, const AwraArgs *a, void *data)
   const unsigned id = (unsigned)(uintptr_t)awra_widget_get_data(b, "awra-toast-id");
   for (Toast *t = TX(w)->toasts; t; t = t->next) {
     if (t->id == id) {
+      awra_widget_ref(w);
       if (t->handler) {
         AwraArgs args = {0};
         args.signal = AWRA_SIGNAL_ACTIVATE;
+        t->running = 1;
         t->handler(w, &args, t->data);
       }
-      toast_remove(w, t);
+      if (t->running == -1) { /* the handler dismissed it */
+        if (t->destroy) {
+          t->destroy(t->data);
+        }
+        free(t);
+      }
+      else {
+        t->running = 0;
+        toast_remove(w, t);
+      }
+      awra_widget_unref(w);
       return;
     }
   }
@@ -2004,12 +2029,20 @@ static void toast_action(AwraWidget *b, const AwraArgs *a, void *data)
 unsigned awra_toast_overlay_show_with_action(AwraWidget *w, const char *title, const char *action,
                                              AwraHandler handler, void *data, unsigned timeout)
 {
+  return awra_toast_overlay_show_with_action_full(w, title, action, handler, data, NULL, timeout);
+}
+
+unsigned awra_toast_overlay_show_with_action_full(AwraWidget *w, const char *title, const char *action,
+                                                  AwraHandler handler, void *data,
+                                                  AwraDestroyNotify destroy, unsigned timeout)
+{
   ToastExt *x = TX(w);
   Toast *t = (Toast *)calloc(1, sizeof(Toast));
   t->id = x->next_id++;
   t->timeout = timeout;
   t->handler = handler;
   t->data = data;
+  t->destroy = destroy;
   t->surface = awra_widget_new(&toast_surface_class);
   float *slide = (float *)malloc(sizeof(float));
   *slide = awra_style_reduced_motion() ? 1.0f : 0.0f;
