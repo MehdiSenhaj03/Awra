@@ -695,10 +695,14 @@ static void move_cursor(AwraWidget *w, int to, int mods)
   if (x->n == 0) {
     return;
   }
+  const int from = x->cursor;
   to = BK_CLAMP(to, 0, x->n - 1);
   x->cursor = to;
   if (mods & BK_SHIFT) {
-    const int a = x->anchor >= 0 ? x->anchor : to;
+    if (x->anchor < 0) {
+      x->anchor = from >= 0 ? from : to;
+    }
+    const int a = x->anchor;
     if (!(mods & BK_CTRL)) {
       clear_sel(x);
     }
@@ -1070,10 +1074,10 @@ static int coll_key(AwraWidget *w, BKEvent *e)
   else if (bk_keysym_is(e->keysym, "End")) {
     to = x->n - 1;
   }
-  else if (bk_keysym_is(e->keysym, "Page_Down")) {
+  else if (bk_keysym_is(e->keysym, "Page_Down") || bk_keysym_is(e->keysym, "Next")) {
     to = cur < 0 ? 0 : BK_MIN(x->n - 1, cur + page);
   }
-  else if (bk_keysym_is(e->keysym, "Page_Up")) {
+  else if (bk_keysym_is(e->keysym, "Page_Up") || bk_keysym_is(e->keysym, "Prior")) {
     to = cur < 0 ? 0 : BK_MAX(0, cur - page);
   }
   else if ((bk_keysym_is(e->keysym, "Return") || bk_keysym_is(e->keysym, "KP_Enter")) && cur >= 0) {
