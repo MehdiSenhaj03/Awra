@@ -1898,7 +1898,9 @@ static float line_x(const AwraTextLayout *l, const Line *ln, int width)
     j = j == AWRA_JUSTIFY_LEFT ? AWRA_JUSTIFY_RIGHT : AWRA_JUSTIFY_LEFT;
   }
   if (j == AWRA_JUSTIFY_CENTER) {
-    return floorf((avail - ln->w) * 0.5f + 0.5f);
+    /* Pango halves in its units: whole pixels with hinted metrics, else
+     * where it falls (GSK draws it there) */
+    return BUI_text_hint_metrics() ? floorf((avail - ln->w) * 0.5f + 0.5f) : (avail - ln->w) * 0.5f;
   }
   if (j == AWRA_JUSTIFY_RIGHT) {
     return avail - ln->w;

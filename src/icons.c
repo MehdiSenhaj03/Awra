@@ -32,6 +32,7 @@
 /* kit/intern/image/format_svg.c */
 BKImBuf *imb_svg_render(const char *svg, size_t len, int out_w, int out_h, int symbolic, float *r_w,
                         float *r_h);
+extern float imb_svg_offset_x, imb_svg_offset_y; /* format_svg.c: a sub-pixel offset */
 
 #define AWRA_ICON_CACHE_BYTES (8u << 20)
 
@@ -40,6 +41,7 @@ enum { RASTER_MASK, RASTER_PLANES, RASTER_COLOR };
 struct AwraIconRaster {
   AwraIconFile *file;
   int px;
+  int phase; /* quarter pixels it is drawn off the grid: x * 4 + y (symbolic SVGs) */
   int kind;
   uint8_t *mask;  /* MASK: coverage */
   uint32_t *argb; /* COLOR: premultiplied; PLANES: A coverage, R G B the
@@ -783,7 +785,17 @@ static bool gtksvg_unsupported(const unsigned char *bytes, size_t len)
   return false;
 }
 
+static void load_raster_at(AwraIconRaster *r);
+
 static void load_raster(AwraIconRaster *r)
+{
+  imb_svg_offset_x = (float)(r->phase / 4) * 0.25f;
+  imb_svg_offset_y = (float)(r->phase % 4) * 0.25f;
+  load_raster_at(r);
+  imb_svg_offset_x = imb_svg_offset_y = 0.0f;
+}
+
+static void load_raster_at(AwraIconRaster *r)
 {
   const AwraIconFile *f = r->file;
   const int px = r->px;
@@ -869,10 +881,17 @@ static void load_raster(AwraIconRaster *r)
   }
 }
 
+static AwraIconRaster *raster_get_phase(AwraIconFile *f, int px, int phase);
+
 static AwraIconRaster *raster_get(AwraIconFile *f, int px)
 {
+  return raster_get_phase(f, px, 0);
+}
+
+static AwraIconRaster *raster_get_phase(AwraIconFile *f, int px, int phase)
+{
   for (AwraIconRaster *r = f->rasters; r; r = r->next) {
-    if (r->px == px) {
+    if (r->px == px && r->phase == phase) {
       if (R.newest != r) {
         lru_unlink(r);
         lru_push(r);
@@ -886,6 +905,7 @@ static AwraIconRaster *raster_get(AwraIconFile *f, int px)
   }
   r->file = f;
   r->px = px;
+  r->phase = phase;
   load_raster(r);
   r->next = f->rasters;
   f->rasters = r;
@@ -1018,9 +1038,35 @@ static void draw_raster(AwraDraw *d, AwraIconRaster *r, int x, int y, const Awra
 void awra_paint_icon(AwraDraw *d, const char *name, float x, float y, int size, const AwraRGBA *color)
 {
   AwraIconRaster *r = raster_for(name, size, d->rtl);
-  if (r) {
-    draw_raster(d, r, (int)floorf(x + 0.5f), (int)floorf(y + 0.5f), color);
+  if (!r) {
+    return;
   }
+  const int ix = (int)floorf(x + 0.5f), iy = (int)floorf(y + 0.5f);
+  if ((awra_shift_x != 0.0f || awra_shift_y != 0.0f) && r->kind != RASTER_COLOR && r->file->is_svg) {
+    /* a symbolic icon off the pixel grid (a shifted subtree): GTK draws
+     * its paths there; rasterized at that quarter-pixel phase */
+    const float fx = ix + awra_shift_x, fy = iy + awra_shift_y;
+    int gx = (int)floorf(fx), gy = (int)floorf(fy);
+    int qx = (int)floorf((fx - gx) * 4.0f + 0.5f), qy = (int)floorf((fy - gy) * 4.0f + 0.5f);
+    if (qx == 4) {
+      gx++;
+      qx = 0;
+    }
+    if (qy == 4) {
+      gy++;
+      qy = 0;
+    }
+    AwraIconRaster *p = (qx || qy) ? raster_get_phase(r->file, r->px, qx * 4 + qy) : r;
+    if (p) {
+      const float sx = awra_shift_x, sy = awra_shift_y;
+      awra_shift_x = awra_shift_y = 0.0f; /* placed: drawn where it lands */
+      draw_raster(d, p, gx, gy, color);
+      awra_shift_x = sx;
+      awra_shift_y = sy;
+      return;
+    }
+  }
+  draw_raster(d, r, ix, iy, color);
 }
 
 /* What the theme has for `name` at `size` raster px: a symbolic icon's

@@ -528,38 +528,37 @@ static void edit_draw(AwraWidget *w, AwraDraw *d)
       /* GtkText's placeholder is a GtkLabel over the text area: its own
        * layout, centred with the half pixel rounded down
        * (gtk_label_get_layout_location) */
-      const float py = x->multiline ? ty : a.y + floorf((a.h - (float)ph) * 0.5f);
+      const float py = x->multiline ? ty : a.y + awra_halfpx(a.h - (float)ph);
       awra_text_layout_draw(pl, d, px, py, (int)a.w, &pc);
       awra_text_layout_free(pl);
     }
   }
   else {
-    if (x->te->anchor >= 0 && x->te->anchor != x->te->caret && focus) {
-      /* GtkTextView: each line's selected runs and its ends; GtkText: one
-       * box around them (a bidi selection spans what lies between) */
-      const int s0 = shown_index(w, BK_MIN(x->te->anchor, x->te->caret));
-      const int s1 = shown_index(w, BK_MAX(x->te->anchor, x->te->caret));
-      if (x->multiline) {
-        awra_text_layout_draw_selection_view(x->layout, d, tx, ty, lw, s0, s1, &t->selection, a.w);
-      }
-      else {
-        /* entry > text > selection:focus-within, GTK's theme */
-        const AwraRGBA gsel = t->dark ? (AwraRGBA){21 / 255.0f, 83 / 255.0f, 158 / 255.0f, 0.8f} :
-                                        (AwraRGBA){53 / 255.0f, 132 / 255.0f, 228 / 255.0f, 0.3f};
-        awra_text_layout_draw_selection_box(x->layout, d, tx, ty, lw, s0, s1, gtk ? &gsel : &t->selection);
-      }
+    const bool sel = x->te->anchor >= 0 && x->te->anchor != x->te->caret && focus;
+    const int s0 = sel ? shown_index(w, BK_MIN(x->te->anchor, x->te->caret)) : 0;
+    const int s1 = sel ? shown_index(w, BK_MAX(x->te->anchor, x->te->caret)) : 0;
+    if (sel && x->multiline) {
+      /* GtkTextView: each line's selected runs and its ends, under the text */
+      awra_text_layout_draw_selection_view(x->layout, d, tx, ty, lw, s0, s1, &t->selection, a.w);
     }
     awra_text_layout_draw(x->layout, d, tx, ty, lw, &fg);
-    if (gtk && !x->multiline && x->te->anchor >= 0 && x->te->anchor != x->te->caret && focus) {
-      /* entry > text > selection:focus-within { color: #eeeeec / #2e3436 } */
+    if (sel && !x->multiline) {
+      /* GtkText: the text, then over it, clipped to the selection, the
+       * selection's background and the text again in its colour (one box
+       * around the runs: a bidi selection spans what lies between).
+       * GTK's theme: rgba(21,83,158,.8) / #eeeeec; awra.css: @awra_selection
+       * with @awra_foreground */
+      const AwraRGBA gsel = t->dark ? (AwraRGBA){21 / 255.0f, 83 / 255.0f, 158 / 255.0f, 0.8f} :
+                                      (AwraRGBA){53 / 255.0f, 132 / 255.0f, 228 / 255.0f, 0.3f};
+      const AwraRGBA gfg = t->dark ? (AwraRGBA){0xee / 255.0f, 0xee / 255.0f, 0xec / 255.0f, 1} :
+                                     (AwraRGBA){0x2e / 255.0f, 0x34 / 255.0f, 0x36 / 255.0f, 1};
       float ax, ay, ah, bx, by, bh;
-      awra_text_layout_index_to_pos(x->layout, -1, shown_index(w, BK_MIN(x->te->anchor, x->te->caret)), &ax, &ay, &ah);
-      awra_text_layout_index_to_pos(x->layout, -1, shown_index(w, BK_MAX(x->te->anchor, x->te->caret)), &bx, &by, &bh);
-      const AwraRGBA sc = t->dark ? (AwraRGBA){0xee / 255.0f, 0xee / 255.0f, 0xec / 255.0f, 1} :
-                                    (AwraRGBA){0x2e / 255.0f, 0x34 / 255.0f, 0x36 / 255.0f, 1};
+      awra_text_layout_index_to_pos(x->layout, -1, s0, &ax, &ay, &ah);
+      awra_text_layout_index_to_pos(x->layout, -1, s1, &bx, &by, &bh);
+      awra_text_layout_draw_selection_box(x->layout, d, tx, ty, lw, s0, s1, gtk ? &gsel : &t->selection);
       const float x0 = fminf(ax, bx), x1 = fmaxf(ax, bx);
       bk_clip_push((int)floorf(tx + x0), (int)b.y, (int)(ceilf(tx + x1) - floorf(tx + x0)), (int)b.h);
-      awra_text_layout_draw(x->layout, d, tx, ty, lw, &sc);
+      awra_text_layout_draw(x->layout, d, tx, ty, lw, gtk ? &gfg : &fg);
       bk_clip_pop();
     }
   }
@@ -1388,11 +1387,14 @@ static void capture_measure(AwraWidget *w, int o, int for_size, int *r_min, int 
   AwraFont cf = chip_font(), bf = awra_font_for(AWRA_TYPOGRAPHY_BODY);
   float w_ = 0;
   for (int i = 0; i < x->nlabels; i++) {
-    w_ += BK_MAX(awra_pxf(14), awra_text_width(&cf, x->labels[i], -1)) + awra_pxf(14) + awra_pxf(4);
+    w_ += BK_MAX(awra_pxf(14), (float)awra_ceilpx(awra_text_width(&cf, x->labels[i], -1))) + awra_pxf(14) + awra_pxf(4);
   }
   const char *st = capture_status(w);
   if (st[0]) {
-    w_ += awra_text_width(&bf, st, -1) + awra_pxf(6);
+    w_ += (float)awra_ceilpx(awra_text_width(&bf, st, -1)) + awra_pxf(6);
+  }
+  else if (x->nlabels) {
+    w_ -= awra_pxf(4); /* GtkBox spacing: between the chips only */
   }
   const int pad = awra_px(16) + awra_px(2);
   *r_min = BK_MAX(awra_px(96), (int)ceilf(w_)) + pad;
@@ -1421,12 +1423,15 @@ static void capture_draw(AwraWidget *w, AwraDraw *d)
   }
   float cx = b.x + awra_pxf(9);
   const AwraFont cf = chip_font();
-  const float ch = awra_font_line_height(&cf) + awra_pxf(2);
-  const float cy = b.y + floorf((b.h - ch) * 0.5f + 0.5f);
+  const float ch = (float)awra_ceilpx(awra_font_line_height(&cf)) + awra_pxf(2); /* GtkLabels: whole application pixels */
+  /* the box inside its 1 px border and 6 px padding; each label centred
+   * in it as GtkBox and GtkLabel place them (application pixels) */
+  const float ctop = b.y + awra_pxf(7), cht = b.h - awra_pxf(14);
+  const float cy = ctop + awra_halfpx(cht - ch);
   const bool sens = awra_sensitive(w);
   for (int i = 0; i < x->nlabels; i++) {
     const float tw = awra_text_width(&cf, x->labels[i], -1);
-    const float cw = fmaxf(awra_pxf(14), tw) + awra_pxf(14);
+    const float cw = fmaxf(awra_pxf(14), (float)awra_ceilpx(tw)) + awra_pxf(14);
     AwraBox chip = {cx, cy, cw, ch};
     const AwraRGBA drop = {0, 0, 0, 0.22f};
     awra_paint_shadow(d, chip, awra_pxf(6), 0, awra_pxf(1), 0, awra_pxf(1), &drop, true);
@@ -1434,7 +1439,7 @@ static void capture_draw(AwraWidget *w, AwraDraw *d)
     const float r4[4] = {awra_pxf(6), awra_pxf(6), awra_pxf(6), awra_pxf(6)},
                 w4[4] = {awra_pxf(1), 0, 0, 0};
     awra_paint_rbox4(d, chip, r4, NULL, w4, &t->rim);
-    awra_draw_text(d, &cf, cx + (cw - tw) * 0.5f, cy + awra_pxf(1) + awra_font_ascent(&cf),
+    awra_draw_text(d, &cf, cx + awra_halfpx(cw - tw), cy + awra_pxf(1) + awra_font_ascent(&cf),
                    x->labels[i], -1, sens ? &t->foreground : &t->disabled);
     cx += cw + awra_pxf(4);
   }
@@ -1444,7 +1449,8 @@ static void capture_draw(AwraWidget *w, AwraDraw *d)
     if (x->listening) {
       f.weight = 600;
     }
-    const float base = b.y + floorf((b.h - awra_font_line_height(&f)) * 0.5f + awra_font_ascent(&f) + 0.5f);
+    const float base = ctop + awra_halfpx(cht - (float)awra_ceilpx(awra_font_line_height(&f))) +
+                       floorf(awra_font_ascent(&f) + 0.5f);
     awra_draw_text(d, &f, cx + awra_pxf(3), base, st, -1,
                    x->listening ? &t->accent_content : &t->muted);
   }

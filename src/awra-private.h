@@ -684,6 +684,11 @@ typedef struct AwraGroup {
 } AwraGroup;
 bool awra_group_begin(AwraDraw *d, AwraBox b, float alpha, AwraGroup *g);
 void awra_group_end(AwraDraw *d, AwraGroup *g);
+/* A subtree drawn scaled about its box's centre (a pressed button's
+ * transform: scale(.96)); awra_press_group_depth > 0 meanwhile. */
+bool awra_scale_group_begin(AwraDraw *d, AwraBox b, float scale, AwraGroup *g);
+void awra_scale_group_end(AwraDraw *d, AwraGroup *g);
+extern int awra_press_group_depth;
 
 /* A dashed border as GTK strokes `border: <width>px dashed` round a box
  * with corner `radius` (dash.c). */
@@ -692,8 +697,45 @@ void awra_paint_dashed_rbox(AwraDraw *d, AwraBox b, float radius, float width, c
 /* Scrolled windows (containers.c): the pointer moved over one (its overlay
  * indicator shows, as GtkScrolledWindow's captured motion does). */
 bool awra_is_scrolled(const AwraWidget *w);
-void awra_scrolled_pointer_moved(AwraWidget *w);
+void awra_scrolled_pointer_moved(AwraWidget *w, int x, int y, bool buttons);
+void awra_scrolled_pointer_left(AwraWidget *w);
+bool awra_scrolled_bar_hit(AwraWidget *w, int x, int y);
 
 /* A widget's subtree drawn shifted by a fraction of a pixel, as GTK
  * allocates a child with a fractional translation (core.c). */
 void awra_widget_set_draw_shift(AwraWidget *w, float dx, float dy);
+
+/* Half of a length, rounded down in application pixels as GTK computes
+ * centring (floor(v / 2) at scale 1; at a whole scale factor s, s times
+ * the halved application pixels, so things land where GTK puts them). */
+static inline float awra_halfpx(float v)
+{
+  const float s = awra_scale();
+  if (s > 1.0f && s == floorf(s)) {
+    return floorf(v / s * 0.5f + 1e-4f) * s;
+  }
+  return floorf(v * 0.5f);
+}
+/* floor() in application pixels (GTK lays out and rounds there), returned
+ * in raster pixels: at a whole scale factor, a multiple of it. */
+static inline float awra_floorpx(float v)
+{
+  const float s = awra_scale();
+  if (s > 1.0f && s == floorf(s)) {
+    return floorf(v / s + 1e-4f) * s;
+  }
+  return floorf(v);
+}
+/* ceil() in application pixels, returned in raster pixels. */
+static inline int awra_ceilpx(float v)
+{
+  const float s = awra_scale();
+  if (s > 1.0f && s == floorf(s)) {
+    return (int)(ceilf(v / s - 1e-3f) * s);
+  }
+  return (int)ceilf(v);
+}
+
+/* A material's outline and rim highlight only (paint.c). */
+void awra_paint_material_edges(AwraDraw *d, AwraBox b, const AwraResolvedMaterial *m, float radius,
+                               int corner_mask, int edge_mask);

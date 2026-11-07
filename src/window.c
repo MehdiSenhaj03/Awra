@@ -509,6 +509,9 @@ static void set_hover(AwraWidget *n, bool on)
     return;
   }
   a->hovered = on;
+  if (!on && awra_is_scrolled(n)) {
+    awra_scrolled_pointer_left(n); /* motion_controller_leave */
+  }
   if (AWRA_CLASS_OF(n)->flags & AWRA_CLASS_HOVER) {
     awra_animate_state(n);
   }
@@ -559,7 +562,7 @@ static void update_hover(AwraWidget *win, int x, int y, bool leave)
     for (int k = nn - 1; k >= 0; k--) {
       AwraWidget *n = np[k];
       if (awra_is_scrolled(n)) { /* GtkScrolledWindow's captured motion */
-        awra_scrolled_pointer_moved(n);
+        awra_scrolled_pointer_moved(n, x, y, wx->ctx->grab != NULL && wx->ctx->grab != n);
       }
       if (awra_has_handlers(n, AWRA_SIGNAL_MOTION) && !(wx->ctx->grab == n)) {
         AwraArgs a = {0};
