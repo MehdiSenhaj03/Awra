@@ -434,6 +434,7 @@ extern "C" {
     pub fn awra_widget_get_size_request(widget: *const AwraWidget, width: *mut c_int, height: *mut c_int);
     pub fn awra_widget_measure(widget: *mut AwraWidget, orientation: c_int, for_size: c_int, minimum: *mut c_int, natural: *mut c_int);
     pub fn awra_widget_set_tooltip(widget: *mut AwraWidget, text: *const c_char);
+    pub fn awra_widget_get_monitor_geometry(widget: *mut AwraWidget, x: *mut c_int, y: *mut c_int, width: *mut c_int, height: *mut c_int) -> bool;
     pub fn awra_widget_set_typography(widget: *mut AwraWidget, typography: c_int);
     pub fn awra_widget_set_opacity(widget: *mut AwraWidget, opacity: f64);
     pub fn awra_widget_opacity(widget: *mut AwraWidget) -> f64;

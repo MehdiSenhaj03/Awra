@@ -525,6 +525,13 @@ static void popup_with(AwraWidget *w, AwraWidget *owner)
   awra_invalidate(owner); /* a menu button shows itself open (.awra-open) */
   x->unfold = awra_style_reduced_motion() ? 1.0f : 0.0f;
   bk_open_popup(ctx, w, owner, NULL);
+  if (x->menu && x->child && awra_widget_is(x->child, "AwraScrolledWindow")) {
+    /* Awra 1's menus (rebuild_menu): at most the monitor's height less 64
+     * (120 at least), 600 when it is unknown */
+    int mh = 0;
+    awra_scrolled_set_max_content_height(
+        x->child, awra_widget_get_monitor_geometry(owner, NULL, NULL, NULL, &mh) ? BK_MAX(120, mh - 64) : 600);
+  }
   awra_map_tree(w, true);
   awra_widget_queue_resize(w);
   ctx->layout_dirty = true;
@@ -767,7 +774,8 @@ static void row_measure(AwraWidget *w, int o, int f, int *r_min, int *r_nat)
     af.size *= x->kind == 2 ? 0.92f : 0.86f;
     wv += awra_text_width(&af, x->accel, -1) + gap + (x->kind == 0 ? awra_px(18) : 0);
   }
-  if (x->check >= 0 || x->kind == 1) {
+  /* Awra 1's check is visible (and takes room) only while active */
+  if (x->check == 1 || x->kind == 1) {
     wv += awra_px(x->kind == 1 ? 8 : 14) + gap;
   }
   if (x->kind == 3) {
@@ -849,12 +857,10 @@ static void row_draw(AwraWidget *w, AwraDraw *d)
                       &t->accent_content);
     right -= awra_pxf(8) + gap;
   }
-  if (x->check >= 0) {
-    if (x->check == 1) {
-      const int s = awra_px(14);
-      awra_paint_icon(d, "object-select-symbolic", awra_mirror_x(w, right - s, (float)s),
-                      floorf(cy - s * 0.5f), s, &t->accent_content);
-    }
+  if (x->check == 1) { /* hidden, and taking no room, while off */
+    const int s = awra_px(14);
+    awra_paint_icon(d, "object-select-symbolic", awra_mirror_x(w, right - s, (float)s),
+                    floorf(cy - s * 0.5f), s, &t->accent_content);
     right -= awra_px(14) + gap;
   }
   if (x->accel) {
@@ -1333,7 +1339,7 @@ static AwraWidget *menu_build(const AwraMenuItem *items, int from, int to)
   AwraWidget *scroll = awra_scrolled_new();
   awra_scrolled_set_policy(scroll, AWRA_POLICY_NEVER, AWRA_POLICY_AUTOMATIC);
   awra_scrolled_set_propagate_natural(scroll, true, true);
-  awra_scrolled_set_max_content_height(scroll, 600);
+  awra_scrolled_set_max_content_height(scroll, 600); /* until it opens: popup_with */
   awra_scrolled_set_child(scroll, box);
   awra_widget_unref(box);
   awra_popover_set_child(pop, scroll);

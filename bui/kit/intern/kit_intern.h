@@ -756,6 +756,9 @@ typedef struct BKPopupHost {
   /* The slot's native window (HWND, X11 Window, wl_surface), NULL none:
    * accessibility exposes popups as windows of their own. Optional. */
   void *(*handle)(void *data, int slot);
+  /* BUI-Awra: the geometry (screen px) of the monitor the window is mostly
+   * on (gdk_display_get_monitor_at_surface); 0 unknown. Optional. */
+  int (*monitor)(void *data, BKRect *r_geometry);
 } BKPopupHost;
 
 /* GDK's gdk_surface_layout_popup_helper: the box (shadow excluded) for a
@@ -773,6 +776,8 @@ bool bk_popup_surfaced(const BKContext *ctx, int slot);
  * the system closed a popup (grab dismissed, deactivation, a click outside
  * the application): it and the popups above it close. */
 void bk_popup_host_set(BKContext *ctx, const BKPopupHost *host);
+/* The geometry (screen px) of the monitor the window is on; false unknown. */
+bool bk_window_monitor(BKContext *ctx, BKRect *r_geometry);
 void bk_popup_configured(BKContext *ctx, int slot, BKRect rect);
 void bk_popup_dismissed(BKContext *ctx, int slot);
 /* Damage `r` of whatever tree `n` is in (its popup's surface or the

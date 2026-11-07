@@ -344,6 +344,11 @@ void awra_widget_get_size_request(const AwraWidget *widget, int *width, int *hei
 void awra_widget_measure(AwraWidget *widget, AwraOrientation orientation, int for_size,
                          int *minimum, int *natural);
 void awra_widget_set_tooltip(AwraWidget *widget, const char *text);
+/* The geometry (logical px, the screen's coordinates) of the monitor the
+ * widget's window is mostly on (gdk_monitor_get_geometry of
+ * gdk_display_get_monitor_at_surface); false when the system doesn't say
+ * (no window yet, Wayland). Any pointer may be NULL. */
+bool awra_widget_get_monitor_geometry(AwraWidget *widget, int *x, int *y, int *width, int *height);
 void awra_widget_set_typography(AwraWidget *widget, AwraTypography typography);
 void awra_widget_set_opacity(AwraWidget *widget, double opacity);
 double awra_widget_opacity(AwraWidget *widget);

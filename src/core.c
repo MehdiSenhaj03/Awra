@@ -1386,6 +1386,29 @@ void awra_widget_set_size_request(AwraWidget *w, int width, int height)
   awra_widget_queue_resize(w);
 }
 
+bool awra_widget_get_monitor_geometry(AwraWidget *w, int *x, int *y, int *width, int *height)
+{
+  BKContext *ctx = w ? bk_ctx(w) : NULL;
+  BKRect r;
+  if (!ctx || !bk_window_monitor(ctx, &r)) {
+    return false;
+  }
+  const float s = awra_scale();
+  if (x) {
+    *x = (int)floorf(r.xmin / s);
+  }
+  if (y) {
+    *y = (int)floorf(r.ymin / s);
+  }
+  if (width) {
+    *width = (int)floorf(bk_rw(&r) / s);
+  }
+  if (height) {
+    *height = (int)floorf(bk_rh(&r) / s);
+  }
+  return true;
+}
+
 void awra_widget_set_tooltip(AwraWidget *w, const char *text)
 {
   if (!w) {
