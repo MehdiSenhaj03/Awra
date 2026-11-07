@@ -2503,39 +2503,48 @@ typedef struct FontSlot {
 static FontSlot g_fonts[MAX_FONTS];
 static int g_font_count = 0;
 
-typedef struct TextRun {
-  uint64_t hash;
-  int font;
-  int len;
-  int dir; /* BUI-Awra: 0 a paragraph of its own, 1 one LTR level, 2 one RTL level */
-  char *text;
-  float advance;
-  float ext_asc, ext_desc; /* BUI-Awra: extents of the fallback fonts it uses (0: none) */
-  int uses_font;           /* BUI-Awra: it draws glyphs of its own font (not only fallbacks) */
-  /* mask, built lazily on first draw */
-  int built;
-  int mw, mh, ox; /* ox: left padding baked into the mask */
-  int asc;        /* BUI-Awra: the baseline's row in the mask */
-  uint8_t *mask;
-  /* glyphs (portable engine; for GPU text): ids and pen x, built lazily */
-  int ng; /* -1: not built yet */
+/* glyphs of a run (portable engine; for GPU text): ids and positions,
+ * built on first use */
+typedef struct RunGlyphs {
+  int ng, cap;
   uint16_t *gid;
   float *gx;
   float *gy;      /* BUI-Awra: y offsets (marks; y down), NULL when all are 0 */
   uint8_t *gslot; /* BUI-Awra: the font slot of each glyph (fallback fonts) */
+} RunGlyphs;
+
+/* BUI-Awra: caret geometry of a run, built on first use: its clusters in
+ * logical order and the cursor positions (per byte, len + 1) */
+typedef struct RunCarets {
+  int n;
+  struct RunCluster *cl;
+  uint8_t *cur;
+} RunCarets;
+
+typedef struct TextRun {
+  uint64_t hash;
+  char *text;
+  uint8_t *mask;   /* coverage, built on first draw */
+  RunGlyphs *gl;   /* GPU text: NULL until asked for */
+  RunCarets *car;  /* BUI-Awra: NULL until asked for */
   /* BUI-Awra: colour glyphs (emoji), drawn from the glyph cache over the
    * mask: their slot, glyph and offset from the run's origin (baseline) */
-  int ncol;
   struct RunColor {
     uint16_t glyph;
     uint8_t slot;
     int16_t x, y;
   } *col;
-  /* BUI-Awra: caret geometry, built on first use (ncl -1): the clusters
-   * in logical order and the cursor positions (per byte, len + 1) */
-  int ncl;
-  struct RunCluster *cl;
-  uint8_t *cur;
+  int font;
+  int len;
+  int mw;   /* mask width */
+  int ncol;
+  float advance;
+  float ext_asc, ext_desc; /* BUI-Awra: extents of the fallback fonts it uses (0: none) */
+  int16_t mh, ox;          /* mask height; ox: left padding baked into the mask */
+  int16_t asc;             /* BUI-Awra: the baseline's row in the mask */
+  uint8_t dir;      /* BUI-Awra: 0 a paragraph of its own, 1 one LTR level, 2 one RTL level */
+  uint8_t built;    /* the mask was made */
+  uint8_t uses_font; /* BUI-Awra: it draws glyphs of its own font (not only fallbacks) */
 } TextRun;
 
 /* BUI-Awra: a cluster of a run (characters shaped together): its byte
@@ -2573,13 +2582,19 @@ static void runs_flush(void)
   for (int i = 0; i < RUN_CAP; i++) {
     free(g_runs[i].text);
     free(g_runs[i].mask);
-    free(g_runs[i].gid);
-    free(g_runs[i].gx);
-    free(g_runs[i].gy);
-    free(g_runs[i].gslot);
+    if (g_runs[i].gl) {
+      free(g_runs[i].gl->gid);
+      free(g_runs[i].gl->gx);
+      free(g_runs[i].gl->gy);
+      free(g_runs[i].gl->gslot);
+      free(g_runs[i].gl);
+    }
     free(g_runs[i].col);
-    free(g_runs[i].cl);
-    free(g_runs[i].cur);
+    if (g_runs[i].car) {
+      free(g_runs[i].car->cl);
+      free(g_runs[i].car->cur);
+      free(g_runs[i].car);
+    }
   }
   memset(g_runs, 0, sizeof(TextRun) * RUN_CAP);
   g_run_count = 0;
@@ -2684,10 +2699,8 @@ static TextRun *run_get(int font, int dir, const char *s, int len)
   e->text[len] = 0;
   e->hash = h;
   e->font = font;
-  e->dir = dir;
+  e->dir = (uint8_t)dir;
   e->len = len;
-  e->ng = -1;
-  e->ncl = -1;
   g_run_count++;
   float ext[3] = {0.0f, 0.0f, 1.0f};
   e->advance = be_measure(&g_fonts[font], dir, s, len, ext);
@@ -2847,8 +2860,12 @@ static const void *glyph_bitmap(const TextRun *e, int i, float pen, int *r_x, in
  * Returns 0 to fall back to the run's mask (no glyph data). */
 static int gpu_text_glyphs(BuiRaster *r, TextRun *e, float x, float y, const float rgba[4])
 {
-  if (!run_glyphs(e) || e->ng == 0) {
-    return e->ng == 0;
+  if (!run_glyphs(e)) {
+    return 0;
+  }
+  const RunGlyphs *gl = e->gl;
+  if (gl->ng == 0) {
+    return 1;
   }
   int face = -1;
   float scale = 0.0f, embolden = 0.0f, shear = 0.0f;
@@ -2856,10 +2873,10 @@ static int gpu_text_glyphs(BuiRaster *r, TextRun *e, float x, float y, const flo
   const FontSlot *fs = &g_fonts[e->font];
   const float ox = floorf(x + 0.5f), base = floorf(y + 0.5f);
   const int slug = BUI_gpu_slug() && bui_gpu_slug_on(r->gpu);
-  for (int i = 0; i < e->ng; i++) {
+  for (int i = 0; i < gl->ng; i++) {
     /* BUI-Awra: each glyph's own slot (fallback fonts); colour glyphs are
      * drawn by run_draw_color */
-    const int gslot = e->gslot ? e->gslot[i] : e->font;
+    const int gslot = gl->gslot ? gl->gslot[i] : e->font;
     if (gslot != info_slot) {
       info_slot = gslot;
       if (!glyph_draw_info(e, i, &face, &scale, &embolden, &shear)) {
@@ -2867,18 +2884,18 @@ static int gpu_text_glyphs(BuiRaster *r, TextRun *e, float x, float y, const flo
       }
       passes = embolden > 0.0f ? 1 + (int)(embolden + 0.5f) : 1; /* synthetic bold */
     }
-    if (glyph_is_color(gslot, e->gid[i])) {
+    if (glyph_is_color(gslot, gl->gid[i])) {
       continue;
     }
-    const float pen = ox + e->gx[i];
+    const float pen = ox + gl->gx[i];
     if (slug) {
       float bbox[4], band[4];
       int loc[4];
-      if (!bui_gpu_slug_glyph(r->gpu, face, e->gid[i], 0 /* faces are never freed */, bbox, band, loc)) {
+      if (!bui_gpu_slug_glyph(r->gpu, face, gl->gid[i], 0 /* faces are never freed */, bbox, band, loc)) {
         continue; /* empty glyph (space) */
       }
       /* screen box of the glyph (font units, y up -> pixels, y down), plus shear and AA */
-      const float gb = base + (e->gy ? floorf(e->gy[i] + 0.5f) : 0.0f);
+      const float gb = base + (gl->gy ? floorf(gl->gy[i] + 0.5f) : 0.0f);
       const float top = gb - bbox[3] * scale, bottom = gb - bbox[1] * scale;
       const float lean = shear * (bbox[3] > 0.0f ? bbox[3] : 0.0f) * scale;
       for (int k = 0; k < passes; k++) {
@@ -2900,7 +2917,7 @@ static int gpu_text_glyphs(BuiRaster *r, TextRun *e, float x, float y, const flo
     else {
       int gx, gy, gw, gh;
       const uint8_t *bits;
-      const void *key = glyph_bitmap(e, i, e->gx[i], &gx, &gy, &gw, &gh, &bits);
+      const void *key = glyph_bitmap(e, i, gl->gx[i], &gx, &gy, &gw, &gh, &bits);
       int ax, ay;
       if (!key || gw <= 0 || gh <= 0 || !bui_gpu_mask(r->gpu, key, g_text_gen, bits, gw, gh, &ax, &ay)) {
         continue;
@@ -3147,9 +3164,9 @@ static void be_build(TextRun *e, const FontSlot *fs)
       e->mask[i] = (uint8_t)((src[i] >> 8) & 0xFF);
     }
     e->mw = mw;
-    e->mh = mh;
-    e->ox = pad;
-    e->asc = fs->ascent;
+    e->mh = (int16_t)mh;
+    e->ox = (int16_t)pad;
+    e->asc = (int16_t)fs->ascent;
   }
   SelectObject(dc, old_font);
   SelectObject(dc, old_bmp);
@@ -4671,63 +4688,59 @@ static float be_measure(const FontSlot *s, int dir, const char *utf8, int len, f
   return glyph_walk(s, dir, utf8, len, NULL, NULL, r_ext);
 }
 
-typedef struct GlyphList {
-  TextRun *e;
-  int cap;
-} GlyphList;
-
 static void list_glyph(void *user, int slot, int glyph, float x, float y)
 {
-  GlyphList *l = (GlyphList *)user;
-  TextRun *e = l->e;
-  if (e->ng == l->cap) {
+  RunGlyphs *l = (RunGlyphs *)user;
+  if (l->ng == l->cap) {
     const int cap = l->cap ? l->cap * 2 : 16;
-    uint16_t *g = (uint16_t *)realloc(e->gid, sizeof(uint16_t) * (size_t)cap);
+    uint16_t *g = (uint16_t *)realloc(l->gid, sizeof(uint16_t) * (size_t)cap);
     if (!g) {
       return;
     }
-    e->gid = g;
-    float *x_ = (float *)realloc(e->gx, sizeof(float) * (size_t)cap);
+    l->gid = g;
+    float *x_ = (float *)realloc(l->gx, sizeof(float) * (size_t)cap);
     if (!x_) {
       return;
     }
-    e->gx = x_;
-    uint8_t *sl = (uint8_t *)realloc(e->gslot, (size_t)cap);
+    l->gx = x_;
+    uint8_t *sl = (uint8_t *)realloc(l->gslot, (size_t)cap);
     if (!sl) {
       return;
     }
-    e->gslot = sl;
-    if (e->gy) {
-      float *y_ = (float *)realloc(e->gy, sizeof(float) * (size_t)cap);
+    l->gslot = sl;
+    if (l->gy) {
+      float *y_ = (float *)realloc(l->gy, sizeof(float) * (size_t)cap);
       if (!y_) {
         return;
       }
-      e->gy = y_;
+      l->gy = y_;
     }
     l->cap = cap;
   }
-  if (y != 0.0f && !e->gy) { /* the first offset glyph: offsets for all */
-    e->gy = (float *)calloc((size_t)l->cap, sizeof(float));
-    if (!e->gy) {
+  if (y != 0.0f && !l->gy) { /* the first offset glyph: offsets for all */
+    l->gy = (float *)calloc((size_t)l->cap, sizeof(float));
+    if (!l->gy) {
       return;
     }
   }
-  e->gid[e->ng] = (uint16_t)glyph;
-  e->gx[e->ng] = x;
-  if (e->gy) {
-    e->gy[e->ng] = y;
+  l->gid[l->ng] = (uint16_t)glyph;
+  l->gx[l->ng] = x;
+  if (l->gy) {
+    l->gy[l->ng] = y;
   }
-  e->gslot[e->ng] = (uint8_t)slot;
-  e->ng++;
+  l->gslot[l->ng] = (uint8_t)slot;
+  l->ng++;
 }
 
 /* The run's glyph ids and positions (built once). */
 static int run_glyphs(TextRun *e)
 {
-  if (e->ng < 0) {
-    e->ng = 0;
-    GlyphList l = {e, 0};
-    glyph_walk(&g_fonts[e->font], e->dir, e->text, e->len, list_glyph, &l, NULL);
+  if (!e->gl) {
+    e->gl = (RunGlyphs *)calloc(1, sizeof(RunGlyphs));
+    if (!e->gl) {
+      return 0;
+    }
+    glyph_walk(&g_fonts[e->font], e->dir, e->text, e->len, list_glyph, e->gl, NULL);
   }
   return 1;
 }
@@ -4735,19 +4748,19 @@ static int run_glyphs(TextRun *e)
 /* BUI-Awra: the run's clusters and cursor positions (built once). */
 static int run_clusters(TextRun *e)
 {
-  if (e->ncl >= 0) {
-    return e->cl != NULL || e->ncl == 0;
+  if (e->car) {
+    return 1;
   }
-  e->ncl = 0;
   WRun w;
   text_itemize(e->font, e->text, e->len, e->dir, &w);
   struct RunCluster *cl = (struct RunCluster *)malloc(sizeof(*cl) * (size_t)(w.n > 0 ? w.n : 1));
   uint8_t *cur = (uint8_t *)malloc((size_t)e->len + 1);
-  if (!cl || !cur) {
+  RunCarets *car = (RunCarets *)malloc(sizeof(RunCarets));
+  if (!cl || !cur || !car) {
     free(cl);
     free(cur);
+    free(car);
     wrun_free(&w);
-    e->ncl = -1;
     return 0;
   }
   int n = 0;
@@ -4795,19 +4808,20 @@ static int run_clusters(TextRun *e)
     cl[i].end = cl[i + 1].start;
   }
   BUI_text_breaks(e->text, e->len, cur);
-  e->cl = cl;
-  e->ncl = n;
-  e->cur = cur;
+  car->cl = cl;
+  car->n = n;
+  car->cur = cur;
+  e->car = car;
   return 1;
 }
 
 /* The cluster holding byte `index` (the last one for index >= len). */
 static int run_cluster_at(const TextRun *e, int index)
 {
-  int lo = 0, hi = e->ncl - 1;
+  int lo = 0, hi = e->car->n - 1;
   while (lo < hi) {
     const int mid = (lo + hi + 1) / 2;
-    if (e->cl[mid].start <= index) {
+    if (e->car->cl[mid].start <= index) {
       lo = mid;
     }
     else {
@@ -4822,19 +4836,19 @@ static int run_cluster_at(const TextRun *e, int index)
  * pango_glyph_string_index_to_x_full over the run's clusters. */
 static float run_index_to_x(TextRun *e, int index, int trailing)
 {
-  if (!run_clusters(e) || e->ncl == 0) {
+  if (!run_clusters(e) || e->car->n == 0) {
     return 0.0f;
   }
   if (index < e->len) {
     if (trailing) {
       while (index + utf8_step(e->text, index) < e->len &&
-             !(e->cur[index + utf8_step(e->text, index)] & BUI_TEXT_CURSOR))
+             !(e->car->cur[index + utf8_step(e->text, index)] & BUI_TEXT_CURSOR))
       {
         index += utf8_step(e->text, index);
       }
     }
     else {
-      while (index > 0 && !(e->cur[index] & BUI_TEXT_CURSOR)) {
+      while (index > 0 && !(e->car->cur[index] & BUI_TEXT_CURSOR)) {
         index--;
         while (index > 0 && ((unsigned char)e->text[index] & 0xC0) == 0x80) {
           index--;
@@ -4842,10 +4856,10 @@ static float run_index_to_x(TextRun *e, int index, int trailing)
       }
     }
   }
-  const struct RunCluster *c = &e->cl[run_cluster_at(e, index)];
+  const struct RunCluster *c = &e->car->cl[run_cluster_at(e, index)];
   int chars = 0, offset = 0;
   for (int i = c->start; i < c->end; i += utf8_step(e->text, i)) {
-    if (!(e->cur[i] & BUI_TEXT_CURSOR)) {
+    if (!(e->car->cur[i] & BUI_TEXT_CURSOR)) {
       continue;
     }
     if (i < index) {
@@ -4883,23 +4897,23 @@ static float run_index_to_x(TextRun *e, int index, int trailing)
 static int run_x_to_index(TextRun *e, float x, int *r_trailing)
 {
   *r_trailing = 0;
-  if (!run_clusters(e) || e->ncl == 0) {
+  if (!run_clusters(e) || e->car->n == 0) {
     return 0;
   }
   /* the cluster under x; outside the run, the visually first or last */
   int best = -1, left = -1, right = -1;
-  for (int i = 0; i < e->ncl; i++) {
-    const struct RunCluster *c = &e->cl[i];
+  for (int i = 0; i < e->car->n; i++) {
+    const struct RunCluster *c = &e->car->cl[i];
     const float x0 = fminf(c->lead, c->trail), x1 = fmaxf(c->lead, c->trail);
     if (x >= x0 && x < x1) {
       best = i;
       break;
     }
-    if (left < 0 || x0 < fminf(e->cl[left].lead, e->cl[left].trail)) {
+    if (left < 0 || x0 < fminf(e->car->cl[left].lead, e->car->cl[left].trail)) {
       left = i;
     }
-    if (right < 0 || x1 > fmaxf(e->cl[right].lead, e->cl[right].trail) ||
-        (x1 == fmaxf(e->cl[right].lead, e->cl[right].trail) && x1 > x0))
+    if (right < 0 || x1 > fmaxf(e->car->cl[right].lead, e->car->cl[right].trail) ||
+        (x1 == fmaxf(e->car->cl[right].lead, e->car->cl[right].trail) && x1 > x0))
     {
       right = i;
     }
@@ -4909,19 +4923,19 @@ static int run_x_to_index(TextRun *e, float x, int *r_trailing)
     /* outside the run: the visual end of its outermost cluster, as
      * pango_layout_line_x_to_index picks the line's leftmost or rightmost
      * character (trailing: the characters of its grapheme) */
-    const int at_right = x >= fmaxf(e->cl[right].lead, e->cl[right].trail);
-    const struct RunCluster *c = &e->cl[at_right ? right : left];
+    const int at_right = x >= fmaxf(e->car->cl[right].lead, e->car->cl[right].trail);
+    const struct RunCluster *c = &e->car->cl[at_right ? right : left];
     if (c->rtl == at_right) { /* its leading edge */
       *r_trailing = 0;
       return c->start;
     }
     index = c->start;
     for (int i = c->start; i < c->end; i += utf8_step(e->text, i)) {
-      if (e->cur[i] & BUI_TEXT_CURSOR) {
+      if (e->car->cur[i] & BUI_TEXT_CURSOR) {
         index = i; /* its last grapheme */
       }
     }
-    while (index > 0 && !(e->cur[index] & BUI_TEXT_CURSOR)) {
+    while (index > 0 && !(e->car->cur[index] & BUI_TEXT_CURSOR)) {
       index--; /* a cluster inside a grapheme (a vowel sign): its grapheme */
       while (index > 0 && ((unsigned char)e->text[index] & 0xC0) == 0x80) {
         index--;
@@ -4929,7 +4943,7 @@ static int run_x_to_index(TextRun *e, float x, int *r_trailing)
     }
     int chars = 0;
     for (int i = index; i < e->len; i += utf8_step(e->text, i)) {
-      if (i > index && (e->cur[i] & BUI_TEXT_CURSOR)) {
+      if (i > index && (e->car->cur[i] & BUI_TEXT_CURSOR)) {
         break;
       }
       chars++;
@@ -4938,7 +4952,7 @@ static int run_x_to_index(TextRun *e, float x, int *r_trailing)
     return index;
   }
   {
-    const struct RunCluster *c = &e->cl[best];
+    const struct RunCluster *c = &e->car->cl[best];
     int chars = 0;
     for (int i = c->start; i < c->end; i += utf8_step(e->text, i)) {
       chars++;
@@ -4966,7 +4980,7 @@ static int run_x_to_index(TextRun *e, float x, int *r_trailing)
   /* the grapheme it falls in: its first character, trailing when x is
    * past the grapheme's middle (in characters, as Pango counts) */
   int start = index, back = 0, fwd = 0;
-  while (start > 0 && !(e->cur[start] & BUI_TEXT_CURSOR)) {
+  while (start > 0 && !(e->car->cur[start] & BUI_TEXT_CURSOR)) {
     start--;
     while (start > 0 && ((unsigned char)e->text[start] & 0xC0) == 0x80) {
       start--;
@@ -4977,7 +4991,7 @@ static int run_x_to_index(TextRun *e, float x, int *r_trailing)
   do {
     i += utf8_step(e->text, i);
     fwd++;
-  } while (i < e->len && !(e->cur[i] & BUI_TEXT_CURSOR));
+  } while (i < e->len && !(e->car->cur[i] & BUI_TEXT_CURSOR));
   *r_trailing = back + trailing > (back + fwd) / 2 ? back + fwd : 0;
   return start;
 }
@@ -4985,7 +4999,7 @@ static int run_x_to_index(TextRun *e, float x, int *r_trailing)
 static int glyph_draw_info(const TextRun *e, int i, int *r_face, float *r_scale, float *r_embolden,
                            float *r_shear)
 {
-  const FontSlot *s = &g_fonts[e->gslot ? e->gslot[i] : e->font];
+  const FontSlot *s = &g_fonts[e->gl->gslot ? e->gl->gslot[i] : e->font];
   *r_face = s->face;
   *r_scale = s->scale;
   *r_embolden = s->embolden;
@@ -5019,15 +5033,15 @@ static int glyph_is_color(int slot, int glyph)
 static const void *glyph_bitmap(const TextRun *e, int i, float pen, int *r_x, int *r_y, int *r_w,
                                 int *r_h, const uint8_t **r_bits)
 {
-  const int slot = e->gslot ? e->gslot[i] : e->font;
+  const int slot = e->gl->gslot ? e->gl->gslot[i] : e->font;
   int whole;
   const int phase = glyph_phase(slot, pen, &whole);
-  const GlyphBmp *g = glyph_get(slot, &g_fonts[slot], e->gid[i], phase);
+  const GlyphBmp *g = glyph_get(slot, &g_fonts[slot], e->gl->gid[i], phase);
   if (!g || !g->bits || g->color) {
     return NULL;
   }
   *r_x = whole + g->xoff;
-  *r_y = g->yoff + (e->gy ? (int)floorf(e->gy[i] + 0.5f) : 0);
+  *r_y = g->yoff + (e->gl->gy ? (int)floorf(e->gl->gy[i] + 0.5f) : 0);
   *r_w = g->w;
   *r_h = g->h;
   *r_bits = g->bits;
@@ -5436,9 +5450,9 @@ static void be_build(TextRun *e, const FontSlot *fs)
   }
   e->mask = mask;
   e->mw = mw;
-  e->mh = mh;
-  e->ox = left;
-  e->asc = asc;
+  e->mh = (int16_t)mh;
+  e->ox = (int16_t)left;
+  e->asc = (int16_t)asc;
 }
 
 /** \} */
