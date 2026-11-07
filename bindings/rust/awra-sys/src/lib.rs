@@ -1345,6 +1345,7 @@ extern "C" {
     pub fn awra_window_get_transient_for(window: *mut AwraWidget) -> *mut AwraWidget;
     pub fn awra_window_set_modal(window: *mut AwraWidget, modal: bool);
     pub fn awra_window_get_resizable(window: *mut AwraWidget) -> bool;
+    pub fn awra_desktop_notify(app_name: *const c_char, icon_name: *const c_char, title: *const c_char, body: *const c_char) -> bool;
     pub fn awra_window_get_modal(window: *mut AwraWidget) -> bool;
     pub fn awra_window_has_popup(window: *mut AwraWidget) -> bool;
     pub fn awra_transition_bin_new() -> *mut AwraWidget;

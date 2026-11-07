@@ -128,10 +128,47 @@ void awra_portal_start(void)
   awra_dbus_pump(g_bus, &g_answered, 250);
 }
 
+/* A desktop notification (org.freedesktop.Notifications.Notify, as
+ * GApplication's fallback): false without a session bus. */
+bool awra_desktop_notify(const char *app_name, const char *icon, const char *title, const char *body)
+{
+  awra_portal_start();
+  if (!g_bus) {
+    return false;
+  }
+  AwraDBusW w;
+  awra_dbus_w_init(&w);
+  awra_dbus_w_str(&w, app_name ? app_name : "");
+  awra_dbus_w_u32(&w, 0);
+  awra_dbus_w_str(&w, icon ? icon : "");
+  awra_dbus_w_str(&w, title ? title : "");
+  awra_dbus_w_str(&w, body ? body : "");
+  AwraDBusArray actions = awra_dbus_w_array_open(&w, 4);
+  awra_dbus_w_array_close(&w, actions);
+  AwraDBusArray hints = awra_dbus_w_array_open(&w, 8);
+  awra_dbus_w_array_close(&w, hints);
+  awra_dbus_w_i32(&w, -1);
+  const bool ok = !w.oom && awra_dbus_call(g_bus, "org.freedesktop.Notifications",
+                                           "/org/freedesktop/Notifications",
+                                           "org.freedesktop.Notifications", "Notify",
+                                           "susssasa{sv}i", &w, NULL, NULL) != 0;
+  awra_dbus_w_free(&w);
+  return ok;
+}
+
 #else
 
 void awra_portal_start(void)
 {
+}
+
+bool awra_desktop_notify(const char *app_name, const char *icon, const char *title, const char *body)
+{
+  (void)app_name;
+  (void)icon;
+  (void)title;
+  (void)body;
+  return false; /* Windows applications notify through their tray icon */
 }
 
 #endif
