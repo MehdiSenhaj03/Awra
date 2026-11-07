@@ -24,6 +24,102 @@
 
 
 #if defined( TT_CONFIG_OPTION_EMBEDDED_BITMAPS ) && \
+    defined( FT_CONFIG_OPTION_USE_PNG ) && defined( BUI_FT_PNG_HOOK )
+
+  /* BUI: PNG glyphs (CBDT, sbix) decoded by the decoder BUI registers
+   * (BUI_text_set_png_decoder: the kit's Wuffs) instead of libpng. It
+   * writes premultiplied BGRA rows; called with no buffer it only reads
+   * the size. */
+#include "pngshim.h"
+
+#include "sferrors.h"
+
+  int ( *bui_ft_png_decode )( const unsigned char*  png,
+                              unsigned long         len,
+                              int*                  r_w,
+                              int*                  r_h,
+                              unsigned char*        dst,
+                              int                   pitch ) = NULL;
+
+
+  FT_LOCAL_DEF( FT_Error )
+  Load_SBit_Png( FT_GlyphSlot     slot,
+                 FT_Int           x_offset,
+                 FT_Int           y_offset,
+                 FT_Int           pix_bits,
+                 TT_SBit_Metrics  metrics,
+                 FT_Memory        memory,
+                 FT_Byte*         data,
+                 FT_UInt          png_len,
+                 FT_Bool          populate_map_and_metrics,
+                 FT_Bool          metrics_only )
+  {
+    FT_Bitmap  *map   = &slot->bitmap;
+    FT_Error    error = FT_Err_Ok;
+    int         w, h;
+
+    FT_UNUSED( memory );
+
+    if ( !bui_ft_png_decode )
+      return FT_THROW( Unimplemented_Feature );
+
+    if ( x_offset < 0 || y_offset < 0 )
+      return FT_THROW( Invalid_Argument );
+
+    if ( !populate_map_and_metrics                            &&
+         ( (FT_UInt)x_offset + metrics->width  > map->width ||
+           (FT_UInt)y_offset + metrics->height > map->rows  ||
+           pix_bits != 32                                   ||
+           map->pixel_mode != FT_PIXEL_MODE_BGRA            ) )
+      return FT_THROW( Invalid_Argument );
+
+    if ( !bui_ft_png_decode( data, png_len, &w, &h, NULL, 0 ) ||
+         w <= 0 || h <= 0 )
+      return FT_THROW( Invalid_File_Format );
+
+    if ( !populate_map_and_metrics                &&
+         ( w != metrics->width || h != metrics->height ) )
+      return FT_Err_Ok;  /* as the libpng version: nothing drawn */
+
+    if ( populate_map_and_metrics )
+    {
+      /* reject too large bitmaps similarly to the rasterizer */
+      if ( h > 0x7FFF || w > 0x7FFF )
+        return FT_THROW( Array_Too_Large );
+
+      metrics->width  = (FT_UShort)w;
+      metrics->height = (FT_UShort)h;
+
+      map->width      = metrics->width;
+      map->rows       = metrics->height;
+      map->pixel_mode = FT_PIXEL_MODE_BGRA;
+      map->pitch      = (int)( map->width * 4 );
+      map->num_grays  = 256;
+    }
+
+    if ( metrics_only )
+      return FT_Err_Ok;
+
+    if ( populate_map_and_metrics )
+    {
+      /* this doesn't overflow: 0x7FFF * 0x7FFF * 4 < 2^32 */
+      FT_ULong  size = map->rows * (FT_ULong)map->pitch;
+
+
+      error = ft_glyphslot_alloc_bitmap( slot, size );
+      if ( error )
+        return error;
+    }
+
+    if ( !bui_ft_png_decode( data, png_len, &w, &h,
+                             map->buffer + y_offset * map->pitch + x_offset * 4,
+                             map->pitch ) )
+      return FT_THROW( Invalid_File_Format );
+
+    return error;
+  }
+
+#elif defined( TT_CONFIG_OPTION_EMBEDDED_BITMAPS ) && \
     defined( FT_CONFIG_OPTION_USE_PNG )
 
   /* We always include <setjmp.h>, so make libpng shut up! */

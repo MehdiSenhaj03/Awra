@@ -129,6 +129,9 @@ typedef struct BKHost {
 /* Reference hooks for host objects attached to nodes/items/callbacks
  * (Python INCREF/DECREF). Optional. */
 void BK_set_ref_hooks(void (*retain)(void *ref), void (*release)(void *ref));
+/* BUI-Awra: colour emoji (PNG glyphs of CBDT / sbix fonts) through the
+ * kit's image decoders; call once before drawing text. */
+void BK_text_init_images(void);
 
 /* -- global look ------------------------------------------------------------ */
 void BK_set_scale(float scale); /* Blender's resolution scale (1 = 20 px widgets) */

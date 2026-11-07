@@ -47,6 +47,18 @@ Text follows what GTK did for Awra 1:
 - labels measure as GtkLabel (approximate char width for width-chars,
   widest line at max-width-chars, width-for-height when allocated with an
   alignment), and lines break as Pango breaks them.
+- characters the font lacks fall back, character by character, through
+  fontconfig's sorted list for the font (FcFontSort, by charset) on Linux
+  and the system's font links (SystemLink, Segoe UI Emoji / Symbol) on
+  Windows; spaces and default ignorables take the font of the run they are
+  in, as Pango itemizes; a line is as tall as the tallest font in it;
+- emoji follow Pango: its emoji presentation scanner splits text into emoji
+  and text runs, emoji runs take the "emoji" family (a colour font when a
+  VS16 asks for one), and sequences (ZWJ, skin tones, flags, keycaps, tags)
+  are shaped by the font's GSUB into one glyph. Colour glyphs are CBDT /
+  sbix bitmaps (their PNGs decoded by the kit's Wuffs) scaled to the text
+  size, or COLR layers blended by FreeType; they are cached like any glyph
+  and drawn over the run's coverage mask with the text's alpha.
 
 ## Windows
 

@@ -121,6 +121,7 @@ void awra_init(const char *app_id)
   g_inited = true;
   mutex_init(&g_invoke_lock);
   BK_set_ref_hooks(ref_retain, ref_release);
+  BK_text_init_images(); /* colour emoji */
   /* reduced motion turns the kit's own animations off too */
   awra_style_init();
   BK_window_supported(); /* opens the display: the backend is known */

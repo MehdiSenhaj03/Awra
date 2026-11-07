@@ -349,6 +349,9 @@ AwraTypography awra_widget_typography(const AwraWidget *w); /* inherited */
 /* Line metrics */
 float awra_font_ascent(const AwraFont *f);
 float awra_font_line_height(const AwraFont *f); /* Pango's logical line height */
+/* the ascent / descent of `s` in `f` and the fonts it falls back to (emoji, CJK...) */
+void awra_font_extents(const AwraFont *f, const char *s, int len, float *r_ascent,
+                       float *r_descent);
 float awra_text_width(const AwraFont *f, const char *s, int len);
 void awra_draw_text(AwraDraw *d, const AwraFont *f, float x, float baseline, const char *s,
                     int len, const AwraRGBA *color);
