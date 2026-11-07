@@ -1364,13 +1364,168 @@ static void dumpEdges(NSVGrasterizer* r, const char* name)
 }
 */
 
+/* Draws one shape (fill and stroke) into r->bitmap (premultiplied RGBA).
+ * BUI: `paint` (not NULL) replaces the fill and stroke paints (clip paths
+ * draw their coverage only). */
+static void nsvg__drawShape(NSVGrasterizer* r, NSVGshape* shape, float tx, float ty, float scale,
+							NSVGpaint* paint)
+{
+	NSVGedge *e = NULL;
+	NSVGcachedPaint cache;
+	int i;
+
+	if (shape->fill.type != NSVG_PAINT_NONE) {
+		nsvg__resetPool(r);
+		r->freelist = NULL;
+		r->nedges = 0;
+
+		nsvg__flattenShape(r, shape, scale);
+
+		// Scale and translate edges
+		for (i = 0; i < r->nedges; i++) {
+			e = &r->edges[i];
+			e->x0 = tx + e->x0;
+			e->y0 = (ty + e->y0) * NSVG__SUBSAMPLES;
+			e->x1 = tx + e->x1;
+			e->y1 = (ty + e->y1) * NSVG__SUBSAMPLES;
+		}
+
+		// Rasterize edges
+		if (r->nedges != 0)
+			qsort(r->edges, r->nedges, sizeof(NSVGedge), nsvg__cmpEdge);
+
+		// now, traverse the scanlines and find the intersections on each scanline, use non-zero rule
+		nsvg__initPaint(&cache, paint ? paint : &shape->fill, paint ? 1.0f : shape->opacity);
+
+		nsvg__rasterizeSortedEdges(r, tx,ty,scale, &cache, shape->fillRule);
+	}
+	if (shape->stroke.type != NSVG_PAINT_NONE && (shape->strokeWidth * scale) > 0.01f) {
+		nsvg__resetPool(r);
+		r->freelist = NULL;
+		r->nedges = 0;
+
+		nsvg__flattenShapeStroke(r, shape, scale);
+
+		// Scale and translate edges
+		for (i = 0; i < r->nedges; i++) {
+			e = &r->edges[i];
+			e->x0 = tx + e->x0;
+			e->y0 = (ty + e->y0) * NSVG__SUBSAMPLES;
+			e->x1 = tx + e->x1;
+			e->y1 = (ty + e->y1) * NSVG__SUBSAMPLES;
+		}
+
+		// Rasterize edges
+		if (r->nedges != 0)
+			qsort(r->edges, r->nedges, sizeof(NSVGedge), nsvg__cmpEdge);
+
+		// now, traverse the scanlines and find the intersections on each scanline, use non-zero rule
+		nsvg__initPaint(&cache, paint ? paint : &shape->stroke, paint ? 1.0f : shape->opacity);
+
+		nsvg__rasterizeSortedEdges(r, tx,ty,scale, &cache, NSVG_FILLRULE_NONZERO);
+	}
+}
+
+/* BUI: the shapes of mask or clip path `id` drawn into `buf` (cleared,
+ * w x h premultiplied RGBA): luminance times alpha for a mask, coverage for
+ * a clip path, into one byte per pixel (`out`). Returns 0 when there is no
+ * such definition (the reference is ignored). */
+static int nsvg__drawDef(NSVGrasterizer* r, NSVGimage* image, const char* id, char type,
+						 float tx, float ty, float scale, unsigned char* buf, unsigned char* out)
+{
+	NSVGshape* def;
+	NSVGpaint solid;
+	int found = 0, i, n = r->width * r->height;
+	unsigned char* bitmap = r->bitmap;
+
+	memset(buf, 0, (size_t)n * 4);
+	memset(&solid, 0, sizeof solid);
+	solid.type = NSVG_PAINT_COLOR;
+	solid.color = 0xff000000u;
+	r->bitmap = buf;
+	for (def = image->defs; def != NULL; def = def->next) {
+		if (def->defType != type || strcmp(def->defId, id) != 0)
+			continue;
+		found = 1;
+		if (!(def->flags & NSVG_FLAGS_VISIBLE))
+			continue;
+		nsvg__drawShape(r, def, tx, ty, scale, type == NSVG_DEF_CLIP ? &solid : NULL);
+	}
+	r->bitmap = bitmap;
+	if (!found)
+		return 0;
+	for (i = 0; i < n; i++) {
+		const unsigned char* px = buf + (size_t)i * 4;
+		/* premultiplied: the luminance already carries the alpha */
+		out[i] = type == NSVG_DEF_CLIP ? px[3] :
+				 (unsigned char)((px[0] * 54 + px[1] * 183 + px[2] * 19 + 128) >> 8);
+	}
+	return 1;
+}
+
+/* BUI: a shape drawn through its masks and clip paths: alone into a layer,
+ * multiplied by each, then over the image. */
+static void nsvg__drawMasked(NSVGrasterizer* r, NSVGimage* image, NSVGshape* shape,
+							 float tx, float ty, float scale)
+{
+	const int w = r->width, h = r->height, stride = r->stride;
+	const size_t n = (size_t)w * h;
+	unsigned char* layer = (unsigned char*)calloc(n, 4);
+	unsigned char* tmp = (unsigned char*)malloc(n * 4);
+	unsigned char* cov = (unsigned char*)malloc(n);
+	unsigned char* dst = r->bitmap;
+	int k, x, y;
+
+	if (!layer || !tmp || !cov) {
+		free(layer);
+		free(tmp);
+		free(cov);
+		nsvg__drawShape(r, shape, tx, ty, scale, NULL);
+		return;
+	}
+	r->bitmap = layer;
+	r->stride = w * 4;
+	nsvg__drawShape(r, shape, tx, ty, scale, NULL);
+	for (k = 0; k < 2 * NSVG_MAX_MASKS; k++) {
+		const char* id = k < NSVG_MAX_MASKS ? shape->masks[k] : shape->clips[k - NSVG_MAX_MASKS];
+		size_t i;
+		if (!id[0] ||
+			!nsvg__drawDef(r, image, id, k < NSVG_MAX_MASKS ? NSVG_DEF_MASK : NSVG_DEF_CLIP,
+						   tx, ty, scale, tmp, cov))
+			continue;
+		for (i = 0; i < n; i++) {
+			unsigned char* px = layer + i * 4;
+			const int m = cov[i];
+			px[0] = (unsigned char)nsvg__div255(px[0] * m);
+			px[1] = (unsigned char)nsvg__div255(px[1] * m);
+			px[2] = (unsigned char)nsvg__div255(px[2] * m);
+			px[3] = (unsigned char)nsvg__div255(px[3] * m);
+		}
+	}
+	r->bitmap = dst;
+	r->stride = stride;
+	/* premultiplied over */
+	for (y = 0; y < h; y++) {
+		unsigned char* d = dst + (size_t)y * stride;
+		const unsigned char* s = layer + (size_t)y * w * 4;
+		for (x = 0; x < w; x++, d += 4, s += 4) {
+			const int ia = 255 - s[3];
+			d[0] = (unsigned char)(s[0] + nsvg__div255(ia * d[0]));
+			d[1] = (unsigned char)(s[1] + nsvg__div255(ia * d[1]));
+			d[2] = (unsigned char)(s[2] + nsvg__div255(ia * d[2]));
+			d[3] = (unsigned char)(s[3] + nsvg__div255(ia * d[3]));
+		}
+	}
+	free(layer);
+	free(tmp);
+	free(cov);
+}
+
 void nsvgRasterize(NSVGrasterizer* r,
 				   NSVGimage* image, float tx, float ty, float scale,
 				   unsigned char* dst, int w, int h, int stride)
 {
 	NSVGshape *shape = NULL;
-	NSVGedge *e = NULL;
-	NSVGcachedPaint cache;
 	int i;
 
 	r->bitmap = dst;
@@ -1390,59 +1545,10 @@ void nsvgRasterize(NSVGrasterizer* r,
 	for (shape = image->shapes; shape != NULL; shape = shape->next) {
 		if (!(shape->flags & NSVG_FLAGS_VISIBLE))
 			continue;
-
-		if (shape->fill.type != NSVG_PAINT_NONE) {
-			nsvg__resetPool(r);
-			r->freelist = NULL;
-			r->nedges = 0;
-
-			nsvg__flattenShape(r, shape, scale);
-
-			// Scale and translate edges
-			for (i = 0; i < r->nedges; i++) {
-				e = &r->edges[i];
-				e->x0 = tx + e->x0;
-				e->y0 = (ty + e->y0) * NSVG__SUBSAMPLES;
-				e->x1 = tx + e->x1;
-				e->y1 = (ty + e->y1) * NSVG__SUBSAMPLES;
-			}
-
-			// Rasterize edges
-			if (r->nedges != 0)
-				qsort(r->edges, r->nedges, sizeof(NSVGedge), nsvg__cmpEdge);
-
-			// now, traverse the scanlines and find the intersections on each scanline, use non-zero rule
-			nsvg__initPaint(&cache, &shape->fill, shape->opacity);
-
-			nsvg__rasterizeSortedEdges(r, tx,ty,scale, &cache, shape->fillRule);
-		}
-		if (shape->stroke.type != NSVG_PAINT_NONE && (shape->strokeWidth * scale) > 0.01f) {
-			nsvg__resetPool(r);
-			r->freelist = NULL;
-			r->nedges = 0;
-
-			nsvg__flattenShapeStroke(r, shape, scale);
-
-//			dumpEdges(r, "edge.svg");
-
-			// Scale and translate edges
-			for (i = 0; i < r->nedges; i++) {
-				e = &r->edges[i];
-				e->x0 = tx + e->x0;
-				e->y0 = (ty + e->y0) * NSVG__SUBSAMPLES;
-				e->x1 = tx + e->x1;
-				e->y1 = (ty + e->y1) * NSVG__SUBSAMPLES;
-			}
-
-			// Rasterize edges
-			if (r->nedges != 0)
-				qsort(r->edges, r->nedges, sizeof(NSVGedge), nsvg__cmpEdge);
-
-			// now, traverse the scanlines and find the intersections on each scanline, use non-zero rule
-			nsvg__initPaint(&cache, &shape->stroke, shape->opacity);
-
-			nsvg__rasterizeSortedEdges(r, tx,ty,scale, &cache, NSVG_FILLRULE_NONZERO);
-		}
+		if (shape->masks[0][0] || shape->clips[0][0])
+			nsvg__drawMasked(r, image, shape, tx, ty, scale);
+		else
+			nsvg__drawShape(r, shape, tx, ty, scale, NULL);
 	}
 
 	nsvg__unpremultiplyAlpha(dst, w, h, stride);
