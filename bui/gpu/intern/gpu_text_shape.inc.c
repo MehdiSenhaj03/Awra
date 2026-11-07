@@ -1,55 +1,41 @@
-/* BUI-Awra: what Pango, fontconfig and HarfBuzz did for Awra 1's text, for
- * the portable text engine (included by gpu_raster.c):
+/* BUI-Awra: what Pango, fontconfig, HarfBuzz and FriBidi did for Awra 1's
+ * text, for the portable text engine (included by gpu_raster.c):
  *
+ *  - bidi (UAX #9) with FriBidi (extern/fribidi), as Pango resolves it: a
+ *    run's paragraph direction from its first strong character, or one
+ *    direction the caller gives (a run of one level of a paragraph laid out
+ *    by the caller); runs reordered visually (L2);
+ *  - script runs (Pango's script iterator, paired punctuation included)
+ *    and the language each script implies when the user's language doesn't
+ *    write it (Pango's derived language: fonts are sorted for it);
  *  - emoji itemization: Pango's emoji presentation scanner (Chromium's,
  *    extern/emoji) splits text into emoji and text segments; an emoji
  *    segment is drawn with the "emoji" family (a colour font) as Pango asks
  *    fontconfig for it;
  *  - per-character font fallback: a character the font lacks is drawn with
- *    the first font of fontconfig's sorted list (FcFontSort, by charset)
- *    that has it, on Windows with the system's font links (SystemLink) and
- *    Segoe UI Emoji / Symbol; spaces and default ignorables take the font of
- *    the run they are in, as Pango itemizes;
- *  - emoji sequences (ZWJ, skin tones, flags, keycaps, tags) shaped through
- *    the colour font's GSUB (single, multiple, ligature and contextual
- *    lookups of ccmp / liga / rlig / clig), as HarfBuzz does;
- *  - default ignorables hidden and missing space glyphs given HarfBuzz's
- *    fallback widths.
+ *    the first font of fontconfig's sorted list (FcFontSort, by charset and
+ *    language) that has it, on Windows with the system's font links
+ *    (SystemLink) and Segoe UI Emoji / Symbol; spaces and default
+ *    ignorables take the font of the run they are in, as Pango itemizes;
+ *  - shaping with HarfBuzz (extern/harfbuzz), item by item with the run's
+ *    text as context, as pango_hb_shape does: every script's shaper (Arabic
+ *    joining and lam-alef, marks, Indic, Thai, Hangul...), kerning, emoji
+ *    sequences, mirrored glyphs in right-to-left runs, default ignorables
+ *    hidden, missing space characters given HarfBuzz's fallback widths;
+ *    advances rounded to whole pixels with hinted metrics as Pango rounds
+ *    them;
+ *  - grapheme boundaries (UAX #29, Pango's rules) for caret positions,
+ *    hit-testing and backspace.
  *
  * Faces and font slots are cached; glyph bitmaps go through the shared
  * glyph cache like any other glyph.
  *
  * SPDX-License-Identifier: GPL-2.0-or-later */
 
-#include "../extern/emoji/emoji_tables.h"
 
 /* -------------------------------------------------------------------- */
 /** \name Unicode properties
  * \{ */
-
-static int emoji_in(uint32_t c, const EmojiInterval *t, int n)
-{
-  if (c < t[0].start || c > t[n - 1].end) {
-    return 0;
-  }
-  int lo = 0, hi = n - 1;
-  while (lo <= hi) {
-    const int mid = (lo + hi) / 2;
-    if (c < t[mid].start) {
-      hi = mid - 1;
-    }
-    else if (c > t[mid].end) {
-      lo = mid + 1;
-    }
-    else {
-      return 1;
-    }
-  }
-  return 0;
-}
-
-#  define EMOJI_IS(name, c) \
-    emoji_in((c), g_emoji_##name, (int)(sizeof(g_emoji_##name) / sizeof(g_emoji_##name[0])))
 
 /* Pango's _pango_EmojiSegmentationCategory */
 enum {
@@ -166,511 +152,6 @@ static int text_space_like(uint32_t c)
          (c >= 0x1D173 && c <= 0x1D17A) || c == 0xE0001 || (c >= 0xE0020 && c <= 0xE007F) ||
          (c >= 0xE0100 && c <= 0xE01EF);
 }
-
-/* HarfBuzz's default ignorables: never drawn, no advance. */
-static int text_ignorable(uint32_t c)
-{
-  if (c < 0xAD) {
-    return 0;
-  }
-  return c == 0xAD || c == 0x34F || c == 0x61C || c == 0x115F || c == 0x1160 || c == 0x17B4 ||
-         c == 0x17B5 || (c >= 0x180B && c <= 0x180F) || (c >= 0x200B && c <= 0x200F) ||
-         (c >= 0x202A && c <= 0x202E) || (c >= 0x2060 && c <= 0x206F) || c == 0x3164 ||
-         (c >= 0xFE00 && c <= 0xFE0F) || c == 0xFEFF || c == 0xFFA0 ||
-         (c >= 0xFFF0 && c <= 0xFFF8) || (c >= 0x1BCA0 && c <= 0x1BCA3) ||
-         (c >= 0x1D173 && c <= 0x1D17A) || (c >= 0xE0000 && c <= 0xE0FFF);
-}
-
-/* HarfBuzz's fallback width of a space character the font lacks, in ems
- * (hb-ot-shape-fallback: _hb_ot_shape_fallback_spaces), or 0 for "the space
- * glyph's own". */
-static float text_space_em(uint32_t c)
-{
-  switch (c) {
-    case 0x2000:
-    case 0x2002:
-      return 0.5f;
-    case 0x2001:
-    case 0x2003:
-    case 0x3000:
-      return 1.0f;
-    case 0x2004:
-      return 1.0f / 3.0f;
-    case 0x2005:
-      return 0.25f;
-    case 0x2006:
-      return 1.0f / 6.0f;
-    case 0x2009:
-      return 0.2f;
-    case 0x200A:
-      return 1.0f / 16.0f;
-    case 0x205F:
-      return 4.0f / 18.0f;
-    default:
-      return 0.0f;
-  }
-}
-
-static int text_is_space_sep(uint32_t c)
-{
-  return c == ' ' || c == 0xA0 || (c >= 0x2000 && c <= 0x200A) || c == 0x202F || c == 0x205F ||
-         c == 0x3000;
-}
-
-/** \} */
-
-/* -------------------------------------------------------------------- */
-/** \name GSUB: the substitutions an emoji font's sequences need
- *
- * Lookup types 1 (single), 2 (multiple), 4 (ligature), 5 (context) and 6
- * (chained context), formats 1-3, through extension lookups (7), of the
- * features ccmp, liga, rlig and clig, applied in lookup order over the
- * glyphs of a run as HarfBuzz applies them. Lookup flags (mark filtering)
- * are not applied: emoji fonts set none.
- * \{ */
-
-typedef struct GsubBuf {
-  uint16_t *g;  /* glyphs */
-  uint32_t *cp; /* the character each glyph comes from (a ligature: its first) */
-  int n, cap;
-} GsubBuf;
-
-typedef struct GsubTab {
-  const uint8_t *t;
-  uint32_t len;
-} GsubTab;
-
-static inline unsigned gs16(const GsubTab *T, uint32_t o)
-{
-  return o + 2 <= T->len ? ((unsigned)T->t[o] << 8) | T->t[o + 1] : 0;
-}
-
-static inline uint32_t gs32(const GsubTab *T, uint32_t o)
-{
-  return o + 4 <= T->len ? ((uint32_t)gs16(T, o) << 16) | gs16(T, o + 2) : 0;
-}
-
-/* Coverage index of `glyph`, or -1. */
-static int gs_coverage(const GsubTab *T, uint32_t o, unsigned glyph)
-{
-  const unsigned fmt = gs16(T, o), n = gs16(T, o + 2);
-  int lo = 0, hi = (int)n - 1;
-  while (lo <= hi) {
-    const int mid = (lo + hi) / 2;
-    if (fmt == 1) {
-      const unsigned g = gs16(T, o + 4 + 2 * (uint32_t)mid);
-      if (glyph < g) {
-        hi = mid - 1;
-      }
-      else if (glyph > g) {
-        lo = mid + 1;
-      }
-      else {
-        return mid;
-      }
-    }
-    else if (fmt == 2) {
-      const uint32_t r = o + 4 + 6 * (uint32_t)mid;
-      const unsigned s = gs16(T, r), e = gs16(T, r + 2);
-      if (glyph < s) {
-        hi = mid - 1;
-      }
-      else if (glyph > e) {
-        lo = mid + 1;
-      }
-      else {
-        return (int)(gs16(T, r + 4) + glyph - s);
-      }
-    }
-    else {
-      return -1;
-    }
-  }
-  return -1;
-}
-
-static unsigned gs_class(const GsubTab *T, uint32_t o, unsigned glyph)
-{
-  const unsigned fmt = gs16(T, o);
-  if (fmt == 1) {
-    const unsigned start = gs16(T, o + 2), n = gs16(T, o + 4);
-    return glyph >= start && glyph < start + n ? gs16(T, o + 6 + 2 * (glyph - start)) : 0;
-  }
-  if (fmt == 2) {
-    int lo = 0, hi = (int)gs16(T, o + 2) - 1;
-    while (lo <= hi) {
-      const int mid = (lo + hi) / 2;
-      const uint32_t r = o + 4 + 6 * (uint32_t)mid;
-      if (glyph < gs16(T, r)) {
-        hi = mid - 1;
-      }
-      else if (glyph > gs16(T, r + 2)) {
-        lo = mid + 1;
-      }
-      else {
-        return gs16(T, r + 4);
-      }
-    }
-  }
-  return 0;
-}
-
-static int gs_reserve(GsubBuf *b, int n)
-{
-  if (n <= b->cap) {
-    return 1;
-  }
-  int cap = b->cap ? b->cap * 2 : 32;
-  while (cap < n) {
-    cap *= 2;
-  }
-  uint16_t *g = (uint16_t *)realloc(b->g, sizeof(uint16_t) * (size_t)cap);
-  if (!g) {
-    return 0;
-  }
-  b->g = g;
-  uint32_t *cp = (uint32_t *)realloc(b->cp, sizeof(uint32_t) * (size_t)cap);
-  if (!cp) {
-    return 0;
-  }
-  b->cp = cp;
-  b->cap = cap;
-  return 1;
-}
-
-/* Replaces `count` glyphs at `i` with `n` glyphs (keeping the first one's
- * character). */
-static int gs_replace(GsubBuf *b, int i, int count, const uint16_t *glyphs, int n)
-{
-  const uint32_t cp = b->cp[i];
-  if (n > count && !gs_reserve(b, b->n + n - count)) {
-    return 0;
-  }
-  memmove(b->g + i + n, b->g + i + count, sizeof(uint16_t) * (size_t)(b->n - i - count));
-  memmove(b->cp + i + n, b->cp + i + count, sizeof(uint32_t) * (size_t)(b->n - i - count));
-  for (int k = 0; k < n; k++) {
-    b->g[i + k] = glyphs[k];
-    b->cp[i + k] = cp;
-  }
-  b->n += n - count;
-  return 1;
-}
-
-static int gs_lookup_at(const GsubTab *T, uint32_t list, unsigned index, GsubBuf *b, int i,
-                        int depth, int *r_next);
-
-/* What a sequence position must match: a glyph id, a class of a class
- * definition, or a coverage table (offset from the subtable). */
-enum { GS_GLYPH = 0, GS_CLASS = 1, GS_COVER = 2 };
-
-static int gs_test(const GsubTab *T, int kind, uint32_t base, unsigned v, unsigned glyph)
-{
-  switch (kind) {
-    case GS_GLYPH:
-      return glyph == v;
-    case GS_CLASS:
-      return gs_class(T, base, glyph) == v;
-    default:
-      return gs_coverage(T, base + v, glyph) >= 0;
-  }
-}
-
-#  define GS_MAX_SEQ 32
-
-/* Matches `n` values (u16 at `vals`) forwards from glyph j as HarfBuzz's
- * skippy iterator does: a default ignorable (VS16, ZWJ, tags) that doesn't
- * match is skipped. Positions into r_pos; returns the index after the last
- * one, or -1. */
-static int gs_match_fwd(const GsubTab *T, const GsubBuf *b, int j, unsigned n, int kind,
-                        uint32_t base, uint32_t vals, int *r_pos)
-{
-  for (unsigned k = 0; k < n; k++) {
-    const unsigned v = gs16(T, vals + 2 * k);
-    while (j < b->n && !gs_test(T, kind, base, v, b->g[j]) && text_ignorable(b->cp[j])) {
-      j++;
-    }
-    if (j >= b->n || !gs_test(T, kind, base, v, b->g[j])) {
-      return -1;
-    }
-    if (r_pos) {
-      r_pos[k] = j;
-    }
-    j++;
-  }
-  return j;
-}
-
-/* The same backwards from glyph j (backtrack sequences). */
-static int gs_match_back(const GsubTab *T, const GsubBuf *b, int j, unsigned n, int kind,
-                         uint32_t base, uint32_t vals)
-{
-  for (unsigned k = 0; k < n; k++) {
-    const unsigned v = gs16(T, vals + 2 * k);
-    while (j >= 0 && !gs_test(T, kind, base, v, b->g[j]) && text_ignorable(b->cp[j])) {
-      j--;
-    }
-    if (j < 0 || !gs_test(T, kind, base, v, b->g[j])) {
-      return 0;
-    }
-    j--;
-  }
-  return 1;
-}
-
-/* Removes the glyphs at the (ascending) positions `pos` (ligature
- * components; the ignorables skipped between them stay, hidden later). */
-static void gs_remove(GsubBuf *b, const int *pos, int n)
-{
-  int w = pos[0], k = 0;
-  for (int r = pos[0]; r < b->n; r++) {
-    if (k < n && r == pos[k]) {
-      k++;
-      continue;
-    }
-    b->g[w] = b->g[r];
-    b->cp[w] = b->cp[r];
-    w++;
-  }
-  b->n = w;
-}
-
-/* A context rule matched at the input positions `pos` (count of them):
- * applies its SeqLookupRecords; *r_next: where the main loop goes on. */
-static void gs_apply_records(const GsubTab *T, uint32_t list, uint32_t recs, unsigned nrec,
-                             GsubBuf *b, int *pos, int count, int depth, int *r_next)
-{
-  for (unsigned k = 0; k < nrec; k++) {
-    const unsigned si = gs16(T, recs + 4 * k);
-    const unsigned lookup = gs16(T, recs + 4 * k + 2);
-    if ((int)si >= count || pos[si] >= b->n) {
-      continue;
-    }
-    const int before = b->n;
-    int next;
-    gs_lookup_at(T, list, lookup, b, pos[si], depth + 1, &next);
-    const int delta = b->n - before;
-    if (delta) { /* glyphs added or removed after pos[si] move the positions after it */
-      for (int m = 0; m < count; m++) {
-        if (m != (int)si && pos[m] > pos[si]) {
-          pos[m] += delta;
-        }
-      }
-    }
-  }
-  const int last = pos[count - 1];
-  *r_next = last + 1 > pos[0] ? last + 1 : pos[0] + 1;
-}
-
-/* One subtable at i. 1: applied (*r_next set). */
-static int gs_subtable(const GsubTab *T, uint32_t list, unsigned type, uint32_t st, GsubBuf *b,
-                       int i, int depth, int *r_next)
-{
-  const unsigned fmt = gs16(T, st);
-  const unsigned g = b->g[i];
-  int pos[GS_MAX_SEQ];
-  switch (type) {
-    case 1: {
-      const int c = gs_coverage(T, st + gs16(T, st + 2), g);
-      if (c < 0) {
-        return 0;
-      }
-      if (fmt == 1) {
-        b->g[i] = (uint16_t)(g + gs16(T, st + 4));
-      }
-      else if (fmt == 2 && (unsigned)c < gs16(T, st + 4)) {
-        b->g[i] = (uint16_t)gs16(T, st + 6 + 2 * (uint32_t)c);
-      }
-      else {
-        return 0;
-      }
-      *r_next = i + 1;
-      return 1;
-    }
-    case 2: {
-      const int c = gs_coverage(T, st + gs16(T, st + 2), g);
-      if (c < 0 || fmt != 1 || (unsigned)c >= gs16(T, st + 4)) {
-        return 0;
-      }
-      const uint32_t seq = st + gs16(T, st + 6 + 2 * (uint32_t)c);
-      const unsigned n = gs16(T, seq);
-      uint16_t out[GS_MAX_SEQ];
-      if (n > GS_MAX_SEQ) {
-        return 0;
-      }
-      for (unsigned k = 0; k < n; k++) {
-        out[k] = (uint16_t)gs16(T, seq + 2 + 2 * k);
-      }
-      if (!gs_replace(b, i, 1, out, (int)n)) {
-        return 0;
-      }
-      *r_next = i + (int)n;
-      return 1;
-    }
-    case 4: {
-      const int c = gs_coverage(T, st + gs16(T, st + 2), g);
-      if (c < 0 || fmt != 1 || (unsigned)c >= gs16(T, st + 4)) {
-        return 0;
-      }
-      const uint32_t set = st + gs16(T, st + 6 + 2 * (uint32_t)c);
-      const unsigned nlig = gs16(T, set);
-      for (unsigned l = 0; l < nlig; l++) {
-        const uint32_t lig = set + gs16(T, set + 2 + 2 * l);
-        const unsigned comps = gs16(T, lig + 2);
-        if (comps == 0 || comps > GS_MAX_SEQ) {
-          continue;
-        }
-        pos[0] = i;
-        if (comps > 1 && gs_match_fwd(T, b, i + 1, comps - 1, GS_GLYPH, 0, lig + 4, pos + 1) < 0) {
-          continue;
-        }
-        b->g[i] = (uint16_t)gs16(T, lig);
-        if (comps > 1) {
-          gs_remove(b, pos + 1, (int)comps - 1);
-        }
-        *r_next = i + 1;
-        return 1;
-      }
-      return 0;
-    }
-    case 5:
-    case 6: {
-      const int chained = type == 6;
-      pos[0] = i;
-      if (fmt == 3) {
-        uint32_t p = st + 2;
-        unsigned nb = 0, nla = 0, nrec = 0;
-        uint32_t back = 0, look = 0;
-        if (chained) {
-          nb = gs16(T, p);
-          back = p + 2;
-          p += 2 + 2 * nb;
-        }
-        const unsigned ni = gs16(T, p);
-        if (!chained) {
-          nrec = gs16(T, p + 2);
-        }
-        const uint32_t inp = p + 2 + (chained ? 0 : 2);
-        p = inp + 2 * ni;
-        if (chained) {
-          nla = gs16(T, p);
-          look = p + 2;
-          p += 2 + 2 * nla;
-          nrec = gs16(T, p);
-          p += 2;
-        }
-        if (ni == 0 || ni > GS_MAX_SEQ || gs_coverage(T, st + gs16(T, inp), g) < 0) {
-          return 0;
-        }
-        const int after = ni > 1 ? gs_match_fwd(T, b, i + 1, ni - 1, GS_COVER, st, inp + 2, pos + 1) :
-                                   i + 1;
-        if (after < 0 || !gs_match_back(T, b, i - 1, nb, GS_COVER, st, back) ||
-            gs_match_fwd(T, b, after, nla, GS_COVER, st, look, NULL) < 0)
-        {
-          return 0;
-        }
-        gs_apply_records(T, list, p, nrec, b, pos, (int)ni, depth, r_next);
-        return 1;
-      }
-      const int c = gs_coverage(T, st + gs16(T, st + 2), g);
-      if (c < 0 || (fmt != 1 && fmt != 2)) {
-        return 0;
-      }
-      /* format 1 compares glyphs, format 2 classes */
-      uint32_t bcd = 0, icd = 0, lcd = 0, sets;
-      unsigned nsets, idx;
-      if (fmt == 1) {
-        nsets = gs16(T, st + 4);
-        sets = st + 6;
-        idx = (unsigned)c;
-      }
-      else if (chained) {
-        bcd = st + gs16(T, st + 4);
-        icd = st + gs16(T, st + 6);
-        lcd = st + gs16(T, st + 8);
-        nsets = gs16(T, st + 10);
-        sets = st + 12;
-        idx = gs_class(T, icd, g);
-      }
-      else {
-        icd = st + gs16(T, st + 4);
-        nsets = gs16(T, st + 6);
-        sets = st + 8;
-        idx = gs_class(T, icd, g);
-      }
-      if (idx >= nsets || gs16(T, sets + 2 * idx) == 0) {
-        return 0;
-      }
-      const int kind = fmt == 1 ? GS_GLYPH : GS_CLASS;
-      const uint32_t set = st + gs16(T, sets + 2 * idx);
-      const unsigned nrules = gs16(T, set);
-      for (unsigned r = 0; r < nrules; r++) {
-        const uint32_t rule = set + gs16(T, set + 2 + 2 * r);
-        uint32_t p = rule;
-        unsigned nb = 0, nla = 0, ni, nrec;
-        uint32_t back = 0, inp, look = 0;
-        if (chained) {
-          nb = gs16(T, p);
-          back = p + 2;
-          p += 2 + 2 * nb;
-          ni = gs16(T, p);
-          inp = p + 2;
-          p += 2 + 2 * (ni ? ni - 1 : 0);
-          nla = gs16(T, p);
-          look = p + 2;
-          p += 2 + 2 * nla;
-          nrec = gs16(T, p);
-          p += 2;
-        }
-        else {
-          ni = gs16(T, p);
-          nrec = gs16(T, p + 2);
-          inp = p + 4;
-          p = inp + 2 * (ni ? ni - 1 : 0);
-        }
-        if (ni == 0 || ni > GS_MAX_SEQ) {
-          continue;
-        }
-        const int after = ni > 1 ? gs_match_fwd(T, b, i + 1, ni - 1, kind, icd, inp, pos + 1) :
-                                   i + 1;
-        if (after < 0 || !gs_match_back(T, b, i - 1, nb, kind, bcd, back) ||
-            gs_match_fwd(T, b, after, nla, kind, lcd, look, NULL) < 0)
-        {
-          continue;
-        }
-        gs_apply_records(T, list, p, nrec, b, pos, (int)ni, depth, r_next);
-        return 1;
-      }
-      return 0;
-    }
-    default:
-      return 0;
-  }
-}
-
-/* Lookup `index` at glyph i. 1: applied. */
-static int gs_lookup_at(const GsubTab *T, uint32_t list, unsigned index, GsubBuf *b, int i,
-                        int depth, int *r_next)
-{
-  if (depth > 8 || index >= gs16(T, list) || i >= b->n) {
-    return 0;
-  }
-  const uint32_t lk = list + gs16(T, list + 2 + 2 * index);
-  unsigned type = gs16(T, lk);
-  const unsigned nsub = gs16(T, lk + 4);
-  for (unsigned s = 0; s < nsub; s++) {
-    uint32_t st = lk + gs16(T, lk + 6 + 2 * s);
-    unsigned t = type;
-    if (t == 7) { /* extension */
-      t = gs16(T, st + 2);
-      st += gs32(T, st + 4);
-    }
-    if (gs_subtable(T, list, t, st, b, i, depth, r_next)) {
-      return 1;
-    }
-  }
-  return 0;
-}
-
 /** \} */
 
 /* -------------------------------------------------------------------- */
@@ -689,13 +170,14 @@ typedef struct FbCand {
 
 typedef struct FbList {
   char family[64];
+  char lang[16]; /* the language fonts are sorted for ("": the user's) */
   int weight, italic;
   int n;
   FbCand *c;
   void *set; /* fontconfig: the FcFontSet the list reads charsets from */
 } FbList;
 
-#  define MAX_FB_LISTS 8
+#  define MAX_FB_LISTS 16 /* fb_find's memo keys hold 4 bits of list */
 static FbList g_fb[MAX_FB_LISTS];
 static int g_fb_count = 0;
 
@@ -753,6 +235,9 @@ static int fb_build_fc(FbList *l)
   g_fc.PatternAddString(pat, "family", (const FcChar8_ *)(l->family[0] ? l->family : "sans-serif"));
   g_fc.PatternAddInteger(pat, "weight", g_fc.WeightFromOpenType(l->weight));
   g_fc.PatternAddInteger(pat, "slant", l->italic ? 100 : 0);
+  if (l->lang[0]) {
+    g_fc.PatternAddString(pat, "lang", (const FcChar8_ *)l->lang);
+  }
   g_fc.ConfigSubstitute(NULL, pat, 0 /* FcMatchPattern */);
   g_fc.DefaultSubstitute(pat);
   int result = 0;
@@ -841,7 +326,14 @@ static void fb_add_files(FbList *l, int *cap, const char *names)
     const int n = end ? (int)(end - p) : (int)strlen(p);
     for (int d = 0; d < nd; d++) {
       char path[600];
-      snprintf(path, sizeof(path), "%s/%.*s", dirs[d], n, p);
+      const size_t dl = strlen(dirs[d]);
+      if (dl + 1 + (size_t)n >= sizeof(path)) {
+        continue; /* never a truncated path */
+      }
+      memcpy(path, dirs[d], dl);
+      path[dl] = '/';
+      memcpy(path + dl + 1, p, (size_t)n);
+      path[dl + 1 + (size_t)n] = 0;
 #  ifdef _WIN32
       const DWORD attr = GetFileAttributesA(path);
       const int exists = attr != INVALID_FILE_ATTRIBUTES && !(attr & FILE_ATTRIBUTE_DIRECTORY);
@@ -938,11 +430,16 @@ static int fb_build_files(FbList *l, int emoji)
   return l->n > 0;
 }
 
-static FbList *fb_list(const char *family, int weight, int italic)
+static FbList *fb_list(const char *family, int weight, int italic, const char *lang)
 {
+#  if defined(_WIN32) || defined(__APPLE__) || defined(__EMSCRIPTEN__)
+  lang = ""; /* the file lists don't depend on it */
+#  endif
   for (int i = 0; i < g_fb_count; i++) {
     FbList *l = &g_fb[i];
-    if (l->weight == weight && l->italic == italic && strcmp(l->family, family) == 0) {
+    if (l->weight == weight && l->italic == italic && strcmp(l->family, family) == 0 &&
+        strcmp(l->lang, lang) == 0)
+    {
       return l;
     }
   }
@@ -952,6 +449,7 @@ static FbList *fb_list(const char *family, int weight, int italic)
   FbList *l = &g_fb[g_fb_count++];
   memset(l, 0, sizeof(*l));
   snprintf(l->family, sizeof(l->family), "%s", family);
+  snprintf(l->lang, sizeof(l->lang), "%s", lang);
   l->weight = weight;
   l->italic = italic;
   const int emoji = strcmp(family, "emoji") == 0;
@@ -1078,12 +576,76 @@ static int fb_find(FbList *l, uint32_t cp, int color)
 /** \} */
 
 /* -------------------------------------------------------------------- */
-/** \name Itemization: the font of every character, then glyphs
+/** \name HarfBuzz faces and fonts
+ *
+ * One hb_face per face (over the face's own bytes, no copy) and one
+ * hb_font per slot, set up as Pango sets up its fonts
+ * (pango_fc_font_create_hb_font): scale in Pango units (1/1024 px), the
+ * slot's variation coordinates, the synthetic slant.
  * \{ */
 
-static int face_glyph(int face, uint32_t cp)
+static hb_face_t *face_hb(Face *f)
 {
-  const Face *f = &g_faces[face];
+  if (!f->hb && f->data) {
+    hb_blob_t *blob = hb_blob_create((const char *)f->data, (unsigned int)f->len,
+                                     HB_MEMORY_MODE_READONLY, NULL, NULL);
+    f->hb = hb_face_create(blob, (unsigned int)f->index);
+    hb_blob_destroy(blob);
+  }
+  return (hb_face_t *)f->hb;
+}
+
+static hb_font_t *slot_hb(FontSlot *s)
+{
+  if (s->hb) {
+    return (hb_font_t *)s->hb;
+  }
+  Face *f = &g_faces[s->face];
+  hb_face_t *face = face_hb(f);
+  if (!face) {
+    return NULL;
+  }
+  hb_font_t *font = hb_font_create(face);
+  /* the size in whole Pango units (1/1024 px), as Pango rounds it (get_scaled_size) */
+  const int scale = (int)(s->size * 1024.0f + 0.5f);
+  hb_font_set_scale(font, scale, scale);
+  hb_font_set_ptem(font, (float)s->px64 / 64.0f * 0.75f);
+  if (s->synth & BUI_FONT_ITALIC) {
+    hb_font_set_synthetic_slant(font, 0.2f);
+  }
+#  if TEXT_FT
+  if (f->mm) {
+    hb_variation_t v[2];
+    unsigned int nv = 0;
+    if (f->ax_wght >= 0) {
+      v[nv].tag = HB_TAG('w', 'g', 'h', 't');
+      v[nv++].value = s->wght > 0.0f ? s->wght : f->wght;
+    }
+    if (f->ax_opsz >= 0) {
+      v[nv].tag = HB_TAG('o', 'p', 's', 'z');
+      v[nv++].value = s->opsz;
+    }
+    if (nv) {
+      hb_font_set_variations(font, v, nv);
+    }
+  }
+#  endif
+  s->hb = font;
+  return font;
+}
+
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Itemization and shaping
+ *
+ * A run's characters get a bidi level, a script, an emoji segment and a
+ * font; items are the stretches where none of them changes, shaped one by
+ * one by HarfBuzz and laid out in visual order.
+ * \{ */
+
+static int face_glyph_lookup(const Face *f, uint32_t cp)
+{
 #  if TEXT_FT
   if (f->ft_only) {
     return (int)FT_Get_Char_Index(f->ft, (FT_ULong)cp);
@@ -1092,134 +654,79 @@ static int face_glyph(int face, uint32_t cp)
   return stbtt_FindGlyphIndex(&f->info, (int)cp);
 }
 
+static int face_glyph(int face, uint32_t cp)
+{
+  Face *f = &g_faces[face];
+  if (cp < 128) {
+    /* ASCII, the common case: a table per face (256 bytes, for its life) */
+    if (!f->ascii) {
+      f->ascii = (uint16_t *)malloc(sizeof(uint16_t) * 128);
+      if (!f->ascii) {
+        return face_glyph_lookup(f, cp);
+      }
+      for (uint32_t c = 0; c < 128; c++) {
+        f->ascii[c] = (uint16_t)face_glyph_lookup(f, c);
+      }
+    }
+    return f->ascii[cp];
+  }
+  return face_glyph_lookup(f, cp);
+}
+
 static int face_has(int face, uint32_t cp)
 {
   return face_glyph(face, cp) != 0;
 }
 
-/* The GSUB lookups of the features an emoji sequence needs (ccmp, liga,
- * rlig, clig), read once per face. */
-static int face_gsub(Face *f)
-{
-  if (f->gsub_n >= 0) {
-    return f->gsub_n > 0;
-  }
-  f->gsub_n = 0;
-  const uint8_t *d = f->data;
-  const uint32_t start = (uint32_t)f->fontstart;
-  if (!d || f->len < 12 || start + 12 > (uint32_t)f->len) {
-    return 0;
-  }
-  const unsigned ntab = ((unsigned)d[start + 4] << 8) | d[start + 5];
-  uint32_t off = 0, len = 0;
-  for (unsigned i = 0; i < ntab; i++) {
-    const uint32_t r = start + 12 + 16 * i;
-    if (r + 16 > (uint32_t)f->len) {
-      break;
-    }
-    if (memcmp(d + r, "GSUB", 4) == 0) {
-      off = ((uint32_t)d[r + 8] << 24) | ((uint32_t)d[r + 9] << 16) | ((uint32_t)d[r + 10] << 8) |
-            d[r + 11];
-      len = ((uint32_t)d[r + 12] << 24) | ((uint32_t)d[r + 13] << 16) |
-            ((uint32_t)d[r + 14] << 8) | d[r + 15];
-      break;
-    }
-  }
-  if (!off || off >= (uint32_t)f->len || len > (uint32_t)f->len - off) {
-    return 0;
-  }
-  const GsubTab T = {d + off, len};
-  const uint32_t feats = gs16(&T, 6), list = gs16(&T, 8);
-  const unsigned nfeat = gs16(&T, feats), nlook = gs16(&T, list);
-  if (!nlook) {
-    return 0;
-  }
-  uint8_t *want = (uint8_t *)calloc(nlook, 1);
-  if (!want) {
-    return 0;
-  }
-  int n = 0;
-  for (unsigned i = 0; i < nfeat; i++) {
-    const uint32_t rec = feats + 2 + 6 * i;
-    if (rec + 6 > len) {
-      break;
-    }
-    const uint8_t *tag = T.t + rec;
-    if (memcmp(tag, "ccmp", 4) && memcmp(tag, "liga", 4) && memcmp(tag, "rlig", 4) &&
-        memcmp(tag, "clig", 4))
-    {
-      continue;
-    }
-    const uint32_t ft = feats + gs16(&T, rec + 4);
-    const unsigned nl = gs16(&T, ft + 2);
-    for (unsigned k = 0; k < nl; k++) {
-      const unsigned li = gs16(&T, ft + 4 + 2 * k);
-      if (li < nlook && !want[li]) {
-        want[li] = 1;
-        n++;
-      }
-    }
-  }
-  if (n > 0) {
-    f->gsub = (uint16_t *)malloc(sizeof(uint16_t) * (size_t)n);
-    if (f->gsub) {
-      int k = 0;
-      for (unsigned li = 0; li < nlook; li++) {
-        if (want[li]) {
-          f->gsub[k++] = (uint16_t)li;
-        }
-      }
-      f->gsub_off = off;
-      f->gsub_len = len;
-      f->gsub_n = n;
-    }
-  }
-  free(want);
-  return f->gsub_n > 0;
-}
-
-static void face_gsub_apply(Face *f, GsubBuf *b)
-{
-  if (!face_gsub(f)) {
-    return;
-  }
-  const GsubTab T = {f->data + f->gsub_off, f->gsub_len};
-  const uint32_t list = gs16(&T, 8);
-  for (int l = 0; l < f->gsub_n; l++) {
-    for (int i = 0; i < b->n;) {
-      int next = i + 1;
-      if (gs_lookup_at(&T, list, f->gsub[l], b, i, 0, &next) && next > i) {
-        i = next;
-      }
-      else {
-        i++;
-      }
-    }
-  }
-}
-
-/* One glyph of a run after itemization. */
+/* One glyph of a run, in visual order. */
 typedef struct WGlyph {
   uint16_t glyph;
   uint8_t slot;
-  uint8_t flags; /* WG_ADV: `adv` replaces the glyph's advance */
-  float adv;
+  uint8_t flags; /* WG_RTL: from a right-to-left item; WG_HIDE: not drawn */
+  float x;       /* pen position (sum of the advances before it), px */
+  float adv;     /* advance, px (whole pixels with hinted metrics) */
+  float dx, dy;  /* offset from the pen (dy down), px */
+  int cluster;   /* byte offset of the character (cluster) it shows */
+  int item;      /* the item it belongs to */
 } WGlyph;
-#  define WG_ADV 1
+#  define WG_RTL 1
+#  define WG_HIDE 2
+
+/* An item: a stretch of one level, script, segment and font. */
+typedef struct WItem {
+  int start, end; /* byte range */
+  uint8_t level;
+  uint8_t slot;
+} WItem;
 
 typedef struct WRun {
   WGlyph *g;
   int n, cap;
-  WGlyph local[64];
+  WItem *it;
+  int nit, capit;
+  float width;
+  WGlyph local[48];
+  WItem ilocal[8];
 } WRun;
 
-static void wrun_push(WRun *w, int slot, int glyph, int flags, float adv)
+static void wrun_init(WRun *w)
+{
+  w->g = w->local;
+  w->cap = (int)(sizeof(w->local) / sizeof(w->local[0]));
+  w->n = 0;
+  w->it = w->ilocal;
+  w->capit = (int)(sizeof(w->ilocal) / sizeof(w->ilocal[0]));
+  w->nit = 0;
+  w->width = 0.0f;
+}
+
+static WGlyph *wrun_push(WRun *w)
 {
   if (w->n == w->cap) {
     const int cap = w->cap * 2;
     WGlyph *g = (WGlyph *)malloc(sizeof(WGlyph) * (size_t)cap);
     if (!g) {
-      return;
+      return NULL;
     }
     memcpy(g, w->g, sizeof(WGlyph) * (size_t)w->n);
     if (w->g != w->local) {
@@ -1228,11 +735,25 @@ static void wrun_push(WRun *w, int slot, int glyph, int flags, float adv)
     w->g = g;
     w->cap = cap;
   }
-  WGlyph *o = &w->g[w->n++];
-  o->glyph = (uint16_t)glyph;
-  o->slot = (uint8_t)slot;
-  o->flags = (uint8_t)flags;
-  o->adv = adv;
+  return &w->g[w->n++];
+}
+
+static WItem *wrun_item(WRun *w)
+{
+  if (w->nit == w->capit) {
+    const int cap = w->capit * 2;
+    WItem *it = (WItem *)malloc(sizeof(WItem) * (size_t)cap);
+    if (!it) {
+      return NULL;
+    }
+    memcpy(it, w->it, sizeof(WItem) * (size_t)w->nit);
+    if (w->it != w->ilocal) {
+      free(w->it);
+    }
+    w->it = it;
+    w->capit = cap;
+  }
+  return &w->it[w->nit++];
 }
 
 static void wrun_free(WRun *w)
@@ -1240,85 +761,237 @@ static void wrun_free(WRun *w)
   if (w->g != w->local) {
     free(w->g);
   }
+  if (w->it != w->ilocal) {
+    free(w->it);
+  }
 }
 
-/* The glyph of `cp` in `slot`'s face, or nothing for a default ignorable;
- * a space the face lacks becomes its space glyph at HarfBuzz's width. */
-static void wrun_char(WRun *w, int slot, uint32_t cp, int glyph)
+static hb_buffer_t *g_hb_buf = NULL;
+
+#  define TEXT_INVISIBLE 0x10FFFFu /* the glyph HarfBuzz gives default ignorables */
+
+/* Shapes characters [a, b) of `cp` (the run's text, the context) in slot
+ * `slot` at bidi level `level`, script `script`, language `lang`, and
+ * appends their glyphs (visual order) at pen `*pen`. */
+static void text_shape_item(WRun *w, int slot, const uint32_t *cp, const int *off, int n, int a, int b,
+                            int level, hb_script_t script, const char *lang, float *pen)
 {
-  if (text_ignorable(cp)) {
+  FontSlot *s = &g_fonts[slot];
+  hb_font_t *font = slot_hb(s);
+  if (!font) {
     return;
   }
-  if (glyph == 0 && cp != ' ' && text_is_space_sep(cp)) {
-    const FontSlot *s = &g_fonts[slot];
-    const int space = face_glyph(s->face, ' ');
-    if (space) {
-      const float em = text_space_em(cp);
-      wrun_push(w, slot, space, em > 0.0f ? WG_ADV : 0, em * (float)s->px64 / 64.0f);
+  if (!g_hb_buf) {
+    g_hb_buf = hb_buffer_create();
+  }
+  hb_buffer_t *buf = g_hb_buf;
+  hb_buffer_clear_contents(buf);
+  hb_buffer_set_direction(buf, (level & 1) ? HB_DIRECTION_RTL : HB_DIRECTION_LTR);
+  hb_buffer_set_script(buf, script);
+  hb_buffer_set_language(buf, hb_language_from_string(lang, -1));
+  hb_buffer_set_cluster_level(buf, HB_BUFFER_CLUSTER_LEVEL_MONOTONE_CHARACTERS);
+  hb_buffer_set_flags(buf, (hb_buffer_flags_t)(HB_BUFFER_FLAG_BOT | HB_BUFFER_FLAG_EOT));
+  hb_buffer_set_invisible_glyph(buf, TEXT_INVISIBLE);
+  hb_buffer_add_codepoints(buf, cp, n, (unsigned int)a, b - a);
+  hb_shape(font, buf, NULL, 0);
+  unsigned int ng = 0;
+  const hb_glyph_info_t *info = hb_buffer_get_glyph_infos(buf, &ng);
+  const hb_glyph_position_t *pos = hb_buffer_get_glyph_positions(buf, NULL);
+  const float k = 1.0f / 1024.0f;
+  const int item = w->nit - 1;
+  for (unsigned int i = 0; i < ng; i++) {
+    WGlyph *g = wrun_push(w);
+    if (!g) {
       return;
     }
+    float adv = (float)pos[i].x_advance * k;
+    if (adv != 0.0f) {
+      adv += s->embolden;
+    }
+    if (g_hint_metrics) {
+      adv = floorf(adv + 0.5f); /* PANGO_UNITS_ROUND of the width */
+    }
+    g->glyph = (uint16_t)(info[i].codepoint == TEXT_INVISIBLE ? 0 : info[i].codepoint);
+    g->slot = (uint8_t)slot;
+    g->flags = (uint8_t)(((level & 1) ? WG_RTL : 0) | (info[i].codepoint == TEXT_INVISIBLE ? WG_HIDE : 0));
+    g->x = *pen;
+    g->adv = adv;
+    g->dx = (float)pos[i].x_offset * k;
+    g->dy = -(float)pos[i].y_offset * k;
+    g->cluster = off[info[i].cluster];
+    g->item = item;
+    *pen += adv;
   }
-  wrun_push(w, slot, glyph, 0, 0.0f);
 }
 
-/* The glyphs of `utf8` in slot `slot` and its fallbacks. */
-static void text_itemize(int slot, const char *utf8, int len, WRun *w)
+/* Visual order of items `it` (bidi rule L2 over their levels). */
+static void text_reorder(const WItem *it, int n, int *order)
 {
-  const FontSlot *s = &g_fonts[slot];
-  const int face0 = s->face;
-  w->g = w->local;
-  w->cap = (int)(sizeof(w->local) / sizeof(w->local[0]));
-  w->n = 0;
-  /* the common case: characters the font has, none of them special */
-  int i = 0;
-  for (; i < len;) {
-    const unsigned char c = (unsigned char)utf8[i];
-    if (c >= 0x80 || (c < 0x20 && c != '\t') || c == 0x7F) {
-      break;
+  int maxl = 0, minodd = 255;
+  for (int i = 0; i < n; i++) {
+    order[i] = i;
+    maxl = it[i].level > maxl ? it[i].level : maxl;
+    if ((it[i].level & 1) && it[i].level < minodd) {
+      minodd = it[i].level;
     }
-    const int glyph = face_glyph(face0, c == '\t' ? ' ' : c);
-    if (!glyph) {
-      break;
-    }
-    wrun_push(w, slot, glyph, 0, 0.0f);
-    i++;
   }
-  if (i == len) {
+  for (int l = maxl; l >= minodd && l > 0; l--) {
+    for (int i = 0; i < n;) {
+      if (it[order[i]].level < l) {
+        i++;
+        continue;
+      }
+      int j = i;
+      while (j < n && it[order[j]].level >= l) {
+        j++;
+      }
+      for (int p = i, q = j - 1; p < q; p++, q--) {
+        const int t = order[p];
+        order[p] = order[q];
+        order[q] = t;
+      }
+      i = j;
+    }
+  }
+}
+
+/* The glyphs of `utf8` in slot `slot` and its fallbacks, in visual order.
+ * `dir`: 0 a paragraph of its own (direction from its first strong
+ * character, left-to-right when none), 1 one left-to-right level, 2 one
+ * right-to-left level. */
+static void text_itemize(int slot, const char *utf8, int len, int dir, WRun *w)
+{
+  wrun_init(w);
+  if (len <= 0) {
     return;
   }
-  w->n = 0; /* start over: fonts change, and spaces before may change with them */
-  /* characters, emoji categories, segments, fonts and their positions */
+  const FontSlot *s = &g_fonts[slot];
+  const int face0 = s->face;
+  /* the common case: printable ASCII the font has, in a left-to-right run
+   * or paragraph: one item (Pango's itemizer finds nothing to split it:
+   * level 0, the Latin script, or Common without letters, no emoji, one
+   * font) */
+  if (dir != 2 && len <= 4096) {
+    int letters = 0, i = 0;
+    for (; i < len; i++) {
+      const unsigned char c = (unsigned char)utf8[i];
+      if (c < 0x20 || c >= 0x7F || !face_glyph(face0, c)) {
+        break;
+      }
+      letters |= (c | 0x20) >= 'a' && (c | 0x20) <= 'z';
+    }
+    if (i == len) {
+      uint32_t cps[256];
+      int offs[257];
+      uint32_t *cp = len <= 256 ? cps : (uint32_t *)malloc(sizeof(uint32_t) * (size_t)len);
+      int *off = len <= 256 ? offs : (int *)malloc(sizeof(int) * (size_t)(len + 1));
+      WItem *it = cp && off ? wrun_item(w) : NULL;
+      if (it) {
+        for (int k = 0; k < len; k++) {
+          cp[k] = (unsigned char)utf8[k];
+          off[k] = k;
+        }
+        off[len] = len;
+        it->start = 0;
+        it->end = len;
+        it->level = 0;
+        it->slot = (uint8_t)slot;
+        const hb_script_t script = letters ? HB_SCRIPT_LATIN : HB_SCRIPT_COMMON;
+        float pen = 0.0f;
+        text_shape_item(w, slot, cp, off, len, 0, len, 0, script, text_script_lang(script), &pen);
+        w->width = pen;
+      }
+      if (cp != cps) {
+        free(cp);
+      }
+      if (off != offs) {
+        free(off);
+      }
+      if (it) {
+        return;
+      }
+      wrun_free(w);
+      wrun_init(w);
+    }
+  }
+  /* characters: code points, their byte offsets, levels, scripts, emoji
+   * segments and fonts */
   int n = 0;
   for (int k = 0; k < len; n++) {
     utf8_next(utf8, len, &k);
   }
   typedef struct Ch {
-    uint32_t cp;
     int16_t slot; /* -1: a space (takes its run's font) */
     uint8_t seg;  /* 1: emoji segment, 2: with a variation selector */
+    uint8_t level;
     int pos;      /* the font's position in its list (Pango's font_position) */
+    hb_script_t script;
   } Ch;
-  Ch local[96];
-  unsigned char tlocal[96];
-  Ch *ch = n <= 96 ? local : (Ch *)malloc(sizeof(Ch) * (size_t)n);
-  unsigned char *types = n <= 96 ? tlocal : (unsigned char *)malloc((size_t)n);
-  if (!ch || !types) {
-    if (ch != local) {
-      free(ch);
+  enum { LOCAL = 64 };
+  Ch chl[LOCAL];
+  uint32_t cpl[LOCAL];
+  int offl[LOCAL + 1];
+  unsigned char tl[LOCAL];
+  Ch *ch = chl;
+  uint32_t *cp = cpl;
+  int *off = offl;
+  unsigned char *types = tl;
+  if (n > LOCAL) {
+    ch = (Ch *)malloc(sizeof(Ch) * (size_t)n);
+    cp = (uint32_t *)malloc(sizeof(uint32_t) * (size_t)n);
+    off = (int *)malloc(sizeof(int) * (size_t)(n + 1));
+    types = (unsigned char *)malloc((size_t)n);
+    if (!ch || !cp || !off || !types) {
+      goto out;
     }
-    if (types != tlocal) {
-      free(types);
-    }
-    return;
   }
   for (int k = 0, j = 0; k < len; j++) {
-    ch[j].cp = (uint32_t)utf8_next(utf8, len, &k);
-    if (ch[j].cp == '\t') {
-      ch[j].cp = ' ';
+    off[j] = k;
+    cp[j] = (uint32_t)utf8_next(utf8, len, &k);
+    if (cp[j] == '\t') {
+      cp[j] = ' ';
     }
-    types[j] = emoji_category(ch[j].cp);
+  }
+  off[n] = len;
+  /* bidi levels */
+  {
+    uint8_t lvl[LOCAL];
+    uint8_t *lv = n <= LOCAL ? lvl : (uint8_t *)malloc((size_t)n);
+    if (!lv) {
+      goto out;
+    }
+    if (dir == 1 || dir == 2) {
+      memset(lv, dir == 2 ? 1 : 0, (size_t)n);
+    }
+    else {
+      text_levels(cp, n, text_strong_dir(cp, n) == 2, lv);
+    }
+    for (int j = 0; j < n; j++) {
+      ch[j].level = lv[j];
+    }
+    if (lv != lvl) {
+      free(lv);
+    }
+  }
+  /* scripts */
+  {
+    hb_script_t scl[LOCAL];
+    hb_script_t *sc = n <= LOCAL ? scl : (hb_script_t *)malloc(sizeof(hb_script_t) * (size_t)n);
+    if (!sc) {
+      goto out;
+    }
+    text_scripts(cp, n, sc);
+    for (int j = 0; j < n; j++) {
+      ch[j].script = sc[j];
+    }
+    if (sc != scl) {
+      free(sc);
+    }
   }
   /* Pango's emoji iterator */
+  for (int j = 0; j < n; j++) {
+    types[j] = emoji_category(cp[j]);
+  }
   for (int p = 0; p < n;) {
     bool is_emoji = false, has_vs = false;
     int q = (int)(scan_emoji_presentation(types + p, types + n, &is_emoji, &has_vs) - types);
@@ -1336,25 +1009,30 @@ static void text_itemize(int slot, const char *utf8, int len, WRun *w)
     weight = (s->flags & BUI_FONT_BOLD) ? 700 : 400;
   }
   const int italic = (s->flags & BUI_FONT_ITALIC) != 0;
+  text_langs_init();
   FbList *text_list = NULL, *emoji_list = NULL;
   int text_tried = 0, emoji_tried = 0;
+#  if !defined(_WIN32) && !defined(__APPLE__) && !defined(__EMSCRIPTEN__)
+  FbList *lang_list = NULL;
+  const char *lang_of_list = NULL;
+#  endif
   for (int k = 0; k < n; k++) {
     Ch *c = &ch[k];
     c->slot = -1;
     c->pos = 0xFFFF;
-    if (text_space_like(c->cp)) {
+    if (text_space_like(cp[k])) {
       continue;
     }
     if (c->seg & 1) { /* the "emoji" family, a colour font when a VS16 asks */
       if (!emoji_tried) {
         emoji_tried = 1;
-        emoji_list = fb_list("emoji", weight, italic);
+        emoji_list = fb_list("emoji", weight, italic, "");
       }
       int cand = -1;
       if (emoji_list) {
-        cand = fb_find(emoji_list, c->cp, (c->seg & 2) != 0);
+        cand = fb_find(emoji_list, cp[k], (c->seg & 2) != 0);
         if (cand < 0 && (c->seg & 2)) {
-          cand = fb_find(emoji_list, c->cp, 0);
+          cand = fb_find(emoji_list, cp[k], 0);
         }
       }
       const int fs = cand >= 0 ? slot_fallback(slot, fb_face(emoji_list, cand)) : -1;
@@ -1364,16 +1042,34 @@ static void text_itemize(int slot, const char *utf8, int len, WRun *w)
         continue;
       }
     }
-    if (face_has(face0, c->cp)) {
+#  if !defined(_WIN32) && !defined(__APPLE__) && !defined(__EMSCRIPTEN__)
+    /* a script the user's language doesn't write: the fonts fontconfig
+     * sorts for the language Pango derives for it */
+    const char *lang = text_script_lang(c->script);
+    if (lang != g_lang_default) {
+      if (lang != lang_of_list) {
+        lang_of_list = lang;
+        lang_list = fb_list(s->family, weight, italic, lang);
+      }
+      if (lang_list && lang_list->set) {
+        const int cand = fb_find(lang_list, cp[k], 0);
+        const int fs = cand >= 0 ? slot_fallback(slot, fb_face(lang_list, cand)) : -1;
+        c->slot = (int16_t)(fs >= 0 ? fs : slot);
+        c->pos = fs >= 0 ? cand : 0;
+        continue;
+      }
+    }
+#  endif
+    if (face_has(face0, cp[k])) {
       c->slot = (int16_t)slot;
       c->pos = 0;
       continue;
     }
     if (!text_tried) {
       text_tried = 1;
-      text_list = fb_list(s->family, weight, italic);
+      text_list = fb_list(s->family, weight, italic, "");
     }
-    const int cand = text_list ? fb_find(text_list, c->cp, 0) : -1;
+    const int cand = text_list ? fb_find(text_list, cp[k], 0) : -1;
     const int fs = cand >= 0 ? slot_fallback(slot, fb_face(text_list, cand)) : -1;
     c->slot = (int16_t)(fs >= 0 ? fs : slot);
     c->pos = fs >= 0 ? cand + 1 : 0;
@@ -1381,7 +1077,7 @@ static void text_itemize(int slot, const char *utf8, int len, WRun *w)
   /* items, as Pango's itemize_state_add_character: spaces take the font of
    * the item they are in, or of the next character when an item starts
    * with them; trailing spaces move to the next item when its font is
-   * less of a fallback */
+   * less of a fallback. Levels, scripts and emoji segments split items. */
   int item_start = 0, item_slot = -1, item_pos = 0, first_space = -1;
   for (int k = 0; k < n; k++) {
     const int is_space = ch[k].slot < 0;
@@ -1396,7 +1092,8 @@ static void text_itemize(int slot, const char *utf8, int len, WRun *w)
     }
     int fslot = ch[k].slot, fpos = ch[k].pos;
     if (k > 0) {
-      const int seg_change = ch[k].seg != ch[k - 1].seg; /* emoji segments are runs of their own */
+      const int seg_change = ch[k].seg != ch[k - 1].seg || ch[k].level != ch[k - 1].level ||
+                             ch[k].script != ch[k - 1].script;
       if (!seg_change) {
         if (item_slot < 0 && fslot >= 0) {
           item_slot = fslot;
@@ -1425,39 +1122,69 @@ static void text_itemize(int slot, const char *utf8, int len, WRun *w)
   for (int j = item_start; j < n; j++) {
     ch[j].slot = (int16_t)(item_slot >= 0 ? item_slot : slot);
   }
-  /* glyphs, item by item; emoji sequences through the colour font's GSUB */
-  GsubBuf b = {NULL, NULL, 0, 0};
+  /* items in logical order, then shaped in visual order */
   for (int k = 0; k < n;) {
     int e = k + 1;
-    while (e < n && ch[e].slot == ch[k].slot && ch[e].seg == ch[k].seg) {
+    while (e < n && ch[e].slot == ch[k].slot && ch[e].seg == ch[k].seg &&
+           ch[e].level == ch[k].level && ch[e].script == ch[k].script)
+    {
       e++;
     }
-    const int is = ch[k].slot;
-    const int face = g_fonts[is].face;
-    if ((ch[k].seg & 1) && e - k > 1 && is != slot && gs_reserve(&b, e - k)) {
-      b.n = e - k;
-      for (int j = k; j < e; j++) {
-        b.g[j - k] = (uint16_t)face_glyph(face, ch[j].cp);
-        b.cp[j - k] = ch[j].cp;
-      }
-      face_gsub_apply(&g_faces[face], &b);
-      for (int j = 0; j < b.n; j++) {
-        wrun_char(w, is, b.cp[j], b.g[j]);
-      }
+    WItem *it = wrun_item(w);
+    if (!it) {
+      goto out;
     }
-    else {
-      for (int j = k; j < e; j++) {
-        wrun_char(w, is, ch[j].cp, face_glyph(face, ch[j].cp));
-      }
-    }
+    it->start = k; /* characters for now, bytes below */
+    it->end = e;
+    it->level = ch[k].level;
+    it->slot = (uint8_t)ch[k].slot;
     k = e;
   }
-  free(b.g);
-  free(b.cp);
-  if (ch != local) {
+  {
+    int ordl[8];
+    int *order = w->nit <= 8 ? ordl : (int *)malloc(sizeof(int) * (size_t)w->nit);
+    if (!order) {
+      goto out;
+    }
+    text_reorder(w->it, w->nit, order);
+    float pen = 0.0f;
+    const int nit = w->nit;
+    for (int v = 0; v < nit; v++) {
+      const int i = order[v];
+      const WItem item = w->it[i];
+      /* text_shape_item appends to the last item: make it this one */
+      WItem *slotted = wrun_item(w);
+      if (!slotted) {
+        break;
+      }
+      *slotted = item;
+      slotted->start = off[item.start];
+      slotted->end = off[item.end];
+      text_shape_item(w, item.slot, cp, off, n, item.start, item.end, item.level,
+                      ch[item.start].script, text_script_lang(ch[item.start].script), &pen);
+    }
+    /* keep the items in visual order (the shaped copies) */
+    memmove(w->it, w->it + nit, sizeof(WItem) * (size_t)(w->nit - nit));
+    w->nit -= nit;
+    for (int i = 0; i < w->n; i++) {
+      w->g[i].item -= nit;
+    }
+    w->width = pen;
+    if (order != ordl) {
+      free(order);
+    }
+  }
+out:
+  if (ch != chl) {
     free(ch);
   }
-  if (types != tlocal) {
+  if (cp != cpl) {
+    free(cp);
+  }
+  if (off != offl) {
+    free(off);
+  }
+  if (types != tl) {
     free(types);
   }
 }

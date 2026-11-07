@@ -60,6 +60,7 @@ typedef struct CollExt {
   bool show_header;
   int item_w, item_h; /* grid content size, logical */
   int row_h;          /* list row height, logical */
+  int row_gap;        /* list: blank below each row, logical (Awra 1's spaced-rows) */
   int max_cols;
   /* computed, raster */
   int header_h, grid_cols, tile_h, content_h, view_h;
@@ -86,6 +87,10 @@ typedef struct CollExt {
   bool band, dnd;
   double band_x0, band_y0, band_x1, band_y1; /* content coordinates, raster */
   uint8_t *band_initial;
+  /* its look (awra_collection_view_set_band_style): 0 Awra 1's rubberband */
+  bool band_styled, band_accent, band_fade;
+  float band_fill, band_border, band_radius;
+  float band_strength; /* 1 while drawn, down to 0 as it lets go */
   unsigned edge_timer;
   int last_x, last_y;
   int resize_col, resize_w0;
@@ -192,7 +197,7 @@ static void compute_geometry(AwraWidget *w)
     compute_columns(w);
     x->grid_cols = 1;
     x->col_w = w->w;
-    x->tile_h = list_row_h(x);
+    x->tile_h = list_row_h(x) + awra_px(x->row_gap);
     x->content_h = x->n * x->tile_h;
   }
   const double maxv = BK_MAX(0, x->content_h - x->view_h);
@@ -223,7 +228,7 @@ static void item_rect(AwraWidget *w, int i, int *rx, int *ry, int *rw, int *rh)
     *rx = w->x;
     *ry = top + i * x->tile_h;
     *rw = w->w;
-    *rh = x->tile_h;
+    *rh = x->tile_h - awra_px(x->row_gap);
   }
 }
 
@@ -250,6 +255,10 @@ static int index_at(AwraWidget *w, int px, int py, bool *r_content)
   }
   else {
     i = (int)(cy / x->tile_h);
+    /* the gap below a row is blank */
+    if (x->row_gap > 0 && cy - (double)i * x->tile_h >= x->tile_h - awra_px(x->row_gap)) {
+      return -1;
+    }
   }
   if (i < 0 || i >= x->n) {
     return -1;
@@ -551,14 +560,23 @@ static void coll_draw_over(AwraWidget *w, AwraDraw *d)
 {
   CollExt *x = CX(w);
   const AwraTokens *t = awra_tokens();
-  if (x->band) {
+  if (x->band || x->band_strength > 0.0f) {
     const double top = w->y + x->header_h - x->vvalue;
     const double bx0 = fmin(x->band_x0, x->band_x1), bx1 = fmax(x->band_x0, x->band_x1);
     const double by0 = fmin(x->band_y0, x->band_y1), by1 = fmax(x->band_y0, x->band_y1);
     AwraBox b = {(float)(w->x + bx0), (float)(top + by0), (float)(bx1 - bx0), (float)(by1 - by0)};
-    AwraRGBA fill = awra_with_alpha(t->focus_ring, 0.15f);
     bk_clip_push(w->x, w->y + x->header_h, w->w, x->view_h);
-    awra_paint_rbox(d, b, awra_pxf(6), &fill, awra_pxf(1), &t->focus_ring);
+    if (x->band_styled) {
+      const float k = x->band ? 1.0f : x->band_strength;
+      const AwraRGBA base = x->band_accent ? t->accent : t->focus_ring;
+      const AwraRGBA fill = awra_with_alpha(base, base.a * x->band_fill * k);
+      const AwraRGBA edge = awra_with_alpha(base, base.a * x->band_border * k);
+      awra_paint_rbox(d, b, awra_pxf(x->band_radius), &fill, awra_pxf(1), &edge);
+    }
+    else {
+      AwraRGBA fill = awra_with_alpha(t->focus_ring, 0.15f);
+      awra_paint_rbox(d, b, awra_pxf(6), &fill, awra_pxf(1), &t->focus_ring);
+    }
     bk_clip_pop();
   }
   /* the overlay indicator, as in a scrolled window */
@@ -954,6 +972,35 @@ static int coll_drag(AwraWidget *w, BKEvent *e)
   return 1;
 }
 
+static void band_fade_anim(AwraWidget *w, double t, void *data)
+{
+  (void)data;
+  CX(w)->band_strength = (float)(1.0 - t);
+  awra_invalidate(w);
+}
+
+static void band_fade_done(void *data)
+{
+  AwraWidget *w = (AwraWidget *)data;
+  CX(w)->band_strength = 0.0f;
+  awra_invalidate(w);
+  awra_widget_unref(w);
+}
+
+/* It lets go of what it selected rather than blinking out. */
+static void band_let_go(AwraWidget *w)
+{
+  CollExt *x = CX(w);
+  const unsigned ms = awra_motion_duration(AWRA_MOTION_FAST);
+  if (!x->band_styled || !x->band_fade || ms == 0 || !awra_widget_mapped(w)) {
+    x->band_strength = 0.0f;
+    return;
+  }
+  x->band_strength = 1.0f;
+  awra_widget_ref(w);
+  awra_anim_start(w, ms, band_fade_anim, w, band_fade_done);
+}
+
 static int coll_release(AwraWidget *w, BKEvent *e)
 {
   CollExt *x = CX(w);
@@ -980,6 +1027,7 @@ static int coll_release(AwraWidget *w, BKEvent *e)
     x->band = false;
     free(x->band_initial);
     x->band_initial = NULL;
+    band_let_go(w);
     awra_invalidate(w);
     return 1;
   }
@@ -1424,7 +1472,23 @@ void awra_collection_view_set_row_height(AwraWidget *w, int height)
   const double ratio = x->tile_h > 0 ? x->vvalue / x->tile_h : 0;
   x->row_h = height;
   if (x->layout == AWRA_COLLECTION_LIST) {
-    x->vvalue = ratio * list_row_h(x);
+    x->vvalue = ratio * (list_row_h(x) + awra_px(x->row_gap));
+  }
+  awra_queue_allocate(w);
+  awra_invalidate(w);
+}
+
+void awra_collection_view_set_row_spacing(AwraWidget *w, int spacing)
+{
+  CollExt *x = CX(w);
+  spacing = BK_MAX(0, spacing);
+  if (x->row_gap == spacing) {
+    return;
+  }
+  const double ratio = x->tile_h > 0 ? x->vvalue / x->tile_h : 0;
+  x->row_gap = spacing;
+  if (x->layout == AWRA_COLLECTION_LIST) {
+    x->vvalue = ratio * (list_row_h(x) + awra_px(x->row_gap));
   }
   awra_queue_allocate(w);
   awra_invalidate(w);
@@ -1517,6 +1581,19 @@ void awra_collection_view_set_show_header(AwraWidget *w, bool show)
   CX(w)->show_header = show;
   awra_widget_queue_resize(w);
   awra_queue_allocate(w);
+}
+
+void awra_collection_view_set_band_style(AwraWidget *w, bool accent, double fill_alpha,
+                                         double border_alpha, int radius, bool fade)
+{
+  CollExt *x = CX(w);
+  x->band_styled = true;
+  x->band_accent = accent;
+  x->band_fill = (float)fill_alpha;
+  x->band_border = (float)border_alpha;
+  x->band_radius = (float)radius;
+  x->band_fade = fade;
+  awra_invalidate(w);
 }
 
 int awra_collection_view_header_height(AwraWidget *w)

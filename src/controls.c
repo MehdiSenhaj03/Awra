@@ -902,21 +902,30 @@ typedef struct ProgExt {
 
 #define PX(w) AWRA_EXT(w, ProgExt)
 
+/* "usage-meter": how full something is, under the row that names it (a
+ * 3 px bar, radius 2); "usage-low" paints its fill in the danger colour. */
+static float prog_height(const AwraWidget *w)
+{
+  return awra_widget_has_class(w, "usage-meter") ? 3.0f : 6.0f;
+}
+
 static void prog_measure(AwraWidget *w, int o, int f, int *mn, int *nt)
 {
-  *mn = *nt = o == AWRA_ORIENTATION_HORIZONTAL ? awra_px(1) : awra_px(6);
+  *mn = *nt = o == AWRA_ORIENTATION_HORIZONTAL ? awra_px(1) : awra_px((int)prog_height(w));
 }
 
 static void prog_draw(AwraWidget *w, AwraDraw *d)
 {
   ProgExt *x = PX(w);
   const AwraTokens *t = awra_tokens();
-  const float h = awra_pxf(6);
+  const bool meter = awra_widget_has_class(w, "usage-meter");
+  const float h = awra_pxf(prog_height(w));
+  const float radius = meter ? awra_pxf(2) : h * 0.5f;
   AwraBox b = {(float)w->x, (float)w->y + floorf((w->h - h) * 0.5f), (float)w->w, h};
   /* the node and its trough both paint the track */
   AwraRGBA track = t->control_track;
   track.a = 1.0f - (1.0f - track.a) * (1.0f - track.a);
-  awra_paint_rbox(d, b, h * 0.5f, &track, 0, NULL);
+  awra_paint_rbox(d, b, radius, &track, 0, NULL);
   float pw, px = b.x;
   if (x->pulsing) {
     pw = b.w * 0.25f;
@@ -925,7 +934,8 @@ static void prog_draw(AwraWidget *w, AwraDraw *d)
   else {
     pw = awra_pxf(1) + (b.w - awra_pxf(1)) * (float)x->fraction;
   }
-  awra_paint_rbox(d, (AwraBox){px, b.y, pw, h}, h * 0.5f, &t->accent, 0, NULL);
+  const AwraRGBA *fill = meter && awra_widget_has_class(w, "usage-low") ? &t->danger : &t->accent;
+  awra_paint_rbox(d, (AwraBox){px, b.y, pw, h}, radius, fill, 0, NULL);
 }
 
 static void prog_finalize(AwraWidget *w)

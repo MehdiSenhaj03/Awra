@@ -1,0 +1,13 @@
+HarfBuzz 14.6.0, the version GTK 4.22 shapes with, for BUI's text engine
+(gpu/intern/gpu_text_shape.inc.c): every script shaped as Pango shapes it.
+
+- src/: the files of HarfBuzz's src/ that the shaping build includes, as
+  found by the compiler's dependency scan of src/hb-bui.cc; unchanged.
+- src/hb-bui.cc: harfbuzz.cc (the upstream amalgamation) without the
+  units BUI never calls (CoreText, DirectWrite, GDI, Uniscribe, FreeType,
+  GLib, Graphite, WASM, serialization, MATH, meta, name, colour, drawing).
+- src/hb-bui-config.h: HB_LEAN plus font variations and ligature carets,
+  minus drawing and colour (HB_CONFIG_OVERRIDE_H).
+
+Built as one C++11 translation unit with hidden symbols (gpu/CMakeLists.txt).
+License: COPYING (MIT).

@@ -786,6 +786,10 @@ void BK_window_set_icon(BKWindow *win, const char *name, const uint32_t *const *
  * application was started with (DESKTOP_STARTUP_ID / XDG_ACTIVATION_TOKEN,
  * used once), else a token asked for with the last input. */
 void BK_window_activate(BKWindow *win, const char *startup_id);
+/* BUI-Awra: the window stays above another application's window, given as
+ * that application exported it: an xdg-foreign v2 handle (Wayland) or a
+ * window ID in hexadecimal (X11); NULL lets it go. */
+void BK_window_set_transient_for_exported(BKWindow *win, const char *handle);
 
 /* One of Blender's widgets drawn straight into a raster, outside any BKContext: the same
  * drawing (interface_widgets.cc port, theme, Inter text) the kit's own nodes use. For

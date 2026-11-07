@@ -123,6 +123,32 @@ AwraTexture *awra_texture_new_argb(const uint32_t *argb, int width, int height)
   return t;
 }
 
+AwraTexture *awra_texture_new_argb_region(const uint32_t *px, int width, int height, int x, int y,
+                                          int w, int h)
+{
+  AwraTexture *t = texture_alloc(w, h, BUI_PIXMAP_ARGB, sizeof(uint32_t) * (size_t)w * h);
+  if (!t) {
+    return NULL;
+  }
+  const int x0 = BK_MAX(x, 0), x1 = BK_MIN(x + w, width);
+  for (int row = 0; row < h; row++) {
+    uint32_t *d = t->px + (size_t)row * w;
+    const int sy = y + row;
+    if (sy < 0 || sy >= height || x1 <= x0) {
+      memset(d, 0, sizeof(uint32_t) * (size_t)w);
+      continue;
+    }
+    if (x0 > x) {
+      memset(d, 0, sizeof(uint32_t) * (size_t)(x0 - x));
+    }
+    memcpy(d + (x0 - x), px + (size_t)sy * width + x0, sizeof(uint32_t) * (size_t)(x1 - x0));
+    if (x + w > x1) {
+      memset(d + (x1 - x), 0, sizeof(uint32_t) * (size_t)(x + w - x1));
+    }
+  }
+  return t;
+}
+
 AwraTexture *awra_texture_new_nv12(const uint8_t *data, int width, int height, bool bt709)
 {
   width &= ~1;

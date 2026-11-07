@@ -29,6 +29,8 @@ mod collection;
 mod window;
 mod video;
 mod texture_data;
+mod files;
+pub use files::{DragPreview, TransitionBin};
 mod dnd;
 mod transfer;
 pub mod gdk;

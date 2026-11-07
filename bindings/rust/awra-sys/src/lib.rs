@@ -419,6 +419,7 @@ extern "C" {
     pub fn awra_widget_set_tooltip(widget: *mut AwraWidget, text: *const c_char);
     pub fn awra_widget_set_typography(widget: *mut AwraWidget, typography: c_int);
     pub fn awra_widget_set_opacity(widget: *mut AwraWidget, opacity: f64);
+    pub fn awra_widget_opacity(widget: *mut AwraWidget) -> f64;
     pub fn awra_widget_set_can_target(widget: *mut AwraWidget, can_target: bool);
     pub fn awra_widget_set_focusable(widget: *mut AwraWidget, focusable: bool);
     pub fn awra_widget_grab_focus(widget: *mut AwraWidget);
@@ -570,6 +571,7 @@ extern "C" {
     pub fn awra_label_set_yalign(label: *mut AwraWidget, yalign: f32);
     pub fn awra_label_set_justify(label: *mut AwraWidget, justify: c_int);
     pub fn awra_label_set_lines(label: *mut AwraWidget, lines: c_int);
+    pub fn awra_label_set_line_spacing(label: *mut AwraWidget, above_paragraph: c_int, inside_wrap: c_int);
     pub fn awra_label_set_max_width_chars(label: *mut AwraWidget, chars: c_int);
     pub fn awra_label_set_width_chars(label: *mut AwraWidget, chars: c_int);
     pub fn awra_label_set_selectable(label: *mut AwraWidget, selectable: bool);
@@ -780,6 +782,7 @@ extern "C" {
     pub fn awra_sidebar_append_heading(sidebar: *mut AwraWidget, title: *const c_char);
     pub fn awra_sidebar_set_footer(sidebar: *mut AwraWidget, footer: *mut AwraWidget);
     pub fn awra_sidebar_set_inset(sidebar: *mut AwraWidget, inset: c_int);
+    pub fn awra_sidebar_set_end_inset(sidebar: *mut AwraWidget, px: c_int);
     pub fn awra_navigation_item_new(label: *const c_char, icon_name: *const c_char) -> *mut AwraWidget;
     pub fn awra_navigation_item_set_label(item: *mut AwraWidget, label: *const c_char);
     pub fn awra_navigation_item_label(item: *mut AwraWidget) -> *const c_char;
@@ -811,6 +814,7 @@ extern "C" {
     pub fn awra_popover_set_anchor(popover: *mut AwraWidget, anchor: *mut AwraWidget);
     pub fn awra_popover_popup(popover: *mut AwraWidget);
     pub fn awra_popover_popup_at(popover: *mut AwraWidget, relative_to: *mut AwraWidget, x: f64, y: f64);
+    pub fn awra_popover_point_to(popover: *mut AwraWidget, relative_to: *mut AwraWidget, x: f64, y: f64);
     pub fn awra_popover_popdown(popover: *mut AwraWidget);
     pub fn awra_popover_visible(popover: *mut AwraWidget) -> bool;
     pub fn awra_popover_set_position(popover: *mut AwraWidget, side: c_int);
@@ -903,6 +907,7 @@ extern "C" {
     pub fn awra_drop_zone_set_icon_name(zone: *mut AwraWidget, icon_name: *const c_char);
     pub fn awra_drop_zone_set_browse_label(zone: *mut AwraWidget, label: *const c_char);
     pub fn awra_drop_zone_set_child(zone: *mut AwraWidget, child: *mut AwraWidget);
+    pub fn awra_drop_zone_set_hover(zone: *mut AwraWidget, hover: bool);
     pub fn awra_widget_set_accepts_file_drops(widget: *mut AwraWidget, accepts: bool);
     pub fn awra_drawing_area_new(draw: Option<unsafe extern "C" fn(*mut AwraWidget, *mut AwraCanvas, c_int, c_int, *mut c_void)>, data: *mut c_void, destroy: Option<unsafe extern "C" fn(*mut c_void)>) -> *mut AwraWidget;
     pub fn awra_drawing_area_set_content_size(area: *mut AwraWidget, width: c_int, height: c_int);
@@ -993,6 +998,7 @@ extern "C" {
     pub fn awra_collection_view_visible_range(view: *mut AwraWidget, r_first: *mut c_int, r_count: *mut c_int);
     pub fn awra_collection_view_set_item_size(view: *mut AwraWidget, width: c_int, height: c_int);
     pub fn awra_collection_view_set_row_height(view: *mut AwraWidget, height: c_int);
+    pub fn awra_collection_view_set_row_spacing(view: *mut AwraWidget, spacing: c_int);
     pub fn awra_collection_view_set_max_columns(view: *mut AwraWidget, n: c_int);
     pub fn awra_collection_view_add_column(view: *mut AwraWidget, title: *const c_char, width: c_int, expand: bool) -> c_int;
     pub fn awra_collection_view_set_column_title(view: *mut AwraWidget, column: c_int, title: *const c_char);
@@ -1003,6 +1009,7 @@ extern "C" {
     pub fn awra_collection_view_set_sort_column(view: *mut AwraWidget, column: c_int, descending: bool);
     pub fn awra_collection_view_set_show_header(view: *mut AwraWidget, show: bool);
     pub fn awra_collection_view_header_height(view: *mut AwraWidget) -> c_int;
+    pub fn awra_collection_view_set_band_style(view: *mut AwraWidget, accent: bool, fill_alpha: f64, border_alpha: f64, radius: c_int, fade: bool);
     pub fn awra_collection_view_column_at(view: *mut AwraWidget, x: f64, y: f64) -> c_int;
     pub fn awra_collection_view_index_at(view: *mut AwraWidget, x: f64, y: f64, r_on_content: *mut bool) -> c_int;
     pub fn awra_collection_view_item_bounds(view: *mut AwraWidget, index: c_int, r_x: *mut f64, r_y: *mut f64, r_w: *mut f64, r_h: *mut f64) -> bool;
@@ -1050,6 +1057,7 @@ extern "C" {
     pub fn awra_tab_bar_set_active(bar: *mut AwraWidget, active: bool);
     pub fn awra_tab_bar_index_at(bar: *mut AwraWidget, x: f64, y: f64) -> c_int;
     pub fn awra_tab_bar_insertion_at(bar: *mut AwraWidget, x: f64) -> c_int;
+    pub fn awra_tab_bar_tab_bounds(bar: *mut AwraWidget, index: c_int, x: *mut f64, y: *mut f64, width: *mut f64, height: *mut f64) -> bool;
     pub fn awra_tab_bar_set_insertion(bar: *mut AwraWidget, position: c_int);
     pub fn awra_paned_new(orientation: c_int) -> *mut AwraWidget;
     pub fn awra_paned_set_start_child(paned: *mut AwraWidget, child: *mut AwraWidget);
@@ -1311,6 +1319,21 @@ extern "C" {
     pub fn awra_window_icon_name(window: *mut AwraWidget) -> *const c_char;
     pub fn awra_window_set_default_icon_name(name: *const c_char);
     pub fn awra_window_set_startup_id(window: *mut AwraWidget, startup_id: *const c_char);
+    pub fn awra_window_set_transient_for_exported(window: *mut AwraWidget, parent: *const c_char);
+    pub fn awra_window_has_popup(window: *mut AwraWidget) -> bool;
+    pub fn awra_transition_bin_new() -> *mut AwraWidget;
+    pub fn awra_transition_bin_set_child(bin: *mut AwraWidget, child: *mut AwraWidget);
+    pub fn awra_transition_bin_child(bin: *mut AwraWidget) -> *mut AwraWidget;
+    pub fn awra_transition_bin_set_fixed_top(bin: *mut AwraWidget, height: c_int);
+    pub fn awra_transition_bin_set_motion(bin: *mut AwraWidget, preset: c_int);
+    pub fn awra_transition_bin_play(bin: *mut AwraWidget, dx: f64, dy: f64);
+    pub fn awra_drag_preview_new() -> *mut AwraWidget;
+    pub fn awra_drag_preview_set_icon_size(preview: *mut AwraWidget, size: c_int);
+    pub fn awra_drag_preview_set_count(preview: *mut AwraWidget, count: c_uint);
+    pub fn awra_drag_preview_set_item(preview: *mut AwraWidget, index: c_int, texture: *const AwraTexture);
+    pub fn awra_drag_preview_set_item_icon(preview: *mut AwraWidget, index: c_int, icon_name: *const c_char);
+    pub fn awra_drag_preview_set_drag_window(preview: *mut AwraWidget, window: *mut AwraWidget, hot_x: c_int, hot_y: c_int);
+    pub fn awra_drag_preview_texture(preview: *mut AwraWidget) -> *mut AwraTexture;
     pub fn awra_widget_set_drop_active(widget: *mut AwraWidget, active: bool);
     pub fn awra_widget_drop_active(widget: *mut AwraWidget) -> bool;
 }

@@ -327,6 +327,7 @@ void awra_widget_measure(AwraWidget *widget, AwraOrientation orientation, int fo
 void awra_widget_set_tooltip(AwraWidget *widget, const char *text);
 void awra_widget_set_typography(AwraWidget *widget, AwraTypography typography);
 void awra_widget_set_opacity(AwraWidget *widget, double opacity);
+double awra_widget_opacity(AwraWidget *widget);
 void awra_widget_set_can_target(AwraWidget *widget, bool can_target);
 void awra_widget_set_focusable(AwraWidget *widget, bool focusable);
 void awra_widget_grab_focus(AwraWidget *widget);
@@ -340,6 +341,9 @@ bool awra_widget_pointer_position(AwraWidget *widget, double *x, double *y);
  * that change a component's look: "accent", "muted", "flat", "circular",
  * "dim-label", "numeric", "success", "warning", "error", ...). */
 void awra_widget_add_class(AwraWidget *widget, const char *name);
+/* Any widget shows "drop-target" (it takes the drop under the pointer) and
+ * "about-to-open" (a held drag opens it soon: the accent pulses; redraw it
+ * while it waits). */
 void awra_widget_remove_class(AwraWidget *widget, const char *name);
 bool awra_widget_has_class(const AwraWidget *widget, const char *name);
 /* Sizes after layout, in logical pixels (0 before the first layout). */
@@ -566,6 +570,9 @@ void awra_label_set_xalign(AwraWidget *label, float xalign);
 void awra_label_set_yalign(AwraWidget *label, float yalign);
 void awra_label_set_justify(AwraWidget *label, AwraJustify justify);
 void awra_label_set_lines(AwraWidget *label, int lines);
+/* Blank pixels above each paragraph's first line and above its wrapped
+ * lines (logical; GtkTextView's pixels-above-lines, pixels-inside-wrap). */
+void awra_label_set_line_spacing(AwraWidget *label, int above_paragraph, int inside_wrap);
 void awra_label_set_max_width_chars(AwraWidget *label, int chars);
 void awra_label_set_width_chars(AwraWidget *label, int chars);
 void awra_label_set_selectable(AwraWidget *label, bool selectable);
@@ -869,6 +876,9 @@ void awra_sidebar_append(AwraWidget *sidebar, AwraWidget *child);
 void awra_sidebar_append_heading(AwraWidget *sidebar, const char *title);
 void awra_sidebar_set_footer(AwraWidget *sidebar, AwraWidget *footer);
 void awra_sidebar_set_inset(AwraWidget *sidebar, AwraSpacing inset);
+/* The inset at the end edge only (logical px; -1: the inset), as Awra 1's
+ * get_surface().set_margin_end(): 0 lets the panel meet what follows it. */
+void awra_sidebar_set_end_inset(AwraWidget *sidebar, int px);
 
 AwraWidget *awra_navigation_item_new(const char *label, const char *icon_name);
 void awra_navigation_item_set_label(AwraWidget *item, const char *label);
@@ -915,6 +925,10 @@ void awra_popover_set_child(AwraWidget *popover, AwraWidget *child);
 void awra_popover_set_anchor(AwraWidget *popover, AwraWidget *anchor);
 void awra_popover_popup(AwraWidget *popover);
 void awra_popover_popup_at(AwraWidget *popover, AwraWidget *relative_to, double x, double y);
+/* Opens it pointing at a point of `relative_to`, as GtkPopover's pointing-to
+ * with GTK_POS_BOTTOM: centred below it, above it without room, kept in the
+ * window (context menus). */
+void awra_popover_point_to(AwraWidget *popover, AwraWidget *relative_to, double x, double y);
 void awra_popover_popdown(AwraWidget *popover);
 bool awra_popover_visible(AwraWidget *popover);
 void awra_popover_set_position(AwraWidget *popover, int side); /* 0 bottom 1 top 2 start 3 end */
@@ -1043,10 +1057,14 @@ void awra_drop_zone_set_browse_label(AwraWidget *zone, const char *label); /* NU
 /* With a child, the zone shows it, and its icon and title over it while
  * files are dragged over (the drop message). */
 void awra_drop_zone_set_child(AwraWidget *zone, AwraWidget *child);
+/* Shows the zone as files over it would (an application's own drags). */
+void awra_drop_zone_set_hover(AwraWidget *zone, bool hover);
 
 /* Any widget can take dropped files (files-dropped, args->text = paths,
  * '\n'-separated); drop-hover reports a drag over it, on every move
- * (args->active; both carry args->x, y relative to the widget). */
+ * (args->active; both carry args->x, y relative to the widget). A window
+ * that takes none hears drop-hover once when files come over it (active)
+ * and once when they leave or land (inactive). */
 void awra_widget_set_accepts_file_drops(AwraWidget *widget, bool accepts);
 
 /* A widget the application draws itself (Awra's GtkDrawingArea). */
@@ -1252,6 +1270,9 @@ void awra_collection_view_visible_range(AwraWidget *view, int *r_first, int *r_c
  * list: the row height. */
 void awra_collection_view_set_item_size(AwraWidget *view, int width, int height);
 void awra_collection_view_set_row_height(AwraWidget *view, int height);
+/* List: a blank below each row (logical px; Awra 1's spaced-rows role),
+ * part of no item: a press there starts a rubberband. */
+void awra_collection_view_set_row_spacing(AwraWidget *view, int spacing);
 void awra_collection_view_set_max_columns(AwraWidget *view, int n); /* grid, default 7 */
 /* List columns: width in logical px (-1: the title's), expand shares the rest. */
 int awra_collection_view_add_column(AwraWidget *view, const char *title, int width, bool expand);
@@ -1263,6 +1284,11 @@ int awra_collection_view_column_width(AwraWidget *view, int column);
 void awra_collection_view_set_sort_column(AwraWidget *view, int column, bool descending);
 void awra_collection_view_set_show_header(AwraWidget *view, bool show);
 int awra_collection_view_header_height(AwraWidget *view);
+/* The rubberband's look: the accent (else the focus colour) at these
+ * alphas, corners of `radius` px; `fade`: it fades out when let go (Fast).
+ * By default Awra 1's rubberband (focus .15, its border, radius 6). */
+void awra_collection_view_set_band_style(AwraWidget *view, bool accent, double fill_alpha,
+                                         double border_alpha, int radius, bool fade);
 /* Hit tests in the view's logical coordinates: a header column, an item
  * (-1: the blank; on_content: on the tile, or the row's first cell content). */
 int awra_collection_view_column_at(AwraWidget *view, double x, double y);
@@ -1343,6 +1369,9 @@ void awra_tab_bar_set_active(AwraWidget *bar, bool active);
 int awra_tab_bar_index_at(AwraWidget *bar, double x, double y);
 /* Where a tab dropped at x would go, and that place shown open (-1: none). */
 int awra_tab_bar_insertion_at(AwraWidget *bar, double x);
+/* Where tab `index` is in the bar (logical px); false: no such tab. */
+bool awra_tab_bar_tab_bounds(AwraWidget *bar, int index, double *x, double *y, double *width,
+                             double *height);
 void awra_tab_bar_set_insertion(AwraWidget *bar, int position);
 
 /* ----------------------------------------------------------------------- */
@@ -2031,7 +2060,8 @@ bool awra_drag_start(AwraWidget *source, const char *const *mimes, const void *c
                      const size_t *lengths, int n, AwraTexture *icon, int hot_x, int hot_y,
                      int actions, AwraHandler done, void *user_data);
 /* GtkDragSource's images when it has none: a label of the text a drag
- * carries, or an icon (size: logical px), at the window scale. */
+ * carries, or an icon (size: logical px), at the window scale; a symbolic
+ * icon in the text colour, a full-colour one as it is. */
 AwraTexture *awra_texture_new_for_text(const char *text);
 AwraTexture *awra_texture_new_for_icon(const char *icon_name, int size);
 /* Files: text/uri-list and the paths as text (Windows: CF_HDROP). */
@@ -2055,6 +2085,44 @@ void awra_window_set_default_icon_name(const char *name);
  * a window shown already, it brings that window forward now. Without one,
  * the first window shown uses DESKTOP_STARTUP_ID / XDG_ACTIVATION_TOKEN. */
 void awra_window_set_startup_id(AwraWidget *window, const char *startup_id);
+/* The window stays above another application's window, as the desktop portal
+ * names it: "wayland:<xdg-foreign handle>" or "x11:<window id in hex>" (GTK's
+ * gdk_toplevel_set_transient_for_exported). NULL or "" lets it go. */
+void awra_window_set_transient_for_exported(AwraWidget *window, const char *parent);
+/* Whether a popover or menu is open over the window (its keys go there
+ * first: a window-wide key handler leaves them alone). */
+bool awra_window_has_popup(AwraWidget *window);
+
+/* ----------------------------------------------------------------------- */
+/* Transition bin (Awra 1's AwraTransitionBin): its child changes in place
+ * and play() shows the change as a short motion (the Normal preset; none
+ * with reduced motion): the frame before drifts away and fades out, the new
+ * one comes from (dx, dy) logical px and fades in. The top `height` px stay
+ * still (a column header). Call play() right after changing the child's
+ * content, before the next frame. */
+AwraWidget *awra_transition_bin_new(void);
+void awra_transition_bin_set_child(AwraWidget *bin, AwraWidget *child);
+AwraWidget *awra_transition_bin_child(AwraWidget *bin);
+void awra_transition_bin_set_fixed_top(AwraWidget *bin, int height);
+/* How long the next changes play (AWRA_MOTION_NORMAL by default). */
+void awra_transition_bin_set_motion(AwraWidget *bin, AwraMotionPreset preset);
+void awra_transition_bin_play(AwraWidget *bin, double dx, double dy);
+
+/* ----------------------------------------------------------------------- */
+/* Drag preview (Awra 1's AwraDragPreview): what a drag carries, as a pile
+ * of up to three items (index 0 in front, 1 and 2 fanned out behind) of
+ * `icon_size` logical px with a count badge from 2; the pile fans out when
+ * it appears. set_drag_window makes it the image `window` shows under the
+ * pointer during a drag (its point hot_x, hot_y, logical px, under it),
+ * kept up to date; NULL takes it away. texture() is the pile as drawn now. */
+AwraWidget *awra_drag_preview_new(void);
+void awra_drag_preview_set_icon_size(AwraWidget *preview, int size);
+void awra_drag_preview_set_count(AwraWidget *preview, unsigned count);
+void awra_drag_preview_set_item(AwraWidget *preview, int index, const AwraTexture *texture);
+void awra_drag_preview_set_item_icon(AwraWidget *preview, int index, const char *icon_name);
+void awra_drag_preview_set_drag_window(AwraWidget *preview, AwraWidget *window, int hot_x,
+                                       int hot_y);
+AwraTexture *awra_drag_preview_texture(AwraWidget *preview);
 
 /* ----------------------------------------------------------------------- */
 /* Drag and drop within the application */

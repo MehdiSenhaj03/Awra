@@ -2271,6 +2271,26 @@ static void startup_message(Window from, const char *msg)
   }
 }
 
+/* BUI-Awra: WM_TRANSIENT_FOR another application's window (its ID in
+ * hexadecimal, as the desktop portal passes it after "x11:"). */
+void BK_window_set_transient_for_exported(BKWindow *win, const char *handle)
+{
+  if (!win || !win->xid) {
+    return;
+  }
+  /* hexadecimal, with or without 0x, as the portal and GTK write it */
+  const unsigned long parent = handle && handle[0] ? strtoul(handle, NULL, 16) : 0;
+  if (!parent) {
+    XDeleteProperty(g_dpy, win->xid, 68 /* XA_WM_TRANSIENT_FOR */);
+  }
+  else {
+    const long value = (long)parent;
+    XChangeProperty(g_dpy, win->xid, 68 /* XA_WM_TRANSIENT_FOR */, 33 /* XA_WINDOW */, 32,
+                    PropModeReplace, (const unsigned char *)&value, 1);
+  }
+  XFlush(g_dpy);
+}
+
 void BK_window_activate(BKWindow *win, const char *startup_id)
 {
   if (!win || !win->xid) {

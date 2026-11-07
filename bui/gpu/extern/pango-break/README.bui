@@ -1,0 +1,5 @@
+break_props.h: the Indic syllabic category and Indic_Conjunct_Break
+functions of Pango's generated pango/pango-break-table.h (Unicode 17.0),
+with glib's types replaced. gpu/intern/gpu_text_unicode.inc.c uses them for
+grapheme boundaries (UAX #29 GB9c) and backspace as Pango's break.c does.
+License: LGPL-2.1-or-later (Pango); Unicode License v3 (data).

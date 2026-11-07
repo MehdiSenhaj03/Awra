@@ -44,6 +44,7 @@ typedef struct LabelExt {
   int n_objects;
   int inline_size; /* logical px, 0: the letters' height */
   bool rich;       /* every U+FFFC is a picture's square */
+  short above_paragraph, inside_wrap; /* logical px above lines (GtkTextView's) */
 } LabelExt;
 
 #define LX(w) AWRA_EXT(w, LabelExt)
@@ -81,6 +82,7 @@ static void label_sync(AwraWidget *w)
   }
   awra_text_layout_set_wrap(x->layout, x->wrap, x->ellipsize, x->lines);
   awra_text_layout_set_line_factor(x->layout, awra_typography_line_factor(awra_widget_typography(w)));
+  awra_text_layout_set_line_extra(x->layout, awra_pxf(x->above_paragraph), awra_pxf(x->inside_wrap));
   awra_text_layout_set_justify(x->layout, x->justify);
   x->style_gen = awra_style_generation();
 }
@@ -245,8 +247,16 @@ static void label_origin(AwraWidget *w, float *r_x, float *r_y, int *r_width)
   int tw, th;
   const bool fit = x->wrap != AWRA_WRAP_NONE || x->ellipsize != AWRA_ELLIPSIZE_NONE;
   awra_text_layout_size(x->layout, fit ? w->w : -1, &tw, &th);
-  const int bw = fit ? BK_MIN(tw, w->w) : tw;
-  *r_x = (float)w->x + floorf((w->w - bw) * x->xalign + 0.5f);
+  /* GtkLabel: a layout that wraps or ellipsizes is as wide as the label,
+   * its lines aligned in it (right-to-left paragraphs at the right); the
+   * label places its logical extents (leftmost line to rightmost end) by
+   * xalign */
+  float lx0 = 0.0f, lw = (float)tw;
+  if (fit) {
+    awra_text_layout_logical(x->layout, w->w, &lx0, &lw);
+    lw = fminf(ceilf(lw), (float)w->w);
+  }
+  *r_x = (float)w->x + floorf((w->w - lw) * x->xalign + 0.5f) - lx0;
   *r_y = (float)w->y + floorf((w->h - th) * x->yalign + 0.5f);
   *r_width = fit ? w->w : -1;
 }
@@ -508,8 +518,17 @@ static void label_a11y(AwraWidget *w, AwraA11yInfo *info)
   }
 }
 
+static bool label_a11y_layout(AwraWidget *w, AwraTextLayout **r_layout, float *r_x, float *r_y,
+                              int *r_width)
+{
+  *r_layout = LX(w)->layout;
+  label_origin(w, r_x, r_y, r_width);
+  return true;
+}
+
 static AwraClass label_class = {
     .a11y = label_a11y,
+    .a11y_layout = label_a11y_layout,
     .request_mode = label_request_mode,
     .bk = AWRA_BK("AwraLabel", 0),
     .type = "AwraLabel",
@@ -624,6 +643,14 @@ void awra_label_set_justify(AwraWidget *w, AwraJustify j)
 void awra_label_set_lines(AwraWidget *w, int lines)
 {
   LX(w)->lines = lines;
+  label_sync(w);
+  label_changed(w, true);
+}
+
+void awra_label_set_line_spacing(AwraWidget *w, int above_paragraph, int inside_wrap)
+{
+  LX(w)->above_paragraph = (short)BK_MAX(0, above_paragraph);
+  LX(w)->inside_wrap = (short)BK_MAX(0, inside_wrap);
   label_sync(w);
   label_changed(w, true);
 }
@@ -861,6 +888,17 @@ static void image_draw(AwraWidget *w, AwraDraw *d)
       c.a *= 0.5f;
     }
     const float ix = w->x + floorf((w->w - s) * 0.5f), iy = w->y + floorf((w->h - s) * 0.5f);
+    if (awra_widget_has_class(w, "glow")) {
+      /* "glow": the icon lit by a soft halo of the accent (an item worth pointing at) */
+      static const float rings[3][2] = {{0.42f, 0.07f}, {0.30f, 0.10f}, {0.18f, 0.14f}};
+      for (int i = 0; i < 3; i++) {
+        AwraRGBA halo = awra_tokens()->accent;
+        halo.a = rings[i][1];
+        const float grow = s * rings[i][0];
+        AwraBox hb = {ix - grow, iy - grow, s + 2 * grow, s + 2 * grow};
+        awra_paint_rbox(d, hb, hb.w * 0.5f, &halo, 0, NULL);
+      }
+    }
     if (awra_icon_mask(x->icon, s)) {
       awra_paint_icon(d, x->icon, ix, iy, s, &c);
     }
