@@ -1790,6 +1790,11 @@ AwraTexture *awra_texture_new_for_data(const void *data, int width, int height,
                                        AwraTextureFormat format, bool bt709,
                                        void (*release)(void *user_data), void *user_data);
 
+/* ----------------------------------------------------------------------- */
+/* Debugging: how many widgets exist (made and not yet freed), to check that
+ * closing a window or dropping a row lets every widget of it go. */
+int awra_widgets_alive(void);
+
 #ifdef __cplusplus
 }
 

@@ -307,6 +307,14 @@ static void aux_free(void *p)
   free(p);
 }
 
+/* widgets made and not yet freed (awra_widgets_alive) */
+static int g_alive;
+
+int awra_widgets_alive(void)
+{
+  return g_alive;
+}
+
 AwraWidget *awra_widget_new(const AwraClass *cls)
 {
   if (!g_inited) {
@@ -322,6 +330,7 @@ AwraWidget *awra_widget_new(const AwraClass *cls)
     return NULL;
   }
   aux->refs = 1;
+  g_alive++;
   aux->req_w = aux->req_h = -1;
   aux->halign = aux->valign = AWRA_ALIGN_FILL;
   aux->can_target = 1;
@@ -410,6 +419,7 @@ static void widget_dispose(AwraWidget *w)
     w->parent = NULL;
   }
   BK_node_free(w); /* children released, free_ext (finalize), aux freed */
+  g_alive--;
 }
 
 void awra_bk_free(BKNode *n)

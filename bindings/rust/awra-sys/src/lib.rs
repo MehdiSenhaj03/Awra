@@ -1118,4 +1118,5 @@ extern "C" {
     pub fn awra_tag_entry_n_tags(tags: *mut AwraWidget) -> c_int;
     pub fn awra_tag_entry_tag(tags: *mut AwraWidget, index: c_int) -> *const c_char;
     pub fn awra_texture_new_for_data(data: *const c_void, width: c_int, height: c_int, format: c_int, bt709: bool, release: Option<unsafe extern "C" fn(*mut c_void)>, user_data: *mut c_void) -> *mut AwraTexture;
+    pub fn awra_widgets_alive() -> c_int;
 }

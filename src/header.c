@@ -272,6 +272,12 @@ AwraWidget *awra_header_new(void)
   awra_box_append(x->controls, x->maximize);
   awra_box_append(x->controls, x->close);
   awra_box_append(x->end_box, x->controls);
+  /* the boxes hold their children, the header its boxes */
+  AwraWidget *held[] = {x->start_box, x->end_box, x->titles, x->title, x->subtitle,
+                        x->controls, x->minimize, x->maximize, x->close};
+  for (size_t i = 0; i < sizeof(held) / sizeof(held[0]); i++) {
+    awra_widget_unref(held[i]);
+  }
   sync_titles(w);
   return w;
 }

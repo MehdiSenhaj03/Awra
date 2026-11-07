@@ -80,3 +80,9 @@ impl Texture {
         unsafe { Texture::from_raw(texture) }.ok_or_else(|| *unsafe { Box::from_raw(user) })
     }
 }
+
+/// How many widgets exist, made and not yet freed: closing a window or
+/// dropping a row should bring it back to where it was.
+pub fn widgets_alive() -> i32 {
+    unsafe { ffi::awra_widgets_alive() }
+}
