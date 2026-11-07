@@ -1288,7 +1288,13 @@ static void banner_style(AwraWidget *w)
 {
   BinExt *x = BINX(w);
   const AwraRGBA c = status_color(x->variant);
-  awra_image_set_color(x->a, &c);
+  if (x->a) {
+    awra_image_set_color(x->a, &c);
+  }
+  if (x->d) {
+    /* awra.css's `awrastatusbanner image` colours the dismiss button's too */
+    awra_button_set_icon_color_internal(x->d, &c);
+  }
 }
 
 static void banner_a11y(AwraWidget *w, AwraA11yInfo *info)
@@ -1332,8 +1338,8 @@ AwraWidget *awra_status_banner_new(const char *title, const char *description,
   x->variant = appearance;
   AwraWidget *root = awra_box_new(AWRA_ORIENTATION_HORIZONTAL, 12);
   x->a = awra_image_new_from_icon_name(status_icons[appearance & 3]);
-  awra_image_set_pixel_size(x->a, 20);
-  awra_widget_set_valign(x->a, AWRA_ALIGN_START);
+  awra_image_set_pixel_size(x->a, 20); /* the icon and the dismiss button fill the row's
+                                         * height, as a GtkBox's children: centred */
   AwraWidget *copy = awra_box_new(AWRA_ORIENTATION_VERTICAL, 4);
   awra_widget_set_hexpand(copy, true);
   x->b = awra_label_new(title ? title : "");
@@ -1358,7 +1364,6 @@ AwraWidget *awra_status_banner_new(const char *title, const char *description,
   awra_accessible_update_property_string(x->d, AWRA_ACCESSIBLE_PROPERTY_LABEL, "Dismiss");
   awra_button_set_appearance(x->d, AWRA_BUTTON_GHOST);
   awra_widget_set_visible(x->d, false);
-  awra_widget_set_valign(x->d, AWRA_ALIGN_START);
   awra_signal_connect(x->d, AWRA_SIGNAL_CLICKED, banner_dismiss, w, NULL);
   awra_box_append(root, x->d);
   awra_widget_unref(x->d); /* its parent holds it */

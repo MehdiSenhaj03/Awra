@@ -1896,7 +1896,10 @@ bool awra_compute_expand(AwraWidget *w, int orientation)
     return false;
   }
   AwraAux *a = awra_aux(w);
-  if (!(w->flags & NF_VISIBLE)) {
+  /* gtk_widget_compute_expand: never for a widget that isn't visible, but a
+   * child its parent hides (a stack's other pages: child-visible false)
+   * still counts */
+  if (!(w->flags & NF_VISIBLE) && !(a->child_hidden && !a->user_hidden)) {
     return false;
   }
   if (orientation == AWRA_ORIENTATION_HORIZONTAL && a->hexpand_set) {

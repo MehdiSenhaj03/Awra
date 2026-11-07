@@ -954,7 +954,7 @@ static void image_draw(AwraWidget *w, AwraDraw *d)
     return;
   }
   if (x->tex) {
-    awra_paint_texture(d, x->tex, awra_box_of(w), awra_pxf(x->radius), x->fit);
+    awra_paint_texture(d, x->tex, awra_box_of(w), awra_pxf(x->radius), x->fit | AWRA_FIT_PICTURE);
     return;
   }
   if (!x->iw || !x->ih || w->w <= 0 || w->h <= 0) {

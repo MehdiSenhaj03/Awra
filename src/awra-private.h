@@ -600,6 +600,7 @@ void awra_paint_button_bg(AwraDraw *d, AwraBox b, float radius, const AwraButton
 void awra_button_set_padding_internal(AwraWidget *w, int pad_x, int pad_y, int min_w);
 void awra_button_set_metrics_internal(AwraWidget *w, int pad_x, int pad_y, int min_w, int min_h);
 void awra_button_set_icon_size_internal(AwraWidget *w, int px);
+void awra_button_set_icon_color_internal(AwraWidget *w, const AwraRGBA *color);
 void awra_header_set_drag_enabled(AwraWidget *w, bool drag);
 void awra_header_set_dialog(AwraWidget *w, bool dialog);
 void awra_header_set_compact(AwraWidget *w, bool compact);
@@ -637,6 +638,7 @@ struct AwraCanvas {
 };
 
 /* Textures (texture.c): fit 0 fill, 1 contain, 2 cover, 3 scale-down */
+#define AWRA_FIT_PICTURE 0x10 /* awra_paint_texture: GtkPicture's rounding */
 void awra_paint_texture(AwraDraw *d, const AwraTexture *t, AwraBox b, float radius, int fit);
 void awra_paint_texture_filtered(AwraDraw *d, const AwraTexture *t, AwraBox b, float radius, int fit,
                                  int filter);

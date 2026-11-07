@@ -314,8 +314,8 @@ bool awra_texture_download(const AwraTexture *t, uint8_t *rgba, int stride)
 
 
 /* Draws a texture into box (x, y, w, h), raster pixels, with rounded
- * corners, fitted (0 fill, 1 contain, 2 cover, 3 scale-down) and clipped to
- * the box, filtered as GSK draws a texture node (mipmapped under half its
+ * corners, fitted (0 fill, 1 contain, 2 cover, 3 scale-down; with
+ * AWRA_FIT_PICTURE placed as GtkPicture places it) and clipped to the box, filtered as GSK draws a texture node (mipmapped under half its
  * size). */
 void awra_paint_texture(AwraDraw *d, const AwraTexture *t, AwraBox b, float radius, int fit)
 {
@@ -333,7 +333,42 @@ void awra_paint_texture_filtered(AwraDraw *d, const AwraTexture *t, AwraBox b, f
   float bx = b.x, by = b.y, bw = b.w, bh = b.h;
   const float ar = (float)t->w / t->h, br = bw / bh;
   float src[4] = {0, 0, (float)t->w, (float)t->h};
-  if (fit == 3 && t->w <= bw && t->h <= bh) {
+  const bool picture = (fit & AWRA_FIT_PICTURE) != 0;
+  fit &= ~AWRA_FIT_PICTURE;
+  if (picture && fit != 0) {
+    /* gtk_picture_snapshot: the paintable's size rounded up, its offset
+     * truncated towards zero ((int)((width - w) / 2)), drawn whole and
+     * clipped to the box (here: the part of it the box shows) */
+    double w, h;
+    if (fit == 3 && bw >= t->w && bh >= t->h) {
+      w = t->w;
+      h = t->h;
+    }
+    else if ((ar > br) == (fit == 2)) {
+      w = bh * (double)ar;
+      h = bh;
+    }
+    else {
+      w = bw;
+      h = bw / (double)ar;
+    }
+    w = ceil(w);
+    h = ceil(h);
+    const int ox = (int)((bw - w) / 2), oy = (int)(floor(bh - h) / 2);
+    if (fit == 2) {
+      src[0] = (float)(-ox * t->w / w);
+      src[1] = (float)(-oy * t->h / h);
+      src[2] = (float)(bw * t->w / w);
+      src[3] = (float)(bh * t->h / h);
+    }
+    else {
+      bx += (float)ox;
+      by += (float)oy;
+      bw = (float)w;
+      bh = (float)h;
+    }
+  }
+  else if (fit == 3 && t->w <= bw && t->h <= bh) {
     bx += floorf((bw - t->w) * 0.5f);
     by += floorf((bh - t->h) * 0.5f);
     bw = (float)t->w;

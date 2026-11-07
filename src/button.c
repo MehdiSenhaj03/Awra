@@ -242,6 +242,8 @@ typedef struct ButtonExt {
   int pad_x, pad_y, min_w, min_h; /* overrides when pad_set (dropdowns, the composer's) */
   bool pad_set;
   int icon_px; /* -gtk-icon-size of a CSS rule; 0: 16 */
+  bool has_icon_color; /* a CSS rule colours the icon (`awrastatusbanner image`) */
+  AwraRGBA icon_color;
   bool accent_fg; /* the content in @awra_accent_content (a playing media row's first button) */
 } ButtonExt;
 
@@ -624,7 +626,8 @@ static void button_draw(AwraWidget *w, AwraDraw *d)
   /* the icon starts the button's box (at the right, right to left) */
   if (icon) {
     awra_paint_icon(d, x->icon, awra_mirror_x(w, cx, (float)icon),
-                    (float)w->y + floorf((w->h - icon) * 0.5f), icon, &c.fg);
+                    (float)w->y + floorf((w->h - icon) * 0.5f), icon,
+                    x->has_icon_color ? &x->icon_color : &c.fg);
     cx += icon + gap;
   }
   if (tw) {
@@ -977,6 +980,16 @@ void awra_toggle_button_set_group(AwraWidget *w, AwraWidget *member)
 void awra_button_set_padding_internal(AwraWidget *w, int pad_x, int pad_y, int min_w)
 {
   awra_button_set_metrics_internal(w, pad_x, pad_y, min_w, -1);
+}
+
+/* A CSS rule's colour for the button's icon (NULL: the button's own) */
+void awra_button_set_icon_color_internal(AwraWidget *w, const AwraRGBA *color)
+{
+  BX(w)->has_icon_color = color != NULL;
+  if (color) {
+    BX(w)->icon_color = *color;
+  }
+  awra_invalidate(w);
 }
 
 /* A CSS rule's -gtk-icon-size for the button's icon */
