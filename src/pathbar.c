@@ -177,7 +177,7 @@ static void path_draw(AwraWidget *w, AwraDraw *d)
     AwraFont f = crumb_font(current);
     AwraRGBA fg = i == x->drop ? t->accent_content :
                   (current || (i == x->hover && awra_hovered(w))) ? t->foreground : t->muted;
-    const float base = w->y + floorf((w->h - awra_font_line_height(&f)) * 0.5f + 0.5f) + awra_font_ascent(&f);
+    const float base = w->y + floorf((w->h - ceilf(awra_font_line_height(&f))) * 0.5f) + awra_font_ascent(&f);
     const float tw = awra_text_width(&f, c->label, (int)strlen(c->label));
     const float tx = awra_mirror_x(w, cx + floorf((c->w - tw) * 0.5f), tw);
     awra_draw_text(d, &f, tx, base, c->label, (int)strlen(c->label), &fg);
