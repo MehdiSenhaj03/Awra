@@ -1011,6 +1011,7 @@ typedef struct ToastExt {
   AwraWidget *child;
   Toast *toasts;
   unsigned next_id;
+  int bottom_inset; /* logical px kept clear under the toasts */
 } ToastExt;
 
 #define TX(w) AWRA_EXT(w, ToastExt)
@@ -1043,7 +1044,8 @@ static void toast_allocate(AwraWidget *w)
     nw = BK_MIN(nw, w->w - awra_px(32));
     awra_measure(t->surface, AWRA_ORIENTATION_VERTICAL, nw, &mn, &nh);
     const float slide = *(float *)awra_widget_get_data(t->surface, "awra-slide");
-    const int y = w->y + w->h - awra_px(24) - nh + (int)((1.0f - slide) * (nh + awra_px(24)));
+    const int gap = awra_px(24 + x->bottom_inset);
+    const int y = w->y + w->h - gap - nh + (int)((1.0f - slide) * (nh + gap));
     awra_allocate(t->surface, w->x + (w->w - nw) / 2, y, nw, nh);
   }
 }
@@ -1056,6 +1058,12 @@ static AwraClass toast_overlay_class = {
     .measure = toast_measure,
     .allocate = toast_allocate,
 };
+
+void awra_toast_overlay_set_bottom_inset(AwraWidget *w, int inset)
+{
+  TX(w)->bottom_inset = BK_MAX(0, inset);
+  awra_queue_allocate(w);
+}
 
 /* the toast's surface: opaque Floating, radius 17 */
 typedef struct ToastSurfExt {
@@ -1418,6 +1426,11 @@ void awra_command_palette_set_title(AwraWidget *w, const char *title)
 void awra_command_palette_set_empty_text(AwraWidget *w, const char *text)
 {
   awra_label_set_text(pd(w)->empty, text ? text : "No matching command");
+}
+
+void awra_command_palette_set_query(AwraWidget *w, const char *query)
+{
+  awra_entry_set_text(pd(w)->entry, query ? query : "");
 }
 
 void awra_command_palette_present(AwraWidget *w, AwraWidget *window)

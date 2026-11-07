@@ -51,6 +51,7 @@ pub mod sig {
     pub const EDGE_REACHED: i32 = ffi::AWRA_SIGNAL_EDGE_REACHED as i32;
     pub const RETRY: i32 = ffi::AWRA_SIGNAL_RETRY as i32;
     pub const JUMP_ACTIVATED: i32 = ffi::AWRA_SIGNAL_JUMP_ACTIVATED as i32;
+    pub const COPY_CLIPBOARD: i32 = ffi::AWRA_SIGNAL_COPY_CLIPBOARD as i32;
 }
 
 /// What a signal carries.

@@ -1071,6 +1071,25 @@ void awra_widget_set_margins(AwraWidget *w, int top, int end, int bottom, int st
   awra_widget_queue_resize(w);
 }
 
+int awra_widget_margin(AwraWidget *w, int side)
+{
+  return awra_is_widget(w) && side >= 0 && side < 4 ? awra_aux(w)->margin[side] : 0;
+}
+
+bool awra_widget_focus_within(AwraWidget *w)
+{
+  AwraWidget *win = awra_window_of(w);
+  for (AwraWidget *f = win ? awra_window_focus(win) : NULL; f; f = (AwraWidget *)f->parent) {
+    if (f == w) {
+      return true;
+    }
+    if (!awra_is_widget(f->parent)) {
+      break;
+    }
+  }
+  return false;
+}
+
 void awra_widget_set_margin_top(AwraWidget *w, int m)
 {
   AUX_OR_RETURN(w);

@@ -74,7 +74,7 @@ impl Box {
         unsafe { ffi::awra_box_insert_after(ptr!(self), child.widget_ptr(), s) }
     }
     pub fn reorder_child_after(&self, child: &impl IsWidget, sibling: Option<&impl IsWidget>) {
-        let keep = child.upcast();
+        let keep = child.upcast::<Widget>();
         unsafe { ffi::awra_box_remove(ptr!(self), keep.as_ptr()) };
         self.insert_child_after(&keep, sibling);
     }
@@ -417,6 +417,7 @@ impl Label {
     pub fn set_text(&self, text: &str) {
         let t = cstring(text);
         unsafe { ffi::awra_label_set_text(ptr!(self), t.as_ptr()) }
+        crate::compat3::label_changed(self);
     }
     pub fn set_label(&self, text: &str) {
         self.set_text(text)
@@ -430,6 +431,7 @@ impl Label {
     pub fn set_markup(&self, markup: &str) {
         let t = cstring(markup);
         unsafe { ffi::awra_label_set_markup(ptr!(self), t.as_ptr()) }
+        crate::compat3::label_changed(self);
     }
     pub fn set_wrap(&self, wrap: bool) {
         let mode = self.0.rust_data::<WrapMode>("wrap-mode").unwrap_or(WrapMode::Word);
@@ -508,8 +510,12 @@ impl Image {
         i
     }
     pub fn set_icon_name(&self, name: Option<&str>) {
+        self.0.set_rust_data("p:icon-name", name.map(str::to_owned));
         let n = OptC::new(name);
         unsafe { ffi::awra_image_set_icon_name(ptr!(self), n.ptr()) }
+    }
+    pub fn icon_name(&self) -> Option<String> {
+        self.0.rust_data::<Option<String>>("p:icon-name").flatten()
     }
     pub fn set_from_icon_name(&self, name: Option<&str>) {
         self.set_icon_name(name)
@@ -739,12 +745,13 @@ impl CheckButton {
     }
     /// A label widget as the label (its text).
     pub fn set_child(&self, child: Option<&impl IsWidget>) {
-        match child.and_then(|c| c.upcast().downcast::<Label>().ok()) {
+        match child.and_then(|c| c.upcast::<Widget>().downcast::<Label>().ok()) {
             Some(l) => self.set_label(l.text()),
             None => self.set_label(None::<&str>),
         }
     }
-    pub fn set_group(&self, group: Option<&CheckButton>) {
+    pub fn set_group<'a>(&self, group: impl Into<Option<&'a CheckButton>>) {
+        let group = group.into();
         unsafe { ffi::awra_check_button_set_group(ptr!(self), group.map_or(std::ptr::null_mut(), |g| g.0.as_ptr())) }
     }
     pub fn set_inconsistent(&self, i: bool) {
@@ -1132,6 +1139,8 @@ macro_rules! entry_ops {
                 unsafe { from_cstr(ffi::awra_entry_text(ptr!(self))) }
             }
             pub fn set_placeholder_text(&self, text: impl IntoOptStr) {
+                let text = text.into_opt_string();
+                self.0.set_rust_data("p:placeholder", text.clone());
                 let t = OptC::new(text);
                 unsafe { ffi::awra_entry_set_placeholder(ptr!(self), t.ptr()) }
             }
@@ -1166,6 +1175,13 @@ macro_rules! entry_ops {
             }
             pub fn connect_changed<F: Fn(&$t) + 'static>(&self, f: F) -> SignalHandlerId {
                 self.0.connect_typed::<$t, _>(sig::CHANGED, move |w, _| f(w))
+            }
+            /// gtk-rs's notify::text: the text changed.
+            pub fn connect_text_notify<F: Fn(&$t) + 'static>(&self, f: F) -> SignalHandlerId {
+                self.connect_changed(f)
+            }
+            pub fn placeholder_text(&self) -> Option<String> {
+                self.0.rust_data::<Option<String>>("p:placeholder").flatten()
             }
             pub fn connect_activate<F: Fn(&$t) + 'static>(&self, f: F) -> SignalHandlerId {
                 self.0.connect_typed::<$t, _>(sig::ACTIVATE, move |w, _| f(w))
@@ -1534,8 +1550,8 @@ impl Surface {
     pub fn set_child(&self, child: impl IntoOptWidget) {
         unsafe { ffi::awra_surface_set_child(ptr!(self), child.into_opt_ptr()) }
     }
-    pub fn set_material(&self, m: Material) {
-        unsafe { ffi::awra_surface_set_material(ptr!(self), m as _) }
+    pub fn set_material(&self, m: impl std::borrow::Borrow<Material>) {
+        unsafe { ffi::awra_surface_set_material(ptr!(self), *m.borrow() as _) }
     }
     pub fn set_elevation(&self, e: Elevation) {
         unsafe { ffi::awra_surface_set_elevation(ptr!(self), e as _) }
@@ -1671,13 +1687,35 @@ impl FormRow {
         unsafe { FormRow::from_full(ffi::awra_form_row_new(std::ptr::null(), std::ptr::null())) }
     }
     pub fn set_title(&self, t: impl IntoOptStr) {
+        let t = t.into_opt_string();
+        self.0.set_rust_data("p:label", t.clone());
         let t = OptC::new(t);
         unsafe { ffi::awra_form_row_set_title(ptr!(self), t.ptr()) }
     }
     pub fn set_label(&self, t: impl IntoOptStr) {
         self.set_title(t)
     }
+    pub fn label(&self) -> Option<String> {
+        self.0.rust_data::<Option<String>>("p:label").flatten()
+    }
+    pub fn help_text(&self) -> Option<String> {
+        self.0.rust_data::<Option<String>>("p:help").flatten()
+    }
+    pub fn error_message(&self) -> Option<String> {
+        self.0.rust_data::<Option<String>>("p:error").flatten()
+    }
+    pub fn set_error_message(&self, t: impl IntoOptStr) {
+        let t = t.into_opt_string();
+        self.0.set_rust_data("p:error", t.clone());
+        let t = OptC::new(t);
+        unsafe { ffi::awra_form_row_set_error_message(ptr!(self), t.ptr()) }
+    }
+    pub fn set_validation_state(&self, s: crate::ValidationState) {
+        unsafe { ffi::awra_form_row_set_validation_state(ptr!(self), s as _) }
+    }
     pub fn set_subtitle(&self, t: impl IntoOptStr) {
+        let t = t.into_opt_string();
+        self.0.set_rust_data("p:help", t.clone());
         let t = OptC::new(t);
         unsafe { ffi::awra_form_row_set_subtitle(ptr!(self), t.ptr()) }
     }
@@ -1717,8 +1755,8 @@ impl ActionRow {
         let t = OptC::new(t);
         unsafe { ffi::awra_action_row_set_subtitle(ptr!(self), t.ptr()) }
     }
-    pub fn subtitle(&self) -> Option<String> {
-        self.0.rust_data::<Option<String>>("p:subtitle").flatten()
+    pub fn subtitle(&self) -> String {
+        self.0.rust_data::<Option<String>>("p:subtitle").flatten().unwrap_or_default()
     }
     pub fn connect_clicked<F: Fn(&ActionRow) + 'static>(&self, f: F) -> SignalHandlerId {
         self.connect_activated(f)
@@ -1805,8 +1843,8 @@ impl StatusBanner {
         let t = OptC::new(t);
         unsafe { ffi::awra_status_banner_set_title(ptr!(self), t.ptr()) }
     }
-    pub fn title(&self) -> Option<String> {
-        self.0.rust_data::<Option<String>>("p:title").flatten()
+    pub fn title(&self) -> String {
+        self.0.rust_data::<Option<String>>("p:title").flatten().unwrap_or_default()
     }
     pub fn set_description(&self, t: impl IntoOptStr) {
         let t = t.into_opt_string();
@@ -1814,8 +1852,8 @@ impl StatusBanner {
         let t = OptC::new(t);
         unsafe { ffi::awra_status_banner_set_description(ptr!(self), t.ptr()) }
     }
-    pub fn description(&self) -> Option<String> {
-        self.0.rust_data::<Option<String>>("p:description").flatten()
+    pub fn description(&self) -> String {
+        self.0.rust_data::<Option<String>>("p:description").flatten().unwrap_or_default()
     }
     pub fn set_appearance(&self, a: StatusAppearance) {
         self.0.set_rust_data("p:appearance", a);
@@ -2040,8 +2078,8 @@ impl Sidebar {
     pub fn set_footer(&self, w: impl IntoOptWidget) {
         unsafe { ffi::awra_sidebar_set_footer(ptr!(self), w.into_opt_ptr()) }
     }
-    pub fn set_inset(&self, s: Spacing) {
-        unsafe { ffi::awra_sidebar_set_inset(ptr!(self), s as _) }
+    pub fn set_inset(&self, s: impl crate::compat3::IntoSpacing) {
+        unsafe { ffi::awra_sidebar_set_inset(ptr!(self), s.into_spacing() as _) }
     }
 }
 impl Default for Sidebar {
@@ -2056,13 +2094,30 @@ impl NavigationItem {
         let l = cstring(label);
         unsafe { NavigationItem::from_full(ffi::awra_navigation_item_new(l.as_ptr(), std::ptr::null())) }
     }
-    pub fn new(label: &str, icon: Option<&str>) -> NavigationItem {
+    /// An item with no label yet (Awra 1's `new`).
+    pub fn new() -> NavigationItem {
+        NavigationItem::with_label("")
+    }
+    pub fn with_icon(label: &str, icon: Option<&str>) -> NavigationItem {
         let (l, i) = (cstring(label), OptC::new(icon));
         unsafe { NavigationItem::from_full(ffi::awra_navigation_item_new(l.as_ptr(), i.ptr())) }
     }
     pub fn set_label(&self, l: &str) {
         let l = cstring(l);
         unsafe { ffi::awra_navigation_item_set_label(ptr!(self), l.as_ptr()) }
+    }
+    pub fn label(&self) -> String {
+        unsafe { from_cstr(ffi::awra_navigation_item_label(ptr!(self))) }
+    }
+    /// Custom content in place of the label.
+    pub fn set_child(&self, w: impl IntoOptWidget) {
+        unsafe { ffi::awra_navigation_item_set_child(ptr!(self), w.into_opt_ptr()) }
+    }
+    pub fn label_color(&self) -> Option<RGBA> {
+        self.0.rust_data::<Option<RGBA>>("p:label-color").flatten()
+    }
+    pub fn connect_toggled<F: Fn(&NavigationItem) + 'static>(&self, f: F) -> SignalHandlerId {
+        self.connect_selected_notify(f)
     }
     pub fn set_icon_name(&self, n: impl IntoOptStr) {
         let n = OptC::new(n);
@@ -2104,6 +2159,7 @@ impl NavigationItem {
         unsafe { ffi::awra_navigation_item_set_emphasized(ptr!(self), e) }
     }
     pub fn set_label_color(&self, c: Option<&RGBA>) {
+        self.0.set_rust_data("p:label-color", c.copied());
         with_rgba!(c, |p| unsafe { ffi::awra_navigation_item_set_label_color(ptr!(self), p) })
     }
     /// gtk-rs ToggleButton's active: selected.
@@ -2147,6 +2203,12 @@ impl SplitView {
     }
     pub fn set_end_pane_width(&self, w: i32) {
         unsafe { ffi::awra_split_view_set_end_pane_width(ptr!(self), w) }
+    }
+    pub fn sidebar(&self) -> Option<Widget> {
+        unsafe { Widget::from_none_opt(ffi::awra_split_view_sidebar(ptr!(self))) }
+    }
+    pub fn content(&self) -> Option<Widget> {
+        unsafe { Widget::from_none_opt(ffi::awra_split_view_content(ptr!(self))) }
     }
 }
 impl Default for SplitView {
@@ -2201,6 +2263,10 @@ impl ToastOverlay {
     }
     pub fn dismiss(&self, id: u32) {
         unsafe { ffi::awra_toast_overlay_dismiss(ptr!(self), id) }
+    }
+    /// Space kept clear under the toasts.
+    pub fn set_bottom_inset(&self, inset: i32) {
+        unsafe { ffi::awra_toast_overlay_set_bottom_inset(ptr!(self), inset) }
     }
 }
 struct ToastHolder(*mut ToastAction);

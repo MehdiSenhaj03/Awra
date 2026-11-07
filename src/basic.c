@@ -419,6 +419,9 @@ static int label_key(AwraWidget *w, BKEvent *e)
     if (a == b) {
       return 0;
     }
+    if (awra_emit_simple(w, AWRA_SIGNAL_COPY_CLIPBOARD)) {
+      return 1;
+    }
     const char *t = awra_text_layout_text(x->layout);
     char *part = (char *)malloc((size_t)(b - a + 1));
     if (part) {
@@ -436,6 +439,12 @@ static int label_key(AwraWidget *w, BKEvent *e)
     return 1;
   }
   return 0;
+}
+
+const char *awra_label_current_uri(AwraWidget *w)
+{
+  LabelExt *x = LX(w);
+  return x->hover_link >= 0 ? awra_text_layout_link(x->layout, x->hover_link) : NULL;
 }
 
 static void label_events(AwraWidget *w)

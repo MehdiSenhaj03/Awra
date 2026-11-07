@@ -347,6 +347,8 @@ typedef struct SliderExt {
   int orientation;
   bool muted; /* volume: highlight in the disabled color */
   bool dragging;
+  double marks[8]; /* values ticked under (beside) the trough */
+  int nmarks;
 } SliderExt;
 
 #define SLX(w) AWRA_EXT(w, SliderExt)
@@ -354,7 +356,7 @@ typedef struct SliderExt {
 static void slider_measure(AwraWidget *w, int o, int for_size, int *r_min, int *r_nat)
 {
   const bool along = o == SLX(w)->orientation;
-  *r_min = *r_nat = along ? awra_px(15) : awra_px(19);
+  *r_min = *r_nat = along ? awra_px(15) : awra_px(19) + (SLX(w)->nmarks ? awra_px(8) : 0);
 }
 
 static double slider_frac(const AwraWidget *w)
@@ -374,8 +376,19 @@ static void slider_draw(AwraWidget *w, AwraDraw *d)
   const bool horiz = x->orientation == AWRA_ORIENTATION_HORIZONTAL;
   const float th = awra_pxf(6);
   const float frac = (float)slider_frac(w);
-  AwraBox trough = horiz ? (AwraBox){(float)w->x, (float)w->y + floorf((w->h - th) * 0.5f), (float)w->w, th} :
-                           (AwraBox){(float)w->x + floorf((w->w - th) * 0.5f), (float)w->y, th, (float)w->h};
+  /* marks take a strip after the trough */
+  const int mk = x->nmarks ? awra_px(8) : 0;
+  AwraBox trough = horiz ? (AwraBox){(float)w->x, (float)w->y + floorf((w->h - mk - th) * 0.5f), (float)w->w, th} :
+                           (AwraBox){(float)w->x + floorf((w->w - mk - th) * 0.5f), (float)w->y, th, (float)w->h};
+  for (int i = 0; i < x->nmarks; i++) {
+    const double f = x->max > x->min ? (x->marks[i] - x->min) / (x->max - x->min) : 0;
+    const float len = (horiz ? trough.w : trough.h) - th;
+    const float at = floorf((float)f * len + th * 0.5f);
+    const float tw = awra_pxf(1), tl = awra_pxf(6);
+    AwraBox tick = horiz ? (AwraBox){trough.x + at, trough.y + th + awra_pxf(3), tw, tl} :
+                           (AwraBox){trough.x + th + awra_pxf(3), trough.y + trough.h - th * 0.5f - at, tl, tw};
+    awra_paint_rbox(d, tick, 0, &t->muted, 0, NULL);
+  }
   awra_paint_rbox(d, trough, th * 0.5f, &t->control_track, 0, NULL);
   { /* inset 0 1px 2px rgba(0,0,0,.18) */
     const AwraRGBA sh = {0, 0, 0, 0.13f};
@@ -962,5 +975,20 @@ void awra_spinner_set_size_internal(AwraWidget *w, int size);
 void awra_spinner_set_size_internal(AwraWidget *w, int size)
 {
   SPX(w)->size = size;
+  awra_widget_queue_resize(w);
+}
+
+void awra_slider_add_mark(AwraWidget *w, double value)
+{
+  SliderExt *x = SLX(w);
+  if (x->nmarks < 8) {
+    x->marks[x->nmarks++] = value;
+    awra_widget_queue_resize(w);
+  }
+}
+
+void awra_slider_clear_marks(AwraWidget *w)
+{
+  SLX(w)->nmarks = 0;
   awra_widget_queue_resize(w);
 }

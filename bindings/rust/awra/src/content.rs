@@ -204,8 +204,12 @@ impl Divider {
         unsafe { Divider::from_full(ffi::awra_divider_new(t.ptr())) }
     }
     pub fn set_label(&self, label: Option<&str>) {
+        self.0.set_rust_data("p:label", label.map(str::to_owned));
         let t = OptC::new(label);
         unsafe { ffi::awra_divider_set_label(ptr!(self), t.ptr()) }
+    }
+    pub fn label(&self) -> Option<String> {
+        self.0.rust_data::<Option<String>>("p:label").flatten()
     }
     pub fn set_label_position(&self, p: DividerLabelPosition) {
         unsafe { ffi::awra_divider_set_label_position(ptr!(self), p as i32) }
@@ -239,11 +243,19 @@ impl TypingIndicator {
         unsafe { TypingIndicator::from_full(ffi::awra_typing_indicator_new()) }
     }
     pub fn set_label(&self, label: Option<&str>) {
+        self.0.set_rust_data("p:label", label.map(str::to_owned));
         let t = OptC::new(label);
         unsafe { ffi::awra_typing_indicator_set_label(ptr!(self), t.ptr()) }
     }
+    pub fn label(&self) -> Option<String> {
+        self.0.rust_data::<Option<String>>("p:label").flatten()
+    }
     pub fn set_active(&self, active: bool) {
+        self.0.set_rust_data("p:active", active);
         unsafe { ffi::awra_typing_indicator_set_active(ptr!(self), active) }
+    }
+    pub fn is_active(&self) -> bool {
+        self.0.rust_data::<bool>("p:active").unwrap_or(false)
     }
 }
 impl Default for TypingIndicator {
@@ -260,6 +272,13 @@ impl BadgeGroup {
     pub fn append(&self, badge: &crate::Badge) {
         unsafe { ffi::awra_badge_group_append(ptr!(self), badge.widget_ptr()) }
     }
+    /// The badge at `index`.
+    pub fn badge(&self, index: u32) -> Option<crate::Badge> {
+        self.children().into_iter().nth(index as usize).and_then(|w| w.downcast().ok())
+    }
+    pub fn remove(&self, badge: &crate::Badge) {
+        unsafe { ffi::awra_container_remove(ptr!(self), badge.widget_ptr()) }
+    }
     pub fn remove_all(&self) {
         unsafe { ffi::awra_badge_group_remove_all(ptr!(self)) }
     }
@@ -275,7 +294,7 @@ impl MetadataGroup {
     pub fn new() -> MetadataGroup {
         unsafe { MetadataGroup::from_full(ffi::awra_metadata_group_new()) }
     }
-    pub fn set_title(&self, title: Option<&str>) {
+    pub fn set_title(&self, title: impl crate::IntoOptStr) {
         let t = OptC::new(title);
         unsafe { ffi::awra_metadata_group_set_title(ptr!(self), t.ptr()) }
     }
@@ -477,14 +496,22 @@ impl RailGroup {
         unsafe { RailGroup::from_full(ffi::awra_rail_group_new(t.ptr())) }
     }
     pub fn set_label(&self, label: Option<&str>) {
+        self.0.set_rust_data("p:label", label.map(str::to_owned));
         let t = OptC::new(label);
         unsafe { ffi::awra_rail_group_set_label(ptr!(self), t.ptr()) }
+    }
+    pub fn label(&self) -> Option<String> {
+        self.0.rust_data::<Option<String>>("p:label").flatten()
+    }
+    pub fn color(&self) -> Option<crate::gdk::RGBA> {
+        self.0.rust_data::<Option<crate::gdk::RGBA>>("p:color").flatten()
     }
     pub fn set_icon_name(&self, icon: Option<&str>) {
         let t = OptC::new(icon);
         unsafe { ffi::awra_rail_group_set_icon_name(ptr!(self), t.ptr()) }
     }
     pub fn set_color(&self, c: Option<&crate::gdk::RGBA>) {
+        self.0.set_rust_data("p:color", c.copied());
         let v = c.map(|c| c.to_ffi());
         unsafe { ffi::awra_rail_group_set_color(ptr!(self), v.as_ref().map_or(std::ptr::null(), |v| v)) }
     }
@@ -658,7 +685,7 @@ impl PasswordEntry {
         let t = cstring(text);
         unsafe { ffi::awra_entry_set_text(ffi::awra_password_entry_entry(ptr!(self)), t.as_ptr()) }
     }
-    pub fn set_placeholder_text(&self, text: Option<&str>) {
+    pub fn set_placeholder_text(&self, text: impl crate::IntoOptStr) {
         let t = OptC::new(text);
         unsafe { ffi::awra_entry_set_placeholder(ffi::awra_password_entry_entry(ptr!(self)), t.ptr()) }
     }
@@ -808,7 +835,7 @@ impl ColorPalette {
     /// A colour chosen (None: automatic).
     pub fn connect_chosen<F: Fn(&ColorPalette, Option<&crate::gdk::RGBA>) + 'static>(&self, f: F) -> SignalHandlerId {
         self.0.connect_typed::<ColorPalette, _>(sig::SELECTED, move |w, a| {
-            let c = if a.index() == 0 { None } else { crate::gdk::RGBA::parse(&a.text().unwrap_or_default()) };
+            let c = if a.index() == 0 { None } else { crate::gdk::RGBA::parse(&a.text().unwrap_or_default()).ok() };
             f(w, c.as_ref())
         })
     }

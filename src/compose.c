@@ -474,8 +474,10 @@ void awra_form_append(AwraWidget *form, AwraWidget *row)
 }
 
 typedef struct FormRowExt {
-  AwraWidget *label, *field, *control, *help;
+  AwraWidget *label, *field, *control, *help, *error;
   bool vertical, compact;
+  bool has_help, has_error;
+  int validation;
 } FormRowExt;
 
 #define FRX(w) AWRA_EXT(w, FormRowExt)
@@ -607,6 +609,14 @@ AwraWidget *awra_form_row_new(const char *title, const char *subtitle)
   awra_label_set_xalign(x->help, 0.0f);
   awra_widget_set_visible(x->help, subtitle && subtitle[0]);
   awra_box_append(x->field, x->help);
+  x->error = awra_label_new("");
+  awra_widget_set_typography(x->error, AWRA_TYPOGRAPHY_MUTED);
+  awra_widget_add_class(x->error, "error");
+  awra_label_set_wrap(x->error, AWRA_WRAP_WORD);
+  awra_label_set_xalign(x->error, 0.0f);
+  awra_widget_set_visible(x->error, false);
+  awra_box_append(x->field, x->error);
+  x->has_help = subtitle && subtitle[0];
   awra_child_insert(w, x->label, -1);
   awra_child_insert(w, x->field, -1);
   return w;
@@ -645,10 +655,45 @@ void awra_form_row_set_title(AwraWidget *w, const char *t)
   awra_widget_set_visible(FRX(w)->label, t && t[0]);
 }
 
+/* Awra 1's update_validation: the error message, in the danger colour,
+ * takes the help text's place while the state is an error; the control's
+ * border follows the state. */
+static void formrow_update_validation(AwraWidget *w)
+{
+  FormRowExt *x = FRX(w);
+  const bool show_error = x->validation == AWRA_VALIDATION_ERROR && x->has_error;
+  awra_widget_set_visible(x->error, show_error);
+  awra_widget_set_visible(x->help, !show_error && x->has_help);
+  static const char *const classes[] = {NULL, "validation-success", "validation-warning", "validation-error"};
+  if (x->control) {
+    for (int i = 1; i < 4; i++) {
+      awra_widget_remove_class(x->control, classes[i]);
+    }
+    if (x->validation > 0 && x->validation < 4) {
+      awra_widget_add_class(x->control, classes[x->validation]);
+    }
+    awra_invalidate(x->control);
+  }
+}
+
 void awra_form_row_set_subtitle(AwraWidget *w, const char *s)
 {
   awra_label_set_text(FRX(w)->help, s);
-  awra_widget_set_visible(FRX(w)->help, s && s[0]);
+  FRX(w)->has_help = s && s[0];
+  formrow_update_validation(w);
+}
+
+void awra_form_row_set_error_message(AwraWidget *w, const char *message)
+{
+  awra_label_set_text(FRX(w)->error, message);
+  FRX(w)->has_error = message && message[0];
+  formrow_update_validation(w);
+}
+
+void awra_form_row_set_validation_state(AwraWidget *w, AwraValidationState state)
+{
+  FRX(w)->validation = state;
+  formrow_update_validation(w);
 }
 
 void awra_form_row_set_vertical(AwraWidget *w, bool v)
@@ -1207,7 +1252,7 @@ void awra_sidebar_set_inset(AwraWidget *w, AwraSpacing inset)
 /* Navigation item (spec A §5): 42 px rows, radius 9, 22 px icon gap */
 
 typedef struct NavExt {
-  AwraWidget *box, *icon, *label, *badge, *texts, *subtitle, *prefix, *suffix;
+  AwraWidget *box, *icon, *label, *badge, *texts, *subtitle, *prefix, *suffix, *child;
   bool selected, muted, emphasized, has_label_color;
   AwraRGBA label_color;
   AwraWidget *group_next;
@@ -1510,6 +1555,26 @@ void awra_navigation_item_set_label(AwraWidget *w, const char *l)
   awra_label_set_text(NX(w)->label, l);
 }
 
+const char *awra_navigation_item_label(AwraWidget *w)
+{
+  return awra_label_text(NX(w)->label);
+}
+
+/* Awra 1's custom child: it takes the label and subtitle's place. */
+void awra_navigation_item_set_child(AwraWidget *w, AwraWidget *child)
+{
+  NavExt *x = NX(w);
+  if (x->child) {
+    awra_box_remove(x->box, x->child);
+  }
+  x->child = child;
+  awra_widget_set_visible(x->texts, child == NULL);
+  if (child) {
+    awra_widget_set_hexpand(child, true);
+    awra_box_insert_after(x->box, child, x->texts);
+  }
+}
+
 void awra_navigation_item_set_icon_name(AwraWidget *w, const char *icon)
 {
   awra_image_set_icon_name(NX(w)->icon, icon);
@@ -1712,6 +1777,16 @@ static void split_draw(AwraWidget *w, AwraDraw *d)
     awra_paint_rect(d, (AwraBox){(float)(w->x + sw), (float)w->y, awra_pxf(1), (float)w->h},
                     &awra_tokens()->separator);
   }
+}
+
+AwraWidget *awra_split_view_sidebar(AwraWidget *w)
+{
+  return SPLX(w)->sidebar;
+}
+
+AwraWidget *awra_split_view_content(AwraWidget *w)
+{
+  return SPLX(w)->content;
 }
 
 static AwraClass split_class = {

@@ -34,6 +34,7 @@ typedef struct WinExt {
   char *title;
   AwraWidget *titlebar, *child;
   bool hide_on_close, keep_rounded, resizable, presented, closed;
+  bool overlay_chrome; /* the title bar floats over the content */
   int default_w, default_h, min_w, min_h;
   int state;
   int blur_state; /* -1 unknown, 0 no, 1 yes */
@@ -147,8 +148,8 @@ static void window_measure(AwraWidget *w, int o, int for_size, int *r_min, int *
     if (x->child) {
       awra_measure(x->child, o, for_size, &cmin, &cnat);
     }
-    *r_min = tmin + cmin;
-    *r_nat = tnat + cnat;
+    *r_min = x->overlay_chrome ? BK_MAX(tmin, cmin) : tmin + cmin;
+    *r_nat = x->overlay_chrome ? BK_MAX(tnat, cnat) : tnat + cnat;
   }
 }
 
@@ -161,6 +162,9 @@ static void window_allocate(AwraWidget *w)
     awra_measure(x->titlebar, AWRA_ORIENTATION_VERTICAL, w->w, &mn, &nat);
     th = mn;
     awra_allocate(x->titlebar, w->x, w->y, w->w, th);
+  }
+  if (x->overlay_chrome) {
+    th = 0;
   }
   if (x->child) {
     awra_allocate(x->child, w->x, w->y + th, w->w, BK_MAX(0, w->h - th));
@@ -1081,6 +1085,15 @@ const char *awra_window_title(AwraWidget *w)
 void awra_window_set_child(AwraWidget *w, AwraWidget *child)
 {
   awra_set_slot(w, &WEXT(w)->child, child);
+  if (WEXT(w)->titlebar) { /* keep the title bar over the content */
+    awra_window_set_titlebar(w, WEXT(w)->titlebar);
+  }
+}
+
+void awra_window_set_overlay_chrome(AwraWidget *w, bool overlaid)
+{
+  WEXT(w)->overlay_chrome = overlaid;
+  awra_queue_allocate(w);
 }
 
 AwraWidget *awra_window_child(AwraWidget *w)

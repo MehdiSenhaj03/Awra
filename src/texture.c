@@ -85,6 +85,34 @@ AwraTexture *awra_texture_new_nv12(const uint8_t *data, int width, int height, b
   return t;
 }
 
+AwraTexture *awra_texture_new_i420(const uint8_t *data, int width, int height, bool bt709)
+{
+  /* kept as NV12: the planes of chroma interleave */
+  const int w = width & ~1, h = height & ~1;
+  const size_t bytes = (size_t)w * h * 3 / 2;
+  AwraTexture *t = texture_alloc(w, h, bt709 ? BUI_PIXMAP_NV12_BT709 : BUI_PIXMAP_NV12_BT601,
+                                 (bytes + 3) & ~(size_t)3);
+  if (!t) {
+    return NULL;
+  }
+  uint8_t *dst = (uint8_t *)t->px;
+  for (int y = 0; y < h; y++) {
+    memcpy(dst + (size_t)y * w, data + (size_t)y * width, (size_t)w);
+  }
+  const int cw = width / 2, ch = height / 2;
+  const uint8_t *u = data + (size_t)width * height, *v = u + (size_t)cw * ch;
+  uint8_t *uv = dst + (size_t)w * h;
+  for (int y = 0; y < h / 2; y++) {
+    const uint8_t *ur = u + (size_t)y * cw, *vr = v + (size_t)y * cw;
+    uint8_t *o = uv + (size_t)y * w;
+    for (int x = 0; x < w / 2; x++) {
+      o[2 * x] = ur[x];
+      o[2 * x + 1] = vr[x];
+    }
+  }
+  return t;
+}
+
 AwraTexture *awra_texture_new_from_bytes(const void *encoded, size_t length)
 {
   BKImBuf *ib = BK_imbuf_decode(encoded, length, 0, 0);

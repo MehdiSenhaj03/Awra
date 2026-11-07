@@ -267,7 +267,20 @@ static void edit_draw(AwraWidget *w, AwraDraw *d)
   }
   const AwraRGBA *fill = awra_widget_get_data(w, "awra-quiet") && !focus ? &t->control_cap_hover :
                                                                            &t->control_well;
-  awra_paint_rbox(d, b, radius, fill, focus ? awra_pxf(1) : 0, &t->focus_ring);
+  /* a form row's validation state colours the border (awra.css
+   * .awra-entry.awra-validation-*) */
+  AwraRGBA vb = {0};
+  if (awra_widget_has_class(w, "validation-error")) {
+    vb = t->danger;
+    vb.a *= 0.88f;
+  }
+  else if (awra_widget_has_class(w, "validation-warning")) {
+    vb = (AwraRGBA){0.910f, 0.706f, 0.310f, 0.78f};
+  }
+  else if (awra_widget_has_class(w, "validation-success")) {
+    vb = (AwraRGBA){0.322f, 0.788f, 0.510f, 0.72f};
+  }
+  awra_paint_rbox(d, b, radius, fill, focus || vb.a > 0 ? awra_pxf(1) : 0, vb.a > 0 ? &vb : &t->focus_ring);
   if (!awra_widget_get_data(w, "awra-quiet")) { /* inset 0 1px 2px rgba(0,0,0,.20) */
     const AwraRGBA sh = {0, 0, 0, 0.15f};
     const float r4[4] = {radius, radius, radius, radius}, w4[4] = {awra_pxf(1.5), 0, 0, 0};
@@ -968,7 +981,9 @@ typedef struct CaptureExt {
   int held[16];  /* evdev keys held while listening */
   int nheld;
   int seen[16];  /* every key held during this capture, in order */
+  char *seen_sym[16]; /* and the key symbols they typed */
   int nseen;
+  char **syms; /* captured key symbols, as codes */
   char *accel;
 } CaptureExt;
 
@@ -1081,6 +1096,10 @@ static void capture_set_listening(AwraWidget *w, bool on)
     return;
   }
   x->listening = on;
+  for (int i = 0; i < x->nseen; i++) {
+    free(x->seen_sym[i]);
+    x->seen_sym[i] = NULL;
+  }
   x->nheld = x->nseen = 0;
   awra_widget_queue_resize(w);
   awra_invalidate(w);
@@ -1091,11 +1110,14 @@ static void capture_finish(AwraWidget *w)
 {
   CaptureExt *x = CPX(w);
   strv_free(x->codes, x->ncodes);
+  strv_free(x->syms, x->ncodes);
   x->codes = (char **)calloc((size_t)x->nseen + 1, sizeof(char *));
+  x->syms = (char **)calloc((size_t)x->nseen + 1, sizeof(char *));
   x->ncodes = 0;
   for (int i = 0; i < x->nseen; i++) {
     const char *name = awra_key_code_name(x->seen[i]);
     if (name) {
+      x->syms[x->ncodes] = awra_strdup(x->seen_sym[i] ? x->seen_sym[i] : "");
       x->codes[x->ncodes++] = awra_strdup(name);
     }
   }
@@ -1137,6 +1159,7 @@ static int capture_key(AwraWidget *w, BKEvent *e)
     seen |= x->seen[i] == code;
   }
   if (!seen && x->nseen < 16) {
+    x->seen_sym[x->nseen] = e->keysym ? awra_strdup(e->keysym) : NULL;
     x->seen[x->nseen++] = code;
   }
   /* without chords, a non-modifier key ends the capture */
@@ -1194,6 +1217,10 @@ static void capture_finalize(AwraWidget *w)
   CaptureExt *x = CPX(w);
   free(x->placeholder);
   free(x->accel);
+  for (int i = 0; i < x->nseen; i++) {
+    free(x->seen_sym[i]);
+  }
+  strv_free(x->syms, x->ncodes);
   strv_free(x->codes, x->ncodes);
   strv_free(x->labels, x->nlabels);
 }
@@ -1268,9 +1295,10 @@ void awra_shortcut_capture_clear(AwraWidget *w);
 void awra_shortcut_capture_clear(AwraWidget *w)
 {
   CaptureExt *x = CPX(w);
+  strv_free(x->syms, x->ncodes);
   strv_free(x->codes, x->ncodes);
   strv_free(x->labels, x->nlabels);
-  x->codes = x->labels = NULL;
+  x->codes = x->labels = x->syms = NULL;
   x->ncodes = x->nlabels = 0;
   capture_set_listening(w, false);
   awra_widget_queue_resize(w);
@@ -1458,4 +1486,29 @@ void awra_editable_caret_rect(AwraWidget *w, double *r_x, double *r_y, double *r
   *r_x = (a.x - w->x + cx - x->scroll_x) / s;
   *r_y = (a.y - w->y + cy - (x->multiline ? x->scroll_y : 0)) / s;
   *r_h = ch / s;
+}
+
+int awra_shortcut_capture_keysyms(AwraWidget *w, const char *const **r_keysyms)
+{
+  *r_keysyms = (const char *const *)CPX(w)->syms;
+  return CPX(w)->syms ? CPX(w)->ncodes : 0;
+}
+
+void awra_shortcut_capture_set_codes(AwraWidget *w, const char *const *codes, int n)
+{
+  CaptureExt *x = CPX(w);
+  strv_free(x->syms, x->ncodes);
+  strv_free(x->codes, x->ncodes);
+  x->syms = NULL;
+  x->codes = (char **)calloc((size_t)n + 1, sizeof(char *));
+  x->ncodes = n;
+  for (int i = 0; i < n; i++) {
+    x->codes[i] = awra_strdup(codes[i]);
+  }
+  const char **labels = (const char **)calloc((size_t)n + 1, sizeof(char *));
+  for (int i = 0; i < n; i++) {
+    labels[i] = awra_key_code_label(codes[i]);
+  }
+  awra_shortcut_capture_set_display_labels(w, labels, n);
+  free(labels);
 }

@@ -15,6 +15,7 @@ typedef struct HeaderExt {
   AwraWidget *minimize, *maximize, *close;
   bool show_controls, blend, drag, compact;
   bool dragging;
+  int material; /* what it paints when it doesn't blend; Chrome */
 } HeaderExt;
 
 #define HX(w) AWRA_EXT(w, HeaderExt)
@@ -105,7 +106,7 @@ static void header_draw(AwraWidget *w, AwraDraw *d)
     return; /* the window's Canvas is under it */
   }
   AwraResolvedMaterial m;
-  awra_material_resolve(AWRA_MATERIAL_CHROME, AWRA_ROLE_GENERIC, AWRA_ELEVATION_FLAT, false, &m);
+  awra_material_resolve((AwraMaterial)x->material, AWRA_ROLE_GENERIC, AWRA_ELEVATION_FLAT, false, &m);
   awra_paint_material(d, awra_box_of(w), &m, awra_pxf(m.radius), 15, AWRA_EDGE_ALL,
                       AWRA_ELEVATION_FLAT);
 }
@@ -214,6 +215,7 @@ AwraWidget *awra_header_new(void)
   x->drag = true;
   x->show_controls = true;
   x->blend = true;
+  x->material = AWRA_MATERIAL_CHROME;
   w->flags |= NF_EVENTS; /* the bar itself takes presses: drags */
   x->start_box = awra_box_new(AWRA_ORIENTATION_HORIZONTAL, 12);
   x->end_box = awra_box_new(AWRA_ORIENTATION_HORIZONTAL, 8);
@@ -307,6 +309,12 @@ void awra_header_set_show_controls(AwraWidget *w, bool show)
 {
   HX(w)->show_controls = show;
   awra_widget_set_visible(HX(w)->controls, show);
+}
+
+void awra_header_set_material(AwraWidget *w, AwraMaterial material)
+{
+  HX(w)->material = material;
+  awra_invalidate(w);
 }
 
 void awra_header_set_blend_with_window(AwraWidget *w, bool blend)

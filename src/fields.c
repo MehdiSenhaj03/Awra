@@ -319,3 +319,13 @@ void awra_overlay_bar_set_inset(AwraWidget *w, AwraSpacing inset)
   BRX(w)->inset = awra_spacing(inset);
   awra_queue_allocate(w);
 }
+
+AwraWidget *awra_overlay_bar_surface(AwraWidget *w)
+{
+  return BRX(w)->surface;
+}
+
+int awra_overlay_bar_inset_px(AwraWidget *w)
+{
+  return BRX(w)->inset;
+}

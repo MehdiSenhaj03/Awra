@@ -247,6 +247,7 @@ typedef enum {
   AWRA_SIGNAL_EDGE_REACHED,
   AWRA_SIGNAL_RETRY,
   AWRA_SIGNAL_JUMP_ACTIVATED,
+  AWRA_SIGNAL_COPY_CLIPBOARD, /* a selectable label's Ctrl+C; handled: no copy */
   AWRA_SIGNAL_COUNT
 } AwraSignal;
 
@@ -308,6 +309,10 @@ void awra_widget_set_margin_bottom(AwraWidget *widget, int margin);
 void awra_widget_set_margin_start(AwraWidget *widget, int margin);
 void awra_widget_set_margin_end(AwraWidget *widget, int margin);
 void awra_widget_set_margin(AwraWidget *widget, AwraSpacing spacing);
+/* A margin: side 0 top, 1 end, 2 bottom, 3 start. */
+int awra_widget_margin(AwraWidget *widget, int side);
+/* The keyboard focus is the widget or inside it. */
+bool awra_widget_focus_within(AwraWidget *widget);
 void awra_widget_set_size_request(AwraWidget *widget, int width, int height);
 void awra_widget_get_size_request(const AwraWidget *widget, int *width, int *height);
 /* Minimum and natural size in an orientation (for_size: the other one, -1
@@ -417,6 +422,9 @@ AwraWidget *awra_window_child(AwraWidget *window);
  * controls) or any widget; NULL removes it. */
 void awra_window_set_titlebar(AwraWidget *window, AwraWidget *titlebar);
 AwraWidget *awra_window_titlebar(AwraWidget *window);
+/* The title bar floats over the content, which takes the whole height
+ * (Awra 1's overlay-chrome). */
+void awra_window_set_overlay_chrome(AwraWidget *window, bool overlaid);
 void awra_window_present(AwraWidget *window);
 void awra_window_hide(AwraWidget *window);
 void awra_window_close(AwraWidget *window); /* asks: close-request handlers may refuse */
@@ -551,6 +559,8 @@ void awra_label_set_max_width_chars(AwraWidget *label, int chars);
 void awra_label_set_width_chars(AwraWidget *label, int chars);
 void awra_label_set_selectable(AwraWidget *label, bool selectable);
 void awra_label_set_color(AwraWidget *label, const AwraRGBA *color); /* NULL: typography's */
+/* The link under the pointer (its href), or NULL. */
+const char *awra_label_current_uri(AwraWidget *label);
 void awra_label_set_weight(AwraWidget *label, int weight);           /* 0: typography's */
 void awra_label_set_scale(AwraWidget *label, double scale);          /* font size factor */
 void awra_label_set_monospace_digits(AwraWidget *label, bool tabular);
@@ -677,6 +687,9 @@ void awra_slider_set_value(AwraWidget *slider, double value);
 double awra_slider_value(AwraWidget *slider);
 void awra_slider_set_range(AwraWidget *slider, double min, double max);
 void awra_slider_set_orientation(AwraWidget *slider, AwraOrientation orientation);
+/* A tick under the trough at a value (GtkScale's marks; up to 8). */
+void awra_slider_add_mark(AwraWidget *slider, double value);
+void awra_slider_clear_marks(AwraWidget *slider);
 
 AwraWidget *awra_spin_button_new(double min, double max, double step);
 void awra_spin_button_set_value(AwraWidget *spin, double value);
@@ -708,6 +721,11 @@ void awra_shortcut_capture_clear(AwraWidget *capture);
 /* The physical keys of the last capture ("ControlLeft", "KeyA"). */
 int awra_shortcut_capture_codes(AwraWidget *capture, const char *const **r_codes);
 void awra_shortcut_capture_set_display_labels(AwraWidget *capture, const char *const *labels, int n);
+/* The key symbols the last capture's keys typed ("Control_L", "a"), one
+ * per code; 0 when the codes were set rather than captured. */
+int awra_shortcut_capture_keysyms(AwraWidget *capture, const char *const **r_keysyms);
+/* Shows these physical keys as the shortcut (labels from the layout). */
+void awra_shortcut_capture_set_codes(AwraWidget *capture, const char *const *codes, int n);
 
 /* ----------------------------------------------------------------------- */
 /* Composition */
@@ -749,6 +767,16 @@ void awra_form_row_set_control(AwraWidget *row, AwraWidget *control);
 void awra_form_row_set_title(AwraWidget *row, const char *title);
 void awra_form_row_set_subtitle(AwraWidget *row, const char *subtitle);
 void awra_form_row_set_vertical(AwraWidget *row, bool vertical);
+typedef enum {
+  AWRA_VALIDATION_NONE,
+  AWRA_VALIDATION_SUCCESS,
+  AWRA_VALIDATION_WARNING,
+  AWRA_VALIDATION_ERROR,
+} AwraValidationState;
+/* The message shown, in the danger colour, in place of the help text while
+ * the state is an error; the state also colours the control's border. */
+void awra_form_row_set_error_message(AwraWidget *row, const char *message);
+void awra_form_row_set_validation_state(AwraWidget *row, AwraValidationState state);
 
 AwraWidget *awra_action_row_new(const char *title, const char *subtitle);
 void awra_action_row_set_title(AwraWidget *row, const char *title);
@@ -804,6 +832,8 @@ void awra_header_set_show_controls(AwraWidget *header, bool show);
 void awra_header_set_blend_with_window(AwraWidget *header, bool blend);
 void awra_header_set_drag_enabled(AwraWidget *header, bool drag);
 void awra_header_set_compact(AwraWidget *header, bool compact);
+/* The material it paints when it doesn't blend with the window (Chrome). */
+void awra_header_set_material(AwraWidget *header, AwraMaterial material);
 
 AwraWidget *awra_sidebar_new(void);
 void awra_sidebar_set_child(AwraWidget *sidebar, AwraWidget *child);
@@ -814,6 +844,9 @@ void awra_sidebar_set_inset(AwraWidget *sidebar, AwraSpacing inset);
 
 AwraWidget *awra_navigation_item_new(const char *label, const char *icon_name);
 void awra_navigation_item_set_label(AwraWidget *item, const char *label);
+const char *awra_navigation_item_label(AwraWidget *item);
+/* Custom content in place of the label and subtitle. */
+void awra_navigation_item_set_child(AwraWidget *item, AwraWidget *child);
 void awra_navigation_item_set_icon_name(AwraWidget *item, const char *icon_name);
 void awra_navigation_item_set_selected(AwraWidget *item, bool selected);
 bool awra_navigation_item_selected(AwraWidget *item);
@@ -842,6 +875,8 @@ void awra_split_view_set_sidebar_width(AwraWidget *split, int width);
 void awra_split_view_set_show_sidebar(AwraWidget *split, bool show);
 void awra_split_view_set_end_pane(AwraWidget *split, AwraWidget *pane);
 void awra_split_view_set_end_pane_width(AwraWidget *split, int width);
+AwraWidget *awra_split_view_sidebar(AwraWidget *split);
+AwraWidget *awra_split_view_content(AwraWidget *split);
 
 /* ----------------------------------------------------------------------- */
 /* Overlays */
@@ -885,6 +920,8 @@ unsigned awra_toast_overlay_show_with_action(AwraWidget *overlay, const char *ti
                                              const char *action_label, AwraHandler handler,
                                              void *data, unsigned timeout_ms);
 void awra_toast_overlay_dismiss(AwraWidget *overlay, unsigned id);
+/* Space kept clear under the toasts (logical px), say for a composer. */
+void awra_toast_overlay_set_bottom_inset(AwraWidget *overlay, int inset);
 
 typedef struct AwraCommand {
   const char *title;
@@ -901,6 +938,7 @@ void awra_command_palette_set_title(AwraWidget *palette, const char *title);
 void awra_command_palette_set_empty_text(AwraWidget *palette, const char *text);
 void awra_command_palette_present(AwraWidget *palette, AwraWidget *window);
 void awra_command_palette_close(AwraWidget *palette);
+void awra_command_palette_set_query(AwraWidget *palette, const char *query);
 
 /* ----------------------------------------------------------------------- */
 /* Media and specialised components */
@@ -1016,6 +1054,10 @@ void awra_file_dialog_save(AwraWidget *parent, const char *title, const char *in
 /* Physical keys (W3C KeyboardEvent.code names, "KeyQ"): the label the
  * current layout prints on it ("A" on AZERTY), NULL when unknown. */
 const char *awra_key_code_label(const char *code);
+/* W3C code names and Linux evdev key numbers ("KeyA" = 30); NULL / -1
+ * when unknown. */
+const char *awra_key_code_name(int evdev);
+int awra_key_code_evdev(const char *code);
 /* Calls fn(data) after the keyboard layout changed (labels to refresh). */
 void awra_keyboard_connect_layout_changed(void (*fn)(void *data), void *data);
 
@@ -1099,6 +1141,8 @@ AwraTexture *awra_texture_new_argb(const uint32_t *argb, int width, int height);
 /* A video frame in NV12 (width * height luma bytes, then interleaved CbCr
  * at half resolution; limited range), copied. */
 AwraTexture *awra_texture_new_nv12(const uint8_t *data, int width, int height, bool bt709);
+/* Planar I420 (Y, then U, then V, each plane's rows packed); kept as NV12. */
+AwraTexture *awra_texture_new_i420(const uint8_t *data, int width, int height, bool bt709);
 /* A PNG, JPEG, GIF (first frame), WebP or SVG; NULL when it can't decode. */
 AwraTexture *awra_texture_new_from_bytes(const void *encoded, size_t length);
 AwraTexture *awra_texture_new_from_file(const char *path);
@@ -1401,6 +1445,8 @@ void awra_data_view_set_state(AwraWidget *view, AwraDataViewState state);
 void awra_data_view_set_empty_widget(AwraWidget *view, AwraWidget *child);
 void awra_data_view_set_loading_widget(AwraWidget *view, AwraWidget *child);
 void awra_data_view_set_error_widget(AwraWidget *view, AwraWidget *child);
+/* A "Loading more…" row under the rows while the next page comes. */
+void awra_data_view_set_loading_more(AwraWidget *view, bool loading);
 
 /* ----------------------------------------------------------------------- */
 /* Emoji picker (Awra 1's AwraEmojiPicker): search, section tabs, a grid of
@@ -1465,6 +1511,9 @@ void awra_overlay_bar_reveal(AwraWidget *bar);
 void awra_overlay_bar_set_hide_delay(AwraWidget *bar, unsigned ms);
 void awra_overlay_bar_set_max_width(AwraWidget *bar, int width);
 void awra_overlay_bar_set_inset(AwraWidget *bar, AwraSpacing inset);
+/* The floating surface holding the bar, and its inset (logical px). */
+AwraWidget *awra_overlay_bar_surface(AwraWidget *bar);
+int awra_overlay_bar_inset_px(AwraWidget *bar);
 
 #ifdef __cplusplus
 }

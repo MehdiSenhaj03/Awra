@@ -839,6 +839,7 @@ typedef struct Column {
 
 typedef struct DataExt {
   AwraWidget *header, *stack, *scroller, *list, *empty, *loading, *error;
+  AwraWidget *more, *more_spinner; /* "Loading more…" under the rows */
   Column *columns;
   int n_columns;
   int state;
@@ -953,7 +954,27 @@ AwraWidget *awra_data_view_new(void)
   awra_widget_unref(x->scroller);
   awra_box_append(w, x->stack);
   awra_widget_unref(x->stack);
+  /* Awra 1's loading-more row */
+  x->more = awra_box_new(AWRA_ORIENTATION_HORIZONTAL, awra_spacing(AWRA_SPACING_SM));
+  awra_widget_set_halign(x->more, AWRA_ALIGN_CENTER);
+  x->more_spinner = awra_spinner_new();
+  awra_box_append(x->more, x->more_spinner);
+  awra_widget_unref(x->more_spinner);
+  AwraWidget *ml = awra_label_new("Loading more\xE2\x80\xA6");
+  awra_widget_set_typography(ml, AWRA_TYPOGRAPHY_MUTED);
+  awra_box_append(x->more, ml);
+  awra_widget_unref(ml);
+  awra_widget_set_visible(x->more, false);
+  awra_box_append(w, x->more);
+  awra_widget_unref(x->more);
   return w;
+}
+
+void awra_data_view_set_loading_more(AwraWidget *w, bool loading)
+{
+  DataExt *x = dvx(w);
+  awra_widget_set_visible(x->more, loading);
+  awra_spinner_set_spinning(x->more_spinner, loading);
 }
 
 AwraWidget *awra_data_view_list(AwraWidget *w)
