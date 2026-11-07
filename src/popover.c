@@ -2381,6 +2381,25 @@ static DialogData *dlg(AwraWidget *w)
   return (DialogData *)awra_widget_get_data(w, "awra-dialog");
 }
 
+/* Awra 1's AwraDialog: Escape (captured, so a search entry can't keep it)
+ * closes the dialog as its close button does, answering the close
+ * response; an open popover keeps its own Escape. */
+static void dialog_escape(AwraWidget *win, const AwraArgs *a, void *data)
+{
+  (void)data;
+  if (!a->keysym || strcmp(a->keysym, "Escape") != 0 || a->mods) {
+    return;
+  }
+  BKContext *ctx = awra_ctx(win);
+  if (ctx && ctx->npopups > 0) {
+    return;
+  }
+  if (a->handled) {
+    *a->handled = true;
+  }
+  awra_window_close_request(win);
+}
+
 AwraWidget *awra_dialog_new(const char *title)
 {
   AwraWidget *win = awra_window_new(title, 440, -1);
@@ -2391,6 +2410,7 @@ AwraWidget *awra_dialog_new(const char *title)
   awra_window_set_modal(win, true); /* Awra 1's AwraDialog is modal */
   awra_window_set_keep_rounded_corners(win, true);
   awra_window_set_floating_internal(win, true);
+  awra_signal_connect(win, AWRA_SIGNAL_KEY_CAPTURE, dialog_escape, NULL, NULL);
   AwraWidget *h = awra_window_titlebar(win);
   awra_header_set_dialog(h, true);
   d->body = awra_box_new(AWRA_ORIENTATION_VERTICAL, 0);
