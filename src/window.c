@@ -1199,14 +1199,31 @@ AwraWidget *awra_window_new_offscreen(const char *title, int width, int height, 
   return window_create(title, width, height, true, scale);
 }
 
+static void forget_measures(AwraWidget *n)
+{
+  if (awra_is_widget(n)) {
+    AwraAux *a = awra_aux(n);
+    a->cache_valid = 0;
+    a->expand_valid = 0;
+    a->mode_valid = 0;
+    a->needs_allocate = 1;
+  }
+  for (int i = 0; i < n->nkids; i++) {
+    forget_measures(n->kids[i]);
+  }
+}
+
 static void ensure_native(AwraWidget *w)
 {
   WinExt *x = WEXT(w);
   if (x->bkw || x->offscreen || x->closed) {
     return;
   }
-  /* GtkWindow: the default size, but never under what the contents need */
-  if (x->child || x->titlebar) {
+  /* GtkWindow: the default size, but never under what the contents need
+   * (measured at the current scale: the window's own may differ, so the
+   * measures are forgotten once it is known) */
+  const bool measured = x->child || x->titlebar;
+  if (measured) {
     const float s = awra_scale();
     int mn = 0, nat = 0;
     window_measure(w, AWRA_ORIENTATION_HORIZONTAL, -1, &mn, &nat);
@@ -1228,6 +1245,9 @@ static void ensure_native(AwraWidget *w)
   }
   BK_window_wm(x->bkw, "dark", awra_style_is_dark() ? 1.0 : 0.0, 0.0);
   x->scale = BK_window_scale(x->bkw);
+  if (measured) {
+    forget_measures(w);
+  }
   awra_window_identity_native(w); /* identity.c: its icon */
   x->blur_state = BK_window_blur_available(x->bkw);
   if (x->blur_state == 1) {
