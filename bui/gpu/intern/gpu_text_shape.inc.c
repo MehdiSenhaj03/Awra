@@ -542,8 +542,13 @@ static hb_font_t *slot_hb(FontSlot *s)
   const int scale = (int)(s->size / s->lscale * 1024.0f + 0.5f);
   hb_font_set_scale(font, scale, scale);
   hb_font_set_ptem(font, (float)s->px64 / 64.0f * 0.75f);
-  if (s->synth & BUI_FONT_ITALIC) {
-    hb_font_set_synthetic_slant(font, 0.2f);
+  if (s->xform || (s->synth & BUI_FONT_ITALIC)) {
+    /* Pango's: the slant ratio of the font matrix (pango_matrix_get_slant_ratio
+     * of fontconfig's, y flipped): 0.2 / 1.04 for 90-synthetic.conf's */
+    const float xx = s->xform ? s->mat[0] : 1.0f, xy = s->xform ? s->mat[1] : 0.2f;
+    const float yx = s->xform ? s->mat[2] : 0.0f, yy = s->xform ? s->mat[3] : 1.0f;
+    const float d = xy * xy + yy * yy;
+    hb_font_set_synthetic_slant(font, d > 0.0f ? (xy * xx + yy * yx) / d : 0.0f);
   }
 #  if TEXT_FT
   if (f->mm) {

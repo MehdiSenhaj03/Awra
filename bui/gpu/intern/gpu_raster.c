@@ -2641,6 +2641,10 @@ typedef struct FontSlot {
   float lscale;     /* opened at this layout scale (BUI_text_set_layout_scale) */
   int8_t mono;      /* no antialiasing: monochrome glyphs */
   int8_t ebold;     /* synthetic bold as cairo-ft does it (FT_GlyphSlot_Embolden) */
+  int8_t xform;     /* the outlines are transformed by `mat` (synthetic oblique: the
+                     * fontconfig pattern's matrix, as Pango gives it to cairo) */
+  int8_t yph;       /* quarter-pixel rows too (GSK with GTK's hint style none) */
+  float mat[4];     /* xx, xy, yx, yy (y up) */
   int8_t fc_aa, fc_hint, fc_autohint, fc_bitmap; /* the fontconfig pattern's (FontOpts) */
 #endif
 } FontSlot;
@@ -3131,8 +3135,8 @@ static int run_glyphs(TextRun *e);
 static int glyph_is_color(int slot, int glyph);
 static int glyph_draw_info(const TextRun *e, int i, int *r_face, float *r_scale, float *r_embolden,
                            int *r_baked, float *r_shear);
-static const void *glyph_bitmap(const TextRun *e, int i, float pen, int *r_x, int *r_y, int *r_w,
-                                int *r_h, const uint8_t **r_bits);
+static const void *glyph_bitmap(const TextRun *e, int i, float pen, float yfrac, int *r_x, int *r_y,
+                                int *r_w, int *r_h, const uint8_t **r_bits);
 
 /* GPU text, one instance per glyph: Slug (outline curves evaluated in the
  * pixel shader) when the renderer supports it, else glyph bitmaps from the
@@ -3198,7 +3202,7 @@ static int gpu_text_glyphs(BuiRaster *r, TextRun *e, float x, float y, const flo
       int gx, gy, gw, gh;
       const uint8_t *bits;
       /* the phase of the glyph's absolute x, as GSK takes it */
-      const void *key = glyph_bitmap(e, i, gl->gx[i] + (x - ox), &gx, &gy, &gw, &gh, &bits);
+      const void *key = glyph_bitmap(e, i, gl->gx[i] + (x - ox), y - base, &gx, &gy, &gw, &gh, &bits);
       int ax, ay;
       if (!key || gw <= 0 || gh <= 0 || !bui_gpu_mask(r->gpu, key, g_text_gen, bits, gw, gh, &ax, &ay)) {
         continue;
@@ -3361,12 +3365,13 @@ static int glyph_draw_info(const TextRun *e, int i, int *r_face, float *r_scale,
   (void)r_shear;
   return 0;
 }
-static const void *glyph_bitmap(const TextRun *e, int i, float pen, int *r_x, int *r_y, int *r_w,
-                                int *r_h, const uint8_t **r_bits)
+static const void *glyph_bitmap(const TextRun *e, int i, float pen, float yfrac, int *r_x, int *r_y,
+                                int *r_w, int *r_h, const uint8_t **r_bits)
 {
   (void)e;
   (void)i;
   (void)pen;
+  (void)yfrac;
   (void)r_x;
   (void)r_y;
   (void)r_w;
@@ -4155,9 +4160,11 @@ typedef struct FontOpts {
   int8_t autohint;  /* FC_AUTOHINT */
   int8_t bitmap;    /* FC_EMBEDDED_BITMAP */
   int8_t embolden;  /* FC_EMBOLDEN; -1: no pattern (BUI decides synthesis) */
+  int8_t matrix;    /* FC_MATRIX is set (90-synthetic.conf's oblique) */
+  float mat[4];     /* its xx, xy, yx, yy */
 } FontOpts;
 
-static const FontOpts g_fo_default = {1, 3, 0, 0, -1};
+static const FontOpts g_fo_default = {1, 3, 0, 0, -1, 0, {1, 0, 0, 1}};
 
 #  if !defined(_WIN32) && !defined(__APPLE__) && !defined(__EMSCRIPTEN__)
 /* BUI-Awra: fontconfig, loaded at run time (never linked), resolves families
@@ -4176,6 +4183,7 @@ static struct {
   int (*PatternGetString)(const FcPattern_ *, const char *, int, FcChar8_ **);
   int (*PatternGetInteger)(const FcPattern_ *, const char *, int, int *);
   int (*PatternGetBool)(const FcPattern_ *, const char *, int, int *);
+  int (*PatternGetMatrix)(const FcPattern_ *, const char *, int, double **);
   void (*PatternDestroy)(FcPattern_ *);
   int (*WeightFromOpenType)(int);
 } g_fc;
@@ -4206,6 +4214,7 @@ static int fc_load(void)
   FC_SYM(PatternGetString)
   FC_SYM(PatternGetInteger)
   FC_SYM(PatternGetBool)
+  FC_SYM(PatternGetMatrix)
   FC_SYM(PatternDestroy)
   FC_SYM(WeightFromOpenType)
 #    undef FC_SYM
@@ -4256,6 +4265,18 @@ static int fc_match(const char *family, int weight, int italic, char *r_path, in
     r_opts->autohint = (int8_t)(ah != 0);
     r_opts->bitmap = (int8_t)(bm != 0);
     r_opts->embolden = (int8_t)(eb != 0);
+    /* the product of its matrices, as Pango makes the font matrix of them
+     * (pango_cairo_fc_font_create): FcMatrix is xx, xy, yx, yy */
+    double mt[4] = {1, 0, 0, 1}, *v = NULL;
+    for (int i = 0; g_fc.PatternGetMatrix(m, "matrix", i, &v) == 0 && v; i++) {
+      const double t[4] = {mt[0] * v[0] + mt[1] * v[2], mt[0] * v[1] + mt[1] * v[3],
+                           mt[2] * v[0] + mt[3] * v[2], mt[2] * v[1] + mt[3] * v[3]};
+      memcpy(mt, t, sizeof(mt));
+    }
+    r_opts->matrix = (int8_t)(mt[0] != 1 || mt[1] != 0 || mt[2] != 0 || mt[3] != 1);
+    for (int i = 0; i < 4; i++) {
+      r_opts->mat[i] = (float)mt[i];
+    }
   }
   g_fc.PatternDestroy(m);
   return ok;
@@ -4414,7 +4435,8 @@ static int face_find(const char *family, int style, int weight, int *r_have, Fon
   }
 #  endif
   if (f >= 0) {
-    *r_have = italic ? BUI_FONT_ITALIC : 0; /* fontconfig synthesizes no slant: trust it */
+    /* fontconfig synthesizes the slant (a matrix, FontOpts): no BUI rule */
+    *r_have = italic ? BUI_FONT_ITALIC : 0;
     return f;
   }
   return face_find_style(family, (style & ~BUI_FONT_BOLD) | (weight >= 600 ? BUI_FONT_BOLD : 0),
@@ -4547,6 +4569,10 @@ static void slot_render_opts(FontSlot *s, const FontOpts *fo)
   s->fc_autohint = fo->autohint;
   s->fc_bitmap = fo->bitmap;
   s->hm = (int8_t)g_hint_metrics;
+  /* GSK's glyph cache places glyphs on quarter rows too when the font's
+   * own hint style (GTK's option, not merged with the pattern) is none:
+   * GTK's manual rendering with the desktop's hinting off */
+  s->yph = (int8_t)(g_hint_metrics && g_desk_hint == 0);
   const int opt_hint = g_hint_metrics ? g_desk_hint : 1 /* CAIRO_HINT_STYLE_SLIGHT */;
   const int opt_aa = g_hint_metrics ? g_desk_aa : 1;
   const int aa = fo->antialias && opt_aa != 0;
@@ -4650,6 +4676,25 @@ static int slot_open(FontSlot *s, int face, int style, int weight, int have, con
       s->embolden = (size < 24.0f ? 1.0f : size / 24.0f) * (bolder > 1.0f ? 1.0f : bolder);
     }
   }
+  /* synthetic oblique: fontconfig's matrix (90-synthetic.conf: x + 0.2 y),
+   * which Pango makes cairo's font matrix, so FreeType transforms the
+   * hinted outlines; without fontconfig, that same slant */
+  s->xform = 0;
+  s->mat[0] = s->mat[3] = 1.0f;
+  s->mat[1] = s->mat[2] = 0.0f;
+#  if TEXT_FT
+  if (f->ft && !f->color) {
+    if (fo->matrix) {
+      memcpy(s->mat, fo->mat, sizeof(s->mat));
+      s->xform = 1;
+      s->synth |= BUI_FONT_ITALIC;
+    }
+    else if (s->synth & BUI_FONT_ITALIC) {
+      s->mat[1] = 0.2f;
+      s->xform = 1;
+    }
+  }
+#  endif
   s->ft_size = NULL;
   s->opsz = size;
 #  if TEXT_FT
@@ -4753,7 +4798,7 @@ static int slot_fallback(int primary, int face)
   }
 #  endif
   /* the primary's options (one fontconfig setup); synthesis by BUI's rules */
-  const FontOpts fo = {p->fc_aa, p->fc_hint, p->fc_autohint, p->fc_bitmap, -1};
+  const FontOpts fo = {p->fc_aa, p->fc_hint, p->fc_autohint, p->fc_bitmap, -1, 0, {1, 0, 0, 1}};
   if (!slot_open(s, face, style, weight, have, &fo)) {
     be_font_close(s);
     return -1;
@@ -4944,16 +4989,33 @@ static int glyph_color(const FontSlot *s, FT_Face ft, int glyph, GlyphBmp *g)
  * cairo-ft's metrics: with hinted metrics the glyph's own (hinted, rounded
  * out when unhinted); without, the outline's at the em size (unhinted),
  * scaled to the text size. In 26.6 pixels: bx, by (bearings, y up), bw, bh. */
-static void glyph_ink_box(double bx, double by, double bw, double bh, int phase, int r[4])
+static void glyph_ink_box(const FontSlot *s, double bx, double by, double bw, double bh,
+                          int phase, int r[4])
 {
+  if (s->xform) {
+    /* cairo: the font-space box's corners through the font matrix */
+    double x0 = 1e30, y0 = 1e30, x1 = -1e30, y1 = -1e30;
+    for (int k = 0; k < 4; k++) {
+      const double cx = bx + ((k & 1) ? bw : 0.0), cy = by - ((k & 2) ? bh : 0.0);
+      const double tx = s->mat[0] * cx + s->mat[1] * cy, ty = s->mat[2] * cx + s->mat[3] * cy;
+      x0 = tx < x0 ? tx : x0;
+      x1 = tx > x1 ? tx : x1;
+      y0 = ty < y0 ? ty : y0;
+      y1 = ty > y1 ? ty : y1;
+    }
+    bx = x0;
+    bw = x1 - x0;
+    by = y1;
+    bh = y1 - y0;
+  }
   /* pango_units_from_double */
   const double ix = floor(bx * 16.0 + 0.5), iy = floor(-by * 16.0 + 0.5);
   const double iw = floor(bw * 16.0 + 0.5), ih = floor(bh * 16.0 + 0.5);
-  const double sub = phase / 4.0;
-  r[0] = (int)floor(ix / 1024.0 + sub);
-  r[1] = (int)floor(iy / 1024.0);
-  r[2] = (int)ceil((ix + iw) / 1024.0 + sub);
-  r[3] = (int)ceil((iy + ih) / 1024.0);
+  const double subx = (phase & 3) / 4.0, suby = (phase >> 2) / 4.0;
+  r[0] = (int)floor(ix / 1024.0 + subx);
+  r[1] = (int)floor(iy / 1024.0 + suby);
+  r[2] = (int)ceil((ix + iw) / 1024.0 + subx);
+  r[3] = (int)ceil((iy + ih) / 1024.0 + suby);
 }
 
 /* FT_GlyphSlot_Embolden's strength (26.6), as cairo-ft emboldens. */
@@ -4982,7 +5044,7 @@ static int glyph_ink_em(const FontSlot *s, FT_Face ft, int glyph, int phase, int
     by += e;
   }
   const double k = (double)s->px64 / (double)ft->units_per_EM; /* units -> 26.6 */
-  glyph_ink_box(bx * k, by * k, bw * k, bh * k, phase, r);
+  glyph_ink_box(s, bx * k, by * k, bw * k, bh * k, phase, r);
   return 1;
 }
 
@@ -5000,6 +5062,13 @@ static void glyph_raster_ft(const FontSlot *s, FT_Face ft, int glyph, int phase,
     return;
   }
   FT_GlyphSlot gs = ft->glyph;
+  if (s->xform && gs->format == FT_GLYPH_FORMAT_OUTLINE) {
+    /* FT_Set_Transform's: after hinting, before emboldening; the metrics
+     * stay the untransformed glyph's */
+    const FT_Matrix m = {(FT_Fixed)(s->mat[0] * 65536.0), (FT_Fixed)(s->mat[1] * 65536.0),
+                         (FT_Fixed)(s->mat[2] * 65536.0), (FT_Fixed)(s->mat[3] * 65536.0)};
+    FT_Outline_Transform(&gs->outline, &m);
+  }
   if (s->ebold) {
     FT_GlyphSlot_Embolden(gs);
   }
@@ -5015,24 +5084,14 @@ static void glyph_raster_ft(const FontSlot *s, FT_Face ft, int glyph, int phase,
         by = -y1;
         bh = y2 - y1;
       }
-      glyph_ink_box((double)bx, (double)by, (double)bw, (double)bh, phase, clip);
+      glyph_ink_box(s, (double)bx, (double)by, (double)bw, (double)bh, phase, clip);
       clipped = 1;
     }
-    FT_Outline_Translate(&gs->outline, (FT_Pos)phase * 16, 0); /* quarter-pixel position */
-    /* no antialiasing: BUI's FreeType has no monochrome rasterizer (the
-     * raster module); the smooth one's coverage, thresholded at half
-     * (the pixels whose centre the hinted outline covers, near enough) */
-    if (FT_Render_Glyph(gs, FT_RENDER_MODE_NORMAL) != 0) {
+    /* quarter-pixel position (cairo's x and y phases; y down) */
+    FT_Outline_Translate(&gs->outline, (FT_Pos)(phase & 3) * 16, -(FT_Pos)(phase >> 2) * 16);
+    /* no antialiasing: FreeType's monochrome rasterizer, as cairo-ft's */
+    if (FT_Render_Glyph(gs, s->mono ? FT_RENDER_MODE_MONO : FT_RENDER_MODE_NORMAL) != 0) {
       return;
-    }
-    if (s->mono) {
-      FT_Bitmap *mb = &gs->bitmap;
-      for (unsigned int y = 0; y < mb->rows; y++) {
-        uint8_t *row = mb->buffer + (ptrdiff_t)y * mb->pitch;
-        for (unsigned int x = 0; x < mb->width; x++) {
-          row[x] = row[x] >= 128 ? 255 : 0;
-        }
-      }
     }
   }
   else if (gs->format != FT_GLYPH_FORMAT_BITMAP) {
@@ -5087,7 +5146,8 @@ static const GlyphBmp *glyph_get(int slot, const FontSlot *s, int glyph, int pha
       return NULL;
     }
   }
-  const uint32_t key = (((uint32_t)slot + 1) << 24) ^ ((uint32_t)glyph << 2) ^ (uint32_t)phase;
+  /* phase: x quarter in bits 0-1, y quarter in bits 2-3 */
+  const uint32_t key = (((uint32_t)slot + 1) << 24) ^ ((uint32_t)glyph << 4) ^ (uint32_t)phase;
   uint32_t idx = (key * 2654435761u) >> 20 & (GLYPH_CAP - 1);
   for (;;) {
     GlyphBmp *g = &g_glyphs[idx];
@@ -5546,7 +5606,7 @@ static int glyph_draw_info(const TextRun *e, int i, int *r_face, float *r_scale,
   *r_scale = s->scale;
   *r_embolden = s->ebold ? (float)s->px64 / (64.0f * 24.0f) : s->embolden;
   *r_baked = s->ebold;
-  *r_shear = (s->synth & BUI_FONT_ITALIC) ? 0.2f : 0.0f;
+  *r_shear = s->xform ? s->mat[1] : (s->synth & BUI_FONT_ITALIC) ? 0.2f : 0.0f;
   return 1;
 }
 
@@ -5562,6 +5622,20 @@ static int glyph_phase(int slot, float pen, int *r_whole)
   return (int)((px - (float)*r_whole) * 4.0f) & 3;
 }
 
+/* BUI-Awra: the row of a glyph at y (down): whole rows, as cairo places
+ * hinted glyphs; quarter rows (phase bits 2-3) when GSK aligns them so
+ * (GTK's hint style none). */
+static int glyph_yphase(int slot, float y, int *r_whole)
+{
+  if (!g_fonts[slot].yph || g_faces[g_fonts[slot].face].color) {
+    *r_whole = (int)floorf(y + 0.5f);
+    return 0;
+  }
+  const float py = floorf(y * 4.0f + 0.5f) * 0.25f;
+  *r_whole = (int)floorf(py);
+  return ((int)((py - (float)*r_whole) * 4.0f) & 3) << 2;
+}
+
 static int glyph_is_color(int slot, int glyph)
 {
   if (!g_faces[g_fonts[slot].face].color) {
@@ -5573,18 +5647,19 @@ static int glyph_is_color(int slot, int glyph)
 
 /* Glyph `i` of a run as a cached bitmap at its quarter-pixel phase: its
  * offset from the run origin (baseline), size, and a stable key. */
-static const void *glyph_bitmap(const TextRun *e, int i, float pen, int *r_x, int *r_y, int *r_w,
-                                int *r_h, const uint8_t **r_bits)
+static const void *glyph_bitmap(const TextRun *e, int i, float pen, float yfrac, int *r_x, int *r_y,
+                                int *r_w, int *r_h, const uint8_t **r_bits)
 {
   const int slot = e->gl->gslot ? e->gl->gslot[i] : e->font;
-  int whole;
-  const int phase = glyph_phase(slot, pen, &whole);
+  int whole, row;
+  const int phase = glyph_phase(slot, pen, &whole) |
+                    glyph_yphase(slot, yfrac + (e->gl->gy ? e->gl->gy[i] : 0.0f), &row);
   const GlyphBmp *g = glyph_get(slot, &g_fonts[slot], e->gl->gid[i], phase);
   if (!g || !g->bits || g->color) {
     return NULL;
   }
   *r_x = whole + g->xoff;
-  *r_y = g->yoff + (e->gl->gy ? (int)floorf(e->gl->gy[i] + 0.5f) : 0);
+  *r_y = g->yoff + row;
   *r_w = g->w;
   *r_h = g->h;
   *r_bits = g->bits;
@@ -5852,12 +5927,13 @@ static void build_glyph(void *user, int slot, int glyph, float x, float y)
   BuildGlyph *b = &c->g[c->n++];
   int whole;
   /* GSK: quarter pixels of the absolute x, whole rows of the absolute y */
-  b->phase = (uint8_t)glyph_phase(slot, x + c->sx, &whole);
+  int row;
+  b->phase = (uint8_t)(glyph_phase(slot, x + c->sx, &whole) | glyph_yphase(slot, y + c->sy, &row));
   b->glyph = (uint16_t)glyph;
   b->slot = (uint8_t)slot;
   b->x = whole;
-  b->y = (int)floorf(y + c->sy + 0.5f);
-  c->ydep |= y != 0.0f;
+  b->y = row;
+  c->ydep |= y != 0.0f || g_fonts[slot].yph;
 }
 
 static void blit_glyph(uint8_t *mask, int mw, int mh, int gx, int gy, int base, const GlyphBmp *g,
@@ -5923,7 +5999,10 @@ static void be_build(TextRun *e, const FontSlot *fs)
       ncol++;
       continue;
     }
-    const int lean = (g_fonts[b->slot].synth & BUI_FONT_ITALIC) ? (asc + 1) / 5 + 1 : 0;
+    /* synthetic italic sheared here (glyphs without FreeType; FreeType's
+     * outlines are slanted already) */
+    const int blit_shear = (g_fonts[b->slot].synth & BUI_FONT_ITALIC) && !g_fonts[b->slot].xform;
+    const int lean = blit_shear ? (asc + 1) / 5 + 1 : 0;
     const int x0 = b->x + g->xoff, x1 = x0 + g->w + lean;
     const int y0 = b->y + g->yoff, y1 = y0 + g->h;
     left = text_imax(left, -x0 + 1);
@@ -5954,7 +6033,8 @@ static void be_build(TextRun *e, const FontSlot *fs)
     }
     if (mask) {
       /* synthetic italic (the glyph's own font): pixels per pixel above the baseline */
-      const float shear = (g_fonts[b->slot].synth & BUI_FONT_ITALIC) ? 0.2f : 0.0f;
+      const float shear =
+          (g_fonts[b->slot].synth & BUI_FONT_ITALIC) && !g_fonts[b->slot].xform ? 0.2f : 0.0f;
       blit_glyph(mask, mw, mh, left + b->x + g->xoff, asc + b->y + g->yoff, asc, g, shear);
     }
   }

@@ -168,8 +168,9 @@ static int xft_resource(const char *name, int *r_value)
 /* BUI-Awra: GTK's font options on X11 (GtkSettings gtk-xft-hinting,
  * gtk-xft-hintstyle, gtk-xft-antialias): the settings daemon's Xft/Hinting,
  * Xft/HintStyle and Xft/Antialias, else the Xft resources, else GDK's
- * defaults (hinting on, hintmedium, antialiased), for the text engine. */
-static void x11_font_options(void)
+ * defaults (hinting on, hintmedium, antialiased), for the text engine.
+ * Returns 1 when they changed since the last call. */
+static int x11_font_options(void)
 {
   int hinting = 1, antialias = 1, style = 2;
   char str[32];
@@ -190,7 +191,13 @@ static void x11_font_options(void)
   else if (xft_resource("hintstyle", &v)) {
     style = v >= 0 && v <= 3 ? v : -1;
   }
-  BUI_text_set_font_options(hinting ? style : 0, antialias);
+  static int last_style = -9, last_aa = -9;
+  const int st = hinting ? style : 0;
+  const int changed = st != last_style || antialias != last_aa;
+  last_style = st;
+  last_aa = antialias;
+  BUI_text_set_font_options(st, antialias);
+  return changed;
 }
 
 /* GDK's gtk-cursor-theme-size on X11: the settings daemon's
@@ -201,6 +208,97 @@ static int x11_cursor_size(const BKWindow *win)
 {
   const int size = xsettings_int("Gtk/CursorThemeSize");
   return size > 0 ? BK_MAX(1, (int)(size / BK_MAX(1.0f, win->scale) + 0.5f)) : 0;
+}
+
+/* BUI-Awra: the settings daemon's changes, followed as GDK follows them
+ * (xsettings-client.c): PropertyNotify of _XSETTINGS_SETTINGS on the
+ * selection owner's window, its DestroyNotify, and the MANAGER client
+ * message a new owner sends to the root window. Events only: no polling. */
+static Window g_xs_owner = 0;
+static Atom g_xs_sel = None, g_xs_prop = None, g_xs_manager = None;
+static int g_xs_error = 0;
+
+static int xs_error_handler(Display *dpy, XErrorEvent *e)
+{
+  (void)dpy;
+  (void)e;
+  g_xs_error = 1;
+  return 0;
+}
+
+static void x11_xsettings_watch(void)
+{
+  if (g_xs_sel == None) {
+    char sel[32];
+    snprintf(sel, sizeof(sel), "_XSETTINGS_S%d", DefaultScreen(g_dpy));
+    g_xs_sel = XInternAtom(g_dpy, sel, False);
+    g_xs_prop = XInternAtom(g_dpy, "_XSETTINGS_SETTINGS", False);
+    g_xs_manager = XInternAtom(g_dpy, "MANAGER", False);
+    /* the MANAGER message comes to the root window with StructureNotifyMask */
+    const Window root = RootWindow(g_dpy, DefaultScreen(g_dpy));
+    XWindowAttributes wa;
+    long mask = StructureNotifyMask;
+    if (XGetWindowAttributes(g_dpy, root, &wa)) {
+      mask |= wa.your_event_mask;
+    }
+    XSelectInput(g_dpy, root, mask);
+  }
+  /* the owner and our interest in its window, without a race with its
+   * going away (as GDK: under a server grab, errors trapped) */
+  int (*old)(Display *, XErrorEvent *) = XSetErrorHandler(xs_error_handler);
+  g_xs_error = 0;
+  XGrabServer(g_dpy);
+  g_xs_owner = XGetSelectionOwner(g_dpy, g_xs_sel);
+  if (g_xs_owner) {
+    XSelectInput(g_dpy, g_xs_owner, PropertyChangeMask | StructureNotifyMask);
+  }
+  XUngrabServer(g_dpy);
+  XSync(g_dpy, False);
+  XSetErrorHandler(old);
+  if (g_xs_error) {
+    g_xs_owner = 0;
+  }
+}
+
+/* The settings changed: font options (all windows redrawn when they
+ * changed) and the cursor size popups take. */
+static void x11_xsettings_changed(void)
+{
+  int (*old)(Display *, XErrorEvent *) = XSetErrorHandler(xs_error_handler);
+  g_xs_error = 0;
+  const int fonts = x11_font_options();
+  for (BKWindow *w = g_windows; w; w = w->next) {
+    w->pophost.cursor_size = x11_cursor_size(w);
+    if (fonts && w->xid) {
+      w->full = 1;
+      w->render_pending = 1;
+    }
+  }
+  XSync(g_dpy, False);
+  XSetErrorHandler(old);
+}
+
+/* 1 when `ev` was the settings daemon's */
+static int x11_xsettings_event(XEvent *ev)
+{
+  if (g_xs_owner && ev->xany.window == g_xs_owner) {
+    if (ev->type == PropertyNotify && ev->xproperty.atom == g_xs_prop) {
+      x11_xsettings_changed();
+    }
+    else if (ev->type == DestroyNotify) {
+      x11_xsettings_watch(); /* gone: another one may have taken over */
+      x11_xsettings_changed();
+    }
+    return 1;
+  }
+  if (ev->type == ClientMessage && g_xs_manager != None &&
+      ev->xclient.message_type == g_xs_manager && (Atom)ev->xclient.data.l[1] == g_xs_sel)
+  {
+    x11_xsettings_watch(); /* a new settings daemon */
+    x11_xsettings_changed();
+    return 1;
+  }
+  return 0;
 }
 
 static void x11_popups_init(BKWindow *win)

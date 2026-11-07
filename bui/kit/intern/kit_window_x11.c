@@ -113,6 +113,10 @@
   F(XGrabKeyboard) \
   F(XUngrabKeyboard) \
   F(XMoveResizeWindow) \
+  F(XGrabServer) \
+  F(XUngrabServer) \
+  F(XSetErrorHandler) \
+  F(XSync) \
   F(XMapRaised)
 
 #  define BK_X11_DECL(f) static __typeof__(&f) p_##f;
@@ -197,6 +201,10 @@ static int x11_load(void)
 #  define XGrabPointer (*p_XGrabPointer)
 #  define XTranslateCoordinates (*p_XTranslateCoordinates)
 #  define XSelectInput (*p_XSelectInput)
+#  define XGrabServer (*p_XGrabServer)
+#  define XUngrabServer (*p_XUngrabServer)
+#  define XSetErrorHandler (*p_XSetErrorHandler)
+#  define XSync (*p_XSync)
 #  define XExtendedMaxRequestSize (*p_XExtendedMaxRequestSize)
 #  define XMaxRequestSize (*p_XMaxRequestSize)
 #  define XQueryTree (*p_XQueryTree)
@@ -265,7 +273,9 @@ static double now_ms(void)
   return ts.tv_sec * 1000.0 + ts.tv_nsec / 1e6;
 }
 
-static void x11_font_options(void); /* kit_popup_x11.inc.c */
+static int x11_font_options(void);     /* kit_popup_x11.inc.c */
+static void x11_xsettings_watch(void); /* kit_popup_x11.inc.c */
+static int x11_xsettings_event(XEvent *ev);
 
 static int open_display(void)
 {
@@ -285,6 +295,7 @@ static int open_display(void)
   a_utf8 = XInternAtom(g_dpy, "UTF8_STRING", False);
   a_targets = XInternAtom(g_dpy, "TARGETS", False);
   a_bui_sel = XInternAtom(g_dpy, "BUI_SELECTION", False);
+  x11_xsettings_watch(); /* GDK follows the settings daemon live */
   x11_font_options();
   return 1;
 }
@@ -621,6 +632,9 @@ static void close_window(BKWindow *win)
 
 static void handle_event(XEvent *ev)
 {
+  if (x11_xsettings_event(ev)) { /* BUI-Awra: the settings daemon's changes */
+    return;
+  }
   if (x11_transfer_event(ev)) { /* BUI-Awra: clipboard, drags in and out */
     return;
   }

@@ -47,7 +47,7 @@ if(BUI_TEXT_FREETYPE AND NOT BUI_TEXT_GDI)
     ${FT}/src/base/ftbase.c ${FT}/src/base/ftmm.c ${FT}/src/base/ftbitmap.c ${FT}/src/base/ftbbox.c
     ${FT}/src/base/ftsynth.c
     ${FT}/src/truetype/truetype.c ${FT}/src/sfnt/sfnt.c ${FT}/src/autofit/autofit.c
-    ${FT}/src/smooth/smooth.c ${FT}/src/psnames/psnames.c ${FT}/src/cff/cff.c
+    ${FT}/src/smooth/smooth.c ${FT}/src/raster/raster.c ${FT}/src/psnames/psnames.c ${FT}/src/cff/cff.c
     ${FT}/src/psaux/psaux.c ${FT}/src/pshinter/pshinter.c
   )
   target_sources(bui_gpu PRIVATE ${FT_SRC})

@@ -8,4 +8,6 @@ FT_USE_MODULE( FT_Module_Class, psnames_module_class )
 FT_USE_MODULE( FT_Module_Class, pshinter_module_class )
 FT_USE_MODULE( FT_Module_Class, sfnt_module_class )
 FT_USE_MODULE( FT_Renderer_Class, ft_smooth_renderer_class )
+/* BUI-Awra: the monochrome rasterizer (no antialiasing, as cairo-ft renders it) */
+FT_USE_MODULE( FT_Renderer_Class, ft_raster1_renderer_class )
 /* EOF */
