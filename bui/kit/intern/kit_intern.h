@@ -743,6 +743,12 @@ typedef struct BKPopupHost {
                BKRect *r_rect);
   /* The slot's popup closed: its surface goes. */
   void (*close)(void *data, int slot);
+  /* The pointer's size (logical px) as the system draws it: GDK's
+   * gtk-cursor-theme-size (tooltips keep clear of it); 0 unknown. */
+  int cursor_size;
+  /* The slot's native window (HWND, X11 Window, wl_surface), NULL none:
+   * accessibility exposes popups as windows of their own. Optional. */
+  void *(*handle)(void *data, int slot);
 } BKPopupHost;
 
 /* GDK's gdk_surface_layout_popup_helper: the box (shadow excluded) for a

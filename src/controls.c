@@ -61,6 +61,7 @@ static void check_draw(AwraWidget *w, AwraDraw *d)
   const AwraTokens *t = awra_tokens();
   const int box = check_box_px();
   AwraBox b = {(float)w->x, (float)w->y + floorf((w->h - box) * 0.5f + 0.5f), (float)box, (float)box};
+  b = awra_mirror_box(w, b); /* right to left: the indicator at the right */
   const float r = x->radio ? box * 0.5f : awra_pxf(6);
   const bool on = x->active;
   const bool hot = awra_hovered(w) || awra_focus_visible(w);
@@ -251,6 +252,7 @@ static void switch_draw(AwraWidget *w, AwraDraw *d)
   const AwraTokens *t = awra_tokens();
   const int bw = awra_px(48), bh = awra_px(28);
   AwraBox b = {(float)w->x, (float)w->y + floorf((w->h - bh) * 0.5f), (float)bw, (float)bh};
+  b = awra_mirror_box(w, b);
   const float saved = d->opacity;
   if (!awra_sensitive(w)) {
     d->opacity *= 0.58f;
@@ -269,6 +271,9 @@ static void switch_draw(AwraWidget *w, AwraDraw *d)
   }
   const float tw = awra_pxf(21), th = awra_pxf(22), inset = awra_pxf(3);
   AwraBox thumb = {b.x + inset + floorf(x->pos * tw + 0.5f), b.y + inset, tw, th};
+  if (awra_widget_rtl(w)) { /* GtkSwitch's is_right_side: on is at the left */
+    thumb.x = 2.0f * b.x + b.w - thumb.x - thumb.w;
+  }
   const AwraRGBA shadow = {0, 0, 0, 0.28f};
   awra_paint_shadow(d, thumb, th * 0.5f, 0, awra_pxf(1), 0, awra_pxf(4), &shadow, true);
   awra_paint_rbox(d, thumb, th * 0.5f, &t->control_thumb, 0, NULL);
@@ -446,7 +451,7 @@ static void slider_draw(AwraWidget *w, AwraDraw *d)
     const float len = (horiz ? trough.w : trough.h) - th;
     const float at = floorf((float)f * len + th * 0.5f);
     const float tw = awra_pxf(1), tl = awra_pxf(6);
-    AwraBox tick = horiz ? (AwraBox){trough.x + at, trough.y + th + awra_pxf(3), tw, tl} :
+    AwraBox tick = horiz ? awra_mirror_box(w, (AwraBox){trough.x + at, trough.y + th + awra_pxf(3), tw, tl}) :
                            (AwraBox){trough.x + th + awra_pxf(3), trough.y + trough.h - th * 0.5f - at, tl, tw};
     awra_paint_rbox(d, tick, 0, &t->muted, 0, NULL);
   }
@@ -460,8 +465,10 @@ static void slider_draw(AwraWidget *w, AwraDraw *d)
   const float mpos = floorf((len - th) * frac); /* the slider's margin box (6 px) */
   const AwraRGBA hl = x->muted ? t->disabled : t->accent;
   if (horiz) {
-    awra_paint_rbox(d, (AwraBox){trough.x, trough.y, fmaxf(th, frac * len), th}, th * 0.5f, &hl, 0,
-                    NULL);
+    /* right to left, a horizontal scale runs from the right (GtkRange's
+     * should_invert): its highlight, thumb, marks and value mirror */
+    awra_paint_rbox(d, awra_mirror_box(w, (AwraBox){trough.x, trough.y, fmaxf(th, frac * len), th}),
+                    th * 0.5f, &hl, 0, NULL);
   }
   else {
     const float hh = fmaxf(th, frac * len);
@@ -469,7 +476,7 @@ static void slider_draw(AwraWidget *w, AwraDraw *d)
   }
   const float ts = awra_pxf(16);
   const float cxy = (horiz ? trough.x : trough.y) + (horiz ? mpos : (len - th - mpos)) + th * 0.5f;
-  AwraBox thumb = horiz ? (AwraBox){cxy - ts * 0.5f, trough.y + th * 0.5f - ts * 0.5f, ts, ts} :
+  AwraBox thumb = horiz ? awra_mirror_box(w, (AwraBox){cxy - ts * 0.5f, trough.y + th * 0.5f - ts * 0.5f, ts, ts}) :
                           (AwraBox){trough.x + th * 0.5f - ts * 0.5f, cxy - ts * 0.5f, ts, ts};
   const AwraRGBA shadow = {0, 0, 0, 0.30f}, edge = {0, 0, 0, 0.12f};
   awra_paint_shadow(d, thumb, ts * 0.5f, 0, awra_pxf(2), 0, awra_pxf(6), &shadow, true);
@@ -481,7 +488,8 @@ static void slider_draw(AwraWidget *w, AwraDraw *d)
     const int n = slider_value_text(x, x->value, buf, sizeof(buf));
     AwraFont f = awra_font_for(AWRA_TYPOGRAPHY_BODY);
     const float tw = ceilf(awra_text_width(&f, buf, n));
-    const float tx = fminf(fmaxf((float)w->x, floorf(cxy - tw * 0.5f)), (float)(w->x + w->w) - tw);
+    const float cx = horiz ? awra_mirror_x(w, cxy, 0.0f) : cxy;
+    const float tx = fminf(fmaxf((float)w->x, floorf(cx - tw * 0.5f)), (float)(w->x + w->w) - tw);
     const AwraRGBA c = awra_with_alpha(t->foreground, 0.55f);
     awra_draw_text(d, &f, tx, (float)w->y + floorf(awra_font_ascent(&f) + 0.5f), buf, n, &c);
   }
@@ -511,6 +519,9 @@ static void slider_from_pointer(AwraWidget *w, int px, int py)
   const bool horiz = x->orientation == AWRA_ORIENTATION_HORIZONTAL;
   const float th = awra_pxf(6);
   const float len = (horiz ? w->w : w->h) - th;
+  if (horiz) {
+    px = awra_mirror_px(w, px);
+  }
   float pos = horiz ? (px - w->x - th * 0.5f) : (w->y + w->h - th * 0.5f - py);
   double frac = len > 0 ? pos / len : 0;
   frac = frac < 0 ? 0 : frac > 1 ? 1 : frac;
@@ -540,11 +551,13 @@ static int slider_key(AwraWidget *w, BKEvent *e)
 {
   SliderExt *x = SLX(w);
   const double step = x->step > 0 ? x->step : (x->max - x->min) / 100.0;
-  if (bk_keysym_is(e->keysym, "Right") || bk_keysym_is(e->keysym, "Up")) {
+  /* right to left, Left raises a horizontal scale (should_invert_move) */
+  const bool inv = x->orientation == AWRA_ORIENTATION_HORIZONTAL && awra_widget_rtl(w);
+  if (bk_keysym_is(e->keysym, inv ? "Left" : "Right") || bk_keysym_is(e->keysym, "Up")) {
     slider_set_value_internal(w, x->value + step, true);
     return 1;
   }
-  if (bk_keysym_is(e->keysym, "Left") || bk_keysym_is(e->keysym, "Down")) {
+  if (bk_keysym_is(e->keysym, inv ? "Right" : "Left") || bk_keysym_is(e->keysym, "Down")) {
     slider_set_value_internal(w, x->value - step, true);
     return 1;
   }
@@ -935,7 +948,8 @@ static void prog_draw(AwraWidget *w, AwraDraw *d)
     pw = awra_pxf(1) + (b.w - awra_pxf(1)) * (float)x->fraction;
   }
   const AwraRGBA *fill = meter && awra_widget_has_class(w, "usage-low") ? &t->danger : &t->accent;
-  awra_paint_rbox(d, (AwraBox){px, b.y, pw, h}, radius, fill, 0, NULL);
+  /* right to left, it fills from the right (GtkProgressBar) */
+  awra_paint_rbox(d, awra_mirror_box(w, (AwraBox){px, b.y, pw, h}), radius, fill, 0, NULL);
 }
 
 static void prog_finalize(AwraWidget *w)

@@ -78,12 +78,16 @@ static void layout_cases(void)
 
 static int placed[BK_POPUP_SLOTS], closed[BK_POPUP_SLOTS];
 static BKRect boxes[BK_POPUP_SLOTS];
+static int g_shrink; /* the host gives popups at most this height (0: no limit) */
 
 static int host_place(void *data, int slot, const BKPopupLayout *l, int w, int h, int grab,
                       BKRect *r_rect)
 {
   const BKRect bounds = bk_rect(-600, -430, 1024, 700);
   bk_popup_layout_resolve(l, w, h, &bounds, r_rect, NULL);
+  if (g_shrink && bk_rh(r_rect) > g_shrink) { /* a compositor that resized it */
+    r_rect->ymax = r_rect->ymin + g_shrink;
+  }
   boxes[slot] = *r_rect;
   placed[slot]++;
   return 1;
@@ -94,7 +98,7 @@ static void host_close(void *data, int slot)
   closed[slot]++;
 }
 
-static const BKPopupHost g_host = {NULL, 0, 0, host_place, host_close};
+static BKPopupHost g_host = {NULL, 0, 0, host_place, host_close, 0, NULL};
 
 static AwraWidget *g_win;
 
@@ -129,6 +133,144 @@ static long rss_kb(void)
   return v;
 }
 
+static void item_setup(AwraWidget *list, AwraWidget *item, void *data)
+{
+  AwraWidget *l = awra_label_new("");
+  awra_list_item_set_child(item, l);
+  awra_widget_unref(l);
+}
+
+static void item_bind(AwraWidget *list, AwraWidget *item, void *data)
+{
+  static const char *const names[] = {"alpha", "beta", "gamma"};
+  AwraWidget *l = awra_widget_child(item, 0);
+  if (l) {
+    awra_label_set_text(l, names[awra_list_item_position(item) % 3]);
+  }
+}
+
+static void no_schedule(void *data, int ms, int timer)
+{
+  (void)data; /* the test fires the tooltip's timer itself */
+}
+
+static void wait_ms(AwraWidget *win, double ms)
+{
+  const double end = awra_now_ms() + ms;
+  while (awra_now_ms() < end) {
+    awra_pump();
+    awra_window_render_offscreen(win, false);
+  }
+}
+
+/* The path bar's suggestions, the composer's completion list, a popover
+ * the system shrinks below its minimum, the tooltip and the cursor's size. */
+static void more_tests(void)
+{
+  AwraWidget *win = awra_window_new_offscreen("more", 480, 340, 1.0);
+  AwraWidget *box = awra_box_new(AWRA_ORIENTATION_VERTICAL, 8);
+  awra_widget_set_margins(box, 12, 12, 12, 12);
+  AwraWidget *bar = awra_path_bar_new();
+  const char *const crumbs[] = {"home", "user"};
+  awra_path_bar_set_items(bar, crumbs, 2);
+  awra_box_append(box, bar);
+  AwraWidget *other = awra_button_new_with_label("Elsewhere");
+  awra_widget_set_halign(other, AWRA_ALIGN_START);
+  awra_box_append(box, other);
+  AwraWidget *tall = awra_button_new_with_label("tall");
+  awra_widget_set_size_request(tall, 100, 80);
+  awra_widget_set_halign(tall, AWRA_ALIGN_START);
+  awra_widget_set_tooltip(tall, "A tip");
+  awra_box_append(box, tall);
+  AwraWidget *view = awra_text_view_new();
+  awra_widget_set_vexpand(view, true);
+  awra_box_append(box, view);
+  awra_window_set_child(win, box);
+  awra_widget_unref(bar);
+  awra_widget_unref(other);
+  awra_widget_unref(tall);
+  awra_widget_unref(view);
+  awra_widget_unref(box);
+  BKContext *ctx = awra_ctx(win);
+  g_host.cursor_size = 48;
+  bk_popup_host_set(ctx, &g_host);
+  wait_ms(win, 30);
+
+  /* path bar: suggestions leave the keyboard in the field and don't hide
+   * on clicks; the keyboard leaving the field ends the edit and them */
+  awra_path_bar_begin_edit(bar, "/ho");
+  const char *const titles[] = {"home", "hosts"}, *const values[] = {"/home", "/hosts"};
+  awra_path_bar_set_suggestions(bar, titles, values, 2);
+  wait_ms(win, 150);
+  AwraWidget *entry = awra_path_bar_entry(bar);
+  CHECK(BK_popup_count(ctx) == 1, "no suggestions");
+  CHECK(BK_popup_count(ctx) && (BK_popup(ctx, 0)->flags & NF_NO_AUTOHIDE),
+        "suggestions autohide");
+  CHECK(awra_widget_has_focus(entry), "the field lost the keyboard to its suggestions");
+  awra_widget_grab_focus(other);
+  wait_ms(win, 30);
+  CHECK(!awra_path_bar_editing(bar), "editing kept with the keyboard elsewhere");
+  CHECK(BK_popup_count(ctx) == 0, "suggestions kept with the keyboard elsewhere");
+
+  /* the composer's completion: above the caret, at its start (Awra 1:
+   * GTK_POS_TOP, offset -4, start), not autohide */
+  AwraWidget *comp = awra_completion_popover_new();
+  AwraWidget *list = awra_completion_popover_list(comp);
+  awra_list_view_set_factory(list, item_setup, item_bind, NULL, NULL, NULL, NULL);
+  awra_list_view_items_changed(list, 0, 0, 3);
+  awra_completion_popover_attach(comp, view);
+  awra_text_view_set_text(view, "Hello @al");
+  awra_widget_grab_focus(view);
+  wait_ms(win, 30);
+  awra_completion_popover_present_at_cursor(comp);
+  wait_ms(win, 150);
+  double cx, cy, ch;
+  awra_editable_caret_rect(view, &cx, &cy, &ch);
+  const int caret_x = view->x + (int)floor(cx), caret_y = view->y + (int)floor(cy);
+  CHECK(BK_popup_count(ctx) == 1 && bk_popup_surfaced(ctx, 0), "no completion surface");
+  if (BK_popup_count(ctx) == 1) {
+    CHECK(boxes[0].ymax == caret_y - 4 && boxes[0].xmin == caret_x,
+          "completion at %d,%d..%d; caret at %d,%d", boxes[0].xmin, boxes[0].ymin, boxes[0].ymax,
+          caret_x, caret_y);
+    CHECK(BK_popup(ctx, 0)->flags & NF_NO_AUTOHIDE, "completion autohide");
+  }
+  awra_completion_popover_popdown(comp);
+  awra_widget_unref(comp);
+  wait_ms(win, 30);
+
+  /* shrunk under its minimum by the system: it pops down (GTK) */
+  AwraWidget *pop = awra_popover_new();
+  AwraWidget *big = awra_label_new("big");
+  awra_widget_set_size_request(big, 200, 150);
+  awra_popover_set_child(pop, big);
+  awra_widget_unref(big);
+  awra_popover_set_anchor(pop, other);
+  g_shrink = 60;
+  awra_popover_popup(pop);
+  wait_ms(win, 60);
+  CHECK(!awra_popover_visible(pop), "a popover shrunk under its minimum stayed");
+  g_shrink = 0;
+  awra_popover_popup(pop);
+  wait_ms(win, 60);
+  CHECK(awra_popover_visible(pop), "a popover at its size closed");
+  awra_popover_popdown(pop);
+  awra_widget_unref(pop);
+  wait_ms(win, 30);
+
+  /* a tooltip over a widget taller than 56 px anchors to the cursor, as
+   * big as the host's (48 px here): under it, 4 px above its hot spot */
+  const int px = tall->x + 20, py = tall->y + 20;
+  ctx->host.schedule = no_schedule;
+  BK_motion(ctx, px, py, 0);
+  BK_timer(ctx, ctx->tip_serial);
+  CHECK(ctx->tip_shown && ctx->tip_rect.ymin == py - 4 + 48, "tooltip at %d, pointer at %d",
+        ctx->tip_rect.ymin, py);
+  BK_motion(ctx, -100000, -100000, 0);
+  g_host.cursor_size = 0;
+  bk_popup_host_set(ctx, NULL);
+  awra_window_close(win);
+}
+
 int main(int argc, char **argv)
 {
   awra_init("org.awra.TestPopups");
@@ -151,6 +293,9 @@ int main(int argc, char **argv)
       {"Quit", NULL, NULL, -1, true, true, NULL, NULL},
   };
   awra_menu_button_set_menu(button, items, 3);
+  awra_widget_unref(hover); /* the tree holds them */
+  awra_widget_unref(button);
+  awra_widget_unref(box);
   frame();
   BKContext *ctx = awra_ctx(g_win);
   AwraWidget *menu = awra_menu_button_popover(button);
@@ -287,6 +432,7 @@ int main(int argc, char **argv)
 
   bk_popup_host_set(ctx, NULL);
   awra_window_close(g_win);
+  more_tests();
   if (failures) {
     fprintf(stderr, "%d failure(s)\n", failures);
   }

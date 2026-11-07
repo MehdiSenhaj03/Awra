@@ -6,6 +6,19 @@
 
 Awra 2: the same look, without GTK.
 
+- Text as PangoLayout lays it out, completed: line breaking (UAX #14 with
+  Pango's tailorings, libthai's Thai words, hyphens at soft hyphens,
+  `AWRA_WRAP_WORD_CHAR`, GtkLabel's minimum width), runs shaped with the
+  paragraph around them, letter spacing per grapheme that keeps Arabic
+  joined, fallback fonts on the first item's baseline. BUI:
+  `BUI_text_breaks` gives every PangoLogAttr (16 bits per byte),
+  `BUI_text_breaks_font`, `BUI_text_set_context`.
+- Right-to-left widgets: `awra_widget_set_direction` /
+  `awra_widget_get_direction`, `awra_widget_set_default_direction` (the
+  locale's at start), `awra_get_locale_direction`; Rust
+  `Widget::set_direction`, `Widget::set_default_direction`,
+  `TextDirection`, `locale_direction`.
+
 - Popups as GTK 4's: popovers, menus and submenus, dropdown lists,
   context menus, the completion list, the command palette and tooltips are
   surfaces of their own that extend past their window — xdg_popups on

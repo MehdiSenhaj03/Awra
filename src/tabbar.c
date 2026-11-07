@@ -91,6 +91,15 @@ static AwraBox close_box(AwraWidget *w, AwraBox pill)
   return (AwraBox){pill.x + pill.w - awra_px(4) - s, pill.y + (pill.h - s) * 0.5f, (float)s, (float)s};
 }
 
+/* x of [x, x + width) mirrored in `box` when right to left */
+static float mirror_in(const AwraWidget *w, AwraBox box, float x, float width)
+{
+  return awra_widget_rtl(w) ? 2.0f * box.x + box.w - x - width : x;
+}
+
+/* Tabs are laid out left to right and drawn mirrored right to left (the
+ * first tab at the right, as GtkNotebook places them); pointer positions
+ * are mirrored back. */
 static void tabs_draw(AwraWidget *w, AwraDraw *d)
 {
   TabExt *x = TX(w);
@@ -104,7 +113,7 @@ static void tabs_draw(AwraWidget *w, AwraDraw *d)
       }
       const Tab *tab = &x->tabs[i];
       const int left = tab_left(w, i);
-      AwraBox pill = pill_box(w, i, left);
+      AwraBox pill = awra_mirror_box(w, pill_box(w, i, left));
       const bool sel = i == x->selected;
       const bool hov = hovered && i == x->hover;
       AwraRGBA fg = awra_with_alpha(t->foreground, t->foreground.a * 0.62f);
@@ -129,31 +138,43 @@ static void tabs_draw(AwraWidget *w, AwraDraw *d)
           !x->dragging)
       {
         AwraRGBA sc = awra_with_alpha(t->foreground, 0.085f);
-        awra_paint_rect(d, (AwraBox){(float)(left + x->tab_w - awra_px(1)), (float)(w->y + awra_px(9)),
-                                     awra_pxf(1), (float)(w->h - 2 * awra_px(9))},
+        awra_paint_rect(d, awra_mirror_box(w, (AwraBox){(float)(left + x->tab_w - awra_px(1)),
+                                                        (float)(w->y + awra_px(9)), awra_pxf(1),
+                                                        (float)(w->h - 2 * awra_px(9))}),
                         &sc);
       }
       float cx = pill.x + awra_px(20);
       const float right = pill.x + pill.w - awra_px(20);
       if (tab->icon) {
         const int s = awra_px(16);
-        awra_paint_icon(d, tab->icon, cx, pill.y + floorf((pill.h - s) * 0.5f), s, &fg);
+        awra_paint_icon(d, tab->icon, mirror_in(w, pill, cx, (float)s), pill.y + floorf((pill.h - s) * 0.5f),
+                        s, &fg);
         cx += s + awra_px(10);
       }
       AwraFont f = awra_font_for(AWRA_TYPOGRAPHY_BODY);
       AwraTextLayout *l = awra_text_layout_new();
       awra_text_layout_set_font(l, &f);
+      awra_text_layout_set_base_dir(l, awra_widget_rtl(w));
       awra_text_layout_set_text(l, tab->title ? tab->title : "", false);
       awra_text_layout_set_wrap(l, AWRA_WRAP_NONE, AWRA_ELLIPSIZE_END, 1);
       int tw, th;
       const int avail = (int)BK_MAX(0, right - cx);
       awra_text_layout_size(l, avail, &tw, &th);
-      bk_clip_push((int)cx, (int)pill.y, avail, (int)pill.h);
-      awra_text_layout_draw(l, d, cx, pill.y + floorf((pill.h - th) * 0.5f + 0.5f), avail, &fg);
+      const float tx = mirror_in(w, pill, cx, (float)avail);
+      float ox = tx;
+      if (awra_widget_rtl(w)) {
+        /* the title label's xalign flips: its text ends at the right */
+        float lx0 = 0.0f, lw = (float)tw;
+        awra_text_layout_logical(l, avail, &lx0, &lw);
+        ox = tx + avail - fminf(ceilf(lw), (float)avail) - lx0;
+      }
+      bk_clip_push((int)tx, (int)pill.y, avail, (int)pill.h);
+      awra_text_layout_draw(l, d, ox, pill.y + floorf((pill.h - th) * 0.5f + 0.5f), avail, &fg);
       bk_clip_pop();
       awra_text_layout_free(l);
       if (sel || hov) {
         AwraBox cb = close_box(w, pill);
+        cb.x = mirror_in(w, pill, cb.x, cb.w);
         AwraRGBA cc = awra_with_alpha(t->foreground, t->foreground.a * 0.62f);
         if (hovered && x->hover_close == i) {
           AwraRGBA cbg = awra_with_alpha(t->foreground, awra_pressed(w) ? 0.16f : 0.115f);
@@ -168,10 +189,11 @@ static void tabs_draw(AwraWidget *w, AwraDraw *d)
   }
   /* keyboard focus: the ring around the selected tab (GTK's :focus-visible) */
   if (awra_focus_visible(w) && x->selected >= 0 && x->selected < x->n) {
-    awra_paint_focus_ring(d, pill_box(w, x->selected, tab_left(w, x->selected)), awra_pxf(6));
+    awra_paint_focus_ring(d, awra_mirror_box(w, pill_box(w, x->selected, tab_left(w, x->selected))),
+                          awra_pxf(6));
   }
   if (x->insertion >= 0) {
-    AwraBox pb = pill_box(w, x->insertion, w->x + x->insertion * x->tab_w);
+    AwraBox pb = awra_mirror_box(w, pill_box(w, x->insertion, w->x + x->insertion * x->tab_w));
     AwraRGBA fill = awra_with_alpha(t->focus_ring, 0.14f);
     AwraRGBA line = awra_with_alpha(t->focus_ring, 0.55f);
     awra_paint_rbox(d, pb, awra_pxf(6), &fill, awra_pxf(1), &line);
@@ -187,6 +209,7 @@ static int tab_at(AwraWidget *w, int px, int py, bool *r_close)
   if (py < w->y || py >= w->y + w->h || x->tab_w <= 0) {
     return -1;
   }
+  px = awra_mirror_px(w, px);
   const int i = (px - w->x) / x->tab_w;
   if (px < w->x || i < 0 || i >= x->n) {
     return -1;
@@ -259,7 +282,8 @@ static int tabs_drag(AwraWidget *w, BKEvent *e)
     return 1;
   }
   x->dragging = true;
-  x->drag_x = BK_CLAMP(x->press * x->tab_w + dx, 0, BK_MAX(0, (x->n - 1) * x->tab_w));
+  x->drag_x = BK_CLAMP(x->press * x->tab_w + (awra_widget_rtl(w) ? -dx : dx), 0,
+                       BK_MAX(0, (x->n - 1) * x->tab_w));
   awra_invalidate(w);
   return 1;
 }
@@ -368,10 +392,14 @@ static int tabs_key(AwraWidget *w, BKEvent *e)
     return 0;
   }
   int i = x->selected;
-  if (bk_keysym_is(e->keysym, "Left") || bk_keysym_is(e->keysym, "KP_Left")) {
+  /* right to left, Left goes to the next tab (it is on the left) */
+  const bool rtl = awra_widget_rtl(w);
+  const bool left = bk_keysym_is(e->keysym, "Left") || bk_keysym_is(e->keysym, "KP_Left");
+  const bool right = bk_keysym_is(e->keysym, "Right") || bk_keysym_is(e->keysym, "KP_Right");
+  if (rtl ? right : left) {
     i = i <= 0 ? 0 : i - 1;
   }
-  else if (bk_keysym_is(e->keysym, "Right") || bk_keysym_is(e->keysym, "KP_Right")) {
+  else if (rtl ? left : right) {
     i = i < 0 ? 0 : BK_MIN(x->n - 1, i + 1);
   }
   else if (bk_keysym_is(e->keysym, "Home")) {
@@ -415,7 +443,7 @@ static void tabs_a11y_item(AwraWidget *w, int i, AwraA11yInfo *info, double rect
   if (i == x->selected && win && awra_window_focus(win) == w) {
     info->flags |= AWRA_A11Y_FOCUSED;
   }
-  const AwraBox b = pill_box(w, i, tab_left(w, i));
+  const AwraBox b = awra_mirror_box(w, pill_box(w, i, tab_left(w, i)));
   const double sc = awra_scale();
   rect[0] = b.x / sc;
   rect[1] = b.y / sc;

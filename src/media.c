@@ -644,7 +644,8 @@ static AwraClass kbd_class = {
     .a11y = kbd_a11y,
     .bk = AWRA_BK("AwraKeyboardView", 0),
     .type = "AwraKeyboardView",
-    .flags = AWRA_CLASS_CONTAINER | AWRA_CLASS_EXPAND_ISOLATED,
+    /* a picture of the physical keyboard: not mirrored right to left */
+    .flags = AWRA_CLASS_CONTAINER | AWRA_CLASS_EXPAND_ISOLATED | AWRA_CLASS_NO_MIRROR,
     .ext_size = sizeof(KbdExt),
     .finalize = kbd_finalize,
     .measure = kbd_measure,
@@ -1518,6 +1519,7 @@ static void zone_draw_over(AwraWidget *w, AwraDraw *d)
     AwraFont f = awra_font_for(AWRA_TYPOGRAPHY_BODY);
     f.weight = 640;
     awra_text_layout_set_font(l, &f);
+    awra_text_layout_set_base_dir(l, awra_widget_rtl(w));
     awra_text_layout_set_text(l, msg, false);
     awra_text_layout_set_wrap(l, AWRA_WRAP_WORD, AWRA_ELLIPSIZE_NONE, -1);
     awra_text_layout_set_justify(l, AWRA_JUSTIFY_CENTER);

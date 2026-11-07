@@ -58,6 +58,10 @@ static void wl_popups_init(BKWindow *win)
   win->pophost.corner_radius = 0;
   win->pophost.place = wl_pop_place;
   win->pophost.close = wl_pop_close;
+  /* the size its cursor theme loads at (apply_cursor), as GTK's
+   * cursor-size setting (24 by default) */
+  const char *env = getenv("XCURSOR_SIZE");
+  win->pophost.cursor_size = env && atoi(env) > 0 ? atoi(env) : 24;
   if (win->flags & BK_WINDOW_TRANSPARENT) {
     bk_popup_host_set(win->ctx, &win->pophost);
   }

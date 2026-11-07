@@ -33,6 +33,25 @@ static int win32_pop_place(void *data, int slot, const BKPopupLayout *l, int w, 
                            BKRect *r_rect);
 static void win32_pop_close(void *data, int slot);
 
+/* GDK's gtk-cursor-theme-size on Windows: SM_CXCURSOR (at the window's
+ * DPI), in logical px */
+static int win32_cursor_size(const BKWindow *win)
+{
+  HMODULE user32 = GetModuleHandleW(L"user32.dll");
+  typedef int(WINAPI * MetricsForDpi)(int, UINT);
+  MetricsForDpi get = user32 ? (MetricsForDpi)(void *)GetProcAddress(user32, "GetSystemMetricsForDpi") :
+                               NULL;
+  const UINT dpi = (UINT)(96 * win->scale + 0.5f);
+  const int px = get ? get(SM_CXCURSOR, dpi) : GetSystemMetrics(SM_CXCURSOR);
+  return px > 0 ? BK_MAX(1, (int)(px / BK_MAX(1.0f, win->scale) + 0.5f)) : 0;
+}
+
+static void *win32_pop_handle(void *data, int slot)
+{
+  BKWindow *win = (BKWindow *)data;
+  return win->pops && slot >= 0 && slot < BK_POPUP_SLOTS ? (void *)win->pops[slot].hwnd : NULL;
+}
+
 static void win32_popups_init(BKWindow *win)
 {
   dwm_load();
@@ -42,6 +61,8 @@ static void win32_popups_init(BKWindow *win)
   win->pophost.corner_radius = g_dwm.build >= BUILD_WIN11 ? (int)(4 * win->scale + 0.5f) : 0;
   win->pophost.place = win32_pop_place;
   win->pophost.close = win32_pop_close;
+  win->pophost.cursor_size = win32_cursor_size(win);
+  win->pophost.handle = win32_pop_handle;
   if (win->flags & BK_WINDOW_TRANSPARENT) {
     bk_popup_host_set(win->ctx, &win->pophost);
   }
@@ -126,6 +147,15 @@ static LRESULT CALLBACK popup_proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
     case WM_MOUSEHWHEEL:
       /* screen coordinates: the window turns them into its own */
       return SendMessageW(win->hwnd, msg, wp, lp);
+    case WM_GETOBJECT: /* UI Automation: the popup is a window of its own */
+      if (g_getobject_hook) {
+        int handled = 0;
+        const intptr_t r = g_getobject_hook(hwnd, msg, (uintptr_t)wp, (intptr_t)lp, ctx, &handled);
+        if (handled) {
+          return (LRESULT)r;
+        }
+      }
+      break;
   }
   return DefWindowProcW(hwnd, msg, wp, lp);
 }
@@ -256,6 +286,10 @@ static int win32_pop_place(void *data, int slot, const BKPopupLayout *l, int w, 
 static void pop_destroy(WinPop *p)
 {
   if (p->hwnd) {
+    if (g_getobject_hook && p->win) { /* its providers let go */
+      int handled = 0;
+      g_getobject_hook(p->hwnd, WM_DESTROY, 0, 0, p->win->ctx, &handled);
+    }
     SetWindowLongPtrW(p->hwnd, GWLP_USERDATA, 0);
     if (GetCapture() == p->hwnd) {
       ReleaseCapture();

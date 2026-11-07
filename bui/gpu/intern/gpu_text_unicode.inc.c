@@ -5,8 +5,9 @@
  *  - bidi levels (UAX #9) through FriBidi (extern/fribidi) as Pango
  *    resolves them, and a paragraph's direction from its first strong
  *    character;
- *  - grapheme boundaries (UAX #29) and backspace behaviour as Pango's
- *    break.c computes them (cursor positions, backspace_deletes_character);
+ *  - text segmentation as Pango's break.c computes it (extern/pango-break):
+ *    cursor positions and backspace (UAX #29), words, line breaks (UAX #14
+ *    with Pango's tailorings, Thai words from libthai) and hyphenation;
  *  - canonical decomposition (NFD) through HarfBuzz's Unicode data, for
  *    backspace as GTK does it.
  *
@@ -21,6 +22,10 @@
 #include <fribidi-bidi.h>
 #include <fribidi-bidi-types.h>
 #include <fribidi-brackets.h>
+
+#if !defined(_WIN32) && !defined(__EMSCRIPTEN__)
+#  include <dlfcn.h>
+#endif
 
 /* UTF-8 decode; invalid bytes map to U+FFFD. */
 static int utf8_next(const char *s, int len, int *i)
@@ -135,6 +140,9 @@ static int text_is_mark(uint32_t c)
 
 static int text_cluster_extender(uint32_t c)
 {
+  if (c < 128) {
+    return 0;
+  }
   return text_is_mark(c) || (c >= 0x200C && c <= 0x200D) || (c >= 0xFF9E && c <= 0xFF9F) ||
          (c >= 0x1F3FB && c <= 0x1F3FF) || (c >= 0xE0020 && c <= 0xE007F);
 }
@@ -185,7 +193,8 @@ static void text_scripts(const uint32_t *cp, int n, hb_script_t *out)
     const int start = i;
     for (; i < n; i++) {
       const uint32_t ch = cp[i];
-      hb_script_t sc = hb_unicode_script(text_uf(), ch);
+      hb_script_t sc = ch < 128 ? (((ch | 0x20) >= 'a' && (ch | 0x20) <= 'z') ? HB_SCRIPT_LATIN : HB_SCRIPT_COMMON) :
+                                  hb_unicode_script(text_uf(), ch);
       const int pi = sc == HB_SCRIPT_COMMON ? text_pair_index(ch) : -1;
       if (pi >= 0) {
         if ((pi & 1) == 0) {
@@ -516,9 +525,102 @@ done:
 /** \} */
 
 /* -------------------------------------------------------------------- */
-/** \name Grapheme boundaries (UAX #29 as Pango's break.c applies it)
+/** \name Emoji segmentation (Pango's emoji iterator, Chromium's scanner)
  * \{ */
 
+/* Pango's _pango_EmojiSegmentationCategory */
+enum {
+  EMOJI_CAT = 0,
+  EMOJI_TEXT_PRESENTATION = 1,
+  EMOJI_EMOJI_PRESENTATION = 2,
+  EMOJI_MODIFIER_BASE = 3,
+  EMOJI_MODIFIER = 4,
+  EMOJI_VS_BASE = 5,
+  REGIONAL_INDICATOR = 6,
+  KEYCAP_BASE = 7,
+  COMBINING_ENCLOSING_KEYCAP = 8,
+  COMBINING_ENCLOSING_CIRCLE_BACKSLASH = 9,
+  ZWJ = 10,
+  VS15 = 11,
+  VS16 = 12,
+  TAG_BASE = 13,
+  TAG_SEQUENCE = 14,
+  TAG_TERM = 15,
+  kMaxEmojiScannerCategory = 16
+};
+
+static unsigned char emoji_category(uint32_t c)
+{
+  if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == ' ') {
+    return kMaxEmojiScannerCategory;
+  }
+  if (c >= '0' && c <= '9') {
+    return KEYCAP_BASE;
+  }
+  switch (c) {
+    case 0x20E3:
+      return COMBINING_ENCLOSING_KEYCAP;
+    case 0x20E0:
+      return COMBINING_ENCLOSING_CIRCLE_BACKSLASH;
+    case 0x200D:
+      return ZWJ;
+    case 0xFE0E:
+      return VS15;
+    case 0xFE0F:
+      return VS16;
+    case 0x1F3F4:
+      return TAG_BASE;
+    case 0xE007F:
+      return TAG_TERM;
+    default:
+      break;
+  }
+  if ((c >= 0xE0030 && c <= 0xE0039) || (c >= 0xE0061 && c <= 0xE007A)) {
+    return TAG_SEQUENCE;
+  }
+  if (c < 0xA9) { /* nothing below © is an emoji but the cases above */
+    return c == '#' || c == '*' ? KEYCAP_BASE : kMaxEmojiScannerCategory;
+  }
+  if (EMOJI_IS(modifier_base, c)) {
+    return EMOJI_MODIFIER_BASE;
+  }
+  if (EMOJI_IS(modifier, c)) {
+    return EMOJI_MODIFIER;
+  }
+  if (c >= 0x1F1E6 && c <= 0x1F1FF) {
+    return REGIONAL_INDICATOR;
+  }
+  if (EMOJI_IS(presentation, c)) {
+    return EMOJI_EMOJI_PRESENTATION;
+  }
+  if (EMOJI_IS(emoji, c)) {
+    return EMOJI_TEXT_PRESENTATION;
+  }
+  return kMaxEmojiScannerCategory;
+}
+
+typedef unsigned char *emoji_text_iter_t;
+#  if defined(__GNUC__)
+#    pragma GCC diagnostic push
+#    pragma GCC diagnostic ignored "-Wunused-const-variable"
+#    pragma GCC diagnostic ignored "-Wunused-variable"
+#  endif
+#  include "../extern/emoji/emoji_presentation_scanner.c"
+#  if defined(__GNUC__)
+#    pragma GCC diagnostic pop
+#  endif
+
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Text segmentation: Pango's break.c (extern/pango-break)
+ *
+ * Cursor positions, words, line breaks and hyphenation points as
+ * pango_get_log_attrs finds them: the default rules (UAX #29, UAX #14 with
+ * Pango's tailorings) for each paragraph, then each script run's
+ * tailoring (Arabic and Indic backspace, Indic and Sinhala clusters, Thai
+ * words from libthai, the Catalan middle dot).
+ * \{ */
 
 #  if defined(__GNUC__) && __GNUC__ >= 7
 #    define TEXT_FALLTHROUGH __attribute__((fallthrough))
@@ -526,203 +628,244 @@ done:
 #    define TEXT_FALLTHROUGH ((void)0)
 #  endif
 
-enum { GB_OTHER, GB_CONTROL, GB_EXTEND, GB_ZWJ, GB_PREPEND, GB_SPACING, GB_HANGUL, GB_RI_ODD, GB_RI_EVEN };
+/* Pango's PangoLogAttr (bytes, not bits: the rules write every field of
+ * every character, and a byte is written in one go) */
+typedef struct BuiLogAttr {
+  uint8_t is_line_break;
+  uint8_t is_mandatory_break;
+  uint8_t is_char_break;
+  uint8_t is_white;
+  uint8_t is_cursor_position;
+  uint8_t is_word_start;
+  uint8_t is_word_end;
+  uint8_t backspace_deletes_character;
+  uint8_t is_expandable_space;
+  uint8_t is_word_boundary;
+  uint8_t break_inserts_hyphen;
+  uint8_t break_removes_preceding;
+} BuiLogAttr;
 
-/* Hangul jamo: L, V, T, LV, LVT (Pango's HangulJamoProps), 5 = none */
-static int text_jamo(uint32_t c)
+/* ASCII's general categories, looked up once (the common case of the
+ * per-character properties below) */
+static uint8_t g_ascii_gc[128];
+static int g_ascii_gc_done;
+
+static hb_unicode_general_category_t text_gc(uint32_t c)
 {
-  if ((c >= 0x1100 && c <= 0x115F) || (c >= 0xA960 && c <= 0xA97C)) {
+  if (c < 128) {
+    if (!g_ascii_gc_done) {
+      for (uint32_t k = 0; k < 128; k++) {
+        g_ascii_gc[k] = (uint8_t)hb_unicode_general_category(text_uf(), k);
+      }
+      g_ascii_gc_done = 1;
+    }
+    return (hb_unicode_general_category_t)g_ascii_gc[c];
+  }
+  return hb_unicode_general_category(text_uf(), c);
+}
+
+static hb_script_t text_script_of(uint32_t c)
+{
+  if (c < 128) {
+    return ((c | 0x20) >= 'a' && (c | 0x20) <= 'z') ? HB_SCRIPT_LATIN : HB_SCRIPT_COMMON;
+  }
+  return hb_unicode_script(text_uf(), c);
+}
+
+#  define text_is_emoji(c) EMOJI_IS(emoji, (c))
+/* nothing below U+00A9 is Extended_Pictographic */
+#  define text_is_ext_pict(c) ((c) >= 0xA9 && EMOJI_IS(extended_pictographic, (c)))
+#  define text_tolower(c) ((c) >= 'A' && (c) <= 'Z' ? (c) + ('a' - 'A') : (c))
+
+static int text_thai_breaks(const uint32_t *cp, int n, int *brk, int cap);
+/* Pango's items of `cp` in font slot `slot` (gpu_text_shape.inc.c): n
+ * flags marking where an item starts and each character's script, both
+ * malloc'ed; left NULL when there is no such engine or no memory. */
+static void text_font_items(int slot, const uint32_t *cp, int n, uint8_t **r_start, hb_script_t **r_script);
+
+#  include "../extern/pango-break/line_break_table.h"
+#  include "../extern/pango-break/pango_break.inc.c"
+
+/* libthai, loaded on the first Thai text (Pango links it): word breaks
+ * from its dictionary. Without it Thai breaks only where the default
+ * rules allow, as Pango built without libthai. */
+typedef struct ThBrk ThBrk;
+static struct {
+  int tried;
+  ThBrk *brk;
+  ThBrk *(*brk_new)(const char *);
+  int (*find_breaks)(ThBrk *, const unsigned char *, int *, size_t);
+  unsigned char (*uni2tis)(uint32_t);
+} g_thai;
+
+static int text_thai_load(void)
+{
+  if (g_thai.tried) {
+    return g_thai.brk != NULL;
+  }
+  g_thai.tried = 1;
+#  if defined(_WIN32)
+  HMODULE h = LoadLibraryA("libthai-0.dll");
+#    define TEXT_SYM(h, name) ((void *)GetProcAddress((h), (name)))
+#  elif defined(__APPLE__)
+  void *h = dlopen("libthai.0.dylib", RTLD_NOW | RTLD_LOCAL);
+#    define TEXT_SYM(h, name) dlsym((h), (name))
+#  elif defined(__EMSCRIPTEN__)
+  void *h = NULL;
+#    define TEXT_SYM(h, name) ((void)(h), (void *)NULL)
+#  else
+  void *h = dlopen("libthai.so.0", RTLD_NOW | RTLD_LOCAL);
+#    define TEXT_SYM(h, name) dlsym((h), (name))
+#  endif
+  if (!h) {
     return 0;
   }
-  if ((c >= 0x1160 && c <= 0x11A7) || (c >= 0xD7B0 && c <= 0xD7C6)) {
-    return 1;
+  *(void **)&g_thai.brk_new = TEXT_SYM(h, "th_brk_new");
+  *(void **)&g_thai.find_breaks = TEXT_SYM(h, "th_brk_find_breaks");
+  *(void **)&g_thai.uni2tis = TEXT_SYM(h, "th_uni2tis");
+#  undef TEXT_SYM
+  if (g_thai.brk_new && g_thai.find_breaks && g_thai.uni2tis) {
+    g_thai.brk = g_thai.brk_new(NULL); /* the dictionary, kept for the process (as Pango) */
   }
-  if ((c >= 0x11A8 && c <= 0x11FF) || (c >= 0xD7CB && c <= 0xD7FB)) {
-    return 2;
-  }
-  if (c >= 0xAC00 && c <= 0xD7A3) {
-    return (c - 0xAC00) % 28 == 0 ? 3 : 4;
-  }
-  return 5;
+  return g_thai.brk != NULL;
 }
 
-static int text_backspace_char(uint32_t base)
+static int text_thai_breaks(const uint32_t *cp, int n, int *brk, int cap)
 {
-  const int latin = (base >= 0x20 && base <= 0x2AF) || (base >= 0x1E00 && base <= 0x1EFF);
-  const int cyrillic = base >= 0x400 && base <= 0x52F;
-  const int greek = (base >= 0x370 && base <= 0x3FF) || (base >= 0x1F00 && base <= 0x1FFF);
-  const int kana = base >= 0x3040 && base <= 0x30FF;
-  const int hangul = base >= 0xAC00 && base <= 0xD7A3;
-  const int math = base >= 0x2200 && base <= 0x22FF;
-  return !latin && !cyrillic && !greek && !kana && !hangul && !EMOJI_IS(emoji, base) && !math;
+  if (!text_thai_load()) {
+    return -1;
+  }
+  unsigned char tl[512];
+  unsigned char *tis = n + 1 <= (int)sizeof(tl) ? tl : (unsigned char *)malloc((size_t)n + 1);
+  if (!tis) {
+    return -1;
+  }
+  for (int i = 0; i < n; i++) {
+    tis[i] = g_thai.uni2tis(cp[i]);
+  }
+  tis[n] = 0;
+  const int r = g_thai.find_breaks(g_thai.brk, tis, brk, (size_t)cap);
+  if (tis != tl) {
+    free(tis);
+  }
+  return r;
 }
 
-/* attr[i] (i = 0..n): the boundary before character i: BUI_TEXT_CURSOR,
- * BUI_TEXT_BACKSPACE_CHAR. */
-static void text_graphemes(const uint32_t *cp, int n, uint8_t *attr)
+static int text_para_delim(uint32_t c)
 {
-  static const int jamo_start[6] = {0, 1, 2, 0, 0, 5}, jamo_end[6] = {0, 1, 2, 1, 2, 5};
-  hb_unicode_funcs_t *uf = text_uf();
-  int prev_gb = GB_OTHER, prev_jamo = 5;
-  uint32_t prev = 0, base = 0;
-  int met_pict = 0, incb_cons = 0, incb_link = 0;
-  for (int i = 0; i <= n; i++) {
-    const uint32_t c = i < n ? cp[i] : 0x2029; /* the paragraph's end */
-    const hb_unicode_general_category_t gc = hb_unicode_general_category(uf, c);
-    const int jamo = text_jamo(c);
-    const int hangul =
-        jamo != 5 && (jamo_end[prev_jamo] == jamo_start[jamo] || jamo_end[prev_jamo] + 1 == jamo_start[jamo]);
-    const int pict = EMOJI_IS(extended_pictographic, c);
-    int gb = GB_OTHER;
-    switch (gc) {
-      case HB_UNICODE_GENERAL_CATEGORY_FORMAT:
-        if (c == 0x200C) {
-          gb = GB_EXTEND;
-          break;
-        }
-        if (c == 0x200D) {
-          gb = GB_ZWJ;
-          break;
-        }
-        if ((c >= 0x600 && c <= 0x605) || c == 0x6DD || c == 0x70F || c == 0x8E2 || c == 0x110BD ||
-            c == 0x110CD)
-        {
-          gb = GB_PREPEND;
-          break;
-        }
-        if (c >= 0xE0020 && c <= 0xE00FF) {
-          gb = GB_EXTEND;
-          break;
-        }
-        gb = GB_CONTROL;
-        break;
-      case HB_UNICODE_GENERAL_CATEGORY_CONTROL:
-      case HB_UNICODE_GENERAL_CATEGORY_LINE_SEPARATOR:
-      case HB_UNICODE_GENERAL_CATEGORY_PARAGRAPH_SEPARATOR:
-      case HB_UNICODE_GENERAL_CATEGORY_SURROGATE:
-        gb = GB_CONTROL;
-        break;
-      case HB_UNICODE_GENERAL_CATEGORY_UNASSIGNED:
-        if ((c >= 0xFFF0 && c <= 0xFFF8) || (c >= 0xE0000 && c <= 0xE0FFF)) {
-          gb = GB_CONTROL;
-          break;
-        }
-        TEXT_FALLTHROUGH;
-      case HB_UNICODE_GENERAL_CATEGORY_OTHER_LETTER:
-        if (hangul) {
-          gb = GB_HANGUL;
-        }
-        if (bui_is_Consonant_Preceding_Repha(c) || bui_is_Consonant_Prefixed(c)) {
-          gb = GB_PREPEND;
-        }
-        break;
-      case HB_UNICODE_GENERAL_CATEGORY_MODIFIER_LETTER:
-        if (c >= 0xFF9E && c <= 0xFF9F) {
-          gb = GB_EXTEND;
-        }
-        break;
-      case HB_UNICODE_GENERAL_CATEGORY_SPACING_MARK:
-        if (!(c == 0x102B || c == 0x102C || c == 0x1038 || (c >= 0x1062 && c <= 0x1064) ||
-              (c >= 0x1067 && c <= 0x106D) || c == 0x1083 || (c >= 0x1087 && c <= 0x108C) ||
-              c == 0x108F || (c >= 0x109A && c <= 0x109C) || c == 0x1A61 || c == 0x1A63 ||
-              c == 0x1A64 || c == 0xAA7B || c == 0xAA7D || c == 0x11720 || c == 0x11721))
-        {
-          gb = GB_SPACING;
-        }
-        if (c >= 0x0900 &&
-            (c == 0x09BE || c == 0x09D7 || c == 0x0B3E || c == 0x0B57 || c == 0x0BBE || c == 0x0BD7 ||
-             c == 0x0CC2 || c == 0x0CD5 || c == 0x0CD6 || c == 0x0D3E || c == 0x0D57 || c == 0x0DCF ||
-             c == 0x0DDF || c == 0x1D165 || (c >= 0x1D16E && c <= 0x1D172)))
-        {
-          gb = GB_EXTEND;
-        }
-        break;
-      case HB_UNICODE_GENERAL_CATEGORY_ENCLOSING_MARK:
-      case HB_UNICODE_GENERAL_CATEGORY_NON_SPACING_MARK:
-        gb = GB_EXTEND;
-        break;
-      case HB_UNICODE_GENERAL_CATEGORY_OTHER_SYMBOL:
-        if (c >= 0x1F1E6 && c <= 0x1F1FF) {
-          gb = prev_gb == GB_RI_ODD ? GB_RI_EVEN : GB_RI_ODD;
-        }
-        break;
-      case HB_UNICODE_GENERAL_CATEGORY_MODIFIER_SYMBOL:
-        if (c >= 0x1F3FB && c <= 0x1F3FF) {
-          gb = GB_EXTEND;
+  return c == '\n' || c == '\r' || c == 0x2029;
+}
+
+/* Whether a character's script has tailored breaks (break_script). */
+static int text_needs_tailoring(const uint32_t *cp, int n)
+{
+  text_langs_init();
+  const int catalan = strncmp(g_lang_default, "ca-", 3) == 0;
+  for (int i = 0; i < n; i++) {
+    if (cp[i] < 0x600 && !catalan) {
+      continue;
+    }
+    switch ((int)text_script_of(cp[i])) {
+      case HB_SCRIPT_ARABIC:
+      case HB_SCRIPT_DEVANAGARI:
+      case HB_SCRIPT_BENGALI:
+      case HB_SCRIPT_GURMUKHI:
+      case HB_SCRIPT_GUJARATI:
+      case HB_SCRIPT_ORIYA:
+      case HB_SCRIPT_TAMIL:
+      case HB_SCRIPT_TELUGU:
+      case HB_SCRIPT_KANNADA:
+      case HB_SCRIPT_MALAYALAM:
+      case HB_SCRIPT_SINHALA:
+      case HB_SCRIPT_THAI:
+        return 1;
+      case HB_SCRIPT_LATIN:
+        if (catalan) {
+          return 1;
         }
         break;
       default:
         break;
     }
-    /* GB11 */
-    if (met_pict) {
-      met_pict = gb == GB_EXTEND || (EMOJI_IS(extended_pictographic, prev) && gb == GB_ZWJ) ||
-                 (prev_gb == GB_EXTEND && gb == GB_ZWJ) || (prev_gb == GB_ZWJ && pict);
+  }
+  return 0;
+}
+
+/* The logical attributes of `cp` (attrs[0..n]) as PangoLayout finds them:
+ * the default rules paragraph by paragraph (a paragraph ends after "\n",
+ * "\r", "\r\n" or U+2029), then each item's tailoring. Items: where
+ * `istart` (n flags, may be NULL) marks a new one, each with the script
+ * `iscript` gives; else where the script or the emoji segment changes, as
+ * pango_get_log_attrs tailors (PangoLayout also splits items where the
+ * font changes, which only matters around Thai words). Paragraph
+ * delimiters are in no item. */
+static void text_log_attrs(const uint32_t *cp, int n, BuiLogAttr *attrs, const uint8_t *istart,
+                           const hb_script_t *iscript)
+{
+  memset(attrs, 0, sizeof(BuiLogAttr) * (size_t)(n + 1));
+  for (int p = 0;;) {
+    int e = p;
+    while (e < n && !text_para_delim(cp[e])) {
+      e++;
     }
-    int boundary = 1; /* GB999 */
-    if (prev_gb == GB_RI_ODD && gb == GB_RI_EVEN) {
-      boundary = 0; /* GB12, GB13 */
+    const int next = e < n ? e + ((cp[e] == '\r' && e + 1 < n && cp[e + 1] == '\n') ? 2 : 1) : e;
+    pango_default_break(cp + p, next - p, attrs + p);
+    if (e >= n) {
+      break; /* the last paragraph (empty after a final delimiter) */
     }
-    if (pict && prev_gb == GB_ZWJ && met_pict) {
-      boundary = 0; /* GB11 */
+    p = next;
+  }
+  hb_script_t scl[64];
+  unsigned char tyl[64];
+  hb_script_t *sc = NULL;
+  unsigned char *ty = NULL;
+  if (!istart && !text_needs_tailoring(cp, n)) {
+    return; /* no script here has tailored breaks */
+  }
+  if (!istart) {
+    sc = n <= 64 ? scl : (hb_script_t *)malloc(sizeof(hb_script_t) * (size_t)n);
+    ty = n <= 64 ? tyl : (unsigned char *)malloc((size_t)n);
+    if (!sc || !ty) {
+      goto out;
     }
-    if (incb_cons || incb_link) { /* GB9c */
-      if (incb_link && bui_is_Indic_Conjunct_Break_Consonant(c)) {
-        incb_cons = 1;
-        incb_link = 0;
-        boundary = 0;
+    text_scripts(cp, n, sc);
+    for (int j = 0; j < n; j++) {
+      ty[j] = emoji_category(cp[j]);
+    }
+    /* ty[j] becomes 1 in an emoji segment, 0 elsewhere */
+    for (int p = 0; p < n;) {
+      bool is_emoji = false, has_vs = false;
+      int q = (int)(scan_emoji_presentation(ty + p, ty + n, &is_emoji, &has_vs) - ty);
+      if (q <= p) {
+        q = p + 1;
       }
-      if (!(bui_is_Indic_Conjunct_Break_Extend(c) || bui_is_Indic_Conjunct_Break_Linker(c))) {
-        incb_cons = incb_link = 0;
-      }
+      memset(ty + p, is_emoji ? 1 : 0, (size_t)(q - p));
+      p = q;
     }
-    if (prev_gb == GB_PREPEND) {
-      boundary = 0; /* GB9b */
+    iscript = sc;
+  }
+  text_langs_init();
+  for (int i = 0; i < n;) {
+    if (text_para_delim(cp[i])) {
+      i++;
+      continue;
     }
-    if (gb == GB_SPACING) {
-      boundary = 0; /* GB9a */
-    }
-    if (gb == GB_EXTEND || gb == GB_ZWJ) {
-      boundary = 0; /* GB9 */
-    }
-    if (gb == GB_HANGUL) {
-      boundary = 0; /* GB6-8 */
-    }
-    if (prev_gb == GB_CONTROL || gb == GB_CONTROL) {
-      boundary = 1; /* GB4, GB5 */
-    }
-    if (c == '\n' && prev == '\r') {
-      boundary = 0; /* GB3 */
-    }
-    if (pict) {
-      met_pict = 1;
-    }
-    if (incb_cons && !incb_link && bui_is_Indic_Conjunct_Break_Linker(c)) {
-      incb_link = 1;
-    }
-    if (!incb_cons && !incb_link && bui_is_Indic_Conjunct_Break_Consonant(c)) {
-      incb_cons = 1;
-    }
-    if (i == 0 || i == n) {
-      boundary = 1; /* GB1, GB2 */
-    }
-    uint8_t a = 0;
-    if (boundary) {
-      a = BUI_TEXT_CURSOR;
-      if (text_backspace_char(base) || bui_is_Virama(prev) || bui_is_Vowel_Dependent(prev)) {
-        a |= BUI_TEXT_BACKSPACE_CHAR;
-      }
-    }
-    attr[i] = a;
-    prev_gb = gb;
-    prev_jamo = jamo;
-    prev = c;
-    if (gc != HB_UNICODE_GENERAL_CATEGORY_SPACING_MARK &&
-        gc != HB_UNICODE_GENERAL_CATEGORY_ENCLOSING_MARK &&
-        gc != HB_UNICODE_GENERAL_CATEGORY_NON_SPACING_MARK)
+    int j = i + 1;
+    while (j < n && !text_para_delim(cp[j]) &&
+           (istart ? !istart[j] : (sc[j] == sc[i] && ty[j] == ty[i])))
     {
-      base = c;
+      j++;
     }
+    pango_tailor_break(cp + i, j - i, j < n ? cp[j] : 0, iscript[i], text_script_lang(iscript[i]),
+                       attrs + i);
+    i = j;
+  }
+out:
+  if (sc != scl) {
+    free(sc);
+  }
+  if (ty != tyl) {
+    free(ty);
   }
 }
 
@@ -875,24 +1018,78 @@ int BUI_text_bidi(const char *utf8, int len, int base, uint8_t *levels)
   return rtl;
 }
 
-void BUI_text_breaks(const char *utf8, int len, uint8_t *attrs)
+/* The logical attributes of `utf8` per byte (attrs[0..len]: the
+ * boundary before each character; BUI_TEXT_WHITE and
+ * BUI_TEXT_EXPANDABLE_SPACE at the character's first byte), or with
+ * `cursors` only BUI_TEXT_CURSOR and BUI_TEXT_BACKSPACE_CHAR in a byte per
+ * offset. */
+static void text_breaks(const char *utf8, int len, uint16_t *attrs, uint8_t *cursors, int slot)
 {
-  memset(attrs, 0, (size_t)len + 1);
-  int *off = NULL, n = 0;
-  uint32_t *cp = len > 0 ? text_decode(utf8, len, &off, &n) : NULL;
-  uint8_t *a = cp ? (uint8_t *)malloc((size_t)n + 1) : NULL;
-  if (!a) {
-    attrs[0] = attrs[len] = BUI_TEXT_CURSOR;
+  if (attrs) {
+    memset(attrs, 0, sizeof(uint16_t) * ((size_t)len + 1));
   }
   else {
-    text_graphemes(cp, n, a);
-    for (int k = 0; k <= n; k++) {
-      attrs[off[k]] = a[k];
+    memset(cursors, 0, (size_t)len + 1);
+  }
+  int *off = NULL, n = 0;
+  uint32_t *cp = len > 0 ? text_decode(utf8, len, &off, &n) : NULL;
+  BuiLogAttr la[65];
+  BuiLogAttr *a = n + 1 <= 65 ? la : (BuiLogAttr *)malloc(sizeof(BuiLogAttr) * ((size_t)n + 1));
+  if (len <= 0) {
+    off = NULL;
+  }
+  if (len > 0 && (!cp || !a)) {
+    if (attrs) {
+      attrs[0] = attrs[len] = BUI_TEXT_CURSOR | BUI_TEXT_LINE_BREAK;
+    }
+    else {
+      cursors[0] = cursors[len] = BUI_TEXT_CURSOR;
     }
   }
-  free(a);
+  else {
+    uint32_t none = 0;
+    uint8_t *istart = NULL;
+    hb_script_t *iscript = NULL;
+    if (slot >= 0 && cp) {
+      text_font_items(slot, cp, n, &istart, &iscript);
+    }
+    text_log_attrs(cp ? cp : &none, n, a, istart, iscript);
+    free(istart);
+    free(iscript);
+    for (int k = 0; k <= n; k++) {
+      const BuiLogAttr *t = &a[k];
+      const int o = off ? off[k] : 0;
+      uint16_t v = (uint16_t)((t->is_cursor_position ? BUI_TEXT_CURSOR : 0) |
+                              (t->is_cursor_position && t->backspace_deletes_character ?
+                                   BUI_TEXT_BACKSPACE_CHAR :
+                                   0));
+      if (!attrs) {
+        cursors[o] = (uint8_t)v;
+        continue;
+      }
+      v |= (uint16_t)((t->is_line_break ? BUI_TEXT_LINE_BREAK : 0) |
+                      (t->is_mandatory_break ? BUI_TEXT_MANDATORY_BREAK : 0) |
+                      (t->is_char_break ? BUI_TEXT_CHAR_BREAK : 0) |
+                      (t->is_white ? BUI_TEXT_WHITE : 0) |
+                      (t->is_word_start ? BUI_TEXT_WORD_START : 0) |
+                      (t->is_word_end ? BUI_TEXT_WORD_END : 0) |
+                      (t->is_word_boundary ? BUI_TEXT_WORD_BOUNDARY : 0) |
+                      (t->break_inserts_hyphen ? BUI_TEXT_INSERTS_HYPHEN : 0) |
+                      (t->break_removes_preceding ? BUI_TEXT_REMOVES_PRECEDING : 0) |
+                      (t->is_expandable_space ? BUI_TEXT_EXPANDABLE_SPACE : 0));
+      attrs[o] = v;
+    }
+  }
+  if (a != la) {
+    free(a);
+  }
   free(cp);
   free(off);
+}
+
+void BUI_text_breaks(const char *utf8, int len, uint16_t *attrs)
+{
+  text_breaks(utf8, len, attrs, NULL, -1);
 }
 
 /** \} */

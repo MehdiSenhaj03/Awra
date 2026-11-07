@@ -234,8 +234,12 @@ static void item_rect(AwraWidget *w, int i, int *rx, int *ry, int *rw, int *rh)
 
 /* The index of the item at a window point, -1 in the blank; content: the
  * point is on what the item shows (tile, or the name cell's content). */
+/* Columns and tiles are laid out left to right; right to left their
+ * children are mirrored (awra_allocate) and so are the header, the band
+ * and the indicator it draws, and pointer positions mapped back. */
 static int index_at(AwraWidget *w, int px, int py, bool *r_content)
 {
+  px = awra_mirror_px(w, px);
   CollExt *x = CX(w);
   if (r_content) {
     *r_content = false;
@@ -534,22 +538,25 @@ static void coll_draw(AwraWidget *w, AwraDraw *d)
       if (!col->visible || col->w <= 0) {
         continue;
       }
-      AwraBox hb = {(float)(w->x + col->x), (float)w->y, (float)col->w, (float)x->header_h};
+      AwraBox hb = awra_mirror_box(w, (AwraBox){(float)(w->x + col->x), (float)w->y, (float)col->w, (float)x->header_h});
       const bool hov = c == x->header_hover && awra_hovered(w);
       if (hov) {
         awra_paint_rbox(d, hb, awra_pxf(7), &t->control_cap_hover, 0, NULL);
       }
       AwraRGBA color = hov ? t->foreground : t->muted;
       const char *title = col->title ? col->title : "";
-      const float tx = hb.x + awra_px(CELL_PAD_X);
+      const float tw = awra_text_width(&f, title, (int)strlen(title));
+      const bool rtl = awra_widget_rtl(w);
+      /* the title starts the header (at its right, right to left), the sort arrow after it */
+      const float tx = rtl ? hb.x + hb.w - awra_px(CELL_PAD_X) - tw : hb.x + awra_px(CELL_PAD_X);
       const float base = w->y + pt + floorf((inner - lh) * 0.5f + 0.5f) + asc;
       bk_clip_push((int)hb.x, (int)hb.y, (int)hb.w, (int)hb.h);
       awra_draw_text(d, &f, tx, base, title, (int)strlen(title), &color);
       if (c == x->sort_col) {
-        const float tw = awra_text_width(&f, title, (int)strlen(title));
         const int s = awra_px(16);
         awra_paint_icon(d, x->sort_desc ? "pan-down-symbolic" : "pan-up-symbolic",
-                        tx + tw + awra_px(6), w->y + pt + floorf((inner - s) * 0.5f), s, &color);
+                        rtl ? tx - awra_px(6) - s : tx + tw + awra_px(6), w->y + pt + floorf((inner - s) * 0.5f),
+                        s, &color);
       }
       bk_clip_pop();
     }
@@ -564,7 +571,8 @@ static void coll_draw_over(AwraWidget *w, AwraDraw *d)
     const double top = w->y + x->header_h - x->vvalue;
     const double bx0 = fmin(x->band_x0, x->band_x1), bx1 = fmax(x->band_x0, x->band_x1);
     const double by0 = fmin(x->band_y0, x->band_y1), by1 = fmax(x->band_y0, x->band_y1);
-    AwraBox b = {(float)(w->x + bx0), (float)(top + by0), (float)(bx1 - bx0), (float)(by1 - by0)};
+    AwraBox b = awra_mirror_box(w, (AwraBox){(float)(w->x + bx0), (float)(top + by0), (float)(bx1 - bx0),
+                                             (float)(by1 - by0)});
     bk_clip_push(w->x, w->y + x->header_h, w->w, x->view_h);
     if (x->band_styled) {
       const float k = x->band ? 1.0f : x->band_strength;
@@ -588,7 +596,7 @@ static void coll_draw_over(AwraWidget *w, AwraDraw *d)
     AwraRGBA c = t->control_thumb;
     c.a *= x->bar_t;
     const float bw = awra_pxf(5);
-    awra_paint_rbox(d, (AwraBox){w->x + w->w - awra_pxf(6), w->y + x->header_h + pos, bw, len},
+    awra_paint_rbox(d, awra_mirror_box(w, (AwraBox){w->x + w->w - awra_pxf(6), w->y + x->header_h + pos, bw, len}),
                     bw * 0.5f, &c, 0, NULL);
   }
 }
@@ -608,7 +616,8 @@ static bool fade_tick(void *data)
   x->bar_t = t > 0 ? t : 0;
   BKContext *ctx = bk_ctx(w);
   if (ctx) {
-    bk_node_dirty(w, bk_rect(w->x + w->w - awra_px(8), w->y, awra_px(8), w->h));
+    bk_node_dirty(w, bk_rect((int)awra_mirror_x(w, (float)(w->x + w->w - awra_px(8)), (float)awra_px(8)), w->y,
+                             awra_px(8), w->h));
   }
   if (x->bar_t <= 0.0f) {
     x->fade_timer = 0;
@@ -833,6 +842,7 @@ static bool edge_tick(void *data)
 
 static int header_column_at(AwraWidget *w, int px, int py, bool *r_edge)
 {
+  px = awra_mirror_px(w, px);
   CollExt *x = CX(w);
   if (r_edge) {
     *r_edge = false;
@@ -859,7 +869,8 @@ static int header_column_at(AwraWidget *w, int px, int py, bool *r_edge)
 static bool on_scrollbar(AwraWidget *w, int px, int py)
 {
   CollExt *x = CX(w);
-  return x->content_h > x->view_h && px >= w->x + w->w - awra_px(10) && py >= w->y + x->header_h;
+  return x->content_h > x->view_h && awra_mirror_px(w, px) >= w->x + w->w - awra_px(10) &&
+         py >= w->y + x->header_h;
 }
 
 static int coll_press(AwraWidget *w, BKEvent *e)
@@ -917,7 +928,8 @@ static int coll_drag(AwraWidget *w, BKEvent *e)
   if (x->press_header) {
     if (x->resize_col >= 0) {
       Column *col = &x->cols[x->resize_col];
-      col->width = BK_MAX(40, (int)((x->resize_w0 + (e->x - x->press_x)) / awra_scale()));
+      const int ddx = awra_widget_rtl(w) ? x->press_x - e->x : e->x - x->press_x;
+      col->width = BK_MAX(40, (int)((x->resize_w0 + ddx) / awra_scale()));
       awra_queue_allocate(w);
       awra_invalidate(w);
     }
@@ -960,13 +972,13 @@ static int coll_drag(AwraWidget *w, BKEvent *e)
     if (x->band_initial && x->n) {
       memcpy(x->band_initial, x->sel, (size_t)x->n);
     }
-    x->band_x0 = x->press_x - w->x;
+    x->band_x0 = awra_mirror_px(w, x->press_x) - w->x;
     x->band_y0 = x->press_y - (w->y + x->header_h) + x->press_v;
     if (!x->edge_timer) {
       x->edge_timer = awra_timeout_add(16, edge_tick, w, NULL);
     }
   }
-  x->band_x1 = BK_CLAMP(e->x - w->x, 0, w->w);
+  x->band_x1 = BK_CLAMP(awra_mirror_px(w, e->x) - w->x, 0, w->w);
   x->band_y1 = BK_CLAMP(e->y - (w->y + x->header_h), 0, x->view_h) + x->vvalue;
   band_apply(w);
   return 1;
@@ -1111,10 +1123,10 @@ static int coll_key(AwraWidget *w, BKEvent *e)
   else if (bk_keysym_is(e->keysym, "Up")) {
     to = cur < 0 ? 0 : (cur - cols >= 0 ? cur - cols : cur);
   }
-  else if (bk_keysym_is(e->keysym, "Right") && cols > 1) {
-    to = cur < 0 ? 0 : cur + 1;
+  else if (bk_keysym_is(e->keysym, awra_widget_rtl(w) ? "Left" : "Right") && cols > 1) {
+    to = cur < 0 ? 0 : cur + 1; /* the next tile is on the left, right to left */
   }
-  else if (bk_keysym_is(e->keysym, "Left") && cols > 1) {
+  else if (bk_keysym_is(e->keysym, awra_widget_rtl(w) ? "Right" : "Left") && cols > 1) {
     to = cur < 0 ? 0 : cur - 1;
   }
   else if (bk_keysym_is(e->keysym, "Home")) {

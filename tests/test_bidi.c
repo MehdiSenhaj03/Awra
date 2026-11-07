@@ -73,7 +73,7 @@ static void check_bidi_levels(void)
 
 static void check_graphemes(void)
 {
-  uint8_t a[64];
+  uint16_t a[64];
   /* e + combining acute: one grapheme, backspace takes it whole (Latin) */
   BUI_text_breaks("e\xcc\x81x", 4, a);
   CHECK((a[0] & BUI_TEXT_CURSOR) && !(a[1] & BUI_TEXT_CURSOR) && (a[3] & BUI_TEXT_CURSOR) &&
@@ -112,7 +112,8 @@ static void check_backspace(void)
     const char *key;
   } cases[] = {
       {AR_BEH AR_KASRA, AR_BEH, "BackSpace"},                    /* the mark only */
-      {"\xd8\xa2", AR_ALEF, "BackSpace"},                      /* alef madda -> alef (NFD) */
+      {"\xd8\xa2", "", "BackSpace"},       /* alef madda whole (Pango's Arabic tailoring) */
+      {AR_ALEF "\xd9\x93", "", "BackSpace"}, /* alef + madda above: whole too */
       {"\xed\x95\x9c", "", "BackSpace"},                        /* a Hangul syllable whole */
       {"\xe0\xa4\x95\xe0\xa4\xbf", "\xe0\xa4\x95", "BackSpace"}, /* कि -> क */
       {"a\xc3\xa9", "a", "BackSpace"},                           /* é whole */

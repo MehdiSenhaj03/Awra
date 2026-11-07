@@ -2658,12 +2658,15 @@ typedef struct TextRun {
   int mw;   /* mask width */
   int ncol;
   float advance;
-  float ext_asc, ext_desc; /* BUI-Awra: extents of the fallback fonts it uses (0: none) */
+  float ext_asc, ext_desc; /* BUI-Awra: its fonts' logical extents (when uses_font) */
   int16_t mh, ox;          /* mask height; ox: left padding baked into the mask */
   int16_t asc;             /* BUI-Awra: the baseline's row in the mask */
-  uint8_t dir;      /* BUI-Awra: 0 a paragraph of its own, 1 one LTR level, 2 one RTL level */
-  uint8_t built;    /* the mask was made */
-  uint8_t uses_font; /* BUI-Awra: it draws glyphs of its own font (not only fallbacks) */
+  int16_t ls;              /* BUI-Awra: letter spacing, Pango units (BuiTextContext) */
+  uint8_t pre, post;       /* BUI-Awra: bytes of context before / after `text` (BuiTextContext) */
+  uint8_t dir : 2;         /* BUI-Awra: 0 a paragraph of its own, 1 one LTR level, 2 one RTL level */
+  uint8_t built : 1;       /* the mask was made */
+  uint8_t uses_font : 1;   /* BUI-Awra: ext_asc / ext_desc are known (not with GDI) */
+  uint8_t hyphen : 2;      /* BUI-Awra: BuiTextContext.hyphen */
 } TextRun;
 
 /* BUI-Awra: a cluster of a run (characters shaped together): its byte
@@ -2686,9 +2689,9 @@ static unsigned g_text_gen = 1; /* bumped whenever runs or fonts are freed */
 /* backend */
 static int be_font_open(FontSlot *s, const char *family, int flags, int px);
 static void be_font_close(FontSlot *s);
-/* the run's width; r_ext: the ascent and descent of the fonts it falls back to (0: none),
- * and whether it uses its own font (1) or only fallbacks (0) */
-static float be_measure(const FontSlot *s, int dir, const char *utf8, int len, float r_ext[3]);
+/* the run's width; r_ext: the ascent and descent of its logical extents
+ * and 1 when they are known (0: the font's metrics stand for them) */
+static float be_measure(const TextRun *e, float r_ext[3]);
 static void be_build(TextRun *e, const FontSlot *s);
 static void be_flush_glyphs(void);
 
@@ -2699,7 +2702,9 @@ static void runs_flush(void)
     return;
   }
   for (int i = 0; i < RUN_CAP; i++) {
-    free(g_runs[i].text);
+    if (g_runs[i].text) {
+      free(g_runs[i].text - g_runs[i].pre);
+    }
     free(g_runs[i].mask);
     if (g_runs[i].gl) {
       free(g_runs[i].gl->gid);
@@ -2773,6 +2778,47 @@ static int text_dir(int flags)
   return (flags & BUI_TEXT_RTL) ? 2 : (flags & BUI_TEXT_LTR) ? 1 : 0;
 }
 
+/* BUI-Awra: the shaping context of the runs looked up next
+ * (BUI_text_set_context): up to 5 code points each side, as many as
+ * HarfBuzz keeps (HB_BUFFER_CONTEXT_LENGTH). */
+static struct {
+  char pre[20], post[20];
+  int pre_len, post_len;
+  int ls, hyphen;
+} g_ctx;
+
+void BUI_text_set_context(const BuiTextContext *ctx)
+{
+  memset(&g_ctx, 0, sizeof(g_ctx));
+  if (!ctx) {
+    return;
+  }
+  if (ctx->before && ctx->before_len > 0) {
+    int a = ctx->before_len;
+    for (int k = 0; k < 5 && a > 0; k++) {
+      do {
+        a--;
+      } while (a > 0 && ((unsigned char)ctx->before[a] & 0xC0) == 0x80);
+    }
+    g_ctx.pre_len = ctx->before_len - a;
+    memcpy(g_ctx.pre, ctx->before + a, (size_t)g_ctx.pre_len);
+  }
+  if (ctx->after && ctx->after_len > 0) {
+    int b = 0;
+    for (int k = 0; k < 5 && b < ctx->after_len; k++) {
+      b += utf8_step(ctx->after, b);
+    }
+    if (b > ctx->after_len) {
+      b = ctx->after_len;
+    }
+    g_ctx.post_len = b;
+    memcpy(g_ctx.post, ctx->after, (size_t)b);
+  }
+  const int ls = ctx->letter_spacing;
+  g_ctx.ls = ls < -32767 ? -32767 : ls > 32767 ? 32767 : ls;
+  g_ctx.hyphen = ctx->hyphen == 1 || ctx->hyphen == 2 ? ctx->hyphen : 0;
+}
+
 static uint64_t run_hash(int font, int dir, const char *s, int len, int pfrom, int pto)
 {
   uint64_t h = 1469598103934665603ull ^ (uint64_t)((font * 4 + dir) * 2654435761u) ^
@@ -2780,6 +2826,16 @@ static uint64_t run_hash(int font, int dir, const char *s, int len, int pfrom, i
   for (int i = 0; i < len; i++) {
     h ^= (uint8_t)s[i];
     h *= 1099511628211ull;
+  }
+  if (g_ctx.pre_len | g_ctx.post_len | g_ctx.ls | g_ctx.hyphen) {
+    h ^= (uint64_t)(uint32_t)(g_ctx.ls * 4 + g_ctx.hyphen) * 0x9E3779B97F4A7C15ull;
+    for (int i = 0; i < g_ctx.pre_len; i++) {
+      h = (h ^ (uint8_t)g_ctx.pre[i]) * 1099511628211ull;
+    }
+    h = (h ^ 0xFF) * 1099511628211ull;
+    for (int i = 0; i < g_ctx.post_len; i++) {
+      h = (h ^ (uint8_t)g_ctx.post[i]) * 1099511628211ull;
+    }
   }
   return h ? h : 1;
 }
@@ -2800,7 +2856,11 @@ static TextRun *run_get_part(int font, int dir, const char *s, int len, int pfro
       break;
     }
     if (e->hash == h && e->font == font && e->dir == dir && e->len == len && e->pfrom == pfrom &&
-        e->pto == pto && memcmp(e->text, s, (size_t)len) == 0)
+        e->pto == pto && e->ls == g_ctx.ls && e->hyphen == g_ctx.hyphen &&
+        e->pre == g_ctx.pre_len && e->post == g_ctx.post_len &&
+        memcmp(e->text, s, (size_t)len) == 0 &&
+        memcmp(e->text - e->pre, g_ctx.pre, (size_t)e->pre) == 0 &&
+        memcmp(e->text + len, g_ctx.post, (size_t)e->post) == 0)
     {
       return e;
     }
@@ -2811,12 +2871,19 @@ static TextRun *run_get_part(int font, int dir, const char *s, int len, int pfro
     return run_get_part(font, dir, s, len, pfrom, pto);
   }
   TextRun *e = &g_runs[idx];
-  e->text = (char *)malloc((size_t)len + 1);
-  if (!e->text) {
+  char *buf = (char *)malloc((size_t)(g_ctx.pre_len + len + g_ctx.post_len) + 1);
+  if (!buf) {
     return NULL;
   }
-  memcpy(e->text, s, (size_t)len);
-  e->text[len] = 0;
+  memcpy(buf, g_ctx.pre, (size_t)g_ctx.pre_len);
+  memcpy(buf + g_ctx.pre_len, s, (size_t)len);
+  memcpy(buf + g_ctx.pre_len + len, g_ctx.post, (size_t)g_ctx.post_len);
+  buf[g_ctx.pre_len + len + g_ctx.post_len] = 0;
+  e->text = buf + g_ctx.pre_len;
+  e->pre = (uint8_t)g_ctx.pre_len;
+  e->post = (uint8_t)g_ctx.post_len;
+  e->ls = (int16_t)g_ctx.ls;
+  e->hyphen = (uint8_t)g_ctx.hyphen;
   e->hash = h;
   e->font = font;
   e->dir = (uint8_t)dir;
@@ -2825,7 +2892,7 @@ static TextRun *run_get_part(int font, int dir, const char *s, int len, int pfro
   e->pto = pto;
   g_run_count++;
   float ext[3] = {0.0f, 0.0f, 1.0f};
-  e->advance = be_measure(&g_fonts[font], dir, s, len, ext);
+  e->advance = be_measure(e, ext);
   e->ext_asc = ext[0];
   e->ext_desc = ext[1];
   e->uses_font = ext[2] != 0.0f;
@@ -3093,6 +3160,16 @@ const uint8_t *BUI_text_run_mask(const BuiTextRun *run, int *r_w, int *r_h, int 
 /** \name Text backend: GDI
  * \{ */
 
+/* GDI does its own font fallback: breaks are tailored by script runs */
+static void text_font_items(int slot, const uint32_t *cp, int n, uint8_t **r_start, hb_script_t **r_script)
+{
+  (void)slot;
+  (void)cp;
+  (void)n;
+  *r_start = NULL;
+  *r_script = NULL;
+}
+
 #  ifndef BUI_NO_INTER
 #    include "../extern/font_inter.h"
 const void *BUI_text_default_font(int *r_len)
@@ -3233,7 +3310,7 @@ static wchar_t *to_wide(const char *s, int len, int *r_n)
   return w;
 }
 
-static float be_measure(const FontSlot *s, int dir, const char *utf8, int len, float r_ext[3])
+static float gdi_measure(const FontSlot *s, int dir, const char *utf8, int len, float r_ext[3])
 {
   r_ext[0] = r_ext[1] = 0.0f;
   r_ext[2] = 1.0f;
@@ -3249,6 +3326,14 @@ static float be_measure(const FontSlot *s, int dir, const char *utf8, int len, f
   SelectObject(dc, old);
   free(w);
   return (float)sz.cx;
+}
+
+/* GDI shapes runs whole: the context of BUI_text_set_context is not used */
+static float be_measure(const TextRun *e, float r_ext[3])
+{
+  const float w = gdi_measure(&g_fonts[e->font], e->dir, e->text, e->len, r_ext);
+  r_ext[2] = 0.0f; /* the font's metrics stand for the run's extents */
+  return w;
 }
 
 static void be_build(TextRun *e, const FontSlot *fs)
@@ -3325,7 +3410,7 @@ static float run_index_to_x(TextRun *e, int index, int trailing)
   }
   index = index < 0 ? 0 : index > e->len ? e->len : index;
   float ext[3];
-  return index > 0 ? be_measure(&g_fonts[e->font], 0, e->text, index, ext) : 0.0f;
+  return index > 0 ? gdi_measure(&g_fonts[e->font], 0, e->text, index, ext) : 0.0f;
 }
 
 static int run_x_to_index(TextRun *e, float x, int *r_trailing)
@@ -4767,32 +4852,42 @@ int BUI_text_hint_metrics(void)
   return g_hint_metrics;
 }
 
-/* r_ext (may be NULL): the highest ascent and descent of the fallback
- * fonts the run uses, as Pango's logical extents of a line take every
- * run's font (0, 0 when it uses only its own), and 1 when it uses its own
- * font, 0 when only fallbacks (Pango's line then has none of its
- * metrics). */
-static float glyph_walk_part(const FontSlot *s, int dir, const char *utf8, int len, int from,
-                             int to, GlyphFn fn, void *user, float r_ext[3])
+/* r_ext (may be NULL): the ascent and descent of the run's logical
+ * extents, the union of its items' fonts as Pango's line extents take
+ * them (a run drawn only with fallback fonts has none of its own font's
+ * metrics), and 1 (known). */
+static float glyph_walk_part(const TextRun *e, GlyphFn fn, void *user, float r_ext[3])
 {
   WRun w;
-  const int slot0 = (int)(s - g_fonts);
-  text_itemize(slot0, utf8, len, dir, &w);
+  const int slot0 = e->font, from = e->pfrom, to = e->pto;
+  text_itemize_run(e, &w);
   if (r_ext) {
-    r_ext[0] = r_ext[1] = 0.0f;
-    r_ext[2] = w.n == 0 ? 1.0f : 0.0f;
-    int last = slot0;
-    for (int i = 0; i < w.n; i++) {
-      if (w.g[i].slot == slot0) {
-        r_ext[2] = 1.0f;
+    /* the union of its items' logical extents (Pango's line extents):
+     * each font's ascent and descent, rounded outwards with hinted
+     * metrics, where the item sits after baseline alignment */
+    r_ext[0] = r_ext[1] = r_ext[2] = 0.0f;
+    for (int i = 0; i < w.nit; i++) {
+      const WItem *it = &w.it[i];
+      const FontSlot *fs = &g_fonts[it->slot];
+      const Face *f = &g_faces[fs->face];
+      float a, d;
+      if (it->slot == slot0) {
+        a = (float)f->ascent * fs->scale; /* as BUI_text_metrics */
+        d = (float)-f->descent * fs->scale;
       }
-      if (w.g[i].slot != slot0 && w.g[i].slot != last) {
-        last = w.g[i].slot;
-        const FontSlot *fs = &g_fonts[last];
-        const Face *f = &g_faces[fs->face];
-        r_ext[0] = fmaxf(r_ext[0], (float)f->hb_ascent * fs->scale);
-        r_ext[1] = fmaxf(r_ext[1], (float)-f->hb_descent * fs->scale);
+      else {
+        a = (float)f->hb_ascent * fs->scale;
+        d = (float)-f->hb_descent * fs->scale;
       }
+      if (g_hint_metrics) {
+        a = ceilf(a - 0.001f);
+        d = ceilf(d - 0.001f);
+      }
+      a -= it->dy;
+      d += it->dy;
+      r_ext[0] = r_ext[2] != 0.0f ? fmaxf(r_ext[0], a) : a;
+      r_ext[1] = r_ext[2] != 0.0f ? fmaxf(r_ext[1], d) : d;
+      r_ext[2] = 1.0f;
     }
   }
   if (fn) {
@@ -4808,17 +4903,11 @@ static float glyph_walk_part(const FontSlot *s, int dir, const char *utf8, int l
   return width;
 }
 
-static float glyph_walk(const FontSlot *s, int dir, const char *utf8, int len, GlyphFn fn,
-                        void *user, float r_ext[3])
-{
-  return glyph_walk_part(s, dir, utf8, len, 0, 0, fn, user, r_ext);
-}
-
 /* The run's width: whole pixels with hinted metrics (whole advances), else
  * Pango's unrounded logical width. */
-static float be_measure(const FontSlot *s, int dir, const char *utf8, int len, float r_ext[3])
+static float be_measure(const TextRun *e, float r_ext[3])
 {
-  return glyph_walk(s, dir, utf8, len, NULL, NULL, r_ext);
+  return glyph_walk_part(e, NULL, NULL, r_ext);
 }
 
 static void list_glyph(void *user, int slot, int glyph, float x, float y)
@@ -4873,8 +4962,7 @@ static int run_glyphs(TextRun *e)
     if (!e->gl) {
       return 0;
     }
-    glyph_walk_part(&g_fonts[e->font], e->dir, e->text, e->len, e->pfrom, e->pto, list_glyph, e->gl,
-                    NULL);
+    glyph_walk_part(e, list_glyph, e->gl, NULL);
   }
   return 1;
 }
@@ -4886,7 +4974,7 @@ static int run_clusters(TextRun *e)
     return 1;
   }
   WRun w;
-  text_itemize(e->font, e->text, e->len, e->dir, &w);
+  text_itemize_run(e, &w);
   struct RunCluster *cl = (struct RunCluster *)malloc(sizeof(*cl) * (size_t)(w.n > 0 ? w.n : 1));
   uint8_t *cur = (uint8_t *)malloc((size_t)e->len + 1);
   RunCarets *car = (RunCarets *)malloc(sizeof(RunCarets));
@@ -4941,7 +5029,7 @@ static int run_clusters(TextRun *e)
   for (int i = 0; i + 1 < n; i++) {
     cl[i].end = cl[i + 1].start;
   }
-  BUI_text_breaks(e->text, e->len, cur);
+  text_breaks(e->text, e->len, NULL, cur, -1);
   car->cl = cl;
   car->n = n;
   car->cur = cur;
@@ -5493,7 +5581,7 @@ static void blit_glyph(uint8_t *mask, int mw, int mh, int gx, int gy, int base, 
 static void be_build(TextRun *e, const FontSlot *fs)
 {
   BuildCtx c = {NULL, 0, 0};
-  glyph_walk_part(fs, e->dir, e->text, e->len, e->pfrom, e->pto, build_glyph, &c, NULL);
+  glyph_walk_part(e, build_glyph, &c, NULL);
   /* bounds: the font's box (as before), grown to every glyph's bitmap */
   const int pad = 2 + fs->px / 4; /* bearings / italic overhang */
   int left = pad, right = pad, asc = fs->ascent, desc = fs->height + 1 - fs->ascent;
@@ -5712,6 +5800,16 @@ int BUI_text_metrics(const char *family, int flags, float size, float *r_ascent,
   return 1;
 }
 
+/* BUI-Awra: BUI_text_breaks as PangoLayout finds the attributes of text
+ * in this font: tailored item by item, items split where the font changes
+ * too (libthai sees only the Thai of a "123ภาษา"). */
+void BUI_text_breaks_font(const char *family, int flags, float size, const char *utf8, int len,
+                          uint16_t *attrs)
+{
+  const int f = font_get(family, flags & ~TEXT_DIRS, size);
+  text_breaks(utf8, len, attrs, NULL, f);
+}
+
 /* BUI-Awra: the ascent and descent of a run of text (unrounded px): the
  * font's, or higher where the fonts it falls back to reach further (Pango's
  * logical extents: a line is as tall as the tallest font in it). */
@@ -5726,14 +5824,10 @@ int BUI_text_extents(const char *family, int flags, float size, const char *utf8
   }
   const int f = font_get(family, flags & ~TEXT_DIRS, size);
   const TextRun *e = f >= 0 ? run_get(f, text_dir(flags), utf8, len) : NULL;
-  if (e && !e->uses_font && (e->ext_asc > 0.0f || e->ext_desc > 0.0f)) {
-    /* drawn only with fallback fonts: theirs */
+  if (e && e->uses_font) {
+    /* the union of its fonts' extents, as aligned (glyph_walk_part) */
     *r_ascent = e->ext_asc;
     *r_descent = e->ext_desc;
-  }
-  else if (e) {
-    *r_ascent = e->ext_asc > *r_ascent ? e->ext_asc : *r_ascent;
-    *r_descent = e->ext_desc > *r_descent ? e->ext_desc : *r_descent;
   }
   return 1;
 }

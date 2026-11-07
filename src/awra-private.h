@@ -37,6 +37,9 @@ enum {
   /* expand is not computed from the children (a GtkWidget subclass without
    * compute_expand, as Awra 1's components were) */
   AWRA_CLASS_EXPAND_ISOLATED = 1 << 7,
+  /* right to left, its children are not mirrored (it places them itself:
+   * scrolled content) */
+  AWRA_CLASS_NO_MIRROR = 1 << 8,
 };
 
 typedef struct AwraClass AwraClass;
@@ -166,6 +169,7 @@ typedef struct AwraAux {
   unsigned can_target : 1, focusable_set : 1, focusable : 1;
   unsigned hovered : 1, pressed : 1, focus_visible : 1, mapped : 1, destroyed : 1;
   unsigned typography_set : 1, in_dispose : 1, expand_isolated : 1;
+  unsigned dir : 2; /* AwraTextDirection */
   /* GTK's visible (the application's) and child-visible (the parent's):
    * the node's NF_VISIBLE is set when both are */
   unsigned user_hidden : 1, child_hidden : 1, overflow_hidden : 1;
@@ -298,12 +302,29 @@ bool awra_parse_color(const char *s, AwraRGBA *r_color);
 struct AwraDraw {
   BuiRaster *r;
   float opacity; /* inherited opacity of the subtree */
+  bool rtl;      /* the widget drawing is right to left (icons take their -rtl variants) */
 };
+
+/* Right to left (awra_widget_get_direction). */
+bool awra_widget_rtl(const AwraWidget *w);
+/* x of a box [x, x + width) inside widget `w`, mirrored in it when it is
+ * right to left: custom drawing and hit-testing written left to right. */
+float awra_mirror_x(const AwraWidget *w, float x, float width);
+/* a pointer x mirrored in `w` when it is right to left */
+static inline int awra_mirror_px(const AwraWidget *w, int px)
+{
+  return awra_widget_rtl(w) ? 2 * w->x + w->w - px : px;
+}
 
 typedef struct AwraBox {
   float x, y, w, h;
 } AwraBox;
 
+static inline AwraBox awra_mirror_box(const AwraWidget *w, AwraBox b)
+{
+  b.x = awra_mirror_x(w, b.x, b.w);
+  return b;
+}
 static inline AwraBox awra_box_of(const BKNode *n)
 {
   AwraBox b = {(float)n->x, (float)n->y, (float)n->w, (float)n->h};
@@ -382,6 +403,9 @@ AwraTextLayout *awra_text_layout_new(void);
 void awra_text_layout_free(AwraTextLayout *l);
 void awra_text_layout_set_text(AwraTextLayout *l, const char *text, bool markup);
 void awra_text_layout_set_font(AwraTextLayout *l, const AwraFont *f);
+/* The widget's direction (pango_context_set_base_dir): paragraphs without
+ * a strong character read right to left when true. */
+void awra_text_layout_set_base_dir(AwraTextLayout *l, bool rtl);
 void awra_text_layout_set_wrap(AwraTextLayout *l, AwraWrap wrap, AwraEllipsize ellipsize,
                                int max_lines);
 void awra_text_layout_set_justify(AwraTextLayout *l, AwraJustify justify);

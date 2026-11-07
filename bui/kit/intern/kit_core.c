@@ -2184,11 +2184,11 @@ void bk_tooltip_layout(BKContext *ctx, BKPopupLayout *l)
 {
   memset(l, 0, sizeof(*l));
   const float s = bk_scale_fac;
-  static int cursor_size = -1;
-  if (cursor_size < 0) {
-    const char *e = getenv("XCURSOR_SIZE");
-    cursor_size = e && atoi(e) > 0 ? atoi(e) : 16; /* gtk-cursor-theme-size, else 16 */
-  }
+  /* gtk-cursor-theme-size: the host's (the size its cursors are drawn
+   * at), else GTK's 16 */
+  const int cursor_size = ctx->popup_host && ctx->popup_host->cursor_size > 0 ?
+                              ctx->popup_host->cursor_size :
+                              16;
   const int pad = (int)(BK_MAX(4, cursor_size - 32) * s + 0.5f);
   BKRect a = bk_node_rect(ctx->tip_node);
   a.xmin -= pad;
@@ -3291,8 +3291,8 @@ static int te_grapheme(const BKTextEdit *te, int pos, bool next)
   if (next ? pos >= te->len : pos <= 0) {
     return next ? te->len : 0;
   }
-  uint8_t local[256];
-  uint8_t *br = te->len < 256 ? local : (uint8_t *)malloc((size_t)te->len + 1);
+  uint16_t local[256];
+  uint16_t *br = te->len < 256 ? local : (uint16_t *)malloc(sizeof(uint16_t) * ((size_t)te->len + 1));
   if (!br) {
     return next ? pos + 1 : pos - 1;
   }
@@ -3326,8 +3326,8 @@ static void te_backspace(BKTextEdit *te)
 {
   const int end = te->caret;
   const int prev = te_grapheme(te, end, false);
-  uint8_t local[256];
-  uint8_t *br = te->len < 256 ? local : (uint8_t *)malloc((size_t)te->len + 1);
+  uint16_t local[256];
+  uint16_t *br = te->len < 256 ? local : (uint16_t *)malloc(sizeof(uint16_t) * ((size_t)te->len + 1));
   bool one_char = false;
   if (br) {
     BUI_text_breaks(te->text, te->len, br);

@@ -303,6 +303,24 @@ int BUI_text_measure(
  * the run is shaped in that direction and never reordered. */
 #define BUI_TEXT_LTR (1 << 20)
 #define BUI_TEXT_RTL (1 << 21)
+/* The shaping context of the text calls that follow (measure, prepare,
+ * draw, carets, clusters, extents), until it is set again or cleared with
+ * NULL. Pango shapes each item of a paragraph with the paragraph around it
+ * as HarfBuzz context: a run inside an Arabic word keeps joining, given the
+ * text before and after it. `hyphen`: the run ends a line broken where
+ * Pango shows a hyphen (1: after its last character, 2: in place of it).
+ * `letter_spacing`: Pango units (1/1024 px), added between graphemes as
+ * pango_glyph_item_letter_space adds it (half before, half after each),
+ * with ligatures off; the run's width includes all of it. */
+typedef struct BuiTextContext {
+  const char *before; /* the text before the run (ends where the run starts) */
+  int before_len;
+  const char *after; /* the text after it */
+  int after_len;
+  int letter_spacing;
+  int hyphen;
+} BuiTextContext;
+void BUI_text_set_context(const BuiTextContext *ctx);
 /* The x (from the run's left edge, as BUI_raster_text draws it at x = 0)
  * of the leading (`trailing` 0) or trailing edge of the character at byte
  * `index`, as pango_glyph_string_index_to_x_full places it: ligatures and
@@ -340,13 +358,30 @@ int BUI_text_bidi(const char *utf8, int len, int base, uint8_t *levels);
 /* The direction of the first strong character (pango_find_base_dir): 1
  * left-to-right, 2 right-to-left, 0 none. */
 int BUI_text_direction(const char *utf8, int len);
-/* Grapheme boundaries as Pango finds them, per byte offset 0..len (`attrs`
- * holds len + 1 bytes): BUI_TEXT_CURSOR at cursor positions,
- * BUI_TEXT_BACKSPACE_CHAR where backspace deletes one character of the
- * grapheme before it rather than the whole grapheme. */
-#define BUI_TEXT_CURSOR 1
-#define BUI_TEXT_BACKSPACE_CHAR 2
-void BUI_text_breaks(const char *utf8, int len, uint8_t *attrs);
+/* Text segmentation as Pango finds it (pango_get_log_attrs: UAX #29
+ * graphemes and words, UAX #14 line breaking with Pango's tailorings,
+ * Thai words from libthai where it is installed), per byte offset 0..len
+ * (`attrs` holds len + 1 entries; offsets inside a character get 0). At
+ * the boundary before the character at that offset: */
+#define BUI_TEXT_CURSOR 1              /* a cursor position (grapheme boundary) */
+#define BUI_TEXT_BACKSPACE_CHAR 2      /* backspace here deletes one character, not
+                                        * the whole grapheme */
+#define BUI_TEXT_LINE_BREAK 4          /* a line may break here (PANGO_WRAP_WORD) */
+#define BUI_TEXT_MANDATORY_BREAK 8     /* a line must break here */
+#define BUI_TEXT_CHAR_BREAK 16         /* a line may break here (PANGO_WRAP_CHAR) */
+#define BUI_TEXT_WORD_START 64
+#define BUI_TEXT_WORD_END 128
+#define BUI_TEXT_WORD_BOUNDARY 256     /* UAX #29 word boundary */
+#define BUI_TEXT_INSERTS_HYPHEN 512    /* breaking here shows a hyphen */
+#define BUI_TEXT_REMOVES_PRECEDING 1024 /* breaking here removes the character before */
+/* Properties of the character at that offset: */
+#define BUI_TEXT_WHITE 32              /* white space (not counted at a line's end) */
+#define BUI_TEXT_EXPANDABLE_SPACE 2048 /* a space justification widens */
+void BUI_text_breaks(const char *utf8, int len, uint16_t *attrs);
+/* The same as PangoLayout finds them for text drawn in this font: Pango
+ * tailors item by item, and items also end where the font changes. */
+void BUI_text_breaks_font(const char *family, int flags, float size, const char *utf8, int len,
+                          uint16_t *attrs);
 /* The canonical decomposition (NFD) of `utf8` into `out`: its length in
  * bytes, -1 when it doesn't fit in `cap`. */
 int BUI_text_nfd(const char *utf8, int len, char *out, int cap);

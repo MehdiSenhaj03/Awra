@@ -74,6 +74,7 @@ static void label_sync(AwraWidget *w)
   LabelExt *x = LX(w);
   AwraFont f = label_font(w);
   awra_text_layout_set_font(x->layout, &f);
+  awra_text_layout_set_base_dir(x->layout, awra_widget_rtl(w));
   if (x->objects || x->inline_size > 0 || x->rich) {
     /* RichLabel: as tall as the text's own letters, at least 12 px */
     const float size = x->inline_size > 0 ? awra_pxf(x->inline_size) :
@@ -256,7 +257,9 @@ static void label_origin(AwraWidget *w, float *r_x, float *r_y, int *r_width)
     awra_text_layout_logical(x->layout, w->w, &lx0, &lw);
     lw = fminf(ceilf(lw), (float)w->w);
   }
-  *r_x = (float)w->x + floorf((w->w - lw) * x->xalign + 0.5f) - lx0;
+  /* right to left, xalign counts from the right (gtk_label_get_layout_location) */
+  const float xalign = awra_widget_rtl(w) ? 1.0f - x->xalign : x->xalign;
+  *r_x = (float)w->x + floorf((w->w - lw) * xalign + 0.5f) - lx0;
   *r_y = (float)w->y + floorf((w->h - th) * x->yalign + 0.5f);
   *r_width = fit ? w->w : -1;
 }
