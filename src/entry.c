@@ -148,11 +148,27 @@ static void edit_finalize(AwraWidget *w)
 }
 
 /* paddings (spec B §8: entry 5/11, search 5/8, spin 5/11 with 48 px buttons) */
+/* Editing a name in place (Awra 1's inline-edit role, awra.css L3990): as
+ * tall as the text it replaces, padding 1px 5px, radius 6, no minimum. */
+static bool inline_edit(const AwraWidget *w)
+{
+  static int bit = -2;
+  if (bit == -2) {
+    bit = awra_class_bit("inline-edit");
+  }
+  return bit >= 0 && awra_has_class_bit(w, bit);
+}
+
 static void edit_pads(AwraWidget *w, int *l, int *r, int *t, int *b)
 {
   EditExt *x = EX(w);
   if (x->frameless) {
     *t = *b = *l = *r = 0;
+    return;
+  }
+  if (inline_edit(w) && !x->multiline && !x->bare) {
+    *t = *b = awra_px(1) + awra_px(1);
+    *l = *r = awra_px(5) + awra_px(1);
     return;
   }
   *t = *b = awra_px(5) + awra_px(1);
@@ -199,7 +215,7 @@ static void edit_measure(AwraWidget *w, int o, int for_size, int *r_min, int *r_
       *r_min = *r_nat = l + r + BK_MAX(tw, awra_px(16));
       return;
     }
-    *r_min = l + r + awra_px(64);
+    *r_min = l + r + (inline_edit(w) ? 0 : awra_px(64));
     *r_nat = l + r + awra_px(150);
     return;
   }
@@ -222,7 +238,7 @@ static void edit_measure(AwraWidget *w, int o, int for_size, int *r_min, int *r_
     awra_text_layout_size(x->layout, for_size >= 0 ? for_size - l - r : -1, NULL, &h);
     th = BK_MAX(th * 3, h);
   }
-  if (!x->frameless) {
+  if (!x->frameless && !inline_edit(w)) {
     th = BK_MAX(th, awra_px(22));
   }
   if (x->spin) {
@@ -304,7 +320,7 @@ static void edit_draw(AwraWidget *w, AwraDraw *d)
   const AwraTokens *t = awra_tokens();
   const bool focus = awra_widget_has_focus(w);
   const bool sens = awra_sensitive(w);
-  const float radius = awra_pxf(x->search ? 9 : 11);
+  const float radius = awra_pxf(inline_edit(w) ? 6 : x->search ? 9 : 11);
   AwraBox b = awra_box_of(w);
   if (x->frameless || x->bare) {
     /* a bare text field: its container draws the frame */

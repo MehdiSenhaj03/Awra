@@ -556,6 +556,15 @@ static AwraClass avatar_class = {
     .overdraw = 8,
 };
 
+/* What it paints outside its box: the speaking ring at its widest (the
+ * gap, the ring, the breath; see avatar_draw), or the class's 8 px. */
+static void avatar_set_overdraw(AwraWidget *w)
+{
+  const float size = (float)AVX(w)->size;
+  const float ring = fmaxf(1.5f, size * 0.05f) + fmaxf(2.0f, size * 0.055f) + fmaxf(0.75f, size * 0.025f);
+  w->overdraw = (short)BK_MAX(awra_px(8), awra_px((int)ceilf(ring) + 1));
+}
+
 AwraWidget *awra_avatar_new(int size, const char *text)
 {
   AwraWidget *w = awra_widget_new(&avatar_class);
@@ -564,6 +573,7 @@ AwraWidget *awra_avatar_new(int size, const char *text)
   x->show_initials = true;
   x->face_dirty = true;
   x->radius_override = -1.0f;
+  avatar_set_overdraw(w);
   awra_avatar_set_text(w, text);
   return w;
 }
@@ -575,6 +585,7 @@ void awra_avatar_set_size(AwraWidget *w, int size)
     return;
   }
   x->size = size;
+  avatar_set_overdraw(w);
   face_changed(w);
   awra_widget_queue_resize(w);
 }
