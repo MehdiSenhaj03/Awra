@@ -1443,7 +1443,9 @@ AwraWidget *awra_dropdown_new(const char *const *items, int n)
   awra_widget_set_hexpand(d->label, true);
   awra_box_append(box, d->label);
   awra_widget_unref(d->label); /* its parent holds it */
-  awra_box_append(box, awra_widget_new(&chev_class));
+  AwraWidget *chevron = awra_widget_new(&chev_class);
+  awra_box_append(box, chevron);
+  awra_widget_unref(chevron); /* its parent holds it */
   awra_button_set_child(w, box);
   awra_widget_unref(box); /* its parent holds it */
   /* awra.css: padding 5px 11px inside a 1 px transparent border: 34 px */
