@@ -386,6 +386,9 @@ typedef struct AwraResolvedMaterial {
 void awra_material_resolve(AwraMaterial material, int role, AwraElevation elevation,
                            bool blur_available, AwraResolvedMaterial *r);
 /* Paints a resolved material in box b (corner mask: TL 1 TR 2 BR 4 BL 8). */
+/* awra.css's restyling of a scrolled window's scrollbar (scrollbar.c): 0
+ * GTK's, 1 a list's, 2 a picker's, 3 a composer's, 4 none */
+void awra_scrolled_set_scrollbar_style_internal(AwraWidget *w, int style);
 void awra_paint_material_edges(AwraDraw *d, AwraBox b, const AwraResolvedMaterial *m, float radius,
                                int corner_mask, int edge_mask);
 void awra_paint_material(AwraDraw *d, AwraBox b, const AwraResolvedMaterial *m, float radius,

@@ -662,6 +662,8 @@ AwraWidget *awra_conversation_view_new(void)
   x->highlight_pos = UINT32_MAX;
   x->scroller = awra_scrolled_new();
   awra_scrolled_set_policy(x->scroller, AWRA_POLICY_NEVER, AWRA_POLICY_AUTOMATIC);
+  /* awraconversationview > scrolledwindow > scrollbar */
+  awra_scrolled_set_scrollbar_style_internal(x->scroller, 1);
   x->list = awra_list_view_new();
   awra_list_view_set_padding(x->list, 8, 8);
   /* a short conversation sits at the bottom, next to where the next

@@ -1015,6 +1015,7 @@ AwraWidget *awra_data_view_new(void)
   awra_widget_set_vexpand(x->stack, true);
   x->scroller = awra_scrolled_new();
   awra_scrolled_set_policy(x->scroller, AWRA_POLICY_NEVER, AWRA_POLICY_AUTOMATIC);
+  awra_scrolled_set_scrollbar_style_internal(x->scroller, 1); /* awralistview scrollbar */
   x->list = awra_list_view_new();
   awra_list_view_set_factory(x->list, row_setup, row_bind, row_unbind, NULL, w, NULL);
   awra_scrolled_set_child(x->scroller, x->list);

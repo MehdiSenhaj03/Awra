@@ -1424,12 +1424,7 @@ typedef struct ScrollExt {
   double vvalue, hvalue; /* raster px */
   int content_w, content_h;
   int view_w;       /* the width hvalue was kept for (right to left) */
-  float bar_t;      /* indicator opacity */
-  double bar_until; /* ms: keep showing */
-  bool dragging;
-  int drag_y0;
-  double drag_v0;
-  unsigned fade_timer;
+  AwraWidget *vbar; /* the overlay scrollbar (scrollbar.c), its last child */
   /* edge fades (logical px; 0 none) and, while a frame draws, what lies
    * under each faded band: top rows then bottom rows */
   int edge_fade[2];
@@ -1482,7 +1477,25 @@ static void scroll_clamp(AwraWidget *w)
   x->hvalue = x->hvalue < 0 ? 0 : x->hvalue > maxh ? maxh : x->hvalue;
 }
 
+void awra_scrollbar_allocate_internal(AwraWidget *bar);
+void awra_scrollbar_value_changed_internal(AwraWidget *bar);
+void awra_scrollbar_motion_internal(AwraWidget *bar, int px, int py, bool on_bar, bool buttons);
+void awra_scrollbar_leave_internal(AwraWidget *bar);
+void awra_scrollbar_set_style_internal(AwraWidget *bar, int style);
+AwraWidget *awra_scrollbar_new_internal(AwraWidget *sw);
+void awra_scrolled_forget_motion_internal(AwraWidget *sw);
+
+static void scroll_place(AwraWidget *w);
+
 static void scroll_allocate(AwraWidget *w)
+{
+  scroll_place(w);
+  if (SX(w)->vbar) {
+    awra_scrollbar_allocate_internal(SX(w)->vbar);
+  }
+}
+
+static void scroll_place(AwraWidget *w)
 {
   ScrollExt *x = SX(w);
   if (!x->child) {
@@ -1563,56 +1576,8 @@ static void scroll_fade(AwraWidget *w, AwraDraw *d)
 
 static void scroll_draw_over(AwraWidget *w, AwraDraw *d)
 {
-  ScrollExt *x = SX(w);
-  if (x->content_h <= w->h || x->bar_t <= 0.0f || x->vpolicy == AWRA_POLICY_EXTERNAL) {
-    scroll_fade(w, d);
-    return;
-  }
-  const float track = (float)w->h;
-  float len = track * (float)w->h / (float)x->content_h;
-  len = fmaxf(len, awra_pxf(18));
-  const float pos = (float)(x->vvalue / (x->content_h - w->h)) * (track - len);
-  AwraRGBA c = awra_tokens()->control_thumb;
-  c.a *= x->bar_t;
-  const float bw = awra_pxf(5);
-  /* at the left, right to left (GtkScrolledWindow's placement swaps) */
-  awra_paint_rbox(d, awra_mirror_box(w, (AwraBox){w->x + w->w - awra_pxf(6), w->y + pos, bw, len}),
-                  bw * 0.5f, &c, 0, NULL);
+  /* the scrollbar is a child, drawn last; what is left are the fades */
   scroll_fade(w, d);
-}
-
-static bool fade_tick(void *data)
-{
-  AwraWidget *w = (AwraWidget *)data;
-  ScrollExt *x = SX(w);
-  const double now = awra_now_ms();
-  if (now < x->bar_until) {
-    return true;
-  }
-  /* 1 s fade after the 2 s delay */
-  const float t = (float)(1.0 - (now - x->bar_until) / 1000.0);
-  x->bar_t = t > 0 ? t : 0;
-  BKRect r = bk_rect((int)awra_mirror_x(w, (float)(w->x + w->w - awra_px(8)), (float)awra_px(8)), w->y,
-                     awra_px(8), w->h);
-  BKContext *ctx = bk_ctx(w);
-  if (ctx) {
-    bk_node_dirty(w, r);
-  }
-  if (x->bar_t <= 0.0f) {
-    x->fade_timer = 0;
-    return false;
-  }
-  return true;
-}
-
-static void show_bar(AwraWidget *w)
-{
-  ScrollExt *x = SX(w);
-  x->bar_t = 1.0f;
-  x->bar_until = awra_now_ms() + 2000.0;
-  if (!x->fade_timer) {
-    x->fade_timer = awra_timeout_add(33, fade_tick, w, NULL);
-  }
 }
 
 static void scroll_to(AwraWidget *w, double v, double h)
@@ -1623,7 +1588,9 @@ static void scroll_to(AwraWidget *w, double v, double h)
   x->hvalue = h;
   scroll_clamp(w);
   if (x->vvalue != ov || x->hvalue != oh) {
-    show_bar(w);
+    if (x->vbar && x->vvalue != ov) {
+      awra_scrollbar_value_changed_internal(x->vbar); /* indicator_value_changed */
+    }
     awra_queue_allocate(w);
     awra_invalidate(w);
     awra_emit_simple(w, AWRA_SIGNAL_VALUE_CHANGED);
@@ -1654,10 +1621,56 @@ static int scroll_scroll(AwraWidget *w, BKEvent *e)
 
 static void scroll_finalize(AwraWidget *w)
 {
-  if (SX(w)->fade_timer) {
-    awra_source_remove(SX(w)->fade_timer);
-  }
+  awra_scrolled_forget_motion_internal(w);
   free(SX(w)->fade_under);
+}
+
+/* GtkScrolledWindow's captured motion (core.c) */
+void awra_scrolled_captured_motion_internal(AwraWidget *w, AwraWidget *under, int px, int py, bool buttons);
+void awra_scrolled_captured_motion_internal(AwraWidget *w, AwraWidget *under, int px, int py, bool buttons)
+{
+  ScrollExt *x = SX(w);
+  if (x->vbar && x->child) {
+    awra_scrollbar_motion_internal(x->vbar, px, py, under == x->vbar, buttons);
+  }
+}
+
+void awra_scrolled_pointer_left_internal(AwraWidget *w);
+void awra_scrolled_pointer_left_internal(AwraWidget *w)
+{
+  if (SX(w)->vbar) {
+    awra_scrollbar_leave_internal(SX(w)->vbar);
+  }
+}
+
+/* value, upper and page (raster px), and whether it scrolls vertically */
+void awra_scrolled_metrics_internal(AwraWidget *w, double *r_value, double *r_upper, double *r_page,
+                                    bool *r_can);
+void awra_scrolled_metrics_internal(AwraWidget *w, double *r_value, double *r_upper, double *r_page,
+                                    bool *r_can)
+{
+  ScrollExt *x = SX(w);
+  *r_value = x->vvalue;
+  *r_upper = x->content_h;
+  *r_page = w->h;
+  /* vscrollbar_visible: AUTOMATIC and ALWAYS, while the content is taller */
+  *r_can = x->child && (x->vpolicy == AWRA_POLICY_AUTOMATIC || x->vpolicy == AWRA_POLICY_ALWAYS) &&
+           x->content_h > w->h;
+}
+
+void awra_scrolled_set_vvalue_px_internal(AwraWidget *w, double v);
+void awra_scrolled_set_vvalue_px_internal(AwraWidget *w, double v)
+{
+  scroll_to(w, v, SX(w)->hvalue);
+}
+
+/* awra.css restyling the scrollbar in a context (scrollbar.c STYLE_*) */
+void awra_scrolled_set_scrollbar_style_internal(AwraWidget *w, int style);
+void awra_scrolled_set_scrollbar_style_internal(AwraWidget *w, int style)
+{
+  if (SX(w)->vbar) {
+    awra_scrollbar_set_style_internal(SX(w)->vbar, style);
+  }
 }
 
 void awra_scrolled_set_edge_fades(AwraWidget *w, int top, int bottom)
@@ -1693,12 +1706,36 @@ AwraWidget *awra_scrolled_new(void)
   ScrollExt *x = SX(w);
   x->hpolicy = AWRA_POLICY_AUTOMATIC;
   x->vpolicy = AWRA_POLICY_AUTOMATIC;
+  /* hit where nothing inside takes events, so wheels and motion over its
+   * empty parts reach it (GtkScrolledWindow's own controllers) */
+  w->flags |= NF_EVENTS;
+  x->vbar = awra_scrollbar_new_internal(w);
+  awra_child_insert(w, x->vbar, -1);
+  awra_widget_unref(x->vbar); /* held as a child */
+  awra_widget_set_child_visible(x->vbar, false);
   return w;
 }
 
 void awra_scrolled_set_child(AwraWidget *w, AwraWidget *child)
 {
-  awra_set_slot(w, &SX(w)->child, child);
+  ScrollExt *x = SX(w);
+  if (x->child == child) {
+    return;
+  }
+  AwraWidget *old = x->child;
+  x->child = child;
+  if (old) {
+    awra_child_remove(w, old);
+  }
+  if (child) {
+    /* under the scrollbar: first */
+    awra_widget_ref(child);
+    if (child->parent) {
+      awra_container_remove(child->parent, child);
+    }
+    awra_child_insert(w, child, 0);
+    awra_widget_unref(child);
+  }
 }
 
 AwraWidget *awra_scrolled_child(AwraWidget *w)

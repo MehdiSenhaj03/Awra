@@ -733,6 +733,7 @@ AwraWidget *awra_completion_popover_new(void)
   awra_popover_set_autohide(x->popover, false); /* the text keeps the keyboard */
   awra_popover_set_padding_internal(x->popover, 0, false);
   x->scroller = awra_scrolled_new();
+  awra_scrolled_set_scrollbar_style_internal(x->scroller, 2); /* the completion popover's */
   /* Awra 1's: between 220 and 420 px wide whatever its rows ask */
   awra_scrolled_set_policy(x->scroller, AWRA_POLICY_AUTOMATIC, AWRA_POLICY_AUTOMATIC);
   awra_scrolled_set_propagate_natural(x->scroller, true, true);

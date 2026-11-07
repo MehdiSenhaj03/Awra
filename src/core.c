@@ -2431,14 +2431,80 @@ int awra_bk_release(BKNode *n, BKEvent *e)
   return 1;
 }
 
+/* GtkScrolledWindow's captured motion: the scrolled windows the pointer is
+ * over hear of every motion inside them, whatever widget it is over, and
+ * that it left (their overlay scrollbars show, widen near it, go). Not
+ * held: a scrolled window takes itself out as it goes. */
+#define MOTION_SWS 8
+static AwraWidget *g_motion_sws[MOTION_SWS];
+static int g_n_motion_sws;
+
+void awra_scrolled_captured_motion_internal(AwraWidget *sw, AwraWidget *under, int x, int y, bool buttons);
+void awra_scrolled_pointer_left_internal(AwraWidget *sw);
+
+void awra_scrolled_forget_motion_internal(AwraWidget *sw);
+void awra_scrolled_forget_motion_internal(AwraWidget *sw)
+{
+  for (int i = 0; i < g_n_motion_sws; i++) {
+    if (g_motion_sws[i] == sw) {
+      g_motion_sws[i] = g_motion_sws[--g_n_motion_sws];
+      return;
+    }
+  }
+}
+
+static int motion_sws_of(BKNode *n, AwraWidget **out)
+{
+  int k = 0;
+  for (AwraWidget *a = (AwraWidget *)n; a && awra_is_widget(a) && k < MOTION_SWS;
+       a = (AwraWidget *)a->parent)
+  {
+    if (awra_widget_is(a, "AwraScrolledWindow")) {
+      out[k++] = a;
+    }
+    if (!awra_is_widget(a->parent)) {
+      break;
+    }
+  }
+  return k;
+}
+
+/* those no longer under the pointer hear it left */
+static void motion_sws_update(AwraWidget **now, int k)
+{
+  for (int i = 0; i < g_n_motion_sws; i++) {
+    bool still = false;
+    for (int j = 0; j < k && !still; j++) {
+      still = now[j] == g_motion_sws[i];
+    }
+    if (!still) {
+      awra_scrolled_pointer_left_internal(g_motion_sws[i]);
+    }
+  }
+  memcpy(g_motion_sws, now, sizeof(AwraWidget *) * (size_t)k);
+  g_n_motion_sws = k;
+}
+
 int awra_bk_move(BKNode *n, BKEvent *e)
 {
   const AwraClass *c = AWRA_CLASS_OF(n);
+  AwraWidget *now[MOTION_SWS];
+  const int k = motion_sws_of(n, now);
+  motion_sws_update(now, k);
+  for (int i = 0; i < k; i++) {
+    awra_scrolled_captured_motion_internal(now[i], (AwraWidget *)n, e->x, e->y,
+                                           (e->mods & (BK_BUTTON1 | BK_BUTTON2 | BK_BUTTON3)) != 0);
+  }
   return c->motion ? c->motion(n, e) : 0;
 }
 
 int awra_bk_leave(BKNode *n)
 {
+  /* the node the pointer is over now (or none: it left the window) */
+  BKContext *ctx = bk_ctx(n);
+  AwraWidget *now[MOTION_SWS];
+  const int k = ctx && ctx->hover ? motion_sws_of(ctx->hover, now) : 0;
+  motion_sws_update(now, k);
   return 0;
 }
 

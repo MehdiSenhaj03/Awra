@@ -690,6 +690,7 @@ AwraWidget *awra_emoji_picker_new(void)
   awra_widget_unref(header);
   x->scroller = awra_scrolled_new();
   awra_scrolled_set_policy(x->scroller, AWRA_POLICY_NEVER, AWRA_POLICY_AUTOMATIC);
+  awra_scrolled_set_scrollbar_style_internal(x->scroller, 2); /* awraemojipicker scrollbar */
   awra_widget_set_vexpand(x->scroller, true);
   /* Awra 1's measure: 9 columns of 40 (and the grid's 12 px) wide, 7 rows
    * tall, 5 columns and 3 rows at least, the header and preview around */
