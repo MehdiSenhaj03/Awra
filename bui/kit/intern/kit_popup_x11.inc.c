@@ -38,6 +38,83 @@ static int x11_pop_place(void *data, int slot, const BKPopupLayout *l, int w, in
                          BKRect *r_rect);
 static void x11_pop_close(void *data, int slot);
 
+/* An integer XSETTINGS value (the settings daemon's), -1 when none. */
+static int xsettings_int(const char *want)
+{
+  char sel[32];
+  snprintf(sel, sizeof(sel), "_XSETTINGS_S%d", DefaultScreen(g_dpy));
+  const Window owner = XGetSelectionOwner(g_dpy, XInternAtom(g_dpy, sel, False));
+  if (!owner) {
+    return -1;
+  }
+  const Atom prop = XInternAtom(g_dpy, "_XSETTINGS_SETTINGS", False);
+  Atom type;
+  int format;
+  unsigned long n = 0, after;
+  unsigned char *d = NULL;
+  if (XGetWindowProperty(g_dpy, owner, prop, 0, 1 << 16, False, prop, &type, &format, &n, &after,
+                         &d) != Success ||
+      !d || format != 8 || n < 12)
+  {
+    if (d) {
+      XFree(d);
+    }
+    return -1;
+  }
+  /* byte order, serial, count; then type, name, serial, value per setting */
+  const int msb = d[0] == 1;
+#  define XS_U16(p) (msb ? (unsigned)((p)[0] << 8 | (p)[1]) : (unsigned)((p)[1] << 8 | (p)[0]))
+#  define XS_U32(p)                                                                         (msb ? ((uint32_t)(p)[0] << 24 | (uint32_t)(p)[1] << 16 | (uint32_t)(p)[2] << 8 | (p)[3]) :            ((uint32_t)(p)[3] << 24 | (uint32_t)(p)[2] << 16 | (uint32_t)(p)[1] << 8 | (p)[0]))
+  const uint32_t count = XS_U32(d + 8);
+  size_t at = 12;
+  int result = -1;
+  for (uint32_t i = 0; i < count && at + 8 <= n; i++) {
+    const int kind = d[at];
+    const unsigned len = XS_U16(d + at + 2);
+    const size_t name_at = at + 4, name_end = name_at + ((len + 3) & ~3u);
+    if (name_end + 4 > n) {
+      break;
+    }
+    at = name_end + 4; /* past its serial */
+    const bool match = len == strlen(want) && memcmp(d + name_at, want, len) == 0;
+    if (kind == 0) { /* integer */
+      if (at + 4 > n) {
+        break;
+      }
+      if (match) {
+        result = (int)XS_U32(d + at);
+      }
+      at += 4;
+    }
+    else if (kind == 1) { /* string */
+      if (at + 4 > n) {
+        break;
+      }
+      at += 4 + ((XS_U32(d + at) + 3) & ~3u);
+    }
+    else if (kind == 2) { /* colour */
+      at += 8;
+    }
+    else {
+      break;
+    }
+  }
+#  undef XS_U16
+#  undef XS_U32
+  XFree(d);
+  return result;
+}
+
+/* GDK's gtk-cursor-theme-size on X11: the settings daemon's
+ * Gtk/CursorThemeSize, in device px (GDK divides by the window scale);
+ * without one GTK's tooltips take 16 (0 here: the kit's default), even
+ * where Xcursor draws the pointer at another size. */
+static int x11_cursor_size(const BKWindow *win)
+{
+  const int size = xsettings_int("Gtk/CursorThemeSize");
+  return size > 0 ? BK_MAX(1, (int)(size / BK_MAX(1.0f, win->scale) + 0.5f)) : 0;
+}
+
 static void x11_popups_init(BKWindow *win)
 {
   win->pophost.data = win;
@@ -45,6 +122,7 @@ static void x11_popups_init(BKWindow *win)
   win->pophost.corner_radius = 0;
   win->pophost.place = x11_pop_place;
   win->pophost.close = x11_pop_close;
+  win->pophost.cursor_size = x11_cursor_size(win);
   if (win->depth == 32) { /* override-redirect windows with alpha: as its own */
     bk_popup_host_set(win->ctx, &win->pophost);
   }
