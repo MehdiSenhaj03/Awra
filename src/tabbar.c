@@ -599,6 +599,21 @@ int awra_tab_bar_index_at(AwraWidget *w, double px, double py)
   return tab_at(w, w->x + awra_px(px), w->y + awra_px(py), NULL);
 }
 
+bool awra_tab_bar_tab_bounds(AwraWidget *w, int index, double *r_x, double *r_y, double *r_w,
+                             double *r_h)
+{
+  const TabExt *x = TX(w);
+  if (index < 0 || index >= x->n || x->tab_w <= 0) {
+    return false;
+  }
+  const double s = awra_scale();
+  *r_x = index * x->tab_w / s;
+  *r_y = 0;
+  *r_w = x->tab_w / s;
+  *r_h = w->h / s;
+  return true;
+}
+
 int awra_tab_bar_insertion_at(AwraWidget *w, double px)
 {
   TabExt *x = TX(w);

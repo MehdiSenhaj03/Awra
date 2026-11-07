@@ -327,6 +327,7 @@ void awra_widget_measure(AwraWidget *widget, AwraOrientation orientation, int fo
 void awra_widget_set_tooltip(AwraWidget *widget, const char *text);
 void awra_widget_set_typography(AwraWidget *widget, AwraTypography typography);
 void awra_widget_set_opacity(AwraWidget *widget, double opacity);
+double awra_widget_opacity(AwraWidget *widget);
 void awra_widget_set_can_target(AwraWidget *widget, bool can_target);
 void awra_widget_set_focusable(AwraWidget *widget, bool focusable);
 void awra_widget_grab_focus(AwraWidget *widget);
@@ -917,6 +918,10 @@ void awra_popover_set_child(AwraWidget *popover, AwraWidget *child);
 void awra_popover_set_anchor(AwraWidget *popover, AwraWidget *anchor);
 void awra_popover_popup(AwraWidget *popover);
 void awra_popover_popup_at(AwraWidget *popover, AwraWidget *relative_to, double x, double y);
+/* Opens it pointing at a point of `relative_to`, as GtkPopover's pointing-to
+ * with GTK_POS_BOTTOM: centred below it, above it without room, kept in the
+ * window (context menus). */
+void awra_popover_point_to(AwraWidget *popover, AwraWidget *relative_to, double x, double y);
 void awra_popover_popdown(AwraWidget *popover);
 bool awra_popover_visible(AwraWidget *popover);
 void awra_popover_set_position(AwraWidget *popover, int side); /* 0 bottom 1 top 2 start 3 end */
@@ -1352,6 +1357,9 @@ void awra_tab_bar_set_active(AwraWidget *bar, bool active);
 int awra_tab_bar_index_at(AwraWidget *bar, double x, double y);
 /* Where a tab dropped at x would go, and that place shown open (-1: none). */
 int awra_tab_bar_insertion_at(AwraWidget *bar, double x);
+/* Where tab `index` is in the bar (logical px); false: no such tab. */
+bool awra_tab_bar_tab_bounds(AwraWidget *bar, int index, double *x, double *y, double *width,
+                             double *height);
 void awra_tab_bar_set_insertion(AwraWidget *bar, int position);
 
 /* ----------------------------------------------------------------------- */
@@ -2040,6 +2048,22 @@ void awra_transition_bin_set_child(AwraWidget *bin, AwraWidget *child);
 AwraWidget *awra_transition_bin_child(AwraWidget *bin);
 void awra_transition_bin_set_fixed_top(AwraWidget *bin, int height);
 void awra_transition_bin_play(AwraWidget *bin, double dx, double dy);
+
+/* ----------------------------------------------------------------------- */
+/* Drag preview (Awra 1's AwraDragPreview): what a drag carries, as a pile
+ * of up to three items (index 0 in front, 1 and 2 fanned out behind) of
+ * `icon_size` logical px with a count badge from 2; the pile fans out when
+ * it appears. set_drag_window makes it the image `window` shows under the
+ * pointer during a drag (its point hot_x, hot_y, logical px, under it),
+ * kept up to date; NULL takes it away. texture() is the pile as drawn now. */
+AwraWidget *awra_drag_preview_new(void);
+void awra_drag_preview_set_icon_size(AwraWidget *preview, int size);
+void awra_drag_preview_set_count(AwraWidget *preview, unsigned count);
+void awra_drag_preview_set_item(AwraWidget *preview, int index, const AwraTexture *texture);
+void awra_drag_preview_set_item_icon(AwraWidget *preview, int index, const char *icon_name);
+void awra_drag_preview_set_drag_window(AwraWidget *preview, AwraWidget *window, int hot_x,
+                                       int hot_y);
+AwraTexture *awra_drag_preview_texture(AwraWidget *preview);
 
 #ifdef __cplusplus
 }

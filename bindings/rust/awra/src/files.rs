@@ -73,3 +73,91 @@ impl Default for TransitionBin {
         Self::new()
     }
 }
+
+impl crate::Widget {
+    /// gtk_widget_get_opacity.
+    pub fn opacity(&self) -> f64 {
+        unsafe { ffi::awra_widget_opacity(ptr!(self)) }
+    }
+}
+
+crate::awra_wrapper!(
+    /// Awra 1's AwraDragPreview: what a drag carries, as a pile of up to
+    /// three items with a count badge; it fans out when it appears.
+    DragPreview, ["AwraDragPreview"]
+);
+
+impl DragPreview {
+    pub fn new() -> DragPreview {
+        unsafe { DragPreview::from_full(ffi::awra_drag_preview_new()) }
+    }
+    pub fn set_icon_size(&self, size: i32) {
+        unsafe { ffi::awra_drag_preview_set_icon_size(ptr!(self), size) }
+    }
+    pub fn set_count(&self, count: u32) {
+        unsafe { ffi::awra_drag_preview_set_count(ptr!(self), count) }
+    }
+    /// Item `index` (0 in front, up to 2), an image; None: none.
+    pub fn set_item(&self, index: u32, texture: Option<&crate::Texture>) {
+        let t = texture.map_or(std::ptr::null(), |t| t.as_ptr() as *const _);
+        unsafe { ffi::awra_drag_preview_set_item(ptr!(self), index as i32, t) }
+    }
+    /// Item `index` as a theme icon at the pile's size.
+    pub fn set_item_icon(&self, index: u32, icon_name: &str) {
+        let n = crate::object::cstring(icon_name);
+        unsafe { ffi::awra_drag_preview_set_item_icon(ptr!(self), index as i32, n.as_ptr()) }
+    }
+    /// The image `window` shows under the pointer during a drag, its point
+    /// (hot_x, hot_y) under it, kept up to date; None takes it away.
+    pub fn set_drag_window(&self, window: Option<&crate::Window>, hot_x: i32, hot_y: i32) {
+        let w = window.map_or(std::ptr::null_mut(), |w| w.widget_ptr());
+        unsafe { ffi::awra_drag_preview_set_drag_window(ptr!(self), w, hot_x, hot_y) }
+    }
+    /// The pile as it is drawn now.
+    pub fn texture(&self) -> Option<crate::Texture> {
+        unsafe { crate::Texture::from_raw(ffi::awra_drag_preview_texture(ptr!(self))) }
+    }
+}
+
+impl Default for DragPreview {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl crate::TabBar {
+    /// Where tab `index` is in the bar (logical px: x, y, width, height).
+    pub fn tab_bounds(&self, index: usize) -> Option<(f64, f64, f64, f64)> {
+        let (mut x, mut y, mut w, mut h) = (0.0, 0.0, 0.0, 0.0);
+        unsafe { ffi::awra_tab_bar_tab_bounds(ptr!(self), index as i32, &mut x, &mut y, &mut w, &mut h) }
+            .then_some((x, y, w, h))
+    }
+}
+
+impl crate::Texture {
+    /// Part of the texture (pixels), copied.
+    pub fn crop(&self, x: i32, y: i32, width: i32, height: i32) -> Option<crate::Texture> {
+        let (tw, th) = (self.width(), self.height());
+        let (x0, y0) = (x.clamp(0, tw), y.clamp(0, th));
+        let (x1, y1) = ((x + width).clamp(0, tw), (y + height).clamp(0, th));
+        if x1 <= x0 || y1 <= y0 {
+            return None;
+        }
+        let mut all = vec![0u8; tw as usize * th as usize * 4];
+        if !self.download(&mut all, tw as usize * 4) {
+            return None;
+        }
+        let stride = tw as usize * 4;
+        let start = y0 as usize * stride + x0 as usize * 4;
+        crate::Texture::from_rgba(x1 - x0, y1 - y0, &all[start..], stride)
+    }
+}
+
+impl crate::Popover {
+    /// Opens it pointing at a point of `relative_to`, as GtkPopover's
+    /// `set_pointing_to` with `PositionType::Bottom`: centred below it,
+    /// above it without room (context menus).
+    pub fn point_to(&self, relative_to: &impl IsWidget, x: f64, y: f64) {
+        unsafe { ffi::awra_popover_point_to(ptr!(self), relative_to.widget_ptr(), x, y) }
+    }
+}

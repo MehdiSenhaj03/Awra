@@ -1343,6 +1343,11 @@ AwraTypography awra_widget_typography(const AwraWidget *w)
   return AWRA_TYPOGRAPHY_BODY;
 }
 
+double awra_widget_opacity(AwraWidget *w)
+{
+  return w && awra_is_widget(w) ? awra_aux(w)->opacity : 1.0;
+}
+
 void awra_widget_set_opacity(AwraWidget *w, double opacity)
 {
   AUX_OR_RETURN(w);

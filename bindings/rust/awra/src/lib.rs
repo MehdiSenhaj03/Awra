@@ -29,7 +29,7 @@ mod collection;
 mod window;
 mod video;
 mod files;
-pub use files::TransitionBin;
+pub use files::{DragPreview, TransitionBin};
 mod transfer;
 pub mod gdk;
 pub mod gio;
