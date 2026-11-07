@@ -985,6 +985,31 @@ static void ensure_native(AwraWidget *w)
   }
 }
 
+/* AWRA_DUMP_TREE=seconds: the window's widgets, their boxes and sizes, on
+ * stderr that long after it shows (layout debugging). */
+static void dump_tree(AwraWidget *w, int depth)
+{
+  int mn = 0, nt = 0, hm = 0, hn = 0;
+  awra_measure(w, AWRA_ORIENTATION_HORIZONTAL, -1, &mn, &nt);
+  awra_measure(w, AWRA_ORIENTATION_VERTICAL, w->w, &hm, &hn);
+  const AwraClass *c = AWRA_CLASS_OF(w);
+  fprintf(stderr, "%*s%s%s%s [%d,%d %dx%d] w:%d/%d h(w):%d/%d%s\n", depth * 2, "",
+          c->type ? c->type : "?", awra_widget_name(w) ? " #" : "",
+          awra_widget_name(w) ? awra_widget_name(w) : "", w->x, w->y, w->w, w->h, mn, nt, hm, hn,
+          awra_child_visible(w) ? "" : " hidden");
+  for (int i = 0; i < w->nkids; i++) {
+    if (awra_is_widget(w->kids[i])) {
+      dump_tree(w->kids[i], depth + 1);
+    }
+  }
+}
+
+static bool dump_later(void *data)
+{
+  dump_tree((AwraWidget *)data, 0);
+  return false;
+}
+
 void awra_window_present(AwraWidget *w)
 {
   if (!awra_widget_is(w, "AwraWindow")) {
@@ -994,6 +1019,10 @@ void awra_window_present(AwraWidget *w)
   ensure_native(w);
   if (!x->presented) {
     x->presented = true;
+    const char *dump = getenv("AWRA_DUMP_TREE");
+    if (dump && atoi(dump) > 0) {
+      awra_timeout_add((unsigned)atoi(dump) * 1000, dump_later, w, NULL);
+    }
     awra_map_tree(w, true);
   }
   x->state &= ~AWRA_WINDOW_STATE_HIDDEN;

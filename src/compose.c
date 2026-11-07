@@ -1422,7 +1422,8 @@ static void nav_sync_label(AwraWidget *w)
     awra_label_set_color(x->label, NULL);
   }
   const int role = nav_role(w);
-  awra_box_set_spacing(x->box, role == 1 ? 8 : role == 2 ? 12 : 22);
+  /* GTK adds the box's spacing (MD, 12) to the CSS border-spacing (8, 12, 10) */
+  awra_box_set_spacing(x->box, role == 1 ? 20 : role == 2 ? 24 : 22);
 }
 
 static void nav_select(AwraWidget *w, bool selected, bool notify)
@@ -1716,10 +1717,13 @@ static int split_sidebar_w(AwraWidget *w, int width)
   if (awra_is_widget(x->sidebar)) {
     inset = awra_aux(x->sidebar)->margin[1] + awra_aux(x->sidebar)->margin[3];
   }
-  if (x->sidebar_width > 0) {
-    return awra_px(x->sidebar_width + inset);
-  }
-  return awra_px((lw < 900 ? 220 : 244) + inset);
+  int want = x->sidebar_width > 0 ? awra_px(x->sidebar_width + inset) :
+                                    awra_px((lw < 900 ? 220 : 244) + inset);
+  /* never under what the sidebar needs (GTK allocates no less than the
+   * minimum) */
+  int mn, nt;
+  awra_measure(x->sidebar, AWRA_ORIENTATION_HORIZONTAL, -1, &mn, &nt);
+  return BK_MAX(want, mn);
 }
 
 static void split_measure(AwraWidget *w, int o, int f, int *mn, int *nt)

@@ -852,6 +852,7 @@ static void cache_clear_up(AwraWidget *w)
     AwraAux *a = awra_aux(n);
     a->cache_valid = 0;
     a->expand_valid = 0;
+    a->mode_valid = 0;
     a->needs_allocate = 1;
   }
 }
@@ -1459,6 +1460,27 @@ void awra_widget_isolate_expand(AwraWidget *w)
     awra_aux(w)->expand_isolated = 1;
     awra_aux(w)->expand_valid = 0;
   }
+}
+
+bool awra_height_for_width(AwraWidget *w)
+{
+  if (!awra_is_widget(w) || !(w->flags & NF_VISIBLE)) {
+    return false;
+  }
+  AwraAux *a = awra_aux(w);
+  if (!a->mode_valid) {
+    const AwraClass *c = AWRA_CLASS_OF(w);
+    int mode = c->request_mode ? c->request_mode(w) : -1;
+    if (mode < 0) {
+      mode = 0;
+      for (int i = 0; i < w->nkids && !mode; i++) {
+        mode = awra_child_visible(w->kids[i]) && awra_height_for_width(w->kids[i]);
+      }
+    }
+    a->mode_hfw = mode > 0;
+    a->mode_valid = 1;
+  }
+  return a->mode_hfw;
 }
 
 bool awra_compute_expand(AwraWidget *w, int orientation)

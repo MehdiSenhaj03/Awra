@@ -492,6 +492,9 @@ AwraWidget *awra_conversation_view_new(void)
   awra_scrolled_set_policy(x->scroller, AWRA_POLICY_NEVER, AWRA_POLICY_AUTOMATIC);
   x->list = awra_list_view_new();
   awra_list_view_set_padding(x->list, 8, 8);
+  /* a short conversation sits at the bottom, next to where the next
+   * message will appear, like the end of a longer one */
+  awra_widget_set_valign(x->list, AWRA_ALIGN_END);
   awra_scrolled_set_child(x->scroller, x->list);
   awra_widget_unref(x->list);
   awra_child_insert(w, x->scroller, -1);

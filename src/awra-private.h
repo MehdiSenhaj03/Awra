@@ -82,6 +82,9 @@ struct AwraClass {
   int overdraw; /* logical px painted outside the rect (shadows, focus ring) */
   /* the pointer entered or left it */
   void (*hover)(AwraWidget *w, bool on);
+  /* GtkSizeRequestMode: 1 height-for-width, 0 constant size; NULL: from
+   * the children (height-for-width when one is) */
+  int (*request_mode)(AwraWidget *w);
 };
 
 /* Declares the kit side of an Awra class: every hook goes to Awra's
@@ -154,6 +157,7 @@ typedef struct AwraAux {
   int cache_for[2], cache_min[2], cache_nat[2];
   unsigned cache_valid : 2;
   unsigned expand_valid : 1, computed_hexpand : 1, computed_vexpand : 1;
+  unsigned mode_valid : 1, mode_hfw : 1; /* request mode cache */
   unsigned needs_allocate : 1;
   int alloc_w, alloc_h; /* last allocated size (resize signal) */
   /* state animations, 0..1 */
@@ -195,6 +199,9 @@ void awra_allocate(AwraWidget *w, int x, int y, int width, int height);
 /* Ensures `w`'s children are placed again (contents changed, not size). */
 void awra_queue_allocate(AwraWidget *w);
 bool awra_compute_expand(AwraWidget *w, int orientation);
+/* GtkSizeRequestMode: its height depends on its width (wrapping text,
+ * pictures keeping their aspect, what holds them); else constant size. */
+bool awra_height_for_width(AwraWidget *w);
 /* Distributes `extra` among n children by GTK's natural-allocation rule:
  * sizes[] start at their minimums and grow towards their naturals. */
 int awra_distribute(int extra, int n, int *sizes, const int *naturals);
@@ -456,7 +463,10 @@ void awra_text_layout_set_line_factor(AwraTextLayout *l, float factor);
 typedef enum {
   AWRA_LOOK_SECONDARY = 0, AWRA_LOOK_PRIMARY, AWRA_LOOK_GHOST, AWRA_LOOK_DESTRUCTIVE,
   AWRA_LOOK_TOOLBAR, AWRA_LOOK_SUCCESS, AWRA_LOOK_SEGMENT, AWRA_LOOK_WINDOW_CONTROL,
-  AWRA_LOOK_NAV_ITEM, AWRA_LOOK_ACTION_ROW, AWRA_LOOK_MENU_ROW
+  AWRA_LOOK_NAV_ITEM, AWRA_LOOK_ACTION_ROW, AWRA_LOOK_MENU_ROW,
+  /* style roles of Awra 1 on plain buttons (awra.css L4144-4430) */
+  AWRA_LOOK_INLINE_ACTION, AWRA_LOOK_ROW_ACTION, AWRA_LOOK_SEARCH_LAUNCHER,
+  AWRA_LOOK_COLLECTION_TILE, AWRA_LOOK_CARD_ACTION, AWRA_LOOK_SIDEBAR_HEADING
 } AwraLook;
 typedef struct AwraButtonColors {
   AwraRGBA fg, bg;

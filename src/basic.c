@@ -481,7 +481,13 @@ static const char *label_get_string(AwraWidget *w, const char *name)
   return NULL;
 }
 
+static int label_request_mode(AwraWidget *w)
+{
+  return LX(w)->wrap != AWRA_WRAP_NONE;
+}
+
 static AwraClass label_class = {
+    .request_mode = label_request_mode,
     .bk = AWRA_BK("AwraLabel", 0),
     .type = "AwraLabel",
     .flags = AWRA_CLASS_EXPAND_ISOLATED,

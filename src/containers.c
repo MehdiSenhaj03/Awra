@@ -37,15 +37,64 @@ static void box_distribute(AwraWidget *w, int avail, int for_cross, int *sizes, 
   int *mn = n <= 256 ? mins : (int *)malloc(sizeof(int) * (size_t)n);
   int *nt = n <= 256 ? nats : (int *)malloc(sizeof(int) * (size_t)n);
   int k = 0, sum_min = 0, n_expand = 0;
+  /* GtkBoxLayout: constant-size children first, measured for any size;
+   * a sole expanding child whose size depends on the other axis then takes
+   * what remains without being measured against its request mode (a
+   * wrapping label beside an avatar fills the row, rather than asking for
+   * the width its current height would need) */
+  int n_inconstant = 0, sole = -1;
+  bool constant_same = true;
   for (int i = 0; i < w->nkids; i++) {
     AwraWidget *c = w->kids[i];
     if (!awra_child_visible(c)) {
       continue;
     }
-    awra_measure(c, o, for_cross, &mn[k], &nt[k]);
-    sum_min += mn[k];
     n_expand += awra_compute_expand(c, o);
+    if (for_cross >= 0 && awra_height_for_width(c)) {
+      n_inconstant++;
+      sole = k;
+      mn[k] = nt[k] = -1;
+    }
+    else {
+      awra_measure(c, o, -1, &mn[k], &nt[k]);
+      sum_min += mn[k];
+      constant_same &= mn[k] == nt[k];
+    }
     k++;
+  }
+  if (n_inconstant > 0) {
+    bool shortcut = !b->homogeneous && n_inconstant == 1 && n_expand == 1 && constant_same;
+    if (shortcut) {
+      k = 0;
+      for (int i = 0; i < w->nkids; i++) {
+        AwraWidget *c = w->kids[i];
+        if (!awra_child_visible(c)) {
+          continue;
+        }
+        if (k == sole) {
+          shortcut = awra_compute_expand(c, o);
+        }
+        k++;
+      }
+    }
+    if (shortcut) {
+      mn[sole] = nt[sole] = BK_MAX(0, avail - sp - sum_min);
+      sum_min += mn[sole];
+    }
+    else {
+      k = 0;
+      for (int i = 0; i < w->nkids; i++) {
+        AwraWidget *c = w->kids[i];
+        if (!awra_child_visible(c)) {
+          continue;
+        }
+        if (mn[k] < 0) {
+          awra_measure(c, o, for_cross, &mn[k], &nt[k]);
+          sum_min += mn[k];
+        }
+        k++;
+      }
+    }
   }
   int extra = avail - sp;
   if (b->homogeneous) {
