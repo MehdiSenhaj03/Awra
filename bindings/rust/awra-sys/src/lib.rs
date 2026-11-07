@@ -206,6 +206,10 @@ pub const AWRA_DATA_VIEW_CONTENT: c_int = 0;
 pub const AWRA_DATA_VIEW_EMPTY: c_int = 1;
 pub const AWRA_DATA_VIEW_LOADING: c_int = 2;
 pub const AWRA_DATA_VIEW_ERROR: c_int = 3;
+pub const AWRA_TEXTURE_ARGB_PREMULTIPLIED: c_int = 0;
+pub const AWRA_TEXTURE_RGBA: c_int = 1;
+pub const AWRA_TEXTURE_NV12: c_int = 2;
+pub const AWRA_TEXTURE_I420: c_int = 3;
 pub const AWRA_MOD_SHIFT: c_int = 1;
 pub const AWRA_MOD_CTRL: c_int = 2;
 pub const AWRA_MOD_ALT: c_int = 4;
@@ -1113,4 +1117,5 @@ extern "C" {
     pub fn awra_tag_entry_clear(tags: *mut AwraWidget);
     pub fn awra_tag_entry_n_tags(tags: *mut AwraWidget) -> c_int;
     pub fn awra_tag_entry_tag(tags: *mut AwraWidget, index: c_int) -> *const c_char;
+    pub fn awra_texture_new_for_data(data: *const c_void, width: c_int, height: c_int, format: c_int, bt709: bool, release: Option<unsafe extern "C" fn(*mut c_void)>, user_data: *mut c_void) -> *mut AwraTexture;
 }

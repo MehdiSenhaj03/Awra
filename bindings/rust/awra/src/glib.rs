@@ -356,31 +356,48 @@ pub fn user_cache_dir() -> PathBuf {
     home_dir().join(".cache")
 }
 
-/// Bytes shared without copying.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct Bytes(Arc<[u8]>);
+/// Bytes shared without copying: made from a vector, they keep it (a
+/// texture over them reads it in place, `Texture::for_data`).
+#[derive(Clone)]
+pub struct Bytes(Arc<dyn AsRef<[u8]> + Send + Sync>);
 impl Bytes {
     pub fn from_owned(v: impl Into<Vec<u8>>) -> Bytes {
-        Bytes(Arc::from(v.into()))
+        Bytes(Arc::new(v.into()))
     }
     pub fn from_static(v: &'static [u8]) -> Bytes {
-        Bytes(Arc::from(v))
+        Bytes(Arc::new(v))
     }
 }
 impl From<&[u8]> for Bytes {
     fn from(v: &[u8]) -> Bytes {
-        Bytes(Arc::from(v))
+        Bytes(Arc::new(v.to_vec()))
     }
 }
 impl From<Vec<u8>> for Bytes {
     fn from(v: Vec<u8>) -> Bytes {
-        Bytes(Arc::from(v))
+        Bytes(Arc::new(v))
     }
 }
 impl std::ops::Deref for Bytes {
     type Target = [u8];
     fn deref(&self) -> &[u8] {
-        &self.0
+        (*self.0).as_ref()
+    }
+}
+impl AsRef<[u8]> for Bytes {
+    fn as_ref(&self) -> &[u8] {
+        self
+    }
+}
+impl PartialEq for Bytes {
+    fn eq(&self, other: &Bytes) -> bool {
+        **self == **other
+    }
+}
+impl Eq for Bytes {}
+impl std::fmt::Debug for Bytes {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Bytes({} bytes)", self.len())
     }
 }
 

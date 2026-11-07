@@ -153,7 +153,20 @@ enum {
   BUI_PIXMAP_ARGB = 0,      /* premultiplied 0xAARRGGBB */
   BUI_PIXMAP_NV12_BT601 = 1, /* YCbCr 4:2:0, BT.601 (SD video) */
   BUI_PIXMAP_NV12_BT709 = 2, /* YCbCr 4:2:0, BT.709 (HD video) */
+  /* BUI-Awra: pixels as their producer laid them out, drawn without a copy
+   * (GdkMemoryTexture's R8G8B8A8 and planar video): converted per pixel
+   * drawn, and once into a scratch when a GPU renderer uploads them. */
+  BUI_PIXMAP_RGBA = 3,       /* straight alpha, bytes R G B A */
+  BUI_PIXMAP_I420_BT601 = 4, /* planar 4:2:0: w * h luma, then Cb, then Cr (w/2 * h/2 each) */
+  BUI_PIXMAP_I420_BT709 = 5,
 };
+/* BUI-Awra: 0 for RGB pixmaps, else the YCbCr matrix (1 BT.601, 2 BT.709). */
+static inline int BUI_pixmap_yuv(int format)
+{
+  return format == BUI_PIXMAP_NV12_BT601 || format == BUI_PIXMAP_I420_BT601 ? 1 :
+         format == BUI_PIXMAP_NV12_BT709 || format == BUI_PIXMAP_I420_BT709 ? 2 :
+                                                                              0;
+}
 enum {
   BUI_IMAGE_NEAREST = 1 << 0, /* nearest texel (CSS image-rendering: pixelated); else bilinear */
 };

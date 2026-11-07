@@ -1420,7 +1420,7 @@ AwraTexture *awra_texture_ref(AwraTexture *texture);
 void awra_texture_unref(AwraTexture *texture);
 int awra_texture_width(const AwraTexture *texture);
 int awra_texture_height(const AwraTexture *texture);
-/* Straight RGBA rows; false for video frames. */
+/* Straight RGBA rows (video frames converted as drawn). */
 bool awra_texture_download(const AwraTexture *texture, uint8_t *rgba, int stride);
 /* Images show a texture (as GtkPicture shows a paintable: natural size the
  * texture's, height for width by its aspect ratio, content fit). */
@@ -1768,7 +1768,29 @@ void awra_tag_entry_clear(AwraWidget *tags);
 int awra_tag_entry_n_tags(AwraWidget *tags);
 const char *awra_tag_entry_tag(AwraWidget *tags, int index);
 
+/* ----------------------------------------------------------------------- */
+/* Textures over borrowed pixels (gdk_memory_texture_new over a GBytes):
+ * the texture reads `data` where it is, without a copy, and calls
+ * release(user_data) once its last reference goes (on the thread that drops
+ * it; references are atomic, so a texture may be made off the UI thread).
+ * `data` must stay unchanged until then, be 4-byte aligned and hold packed
+ * rows: ARGB and RGBA 4 * width bytes a row; NV12 and I420 (even width and
+ * height) width * height luma bytes, then NV12's interleaved Cb Cr rows of
+ * width bytes, or I420's Cb plane then Cr plane of width / 2 by height / 2.
+ * Straight RGBA is premultiplied as it is drawn, 4:2:0 video turned into
+ * colour (limited range, BT.601 or `bt709`): only the pixels drawn.
+ * NULL (and release not called) when the size, format or alignment don't do. */
+typedef enum {
+  AWRA_TEXTURE_ARGB_PREMULTIPLIED = 0, /* native-endian 0xAARRGGBB words */
+  AWRA_TEXTURE_RGBA = 1,               /* bytes R G B A, straight alpha */
+  AWRA_TEXTURE_NV12 = 2,
+  AWRA_TEXTURE_I420 = 3,
+} AwraTextureFormat;
+AwraTexture *awra_texture_new_for_data(const void *data, int width, int height,
+                                       AwraTextureFormat format, bool bt709,
+                                       void (*release)(void *user_data), void *user_data);
 
 #ifdef __cplusplus
 }
+
 #endif

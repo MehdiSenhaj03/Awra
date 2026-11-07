@@ -285,7 +285,7 @@ void BUI_raster_image_rounded(BuiRaster *r,
   float rad[4];
   clamp_radii(radii, w, h, rad);
   if (r->gpu || (rad[0] <= 0.0f && rad[1] <= 0.0f && rad[2] <= 0.0f && rad[3] <= 0.0f) ||
-      img->format != BUI_PIXMAP_ARGB)
+      BUI_pixmap_yuv(img->format))
   {
     BUI_raster_image(r, x, y, w, h, img, src, alpha, 0);
     return;
@@ -361,7 +361,7 @@ void BUI_raster_image_rounded(BuiRaster *r,
         const int tx = clampi((int)(sx + (fx - x) * kx), 0, img->w - 1);
         const int ty = clampi((int)(sy + (fy - y) * ky), 0, img->h - 1);
         const uint32_t ga = (uint32_t)(clampf(alpha * cov, 0.0f, 1.0f) * 256.0f + 0.5f);
-        put_image_px(row + px, img->px[(size_t)ty * img->w + tx], ga);
+        put_image_px(row + px, pixmap_texel(img, (size_t)ty * img->w + tx), ga);
       }
     }
   }

@@ -8,14 +8,28 @@
 #include "GPU_raster.h"
 
 struct AwraTexture {
-  int refs;
+  int refs; /* atomic: textures may be made and dropped off the UI thread */
   int w, h;
   int format; /* BUI_PIXMAP_* */
   uint32_t *px;
   uint64_t key;
+  /* pixels the texture borrows (awra_texture_new_for_data): given back
+   * through release(user) once the last reference goes; else px is owned */
+  void (*release)(void *user);
+  void *user;
+  bool borrowed;
 };
 
 static uint64_t g_texture_keys = 1;
+
+static uint64_t next_key(void)
+{
+#ifdef _MSC_VER
+  return (uint64_t)_InterlockedIncrement64((volatile __int64 *)&g_texture_keys);
+#else
+  return __atomic_add_fetch(&g_texture_keys, 1, __ATOMIC_RELAXED);
+#endif
+}
 
 static AwraTexture *texture_alloc(int w, int h, int format, size_t bytes)
 {
@@ -26,17 +40,54 @@ static AwraTexture *texture_alloc(int w, int h, int format, size_t bytes)
   if (!t) {
     return NULL;
   }
-  t->px = (uint32_t *)malloc(bytes);
-  if (!t->px) {
-    free(t);
-    return NULL;
+  if (bytes) {
+    t->px = (uint32_t *)malloc(bytes);
+    if (!t->px) {
+      free(t);
+      return NULL;
+    }
   }
   t->refs = 1;
   t->w = w;
   t->h = h;
   t->format = format;
   /* high bit: a texture's key, never one the kit's image buffers use */
-  t->key = (1ull << 63) | g_texture_keys++;
+  t->key = (1ull << 63) | next_key();
+  return t;
+}
+
+AwraTexture *awra_texture_new_for_data(const void *data, int width, int height,
+                                       AwraTextureFormat format, bool bt709,
+                                       void (*release)(void *user_data), void *user_data)
+{
+  int pm;
+  switch (format) {
+    case AWRA_TEXTURE_ARGB_PREMULTIPLIED:
+      pm = BUI_PIXMAP_ARGB;
+      break;
+    case AWRA_TEXTURE_RGBA:
+      pm = BUI_PIXMAP_RGBA;
+      break;
+    case AWRA_TEXTURE_NV12:
+      pm = bt709 ? BUI_PIXMAP_NV12_BT709 : BUI_PIXMAP_NV12_BT601;
+      break;
+    case AWRA_TEXTURE_I420:
+      pm = bt709 ? BUI_PIXMAP_I420_BT709 : BUI_PIXMAP_I420_BT601;
+      break;
+    default:
+      return NULL;
+  }
+  /* pixels are read a word at a time; 4:2:0 covers two by two pixels */
+  if (!data || ((uintptr_t)data & 3) || (BUI_pixmap_yuv(pm) && ((width | height) & 1))) {
+    return NULL;
+  }
+  AwraTexture *t = texture_alloc(width, height, pm, 0);
+  if (t) {
+    t->px = (uint32_t *)data;
+    t->release = release;
+    t->user = user_data;
+    t->borrowed = true;
+  }
   return t;
 }
 
@@ -142,18 +193,35 @@ AwraTexture *awra_texture_new_from_file(const char *path)
 AwraTexture *awra_texture_ref(AwraTexture *t)
 {
   if (t) {
-    t->refs++;
+#ifdef _MSC_VER
+    _InterlockedIncrement((volatile long *)&t->refs);
+#else
+    __atomic_add_fetch(&t->refs, 1, __ATOMIC_RELAXED);
+#endif
   }
   return t;
 }
 
 void awra_texture_unref(AwraTexture *t)
 {
-  if (!t || --t->refs > 0) {
+  if (!t) {
+    return;
+  }
+#ifdef _MSC_VER
+  const int left = (int)_InterlockedDecrement((volatile long *)&t->refs);
+#else
+  const int left = __atomic_sub_fetch(&t->refs, 1, __ATOMIC_ACQ_REL);
+#endif
+  if (left > 0) {
     return;
   }
   BUI_image_forget(t->key);
-  free(t->px);
+  if (!t->borrowed) {
+    free(t->px);
+  }
+  else if (t->release) {
+    t->release(t->user);
+  }
   free(t);
 }
 
@@ -167,42 +235,39 @@ int awra_texture_height(const AwraTexture *t)
   return t ? t->h : 0;
 }
 
-static uint8_t clamp8(float v)
+BuiPixmap awra_texture_pixmap(const AwraTexture *t)
 {
-  return (uint8_t)(v < 0 ? 0 : v > 255 ? 255 : v + 0.5f);
-}
-
-/* video's narrow range YCbCr to RGB, as the raster draws it */
-static void download_nv12(const AwraTexture *t, uint8_t *rgba, int stride)
-{
-  const bool bt709 = t->format == BUI_PIXMAP_NV12_BT709;
-  const uint8_t *yp = (const uint8_t *)t->px, *uv = yp + (size_t)t->w * t->h;
-  for (int y = 0; y < t->h; y++) {
-    uint8_t *d = rgba + (size_t)y * stride;
-    for (int x = 0; x < t->w; x++, d += 4) {
-      const float c = 1.164f * (yp[(size_t)y * t->w + x] - 16);
-      const uint8_t *q = uv + (size_t)(y / 2) * t->w + (x / 2) * 2;
-      const float u = q[0] - 128.0f, v = q[1] - 128.0f;
-      d[0] = clamp8(c + (bt709 ? 1.793f : 1.596f) * v);
-      d[1] = clamp8(c - (bt709 ? 0.213f : 0.392f) * u - (bt709 ? 0.533f : 0.813f) * v);
-      d[2] = clamp8(c + (bt709 ? 2.112f : 2.017f) * u);
-      d[3] = 255;
-    }
-  }
+  BuiPixmap pm = {t->px, t->w, t->h, t->key, t->format, 0};
+  return pm;
 }
 
 bool awra_texture_download(const AwraTexture *t, uint8_t *rgba, int stride)
 {
-  if (t && (t->format == BUI_PIXMAP_NV12_BT601 || t->format == BUI_PIXMAP_NV12_BT709)) {
-    download_nv12(t, rgba, stride);
-    return true;
-  }
-  if (!t || t->format != BUI_PIXMAP_ARGB) {
+  if (!t) {
     return false;
   }
+  if (t->format == BUI_PIXMAP_RGBA) {
+    for (int y = 0; y < t->h; y++) {
+      memcpy(rgba + (size_t)y * stride, (const uint8_t *)t->px + (size_t)y * t->w * 4, (size_t)t->w * 4);
+    }
+    return true;
+  }
+  /* premultiplied ARGB a row at a time (YCbCr converted as drawing does) */
+  uint32_t *row = (uint32_t *)malloc(sizeof(uint32_t) * (size_t)t->w);
+  if (!row) {
+    return false;
+  }
+  const BuiPixmap pm = awra_texture_pixmap(t);
   for (int y = 0; y < t->h; y++) {
+    const uint32_t *s;
+    if (t->format == BUI_PIXMAP_ARGB) {
+      s = t->px + (size_t)y * t->w;
+    }
+    else {
+      BUI_pixmap_read(&pm, y, 1, row);
+      s = row;
+    }
     uint8_t *d = rgba + (size_t)y * stride;
-    const uint32_t *s = t->px + (size_t)y * t->w;
     for (int x = 0; x < t->w; x++, d += 4) {
       const uint32_t p = s[x], a = p >> 24;
       uint32_t r = (p >> 16) & 255, g = (p >> 8) & 255, b = p & 255;
@@ -217,14 +282,10 @@ bool awra_texture_download(const AwraTexture *t, uint8_t *rgba, int stride)
       d[3] = (uint8_t)a;
     }
   }
+  free(row);
   return true;
 }
 
-BuiPixmap awra_texture_pixmap(const AwraTexture *t)
-{
-  BuiPixmap pm = {t->px, t->w, t->h, t->key, t->format, 0};
-  return pm;
-}
 
 /* Draws a texture into box (x, y, w, h), raster pixels, with rounded
  * corners, fitted (0 fill, 1 contain, 2 cover, 3 scale-down) and clipped to
