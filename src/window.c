@@ -1527,10 +1527,13 @@ static void dump_tree(AwraWidget *w, int depth)
   awra_measure(w, AWRA_ORIENTATION_HORIZONTAL, -1, &mn, &nt);
   awra_measure(w, AWRA_ORIENTATION_VERTICAL, w->w, &hm, &hn);
   const AwraClass *c = AWRA_CLASS_OF(w);
-  fprintf(stderr, "%*s%s%s%s [%d,%d %dx%d] w:%d/%d h(w):%d/%d%s\n", depth * 2, "",
+  /* a label's text (its first 40 bytes), to match a dump against another */
+  const char *text = awra_widget_is(w, "AwraLabel") ? awra_label_text(w) : NULL;
+  fprintf(stderr, "%*s%s%s%s [%d,%d %dx%d] w:%d/%d h(w):%d/%d%s%s%.40s%s\n", depth * 2, "",
           c->type ? c->type : "?", awra_widget_name(w) ? " #" : "",
           awra_widget_name(w) ? awra_widget_name(w) : "", w->x, w->y, w->w, w->h, mn, nt, hm, hn,
-          awra_child_visible(w) ? "" : " hidden");
+          awra_child_visible(w) ? "" : " hidden", text ? " '" : "", text ? text : "",
+          text ? "'" : "");
   for (int i = 0; i < w->nkids; i++) {
     if (awra_is_widget(w->kids[i])) {
       dump_tree(w->kids[i], depth + 1);
