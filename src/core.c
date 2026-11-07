@@ -2591,9 +2591,14 @@ bool awra_pressed(const AwraWidget *w)
   return awra_is_widget(w) && awra_aux(w)->pressed && awra_aux(w)->hovered;
 }
 
+bool awra_window_shows_focus_internal(AwraWidget *win);
+
 bool awra_focus_visible(const AwraWidget *w)
 {
-  return awra_is_widget(w) && awra_aux(w)->focus_visible;
+  /* GTK gives the focus widget its focus states only while its window is
+   * active (gtk_widget_set_has_focus with is_active) */
+  return awra_is_widget(w) && awra_aux(w)->focus_visible &&
+         awra_window_shows_focus_internal(awra_window_of((AwraWidget *)w));
 }
 
 float awra_hover_t(const AwraWidget *w)

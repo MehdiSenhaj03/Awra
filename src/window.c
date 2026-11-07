@@ -2115,6 +2115,18 @@ int awra_window_state(AwraWidget *w)
   return WEXT(w)->state;
 }
 
+/* awra_focus_visible: a ring only in the active window (offscreen windows,
+ * which have no activation, always) */
+bool awra_window_shows_focus_internal(AwraWidget *win);
+bool awra_window_shows_focus_internal(AwraWidget *win)
+{
+  if (!win || !awra_widget_is(win, "AwraWindow")) {
+    return true;
+  }
+  WinExt *x = WEXT(win);
+  return x->offscreen || (x->state & AWRA_WINDOW_STATE_ACTIVE) != 0;
+}
+
 bool awra_window_is_active(AwraWidget *w)
 {
   return (WEXT(w)->state & AWRA_WINDOW_STATE_ACTIVE) != 0;
