@@ -2226,6 +2226,7 @@ void awra_tile_grid_set_spacing(AwraWidget *grid, int row_spacing, int column_sp
 void awra_tile_grid_set_natural_rows(AwraWidget *grid, bool natural);
 /* The columns for the grid's current width. */
 int awra_tile_grid_columns(AwraWidget *grid);
+
 /* ----------------------------------------------------------------------- */
 /* Icon themes (GtkIconTheme, GThemedIcon) */
 
