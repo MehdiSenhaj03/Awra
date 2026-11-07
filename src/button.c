@@ -239,7 +239,9 @@ typedef struct ButtonExt {
   unsigned style_gen;
   AwraButtonColors colors, from;
   float color_t;
-  int pad_x, pad_y, min_w; /* > 0: overrides (dropdowns) */
+  int pad_x, pad_y, min_w, min_h; /* overrides when pad_set (dropdowns, the composer's) */
+  bool pad_set;
+  int icon_px; /* -gtk-icon-size of a CSS rule; 0: 16 */
   bool accent_fg; /* the content in @awra_accent_content (a playing media row's first button) */
 } ButtonExt;
 
@@ -409,10 +411,13 @@ static void geometry(const AwraWidget *w, float *pad_x, float *pad_y, float *min
     *min_w = *min_h = 22;
     *radius = 8;
   }
-  if (BX(w)->pad_x > 0) {
+  if (BX(w)->pad_set) {
     *pad_x = BX(w)->pad_x;
     *pad_y = BX(w)->pad_y;
     *min_w = BX(w)->min_w;
+    if (BX(w)->min_h >= 0) {
+      *min_h = BX(w)->min_h;
+    }
   }
   if (awra_has_class_bit(w, AWRA_CB_CIRCULAR) || awra_has_class_bit(w, AWRA_CB_PILL)) {
     *radius = 999;
@@ -456,7 +461,7 @@ static void content_size(AwraWidget *w, int o, int for_size, int *r_min, int *r_
     awra_measure(x->child, o, for_size, r_min, r_nat);
     return;
   }
-  const int icon = x->icon ? awra_px(16) : 0;
+  const int icon = x->icon ? awra_px(x->icon_px > 0 ? x->icon_px : 16) : 0;
   int tmin = 0, tnat = 0, th = 0;
   if (x->label && x->label[0]) {
     button_sync(w);
@@ -604,7 +609,7 @@ static void button_draw(AwraWidget *w, AwraDraw *d)
   if (x->style_gen != awra_style_generation()) {
     button_sync(w);
   }
-  const int icon = x->icon ? awra_px(16) : 0;
+  const int icon = x->icon ? awra_px(x->icon_px > 0 ? x->icon_px : 16) : 0;
   int tw = 0, th = 0;
   if (x->label && x->label[0]) {
     awra_text_layout_size(x->layout, -1, &tw, &th);
@@ -971,8 +976,24 @@ void awra_toggle_button_set_group(AwraWidget *w, AwraWidget *member)
 
 void awra_button_set_padding_internal(AwraWidget *w, int pad_x, int pad_y, int min_w)
 {
+  awra_button_set_metrics_internal(w, pad_x, pad_y, min_w, -1);
+}
+
+/* A CSS rule's -gtk-icon-size for the button's icon */
+void awra_button_set_icon_size_internal(AwraWidget *w, int px)
+{
+  BX(w)->icon_px = px;
+  awra_widget_queue_resize(w);
+  awra_invalidate(w);
+}
+
+/* A CSS rule's padding, min-width and min-height (-1: the look's) */
+void awra_button_set_metrics_internal(AwraWidget *w, int pad_x, int pad_y, int min_w, int min_h)
+{
+  BX(w)->pad_set = true;
   BX(w)->pad_x = pad_x;
   BX(w)->pad_y = pad_y;
   BX(w)->min_w = min_w;
+  BX(w)->min_h = min_h;
   awra_widget_queue_resize(w);
 }

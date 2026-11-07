@@ -24,7 +24,8 @@
 #define MAX_WIDTH 420
 
 void awra_text_view_set_bare_internal(AwraWidget *w, int margin_x, int margin_y, int max_lines);
-void awra_button_set_padding_internal(AwraWidget *w, int pad_x, int pad_y, int min_w);
+void awra_button_set_metrics_internal(AwraWidget *w, int pad_x, int pad_y, int min_w, int min_h);
+void awra_button_set_icon_size_internal(AwraWidget *w, int px);
 void awra_popover_set_padding_internal(AwraWidget *w, int pad, bool menu);
 
 /* the popover attached to a text view, which takes its keys first */
@@ -388,7 +389,9 @@ AwraWidget *awra_composer_new(void)
   x->send = awra_button_new_from_icon_name("awra-send-symbolic");
   awra_button_set_appearance(x->send, AWRA_BUTTON_PRIMARY);
   awra_widget_add_class(x->send, "circular");
-  awra_widget_set_size_request(x->send, 32, 32);
+  /* awra.css: min-width/min-height 32px, padding 0 (no border): 32 px, so
+   * the row's band is 32 and its 34 px buttons stand a pixel below it */
+  awra_button_set_metrics_internal(x->send, 0, 0, 32, 32);
   awra_widget_set_tooltip(x->send, "Send");
   awra_widget_set_can_target(x->send, false);
   awra_child_insert(w, x->send, -1);
@@ -564,8 +567,9 @@ void awra_composer_show_banner(AwraWidget *w, const char *text, bool closable)
     AwraWidget *close = awra_button_new_from_icon_name("awra-close-symbolic");
     awra_button_set_appearance(close, AWRA_BUTTON_GHOST);
     awra_widget_add_class(close, "circular");
-    awra_widget_set_size_request(close, 24, 24);
-    awra_button_set_padding_internal(close, 0, 0, 24);
+    /* awra.css: min-width/min-height 24px, padding 0 */
+    awra_button_set_metrics_internal(close, 0, 0, 24, 24);
+    awra_button_set_icon_size_internal(close, 12); /* its image: -gtk-icon-size 12px */
     awra_widget_set_tooltip(close, "Close");
     awra_signal_connect(close, AWRA_SIGNAL_CLICKED, banner_close, w, NULL);
     awra_box_append(box, close);
