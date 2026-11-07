@@ -1764,8 +1764,17 @@ static void layout(AwraTextLayout *l, int width)
     h = awra_font_line_height(&l->font);
   }
   l->wf = w;
-  l->w = (int)ceilf(w);
-  l->h = (int)ceilf(h);
+  /* GtkLabel measures in application pixels: at a whole scale factor its
+   * size is a whole number of them (pango_layout_get_pixel_size's ceil) */
+  const float sc = awra_scale();
+  if (sc > 1.0f && sc == floorf(sc)) {
+    l->w = (int)(ceilf(w / sc - 1e-3f) * sc);
+    l->h = (int)(ceilf(h / sc - 1e-3f) * sc);
+  }
+  else {
+    l->w = (int)ceilf(w);
+    l->h = (int)ceilf(h);
+  }
   l->baseline = l->n_lines ? (int)floorf(l->lines[0].ascent + 0.5f) : 0;
 }
 
