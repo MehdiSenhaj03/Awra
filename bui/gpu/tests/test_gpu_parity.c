@@ -192,9 +192,9 @@ static void ppm(const char *dir, const char *name, const uint32_t *px)
   fclose(f);
 }
 
-/* Compares one GPU frame against the CPU frame. `text_tol`: Slug computes
- * glyph coverage analytically instead of from stb's bitmaps, so text edges
- * may differ by a few levels of AA; only gross differences count there. */
+/* Compares one GPU frame against the CPU frame. `slug`: Slug computes
+ * glyph coverage analytically instead of from FreeType's bitmaps, so text
+ * edges may differ by a few levels of AA; only gross differences count. */
 static int compare(const uint32_t *a, const uint32_t *b, const char *label, int slug)
 {
   int bad = 0, gross = 0, maxd = 0, mesh_bad = 0, mesh_max = 0, inset_bad = 0;
@@ -410,29 +410,38 @@ static int video_frames(void)
 
 int main(void)
 {
-  BuiRaster *cpu = BUI_raster_create(W, H);
-  scene(cpu, 0);
-  const uint32_t *a = BUI_raster_pixels(cpu);
-  if (getenv("BUI_PARITY_PPM")) {
-    ppm(getenv("BUI_PARITY_PPM"), "parity_cpu", a);
-  }
   int ok = mesh_bands();
-  /* text from glyph bitmaps (exact), then from glyph outlines (Slug) */
-  for (int slug = 0; slug < 2; slug++) {
-    set_slug(slug);
+  /* text from glyph bitmaps (exact); with Slug on, hinted glyphs still from
+   * bitmaps (where fontconfig lets them be hinted: else Slug) and unhinted
+   * ones from glyph outlines (Slug: AA differences only) */
+  static const struct {
+    const char *label;
+    int slug, hint, tol;
+  } pass[] = {{"atlas", 0, -1, 0}, {"slug-hinted", 1, 3, 1}, {"slug", 1, 0, 1}};
+  for (int p = 0; p < 3; p++) {
+    BUI_text_set_font_options(pass[p].hint, -1);
+    BuiRaster *cpu = BUI_raster_create(W, H);
+    scene(cpu, 0);
+    const uint32_t *a = BUI_raster_pixels(cpu);
+    if (getenv("BUI_PARITY_PPM")) {
+      ppm(getenv("BUI_PARITY_PPM"), p == 0 ? "parity_cpu" : p == 1 ? "parity_cpu_hinted" : "parity_cpu_unhinted", a);
+    }
+    set_slug(pass[p].slug);
     BuiRaster *gpu = BUI_raster_create(W, H);
     if (!BUI_raster_gpu_attach(gpu, NULL, 1)) {
       printf("gpu parity: no GPU device, skipped\n");
       BUI_raster_free(gpu);
+      BUI_raster_free(cpu);
       break;
     }
     scene(gpu, 1);
     static uint32_t b[W * H];
     memcpy(b, BUI_raster_pixels(gpu), sizeof(b));
-    ok &= compare(a, b, slug ? "slug" : "atlas", slug);
+    ok &= compare(a, b, pass[p].label, pass[p].tol);
     BUI_raster_free(gpu);
+    BUI_raster_free(cpu);
   }
-  BUI_raster_free(cpu);
+  BUI_text_set_font_options(-1, -1);
   ok &= big_image(0);
   ok &= video_frames();
   ok &= big_image(512); /* tiles of 510 px with a pixel of overlap */

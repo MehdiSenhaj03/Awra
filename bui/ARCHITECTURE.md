@@ -102,10 +102,15 @@ The kit itself draws through `GPU_raster.h`:
   stb_truetype also reads metrics and character maps.
   `BUI_TEXT_GDI=ON` switches Windows to GDI and system fonts.
   The GPU renderer draws text one quad per glyph. Slug (`K_SLUG` in
-  `bui_ui.hlsl`) is the default: glyph outlines are uploaded once as
-  quadratic curves with horizontal and vertical bands, and the pixel shader
-  integrates exact coverage. With `BUI_SLUG=0`, it uses glyph bitmaps from
-  the shared glyph cache in the mask atlas instead.
+  `bui_ui.hlsl`) is BUI's default (Awra's build turns it off): glyph
+  outlines are uploaded once as quadratic curves with horizontal and
+  vertical bands, and the pixel shader integrates exact coverage, blended
+  as the glyph images are (8-bit, no gamma), at their quarter-pixel phases,
+  with cairo-ft's synthetic bold applied to the outline and a variable
+  face's instance. Glyphs that FreeType hints, renders monochrome or takes
+  from embedded bitmaps can't be drawn from outlines: they, and all text
+  with `BUI_SLUG=0`, use glyph bitmaps from the shared glyph cache in the
+  mask atlas, the same pixels as the software raster.
 - **GPU renderer**: Direct3D 11 on Windows (`gpu/intern/gpu_d3d11.c`,
   `gpu/shaders/bui_ui.hlsl`) and OpenGL 3.3 core on Linux
   (`gpu/intern/gpu_gl.c`: the same instances, atlases and Slug textures, the

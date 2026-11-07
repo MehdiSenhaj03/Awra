@@ -309,8 +309,9 @@ float4 ps_quad(VOut v) : SV_Target
     const float ey = (R.y - s.y) / R.z;
     const float ex = (s.x - R.x) / R.z - R.w * ey;
     const float cov = slug_coverage(float2(ex, ey), R.z, v.c1, (uint)v.uv.x, (int)v.uv.y, (int)v.uv.z);
-    // same lift as the CPU glyph cache (gamma 1/1.45, like GDI's grayscale AA)
-    return premul(v.c0, pow(cov, 1.0 / 1.45));
+    // coverage as an 8-bit glyph image holds it, blended as is (GSK's glyph
+    // cache; the CPU path's FreeType bitmaps)
+    return premul(v.c0, floor(cov * 255.0 + 0.5) / 255.0);
   }
   if (kind == K_IMAGE) {
     // uv: the source rect in atlas texels (x, y, w, h) of a premultiplied

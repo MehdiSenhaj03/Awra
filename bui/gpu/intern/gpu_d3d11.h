@@ -78,15 +78,20 @@ int bui_gpu_mask(BuiGpu *g, const void *key, unsigned gen, const uint8_t *mask, 
  * glyph outlines (creates the curve/band textures on first call). Whether
  * it is used is BUI_gpu_slug(). */
 int bui_gpu_slug_on(BuiGpu *g);
-/* Curve/band data for glyph `glyph` of font face `face` (uploaded on first
- * use): its box in font units, the band transform (instance c1) and its
- * band location (instance uv). 0 for empty glyphs or when unavailable.
- * `gen` changes whenever faces may have been freed. */
-int bui_gpu_slug_glyph(BuiGpu *g, int face, int glyph, unsigned gen, float r_bbox[4],
+/* Curve/band data for glyph `glyph` of font face `face` in outline variant
+ * `var` (bui_text_glyph_outline's), uploaded on first use: its box in font
+ * units, the band transform (instance c1) and its band location (instance
+ * uv). 0 for empty glyphs or when unavailable. `gen` changes whenever faces
+ * may have been freed. */
+int bui_gpu_slug_glyph(BuiGpu *g, int face, int glyph, unsigned var, unsigned gen, float r_bbox[4],
                        float r_band[4], int r_loc[4]);
 /* Provided by the text engine (gpu_raster.c): a glyph's outline as
- * quadratic curves (6 floats each, font units, y up) and its box. */
-int bui_text_glyph_outline(int face, int glyph, float **r_curves, int *r_n, float r_bbox[4]);
+ * quadratic curves (6 floats each, font units, y up) and its box. `var`:
+ * the instance of a variable face (bits 0-9 wght, 10-17 opsz in halves, 0:
+ * the face's) and bit 18 cairo-ft's synthetic bold (FT_GlyphSlot_Embolden),
+ * as the text engine gives them (0 for a plain face). */
+int bui_text_glyph_outline(int face, int glyph, unsigned var, float **r_curves, int *r_n,
+                           float r_bbox[4]);
 
 /* Atlas placement of a premultiplied 0xAARRGGBB image, cached by `key`
  * (BuiPixmap.key, or its content hash). 0 when it can't be placed. */

@@ -22,6 +22,10 @@ set(BUI_VIDEO OFF CACHE BOOL "" FORCE)
 set(BUI_BUILD_IMGUI OFF CACHE BOOL "" FORCE)
 set(BUI_FILEBROWSER OFF CACHE BOOL "" FORCE)
 set(BUI_GPU ${AWRA_GPU} CACHE BOOL "" FORCE)
+# GPU text from the glyph images the software raster draws, as GSK draws
+# GTK's (Slug's analytic coverage differs by levels of antialiasing, and its
+# curve and band textures take 6 MB); -DBUI_SLUG=ON for Slug
+set(BUI_SLUG OFF CACHE BOOL "GPU renderer draws text with Slug by default (else a glyph atlas)")
 set(BUI_IMAGE_BMP OFF CACHE BOOL "" FORCE)
 set(BUI_IMAGE_TGA OFF CACHE BOOL "" FORCE)
 set(BUI_IMAGE_QOI OFF CACHE BOOL "" FORCE)

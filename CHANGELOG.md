@@ -102,6 +102,14 @@ Awra 2: the same look, without GTK.
 - GPU renderers: inset box shadows (entries, switches, checks) draw on the
   GPU as in the software raster, and a Direct3D 11 window takes its device
   as soon as it is ready instead of at its next change.
+- GPU text from the glyph images of the software raster, as GSK draws from
+  its glyph cache: the same pixels on the GPU as on the CPU (BUI's default,
+  Slug, is off in Awra's build; `-DBUI_SLUG=ON` turns it back on). Slug
+  itself draws as the glyph images do: coverage blended without the gamma
+  lift it had, GSK's quarter-pixel phases, cairo-ft's synthetic bold on the
+  outline, a variable face's weight and optical size; glyphs FreeType
+  hints, renders monochrome or takes from embedded bitmaps come from the
+  glyph images.
 - License: GPL-3.0-or-later (BUI derives from Blender, GPL-2.0-or-later).
   Awra 1 was LGPL-2.1-or-later.
 

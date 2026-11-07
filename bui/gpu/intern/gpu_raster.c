@@ -3133,6 +3133,9 @@ void BUI_raster_text_run(BuiRaster *r, float x, float y, const BuiTextRun *run, 
 
 static int run_glyphs(TextRun *e);
 static int glyph_is_color(int slot, int glyph);
+static int glyph_phase(int slot, float pen, int *r_whole);
+static int glyph_yphase(int slot, float y, int *r_whole);
+static int glyph_slug_var(int slot, unsigned *r_var);
 static int glyph_draw_info(const TextRun *e, int i, int *r_face, float *r_scale, float *r_embolden,
                            int *r_baked, float *r_shear);
 static const void *glyph_bitmap(const TextRun *e, int i, float pen, float yfrac, int *r_x, int *r_y,
@@ -3153,7 +3156,8 @@ static int gpu_text_glyphs(BuiRaster *r, TextRun *e, float x, float y, const flo
   }
   int face = -1;
   float scale = 0.0f, embolden = 0.0f, shear = 0.0f;
-  int passes = 1, info_slot = -1, baked = 0;
+  int passes = 1, info_slot = -1, baked = 0, slot_slug = 0;
+  unsigned var = 0;
   const FontSlot *fs = &g_fonts[e->font];
   const float ox = floorf(x + 0.5f), base = floorf(y + 0.5f);
   const int slug = BUI_gpu_slug() && bui_gpu_slug_on(r->gpu);
@@ -3167,22 +3171,30 @@ static int gpu_text_glyphs(BuiRaster *r, TextRun *e, float x, float y, const flo
         return 0;
       }
       passes = embolden > 0.0f ? 1 + (int)(embolden + 0.5f) : 1; /* synthetic bold */
+      slot_slug = slug && glyph_slug_var(gslot, &var);
     }
     if (glyph_is_color(gslot, gl->gid[i])) {
       continue;
     }
-    const float pen = ox + gl->gx[i];
-    if (slug) {
+    if (slot_slug) {
       float bbox[4], band[4];
       int loc[4];
-      if (!bui_gpu_slug_glyph(r->gpu, face, gl->gid[i], 0 /* faces are never freed */, bbox, band, loc)) {
+      /* cairo-ft's synthetic bold: the outline emboldened, one pass */
+      if (!bui_gpu_slug_glyph(r->gpu, face, gl->gid[i], var, 0 /* faces are never freed */, bbox, band,
+                              loc)) {
         continue; /* empty glyph (space) */
       }
+      /* where the bitmap path puts the glyph: GSK's quarter-pixel phase of
+       * the absolute x, whole (or quarter) rows of the absolute y */
+      int whole, row;
+      const int ph = glyph_phase(gslot, gl->gx[i] + (x - ox), &whole);
+      const int yph = glyph_yphase(gslot, y - base + (gl->gy ? gl->gy[i] : 0.0f), &row) >> 2;
+      const float pen = ox + (float)whole + 0.25f * (float)ph;
+      const float gb = base + (float)row + 0.25f * (float)yph;
       /* screen box of the glyph (font units, y up -> pixels, y down), plus shear and AA */
-      const float gb = base + (gl->gy ? floorf(gl->gy[i] + 0.5f) : 0.0f);
       const float top = gb - bbox[3] * scale, bottom = gb - bbox[1] * scale;
       const float lean = shear * (bbox[3] > 0.0f ? bbox[3] : 0.0f) * scale;
-      for (int k = 0; k < passes; k++) {
+      for (int k = 0; k < (baked ? 1 : passes); k++) {
         const float gx = pen + (float)k;
         int x0, y0, x1, y1;
         if (!clip_box(r, gx + bbox[0] * scale - 1.0f, top - 1.0f, gx + bbox[2] * scale + lean + 1.0f,
@@ -3365,6 +3377,24 @@ static int glyph_draw_info(const TextRun *e, int i, int *r_face, float *r_scale,
   (void)r_shear;
   return 0;
 }
+static int glyph_phase(int slot, float pen, int *r_whole)
+{
+  (void)slot;
+  *r_whole = (int)floorf(pen + 0.5f);
+  return 0;
+}
+static int glyph_yphase(int slot, float y, int *r_whole)
+{
+  (void)slot;
+  *r_whole = (int)floorf(y + 0.5f);
+  return 0;
+}
+static int glyph_slug_var(int slot, unsigned *r_var)
+{
+  (void)slot;
+  *r_var = 0;
+  return 0;
+}
 static const void *glyph_bitmap(const TextRun *e, int i, float pen, float yfrac, int *r_x, int *r_y,
                                 int *r_w, int *r_h, const uint8_t **r_bits)
 {
@@ -3379,10 +3409,12 @@ static const void *glyph_bitmap(const TextRun *e, int i, float pen, float yfrac,
   (void)r_bits;
   return NULL;
 }
-int bui_text_glyph_outline(int face, int glyph, float **r_curves, int *r_n, float r_bbox[4])
+int bui_text_glyph_outline(int face, int glyph, unsigned var, float **r_curves, int *r_n,
+                           float r_bbox[4])
 {
   (void)face;
   (void)glyph;
+  (void)var;
   (void)r_bbox;
   *r_curves = NULL;
   *r_n = 0;
@@ -5596,8 +5628,9 @@ static int run_x_to_index(TextRun *e, float x, int *r_trailing)
   return start;
 }
 
-/* r_embolden: synthetic bold in pixels (passes of Slug outlines); r_baked:
- * the glyph bitmaps have it already (cairo-ft's emboldening) */
+/* r_embolden: synthetic bold in pixels (extra passes of glyphs that don't
+ * have it); r_baked: the glyph bitmaps and Slug outlines have it already
+ * (cairo-ft's emboldening) */
 static int glyph_draw_info(const TextRun *e, int i, int *r_face, float *r_scale, float *r_embolden,
                            int *r_baked, float *r_shear)
 {
@@ -5634,6 +5667,44 @@ static int glyph_yphase(int slot, float y, int *r_whole)
   const float py = floorf(y * 4.0f + 0.5f) * 0.25f;
   *r_whole = (int)floorf(py);
   return ((int)((py - (float)*r_whole) * 4.0f) & 3) << 2;
+}
+
+/* BUI-Awra: whether Slug draws the slot's glyphs as the glyph cache does,
+ * and the outline variant it asks for (bui_text_glyph_outline). GSK draws
+ * glyph images: Slug evaluates unhinted outlines, so glyphs that FreeType
+ * hints, renders monochrome, takes from embedded bitmaps or transforms
+ * other than by a slant come from the glyph cache instead. */
+static int glyph_slug_var(int slot, unsigned *r_var)
+{
+  const FontSlot *s = &g_fonts[slot];
+  const Face *f = &g_faces[s->face];
+  *r_var = 0;
+  (void)f;
+#  if TEXT_FT
+  if (!f->ft) {
+    return 1; /* stb_truetype draws unhinted outlines too */
+  }
+  if (s->mono || !(s->load & FT_LOAD_NO_HINTING) ||
+      (!(s->load & FT_LOAD_NO_BITMAP) && FT_HAS_FIXED_SIZES(f->ft)) ||
+      (s->xform && (s->mat[0] != 1.0f || s->mat[2] != 0.0f || s->mat[3] != 1.0f)))
+  {
+    return 0;
+  }
+  unsigned var = 0;
+  if (f->mm && f->ax_wght >= 0) {
+    const float w = s->wght > 0.0f ? s->wght : f->wght;
+    var |= (unsigned)(w + 0.5f) & 0x3FFu;
+  }
+  if (f->mm && f->ax_opsz >= 0) {
+    const float o = s->opsz * 2.0f + 0.5f;
+    var |= (o < 1.0f ? 1u : o > 255.0f ? 255u : (unsigned)o) << 10;
+  }
+  if (s->ebold) {
+    var |= 1u << 18;
+  }
+  *r_var = var;
+#  endif
+  return 1;
 }
 
 static int glyph_is_color(int slot, int glyph)
@@ -5756,13 +5827,17 @@ static int osink_cubic(const FT_Vector *c1, const FT_Vector *c2, const FT_Vector
 }
 
 /* The outline of the instance the face draws (its weight; UI optical size). */
-static int ft_glyph_outline(int face, int glyph, float **r_curves, int *r_n, float r_bbox[4])
+static int ft_glyph_outline(int face, int glyph, unsigned var, float **r_curves, int *r_n,
+                            float r_bbox[4])
 {
   Face *f = &g_faces[face];
   FontSlot tmp;
   memset(&tmp, 0, sizeof(tmp));
   tmp.face = face;
-  tmp.opsz = 14.0f; /* outlines are size independent: the UI's optical size */
+  /* the slot's instance of a variable face (glyph_slug_var) */
+  tmp.wght = (float)(var & 0x3FFu);
+  tmp.opsz = (var >> 10 & 0xFFu) ? (float)(var >> 10 & 0xFFu) * 0.5f : 14.0f;
+  const int bold = (var >> 18) & 1;
   FT_Size size = NULL;
   if (FT_New_Size(f->ft, &size) != 0) {
     return 0;
@@ -5773,6 +5848,11 @@ static int ft_glyph_outline(int face, int glyph, float **r_curves, int *r_n, flo
   if (FT_Load_Glyph(f->ft, (FT_UInt)glyph, FT_LOAD_NO_SCALE | FT_LOAD_NO_BITMAP | FT_LOAD_NO_HINTING) == 0 &&
       f->ft->glyph->format == FT_GLYPH_FORMAT_OUTLINE)
   {
+    if (bold) {
+      /* FT_GlyphSlot_Embolden's strength (ppem * 0x0AAA / 1024 in 26.6) in font units */
+      const FT_Pos e = (FT_Pos)f->ft->units_per_EM * 0x0AAA / 65536;
+      FT_Outline_EmboldenXY(&f->ft->glyph->outline, e, e);
+    }
     static const FT_Outline_Funcs funcs = {osink_move, osink_line, osink_conic, osink_cubic, 0, 0};
     OutlineSink o = {NULL, 0, 0, 0.0f, 0.0f};
     if (FT_Outline_Decompose(&f->ft->glyph->outline, &funcs, &o) == 0 && o.n > 0) {
@@ -5799,7 +5879,8 @@ static int ft_glyph_outline(int face, int glyph, float **r_curves, int *r_n, flo
 /* A glyph's outline as quadratic curves (x1 y1 x2 y2 x3 y3, font units,
  * y up) and its box; lines are {p1, p2, p2}, cubics are split into
  * quadratics. Returns 0 for empty glyphs. `*r_curves` is malloc'd. */
-int bui_text_glyph_outline(int face, int glyph, float **r_curves, int *r_n, float r_bbox[4])
+int bui_text_glyph_outline(int face, int glyph, unsigned var, float **r_curves, int *r_n,
+                           float r_bbox[4])
 {
   *r_curves = NULL;
   *r_n = 0;
@@ -5808,9 +5889,10 @@ int bui_text_glyph_outline(int face, int glyph, float **r_curves, int *r_n, floa
   }
 #  if TEXT_FT
   if (g_faces[face].ft) {
-    return ft_glyph_outline(face, glyph, r_curves, r_n, r_bbox);
+    return ft_glyph_outline(face, glyph, var, r_curves, r_n, r_bbox);
   }
 #  endif
+  (void)var; /* stb_truetype: the face's own outlines (glyph_slug_var gives 0) */
   const stbtt_fontinfo *info = &g_faces[face].info;
   stbtt_vertex *v = NULL;
   const int nv = stbtt_GetGlyphShape(info, glyph, &v);

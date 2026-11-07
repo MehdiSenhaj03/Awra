@@ -84,6 +84,7 @@ typedef struct Slot {
 
 typedef struct SlugGlyph {
   uint32_t key; /* (face + 1) << 16 | glyph; 0 = empty */
+  uint32_t var; /* the outline variant (bui_text_glyph_outline) */
   int ok;       /* 0: empty glyph */
   float bbox[4], band[4];
   int loc[4];
@@ -1201,7 +1202,7 @@ static int slug_build(BuiGpu *g, SlugGlyph *sg, const float *cv, int n, const fl
   return 1;
 }
 
-int bui_gpu_slug_glyph(BuiGpu *g, int face, int glyph, unsigned gen, float r_bbox[4],
+int bui_gpu_slug_glyph(BuiGpu *g, int face, int glyph, unsigned var, unsigned gen, float r_bbox[4],
                        float r_band[4], int r_loc[4])
 {
   if (g->slug <= 0 || face < 0 || face > 0x7ffe || glyph < 0 || glyph > 0xffff) {
@@ -1212,11 +1213,11 @@ int bui_gpu_slug_glyph(BuiGpu *g, int face, int glyph, unsigned gen, float r_bbo
     slug_reset(g);
   }
   const uint32_t key = ((uint32_t)(face + 1) << 16) | (uint32_t)glyph;
-  uint32_t idx = (key * 2654435761u) >> 19 & (SLUG_MAP - 1);
+  uint32_t idx = ((key ^ var * 0x9E3779B9u) * 2654435761u) >> 19 & (SLUG_MAP - 1);
   SlugGlyph *sg;
   for (;;) {
     sg = &g->slug_map[idx];
-    if (sg->key == 0 || sg->key == key) {
+    if (sg->key == 0 || (sg->key == key && sg->var == var)) {
       break;
     }
     idx = (idx + 1) & (SLUG_MAP - 1);
@@ -1226,16 +1227,17 @@ int bui_gpu_slug_glyph(BuiGpu *g, int face, int glyph, unsigned gen, float r_bbo
     int n = 0;
     float bb[4];
     sg->ok = 0;
-    if (bui_text_glyph_outline(face, glyph, &cv, &n, bb)) {
+    if (bui_text_glyph_outline(face, glyph, var, &cv, &n, bb)) {
       int got = slug_build(g, sg, cv, n, bb);
       if (got < 0) {
         slug_reset(g);
         free(cv);
-        return bui_gpu_slug_glyph(g, face, glyph, gen, r_bbox, r_band, r_loc);
+        return bui_gpu_slug_glyph(g, face, glyph, var, gen, r_bbox, r_band, r_loc);
       }
     }
     free(cv);
     sg->key = key;
+    sg->var = var;
     g->slug_n++;
   }
   if (!sg->ok) {
@@ -1788,12 +1790,13 @@ int bui_gpu_slug_on(BuiGpu *g)
   (void)g;
   return 0;
 }
-int bui_gpu_slug_glyph(BuiGpu *g, int face, int glyph, unsigned gen, float r_bbox[4],
+int bui_gpu_slug_glyph(BuiGpu *g, int face, int glyph, unsigned var, unsigned gen, float r_bbox[4],
                        float r_band[4], int r_loc[4])
 {
   (void)g;
   (void)face;
   (void)glyph;
+  (void)var;
   (void)gen;
   (void)r_bbox;
   (void)r_band;
