@@ -48,6 +48,7 @@ typedef struct BarExt {
   bool dragging, slider_hover;
   bool inside; /* the pointer is over the scrolled window */
   int px, py;  /* where, last (raster px) */
+  bool drawn;  /* the last frame showed it */
   double drag_offset; /* raster px from the slider's top */
   /* the context's restyling (awra.css) */
   int style;
@@ -162,6 +163,11 @@ static void bar_dirty(AwraWidget *w)
   if (!sw || sw->w <= 0 || sw->h <= 0) {
     return;
   }
+  BarGeom g;
+  const bool showing = geometry(w, &g) && (x->fade > 0.0f || x->fade_to > 0.0f);
+  if (!showing && !x->drawn) {
+    return; /* nothing to show and nothing shown: nothing to repaint */
+  }
   int m[4];
   style_margins(x, m);
   const int wide = awra_px(18 + m[1]) + 1;
@@ -185,9 +191,11 @@ static void bar_draw(AwraWidget *w, AwraDraw *d)
   BarExt *x = BRX(w);
   BarGeom g;
   const float alpha = x->fade * gate(w);
+  x->drawn = false;
   if (alpha <= 0.0f || !geometry(w, &g)) {
     return;
   }
+  x->drawn = true;
   const float saved = d->opacity;
   d->opacity *= alpha;
   /* GTK's default theme, light: fg #2e3436, bg #f6f5f4 */
