@@ -813,13 +813,18 @@ static AwraFont span_font(const AwraTextLayout *l, int span)
   return f;
 }
 
-/* the innermost span covering byte i (spans nest: the last one opened wins) */
+/* the innermost span covering byte i: spans nest, and are stored as they
+ * close, inner before outer, so of spans that start together the one that
+ * ends first, then the one stored first (<span><a>x</a></span>: the link) */
 static int span_at(const AwraTextLayout *l, int i)
 {
   int found = -1;
   for (int k = 0; k < l->n_spans; k++) {
-    if (l->spans[k].start <= i && i < l->spans[k].end) {
-      if (found < 0 || l->spans[k].start >= l->spans[found].start) {
+    const Span *s = &l->spans[k];
+    if (s->start <= i && i < s->end) {
+      if (found < 0 || s->start > l->spans[found].start ||
+          (s->start == l->spans[found].start && s->end < l->spans[found].end))
+      {
         found = k;
       }
     }
@@ -1919,9 +1924,17 @@ void awra_text_layout_draw(AwraTextLayout *l, AwraDraw *d, float x, float y, int
         BUI_text_set_context(NULL);
       }
       if (r->span >= 0 && (l->spans[r->span].underline || l->spans[r->span].strike)) {
-        const float t = fmaxf(1.0f, f.size / 14.0f);
-        const float uy = l->spans[r->span].underline ? base + t * 1.5f : base - f.size * 0.3f;
-        awra_paint_rect(d, (AwraBox){lx + r->x, uy, r->w, t}, &c);
+        /* Pango's renderer: a rectangle from the font's metrics, its top
+         * `position` above the line's own (unrounded) baseline */
+        float up, ut, sp, st;
+        BUI_text_decoration_metrics(f.family, font_flags(&f), f.size, &up, &ut, &sp, &st);
+        const float pango_base = ly + ln->ascent;
+        if (l->spans[r->span].underline) {
+          awra_paint_rect(d, (AwraBox){lx + r->x, pango_base - up, r->w, ut}, &c);
+        }
+        if (l->spans[r->span].strike) {
+          awra_paint_rect(d, (AwraBox){lx + r->x, pango_base - sp, r->w, st}, &c);
+        }
       }
     }
     ly += ln->height;

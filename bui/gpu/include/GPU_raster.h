@@ -571,6 +571,11 @@ void BUI_raster_corners_clip(BuiRaster *r, float x, float y, float w, float h, c
 
 /* A font's ascent and descent (positive, unrounded px) at `size`. */
 int BUI_text_metrics(const char *family, int flags, float size, float *r_ascent, float *r_descent);
+/* BUI-Awra: the underline's and the strikethrough's position (their top
+ * edge, up from the baseline: negative under it) and thickness, in px, as
+ * Pango's font metrics give them. 0 when the font has none of its own. */
+int BUI_text_decoration_metrics(const char *family, int flags, float size, float *r_ul_pos,
+                                float *r_ul_thick, float *r_st_pos, float *r_st_thick);
 /* BUI-Awra: the ascent and descent of a run of text, as Pango's logical
  * extents of its runs: the fonts it is drawn with (the font's metrics, or
  * more where the fonts it falls back to reach further; only the fallback

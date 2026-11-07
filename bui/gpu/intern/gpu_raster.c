@@ -6289,6 +6289,52 @@ int BUI_text_metrics(const char *family, int flags, float size, float *r_ascent,
   return 1;
 }
 
+/* BUI-Awra: the underline's and strikethrough's position (of their top edge,
+ * up from the baseline) and thickness, in px, as Pango's font metrics have
+ * them (pangofc-font.c get_face_metrics: HarfBuzz's post and OS/2 values,
+ * or 1 px thick, the underline 1 px under the baseline and the line through
+ * at half the ascent where the font says 0; rounded up to whole pixels with
+ * hinted font metrics, as pangocairo-fcfont.c). */
+int BUI_text_decoration_metrics(const char *family, int flags, float size, float *r_ul_pos,
+                                float *r_ul_thick, float *r_st_pos, float *r_st_thick)
+{
+  *r_ul_pos = -1.0f;
+  *r_ul_thick = *r_st_thick = 1.0f;
+  *r_st_pos = size * 0.3f;
+  const int f = font_get(family, flags & ~TEXT_DIRS, size);
+  if (f < 0) {
+    return 0;
+  }
+#if TEXT_GDI
+  return 0;
+#else
+  const FontSlot *s = &g_fonts[f];
+  const Face *face = &g_faces[s->face];
+  const stbtt_uint8 *data = (const stbtt_uint8 *)face->data;
+  float asc = (float)face->hb_ascent * s->scale;
+  if (!data) {
+    return 0;
+  }
+  const stbtt_uint32 post = stbtt__find_table((stbtt_uint8 *)data, (stbtt_uint32)face->fontstart, "post");
+  const stbtt_uint32 os2 = stbtt__find_table((stbtt_uint8 *)data, (stbtt_uint32)face->fontstart, "OS/2");
+  const int ul_pos = post ? ttSHORT(data + post + 8) : 0;
+  const int ul_thick = post ? ttSHORT(data + post + 10) : 0;
+  const int st_thick = os2 ? ttSHORT(data + os2 + 26) : 0;
+  const int st_pos = os2 ? ttSHORT(data + os2 + 28) : 0;
+  *r_ul_thick = ul_thick != 0 ? (float)ul_thick * s->scale : 1.0f;
+  *r_ul_pos = ul_pos != 0 ? (float)ul_pos * s->scale : -1.0f;
+  *r_st_thick = st_thick != 0 ? (float)st_thick * s->scale : 1.0f;
+  *r_st_pos = st_pos != 0 ? (float)st_pos * s->scale : asc * 0.5f;
+  if (g_hint_metrics) {
+    *r_ul_pos = ceilf(*r_ul_pos - 0.001f);
+    *r_ul_thick = ceilf(*r_ul_thick - 0.001f);
+    *r_st_pos = ceilf(*r_st_pos - 0.001f);
+    *r_st_thick = ceilf(*r_st_thick - 0.001f);
+  }
+  return 1;
+#endif
+}
+
 /* BUI-Awra: BUI_text_breaks as PangoLayout finds the attributes of text
  * in this font: tailored item by item, items split where the font changes
  * too (libthai sees only the Thai of a "123ภาษา"). */
