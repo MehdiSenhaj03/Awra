@@ -9,6 +9,7 @@
  * SPDX-License-Identifier: GPL-3.0-or-later */
 
 #include "awra-private.h"
+#include "a11y.h"
 
 #include <ctype.h>
 #include <stdio.h>
@@ -32,6 +33,12 @@ typedef struct PopExt {
   int pad;                 /* logical padding around the child */
   float radius;            /* logical */
   bool menu;               /* a menu (min width 210) */
+  /* a submenu: the row it opens from (its anchor, not referenced: the row
+   * owns the submenu) */
+  AwraWidget *submenu_row;
+  /* a menu: the row whose hover opens its submenu (or closes another) soon */
+  unsigned hover_timer;
+  AwraWidget *hover_row;
 } PopExt;
 
 #define POPX(w) AWRA_EXT(w, PopExt)
@@ -127,6 +134,15 @@ static void pop_place(BKNode *n, int win_w, int win_h)
       y0 = BK_MAX(0, y0 - nh);
     }
   }
+  else if (a && x->submenu_row) {
+    /* beside the row (Awra 1: GTK_POS_RIGHT, the popover's middle at the
+     * row's), on its left without room on its right */
+    x0 = a->x + a->w;
+    if (x0 + nw > win_w && a->x - nw >= 0) {
+      x0 = a->x - nw;
+    }
+    y0 = a->y + (a->h - nh) / 2;
+  }
   else if (a) {
     switch (x->side) {
       case 1: /* above */
@@ -180,12 +196,35 @@ static void pop_place(BKNode *n, int win_w, int win_h)
   (void)window_root;
 }
 
+static void menu_hover_cancel(AwraWidget *pop);
+
+/* `n` is `root` or inside it (open popups hang under their owners) */
+static bool within(const AwraWidget *n, const AwraWidget *root)
+{
+  for (; n; n = n->parent) {
+    if (n == root) {
+      return true;
+    }
+  }
+  return false;
+}
+
 static void pop_closed(BKNode *n)
 {
   AwraWidget *w = n;
   PopExt *x = POPX(w);
   if (!x->open) {
     return;
+  }
+  menu_hover_cancel(w);
+  if (x->submenu_row) {
+    /* a submenu closed while the keyboard was in it gives it back to its row */
+    AwraWidget *win = awra_window_of(x->submenu_row);
+    AwraWidget *f = win ? awra_focus_of(win) : NULL;
+    if (f && within(f, w)) {
+      awra_set_focus(win, x->submenu_row, awra_aux(f)->focus_visible);
+    }
+    awra_invalidate(x->submenu_row);
   }
   x->open = false;
   awra_map_tree(w, false);
@@ -202,17 +241,29 @@ void awra_map_tree(AwraWidget *w, bool mapped);
 static void pop_finalize(AwraWidget *w)
 {
   PopExt *x = POPX(w);
-  if (x->anchor) {
+  menu_hover_cancel(w);
+  if (x->anchor && !x->submenu_row) {
     awra_widget_unref(x->anchor);
   }
 }
 
+AwraWidget *awra_first_focusable(AwraWidget *root);
+
+static int menu_key(AwraWidget *pop, BKEvent *e);
+
 static int pop_key(AwraWidget *w, BKEvent *e)
 {
-  return 0;
+  return POPX(w)->menu ? menu_key(w, e) : 0;
+}
+
+/* GtkPopover is a dialog, GtkPopoverMenu a menu */
+static void pop_a11y(AwraWidget *w, AwraA11yInfo *info)
+{
+  info->role = POPX(w)->menu ? AWRA_ACCESSIBLE_ROLE_MENU : AWRA_ACCESSIBLE_ROLE_DIALOG;
 }
 
 AwraClass awra_popover_class = {
+    .a11y = pop_a11y,
     .bk = AWRA_BK("AwraPopover", CLS_POPUP),
     .type = "AwraPopover",
     .flags = AWRA_CLASS_CONTAINER | AWRA_CLASS_POPUP,
@@ -291,13 +342,15 @@ static void popup_with(AwraWidget *w, AwraWidget *owner)
   bk_ctx_request(ctx);
   awra_anim_start(w, 120, unfold_anim, NULL, NULL);
   awra_emit_simple(w, AWRA_SIGNAL_SHOW);
-  /* keyboard focus moves in: its first focusable widget */
+  /* keyboard focus moves in: its first focusable widget (a text field
+   * always; any widget when the popover was opened from the keyboard, its
+   * ring shown, as GTK's popovers take the focus) */
   AwraWidget *win = awra_window_of(owner);
   if (win) {
-    extern AwraWidget *awra_first_focusable(AwraWidget *root);
     AwraWidget *f = awra_first_focusable(w);
-    if (f && (AWRA_CLASS_OF(f)->flags & AWRA_CLASS_TEXT_INPUT)) {
-      awra_set_focus(win, f, false);
+    const bool keyboard = awra_focus_visible(owner);
+    if (f && ((AWRA_CLASS_OF(f)->flags & AWRA_CLASS_TEXT_INPUT) || keyboard)) {
+      awra_set_focus(win, f, keyboard);
     }
   }
 }
@@ -387,9 +440,10 @@ typedef struct RowExt {
   AwraHandler handler;
   void *data;
   int index;
-  AwraWidget *popover; /* closed on activation */
-  int kind;            /* 0 menu row, 1 dropdown row, 2 command row */
+  AwraWidget *popover; /* closed on activation (dropdowns; menus find theirs) */
+  int kind;            /* 0 menu row, 1 dropdown row, 2 command row, 3 submenu row */
   bool selected;       /* dropdown: the current item; palette: the Enter target */
+  AwraWidget *submenu; /* kind 3: the menu it opens (owned) */
 } RowExt;
 
 #define RX(w) AWRA_EXT(w, RowExt)
@@ -417,6 +471,14 @@ static void row_metrics(AwraWidget *w, int *px, int *py, int *min_h, int *gap, f
       *min_h = awra_px(22);
       *gap = awra_px(12);
       *radius = awra_pxf(8);
+      break;
+    case 3: /* submenu row: Awra 1's awramenubutton.awra-menu-item button
+             * (min-height 24, padding 6 9, radius 9), content spacing 8 */
+      *px = awra_px(9);
+      *py = awra_px(6);
+      *min_h = awra_px(24);
+      *gap = awra_px(8);
+      *radius = awra_pxf(9);
       break;
     default:
       *px = awra_px(9);
@@ -453,6 +515,9 @@ static void row_measure(AwraWidget *w, int o, int f, int *r_min, int *r_nat)
   if (x->check >= 0 || x->kind == 1) {
     wv += awra_px(x->kind == 1 ? 8 : 14) + gap;
   }
+  if (x->kind == 3) {
+    wv += gap + awra_px(16); /* the chevron */
+  }
   *r_min = awra_px(48);
   *r_nat = (int)ceilf(wv) + 2 * px;
 }
@@ -468,6 +533,9 @@ static void row_draw(AwraWidget *w, AwraDraw *d)
   AwraRGBA bg = {0, 0, 0, 0};
   if (x->kind == 0) {
     bg = (hot || x->selected) ? t->selection : bg;
+  }
+  else if (x->kind == 3) { /* .awra-open too */
+    bg = (hot || x->selected || (x->submenu && awra_popover_visible(x->submenu))) ? t->selection : bg;
   }
   else if (x->kind == 1) {
     bg = awra_pressed(w) ? t->control_pressed : hot ? t->control_cap_hover :
@@ -496,6 +564,19 @@ static void row_draw(AwraWidget *w, AwraDraw *d)
     cx += s + gap;
   }
   float right = (float)(w->x + w->w - px);
+  if (x->kind == 3) {
+    /* Awra 1's submenu chevron: a 1.7 px polyline, round caps, muted, in a
+     * 16 px box */
+    const float s = awra_scale(), lw = 1.7f * s;
+    const float ccx = right - awra_pxf(8), ccy = cy;
+    const AwraRGBA *c = &t->muted;
+    awra_paint_line(d, ccx - 1.5f * s, ccy - 3 * s, ccx + 1.8f * s, ccy, lw, c);
+    awra_paint_line(d, ccx + 1.8f * s, ccy, ccx - 1.5f * s, ccy + 3 * s, lw, c);
+    awra_paint_circle(d, ccx - 1.5f * s, ccy - 3 * s, lw * 0.5f, c);
+    awra_paint_circle(d, ccx - 1.5f * s, ccy + 3 * s, lw * 0.5f, c);
+    awra_paint_circle(d, ccx + 1.8f * s, ccy, lw * 0.5f, c);
+    right -= awra_px(16) + gap;
+  }
   if (x->kind == 1 && x->selected) {
     awra_paint_circle(d, right - awra_pxf(4), cy, awra_pxf(3), &t->accent_content);
     right -= awra_pxf(8) + gap;
@@ -530,11 +611,42 @@ static void row_draw(AwraWidget *w, AwraDraw *d)
   awra_text_layout_free(l);
 }
 
+static void submenu_open(AwraWidget *row, bool keyboard);
+
+/* The popover a menu row is in, and the menu its submenu chain starts
+ * from (menus moved into another popover find that one). */
+static AwraWidget *row_popover(AwraWidget *row)
+{
+  for (AwraWidget *n = row->parent; n; n = n->parent) {
+    if (awra_is_widget(n) && AWRA_CLASS_OF(n) == &awra_popover_class) {
+      return n;
+    }
+  }
+  return NULL;
+}
+
+static AwraWidget *menu_root(AwraWidget *row)
+{
+  AwraWidget *pop = row_popover(row);
+  while (pop && POPX(pop)->submenu_row) {
+    AwraWidget *up = row_popover(POPX(pop)->submenu_row);
+    if (!up) {
+      break;
+    }
+    pop = up;
+  }
+  return pop;
+}
+
 static void row_activate(AwraWidget *w)
 {
   RowExt *x = RX(w);
+  if (x->kind == 3) { /* a submenu opens; from the keyboard, the keyboard moves in */
+    submenu_open(w, awra_focus_visible(w));
+    return;
+  }
   awra_widget_ref(w);
-  AwraWidget *pop = x->popover;
+  AwraWidget *pop = x->kind == 0 ? menu_root(w) : x->popover;
   if (pop) {
     awra_popover_popdown(pop);
   }
@@ -563,9 +675,47 @@ static void row_finalize(AwraWidget *w)
   free(x->label);
   free(x->icon);
   free(x->accel);
+  if (x->submenu) {
+    awra_popover_popdown(x->submenu);
+    POPX(x->submenu)->submenu_row = NULL;
+    POPX(x->submenu)->anchor = NULL;
+    awra_widget_unref(x->submenu);
+  }
 }
 
+/* menu items (check items), dropdown choices, palette commands */
+static void row_a11y(AwraWidget *w, AwraA11yInfo *info)
+{
+  RowExt *x = RX(w);
+  info->label = x->label;
+  info->shortcut = x->accel;
+  if (x->kind == 0) {
+    info->role = x->check >= 0 ? AWRA_ACCESSIBLE_ROLE_MENU_ITEM_CHECKBOX : AWRA_ACCESSIBLE_ROLE_MENU_ITEM;
+    if (x->check >= 0) {
+      awra_a11y_set_state(info, AWRA_ACCESSIBLE_STATE_CHECKED, x->check == 1);
+    }
+  }
+  else if (x->kind == 1) {
+    info->role = AWRA_ACCESSIBLE_ROLE_MENU_ITEM_RADIO;
+    awra_a11y_set_state(info, AWRA_ACCESSIBLE_STATE_CHECKED, x->selected);
+  }
+  else if (x->kind == 3) {
+    /* a submenu row: GtkPopoverMenu's item with a submenu */
+    info->role = AWRA_ACCESSIBLE_ROLE_MENU_ITEM;
+    info->flags |= AWRA_A11Y_HAS_POPUP;
+    awra_a11y_set_state(info, AWRA_ACCESSIBLE_STATE_EXPANDED,
+                        x->submenu && awra_popover_visible(x->submenu));
+  }
+  else {
+    info->role = AWRA_ACCESSIBLE_ROLE_LIST_ITEM;
+    awra_a11y_set_state(info, AWRA_ACCESSIBLE_STATE_SELECTED, x->selected);
+  }
+}
+
+static void row_hover(AwraWidget *w, bool on);
+
 static AwraClass row_class = {
+    .a11y = row_a11y,
     .bk = AWRA_BK("AwraMenuRow", CLS_INTERACTIVE),
     .type = "AwraMenuRow",
     .flags = AWRA_CLASS_HOVER | AWRA_CLASS_FOCUSABLE | AWRA_CLASS_ACTIVATABLE,
@@ -575,6 +725,7 @@ static AwraClass row_class = {
     .draw = row_draw,
     .release = row_release,
     .activate = row_activate,
+    .hover = row_hover,
 };
 
 static AwraWidget *row_new(int kind, const char *label, const char *icon, const char *accel,
@@ -598,13 +749,271 @@ static AwraWidget *menu_separator(void)
   return s;
 }
 
-AwraWidget *awra_menu_popover_new(const AwraMenuItem *items, int n)
+/* ----------------------------------------------------------------------- */
+/* Submenus: rows opening a nested menu beside them (Awra 1: a menu button
+ * row with a chevron and a popover at GTK_POS_RIGHT). They open on click,
+ * Return, Right, or after the pointer rests on them; Left and Escape close
+ * them. */
+
+#define SUBMENU_HOVER_MS 250
+
+/* The first (or last) row of a menu that takes the keyboard. */
+static void menu_rows(AwraWidget *n, AwraWidget **rows, int *count, int max)
+{
+  for (int i = 0; i < n->nkids && *count < max; i++) {
+    AwraWidget *c = n->kids[i];
+    if (!awra_is_widget(c) || !(c->flags & NF_VISIBLE)) {
+      continue;
+    }
+    if (AWRA_CLASS_OF(c) == &row_class) {
+      if (awra_sensitive(c)) {
+        rows[(*count)++] = c;
+      }
+    }
+    else {
+      menu_rows(c, rows, count, max);
+    }
+  }
+}
+
+static void focus_row(AwraWidget *row)
+{
+  AwraWidget *win = awra_window_of(row);
+  if (win) {
+    awra_set_focus(win, row, true);
+    AwraWidget *p = awra_widget_parent(row);
+    while (p && !awra_widget_is(p, "AwraScrolledWindow")) {
+      p = awra_widget_parent(p);
+    }
+    if (p) {
+      awra_scrolled_scroll_to(p, row);
+    }
+  }
+}
+
+static void submenu_open(AwraWidget *row, bool keyboard)
+{
+  RowExt *x = RX(row);
+  AwraWidget *sub = x->submenu;
+  if (!sub || !awra_window_of(row)) {
+    return;
+  }
+  AwraWidget *pop = row_popover(row);
+  if (pop) {
+    menu_hover_cancel(pop);
+  }
+  if (!awra_popover_visible(sub)) {
+    PopExt *px = POPX(sub);
+    px->submenu_row = row;
+    px->anchor = row; /* not referenced: the row owns the submenu */
+    px->relative = NULL;
+    popup_with(sub, row);
+    awra_invalidate(row);
+  }
+  if (keyboard) {
+    AwraWidget *rows[1];
+    int n = 0;
+    menu_rows(sub, rows, &n, 1);
+    if (n) {
+      focus_row(rows[0]);
+    }
+  }
+}
+
+/* Closes the submenus open from `pop` (the popups after it). */
+static void submenus_close(AwraWidget *pop)
+{
+  BKContext *ctx = bk_ctx(pop);
+  if (ctx && bk_popup_index(ctx, pop) >= 0) {
+    bk_close_popups_after(ctx, pop);
+  }
+}
+
+/* a pending hover: both held until it fires or is cancelled */
+typedef struct HoverWait {
+  AwraWidget *pop, *row;
+} HoverWait;
+
+static void hover_done(void *data)
+{
+  HoverWait *h = (HoverWait *)data;
+  awra_widget_unref(h->row);
+  awra_widget_unref(h->pop);
+  free(h);
+}
+
+static bool hover_fire(void *data)
+{
+  HoverWait *h = (HoverWait *)data;
+  AwraWidget *pop = h->pop, *row = h->row;
+  PopExt *x = POPX(pop);
+  x->hover_timer = 0;
+  x->hover_row = NULL;
+  if (!x->open || !awra_hovered(row) || !within(row, pop)) {
+    return false;
+  }
+  if (RX(row)->kind == 3) {
+    submenu_open(row, false);
+  }
+  else {
+    submenus_close(pop);
+  }
+  return false;
+}
+
+static void menu_hover_cancel(AwraWidget *pop)
+{
+  PopExt *x = POPX(pop);
+  if (x->hover_timer) {
+    const unsigned id = x->hover_timer;
+    x->hover_timer = 0;
+    x->hover_row = NULL;
+    awra_source_remove(id); /* lets go of the menu and the row */
+  }
+}
+
+/* The pointer resting on a row opens its submenu, or closes the submenu
+ * another row of the menu has open, after a moment (crossing rows on the
+ * way into a submenu changes nothing). */
+static void row_hover(AwraWidget *w, bool on)
+{
+  RowExt *x = RX(w);
+  if (x->kind != 0 && x->kind != 3) {
+    return;
+  }
+  AwraWidget *pop = row_popover(w);
+  if (!pop || !POPX(pop)->menu || !POPX(pop)->open) {
+    return;
+  }
+  PopExt *px = POPX(pop);
+  if (!on) {
+    if (px->hover_row == w) {
+      menu_hover_cancel(pop);
+    }
+    return;
+  }
+  menu_hover_cancel(pop);
+  BKContext *ctx = bk_ctx(pop);
+  const int i = ctx ? bk_popup_index(ctx, pop) : -1;
+  const bool child_open = i >= 0 && i + 1 < ctx->npopups;
+  if (x->kind == 3 ? (x->submenu && awra_popover_visible(x->submenu)) : !child_open) {
+    return; /* already as it should be */
+  }
+  if (x->kind == 3 && !awra_sensitive(w)) {
+    return;
+  }
+  HoverWait *h = (HoverWait *)malloc(sizeof(HoverWait));
+  if (!h) {
+    return;
+  }
+  h->pop = pop;
+  h->row = w;
+  awra_widget_ref(pop);
+  awra_widget_ref(w);
+  px->hover_row = w;
+  px->hover_timer = awra_timeout_add(SUBMENU_HOVER_MS, hover_fire, h, hover_done);
+}
+
+/* Up / Down move between the rows, Home / End to the ends, Right opens a
+ * submenu, Left closes this one (GtkPopoverMenu's keys). */
+static int menu_key(AwraWidget *pop, BKEvent *e)
+{
+  const char *k = e->keysym;
+  const bool down = bk_keysym_is(k, "Down"), up = bk_keysym_is(k, "Up");
+  const bool home = bk_keysym_is(k, "Home"), end = bk_keysym_is(k, "End");
+  const bool right = bk_keysym_is(k, "Right"), left = bk_keysym_is(k, "Left");
+  if (!down && !up && !home && !end && !right && !left) {
+    return 0;
+  }
+  BKContext *ctx = bk_ctx(pop);
+  /* the keys go to the innermost open menu */
+  if (ctx && ctx->npopups && ctx->popups[ctx->npopups - 1] != pop) {
+    AwraWidget *top = ctx->popups[ctx->npopups - 1];
+    if (awra_is_widget(top) && AWRA_CLASS_OF(top) == &awra_popover_class && POPX(top)->menu &&
+        POPX(top)->open && bk_popup_index(ctx, pop) >= 0)
+    {
+      return menu_key(top, e);
+    }
+  }
+  AwraWidget *win = POPX(pop)->submenu_row ? awra_window_of(POPX(pop)->submenu_row) :
+                    POPX(pop)->anchor   ? awra_window_of(POPX(pop)->anchor) :
+                    POPX(pop)->relative ? awra_window_of(POPX(pop)->relative) : NULL;
+  if (!win) {
+    return 0;
+  }
+  AwraWidget *rows[256];
+  int n = 0;
+  menu_rows(pop, rows, &n, 256);
+  AwraWidget *f = awra_focus_of(win);
+  int cur = -1;
+  for (int i = 0; i < n; i++) {
+    if (rows[i] == f) {
+      cur = i;
+    }
+  }
+  if (left) {
+    if (POPX(pop)->submenu_row) {
+      AwraWidget *row = POPX(pop)->submenu_row;
+      awra_popover_popdown(pop);
+      focus_row(row);
+      return 1;
+    }
+    return 0;
+  }
+  if (right) {
+    if (cur >= 0 && RX(rows[cur])->kind == 3) {
+      submenu_open(rows[cur], true);
+      return 1;
+    }
+    return 0;
+  }
+  if (!n) {
+    return 1;
+  }
+  int next;
+  if (home || end) {
+    next = home ? 0 : n - 1;
+  }
+  else if (cur < 0) {
+    next = down ? 0 : n - 1;
+  }
+  else {
+    next = (cur + (down ? 1 : -1) + n) % n;
+  }
+  focus_row(rows[next]);
+  return 1;
+}
+
+/* The rows of items [from, to): a submenu item takes the items up to its
+ * matching AWRA_MENU_ITEM_SUBMENU_END into a menu of its own. */
+static AwraWidget *menu_build(const AwraMenuItem *items, int from, int to)
 {
   AwraWidget *pop = awra_popover_new();
   awra_popover_set_padding_internal(pop, 7, true);
   AwraWidget *box = awra_box_new(AWRA_ORIENTATION_VERTICAL, 4);
-  for (int i = 0; i < n; i++) {
+  for (int i = from; i < to; i++) {
     const AwraMenuItem *it = &items[i];
+    if (it->check == AWRA_MENU_ITEM_SUBMENU_END) {
+      continue; /* unmatched */
+    }
+    if (it->check == AWRA_MENU_ITEM_SUBMENU) {
+      int depth = 1, j = i + 1;
+      for (; j < to; j++) {
+        depth += items[j].check == AWRA_MENU_ITEM_SUBMENU ? 1 :
+                 items[j].check == AWRA_MENU_ITEM_SUBMENU_END ? -1 : 0;
+        if (depth == 0) {
+          break;
+        }
+      }
+      AwraWidget *r = row_new(3, it->label ? it->label : "", it->icon_name, NULL, -1);
+      RX(r)->index = i;
+      RX(r)->submenu = menu_build(items, i + 1, j);
+      awra_widget_set_sensitive(r, it->sensitive);
+      awra_box_append(box, r);
+      awra_widget_unref(r);
+      i = j; /* past its end */
+      continue;
+    }
     if (!it->label) {
       AwraWidget *sep = menu_separator();
       awra_box_append(box, sep);
@@ -624,7 +1033,7 @@ AwraWidget *awra_menu_popover_new(const AwraMenuItem *items, int n)
       awra_widget_set_typography(h, AWRA_TYPOGRAPHY_EYEBROW);
       awra_widget_add_class(h, "dim-label");
       awra_label_set_xalign(h, 0.0f);
-      awra_widget_set_margins(h, i ? 6 : 2, 12, 2, 12);
+      awra_widget_set_margins(h, i > from ? 6 : 2, 12, 2, 12);
       awra_box_append(box, h);
       awra_widget_unref(h);
       continue;
@@ -634,7 +1043,6 @@ AwraWidget *awra_menu_popover_new(const AwraMenuItem *items, int n)
     RX(r)->data = it->data;
     RX(r)->index = i;
     RX(r)->destructive = it->destructive;
-    RX(r)->popover = pop;
     awra_widget_set_sensitive(r, it->sensitive);
     awra_box_append(box, r);
     awra_widget_unref(r);
@@ -648,6 +1056,11 @@ AwraWidget *awra_menu_popover_new(const AwraMenuItem *items, int n)
   awra_popover_set_child(pop, scroll);
   awra_widget_unref(scroll);
   return pop;
+}
+
+AwraWidget *awra_menu_popover_new(const AwraMenuItem *items, int n)
+{
+  return menu_build(items, 0, n);
 }
 
 /* The row a keyboard elsewhere points at (path suggestions): highlighted as
@@ -738,6 +1151,28 @@ static AwraClass chev_class = {
 static MenuBtnData *mb(AwraWidget *w)
 {
   return (MenuBtnData *)awra_widget_get_data(w, "awra-menu-button");
+}
+
+typedef struct DropData DropData;
+static DropData *dd(AwraWidget *w);
+static AwraWidget *drop_popover(DropData *d);
+
+/* A button that opens a popover (menu buttons, dropdowns): has-popup and
+ * expanded while it shows (button.c asks). */
+void awra_popover_owner_a11y(AwraWidget *w, AwraA11yInfo *info);
+void awra_popover_owner_a11y(AwraWidget *w, AwraA11yInfo *info)
+{
+  MenuBtnData *m = mb(w);
+  DropData *d = m ? NULL : dd(w);
+  if (!m && !d) {
+    return;
+  }
+  AwraWidget *pop = m ? m->popover : drop_popover(d);
+  info->flags |= AWRA_A11Y_HAS_POPUP;
+  awra_a11y_set_state(info, AWRA_ACCESSIBLE_STATE_EXPANDED, pop && awra_popover_visible(pop));
+  if (d) {
+    info->role = AWRA_ACCESSIBLE_ROLE_COMBO_BOX;
+  }
 }
 
 static void mb_clicked(AwraWidget *b, const AwraArgs *a, void *data)
@@ -893,16 +1328,21 @@ void awra_context_menu_attach(AwraWidget *w, const AwraMenuItem *items, int n)
 /* ======================================================================= */
 /* Dropdown (spec B §10) */
 
-typedef struct DropData {
+struct DropData {
   char **items;
   int n;
   int selected;
   AwraWidget *label, *popover, *list;
-} DropData;
+};
 
 static DropData *dd(AwraWidget *w)
 {
   return (DropData *)awra_widget_get_data(w, "awra-dropdown");
+}
+
+static AwraWidget *drop_popover(DropData *d)
+{
+  return d->popover;
 }
 
 static void drop_free(void *p)
@@ -1263,6 +1703,7 @@ unsigned awra_toast_overlay_show_with_action(AwraWidget *w, const char *title, c
   t->next = x->toasts;
   x->toasts = t;
   awra_child_insert(w, t->surface, -1);
+  awra_accessible_announce(t->surface, title, AWRA_ACCESSIBLE_ANNOUNCEMENT_PRIORITY_MEDIUM);
   if (timeout > 0) {
     ToastTimer *tt = (ToastTimer *)malloc(sizeof(ToastTimer));
     tt->overlay = w;

@@ -4,6 +4,7 @@
  * SPDX-License-Identifier: GPL-3.0-or-later */
 
 #include "awra-private.h"
+#include "a11y.h"
 
 #include <stdio.h>
 
@@ -147,7 +148,19 @@ static void check_finalize(AwraWidget *w)
   }
 }
 
+/* GtkCheckButton: a check box, or a radio button in a group */
+static void check_a11y(AwraWidget *w, AwraA11yInfo *info)
+{
+  CheckExt *x = CX(w);
+  if (x->radio || (x->group_next && x->group_next != w)) {
+    info->role = AWRA_ACCESSIBLE_ROLE_RADIO;
+  }
+  awra_a11y_set_state(info, AWRA_ACCESSIBLE_STATE_CHECKED,
+                      x->inconsistent ? AWRA_ACCESSIBLE_TRISTATE_MIXED : x->active);
+}
+
 static AwraClass check_class = {
+    .a11y = check_a11y,
     .bk = AWRA_BK("AwraCheckButton", CLS_INTERACTIVE),
     .type = "AwraCheckButton",
     .flags = AWRA_CLASS_HOVER | AWRA_CLASS_FOCUSABLE | AWRA_CLASS_ACTIVATABLE | AWRA_CLASS_EXPAND_ISOLATED,
@@ -310,7 +323,13 @@ static int switch_release(AwraWidget *w, BKEvent *e)
   return 1;
 }
 
+static void switch_a11y(AwraWidget *w, AwraA11yInfo *info)
+{
+  awra_a11y_set_state(info, AWRA_ACCESSIBLE_STATE_CHECKED, SWX(w)->active);
+}
+
 static AwraClass switch_class = {
+    .a11y = switch_a11y,
     .bk = AWRA_BK("AwraSwitch", CLS_INTERACTIVE),
     .type = "AwraSwitch",
     .flags = AWRA_CLASS_FOCUSABLE | AWRA_CLASS_ACTIVATABLE | AWRA_CLASS_EXPAND_ISOLATED,
@@ -517,7 +536,31 @@ static bool slider_set_double(AwraWidget *w, const char *name, double v)
   return false;
 }
 
+/* GtkScale: a range */
+static void slider_a11y(AwraWidget *w, AwraA11yInfo *info)
+{
+  SliderExt *x = SLX(w);
+  info->has_value = true;
+  info->value = x->value;
+  info->min = x->min;
+  info->max = x->max;
+  info->step = x->step > 0 ? x->step : (x->max - x->min) / 100.0;
+  info->flags |= x->orientation == AWRA_ORIENTATION_HORIZONTAL ? AWRA_A11Y_HORIZONTAL
+                                                               : AWRA_A11Y_VERTICAL;
+}
+
+static bool slider_a11y_do(AwraWidget *w, int item, int verb, double value)
+{
+  if (item < 0 && verb == AWRA_A11Y_DO_SET_VALUE && awra_sensitive(w)) {
+    slider_set_value_internal(w, value, true);
+    return true;
+  }
+  return false;
+}
+
 AwraClass awra_slider_class = {
+    .a11y = slider_a11y,
+    .a11y_do = slider_a11y_do,
     .bk = AWRA_BK("AwraSlider", CLS_INTERACTIVE),
     .type = "AwraSlider",
     .flags = AWRA_CLASS_FOCUSABLE | AWRA_CLASS_EXPAND_ISOLATED,
@@ -606,6 +649,8 @@ static void volume_sync(AwraWidget *w)
   snprintf(tip, sizeof(tip), "%d %%", (int)(v * 100 + 0.5));
   awra_widget_set_tooltip(x->slider, tip);
   awra_slider_set_muted_internal(x->slider, x->muted);
+  awra_accessible_update_property_string(x->slider, AWRA_ACCESSIBLE_PROPERTY_VALUE_TEXT, tip);
+  awra_accessible_update_state(x->button, AWRA_ACCESSIBLE_STATE_PRESSED, x->muted);
 }
 
 static void volume_slider_changed(AwraWidget *s, const AwraArgs *a, void *data)
@@ -642,6 +687,10 @@ AwraWidget *awra_volume_control_new(void)
   awra_slider_set_value(x->slider, 1.0);
   volume_sync(w);
   awra_widget_isolate_expand(w);
+  /* Awra 1's AwraVolumeControl: a group, its slider and mute button */
+  awra_accessible_set_role(w, AWRA_ACCESSIBLE_ROLE_GROUP);
+  awra_accessible_update_property_string(w, AWRA_ACCESSIBLE_PROPERTY_LABEL, "Volume");
+  awra_accessible_update_property_string(x->slider, AWRA_ACCESSIBLE_PROPERTY_LABEL, "Volume");
   return w;
 }
 
@@ -829,7 +878,22 @@ static void prog_finalize(AwraWidget *w)
   free(PX(w)->text);
 }
 
+/* GtkProgressBar: a 0..1 range (busy while it pulses), its text */
+static void prog_a11y(AwraWidget *w, AwraA11yInfo *info)
+{
+  ProgExt *x = PX(w);
+  info->has_value = !x->pulsing;
+  info->value = x->fraction;
+  info->min = 0.0;
+  info->max = 1.0;
+  info->value_text = x->text;
+  if (x->pulsing) {
+    awra_a11y_set_state(info, AWRA_ACCESSIBLE_STATE_BUSY, 1);
+  }
+}
+
 static AwraClass prog_class = {
+    .a11y = prog_a11y,
     .bk = AWRA_BK("AwraProgressBar", 0),
     .type = "AwraProgressBar",
     .flags = AWRA_CLASS_EXPAND_ISOLATED,
@@ -950,7 +1014,14 @@ static void spinner_finalize(AwraWidget *w)
   }
 }
 
+/* GtkSpinner: busy while it spins */
+static void spinner_a11y(AwraWidget *w, AwraA11yInfo *info)
+{
+  awra_a11y_set_state(info, AWRA_ACCESSIBLE_STATE_BUSY, SPX(w)->spinning);
+}
+
 static AwraClass spinner_class = {
+    .a11y = spinner_a11y,
     .bk = AWRA_BK("AwraSpinner", 0),
     .type = "AwraSpinner",
     .flags = AWRA_CLASS_EXPAND_ISOLATED,

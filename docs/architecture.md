@@ -47,6 +47,18 @@ Text follows what GTK did for Awra 1:
 - labels measure as GtkLabel (approximate char width for width-chars,
   widest line at max-width-chars, width-for-height when allocated with an
   alignment), and lines break as Pango breaks them.
+- characters the font lacks fall back, character by character, through
+  fontconfig's sorted list for the font (FcFontSort, by charset) on Linux
+  and the system's font links (SystemLink, Segoe UI Emoji / Symbol) on
+  Windows; spaces and default ignorables take the font of the run they are
+  in, as Pango itemizes; a line is as tall as the tallest font in it;
+- emoji follow Pango: its emoji presentation scanner splits text into emoji
+  and text runs, emoji runs take the "emoji" family (a colour font when a
+  VS16 asks for one), and sequences (ZWJ, skin tones, flags, keycaps, tags)
+  are shaped by the font's GSUB into one glyph. Colour glyphs are CBDT /
+  sbix bitmaps (their PNGs decoded by the kit's Wuffs) scaled to the text
+  size, or COLR layers blended by FreeType; they are cached like any glyph
+  and drawn over the run's coverage mask with the text's alpha.
 
 ## Windows
 
@@ -58,6 +70,22 @@ corners and draws the shadow; resizing goes through a native border band.
 Physical keys come from scan codes (as evdev codes, the names KeyToMusic
 binds), key labels from the layout, file drops through OLE (hover and drop).
 
+## Data transfer
+
+The clipboard carries any type (BK_window_clipboard_*): text under every
+name applications ask for it, images as PNG (encoded by Awra; on Windows
+also CF_DIBV5 / CF_DIB), files as text/uri-list (GNOME's copied-files list
+on Linux, CF_HDROP on Windows). Wayland serves the data source from memory
+and reads offers through pipes; X11 owns the selections with a hidden window
+(large data through INCR both ways); Windows uses the clipboard formats
+directly. Drags out of the application are the system's: Wayland's
+wl_data_source + start_drag with an icon surface, X11's XDND (source and
+target, with an override-redirect image window), OLE's DoDragDrop with an
+IDataObject and the shell's drag image helper. Inside the window a drag's
+image (a widget snapshot, as GtkWidgetPaintable) is drawn above everything
+and follows the pointer; the Rust DragSource hands a drag of text or files
+to the system when the pointer leaves the window.
+
 ## Rust
 
 `awra-sys` is generated from `include/awra/awra.h` by
@@ -67,3 +95,34 @@ reference counted (`Clone` refs, `Drop` unrefs), weak references follow the
 widget's life, closures connect to signals, `win.*` actions are activated by
 buttons, menus, the command palette and accelerators, and futures run on the
 UI thread (`glib::spawn_future_local`).
+
+## Accessibility
+
+GTK gave Awra 1 applications an accessibility tree; Awra 2 has its own,
+built the same way (`src/a11y.c`, `include/awra/awra.h`, Rust
+`awra::accessible`):
+
+- every widget has a role from its class (GTK's and Awra 1's assignments),
+  a name and a description computed with GTK's rules (an explicit label,
+  labelled-by, the widget's own text, its children's for roles named from
+  content, its tooltip), states (focused, checked, pressed, selected,
+  expanded, disabled, busy…) and values; components describe themselves
+  with `AwraClass.a11y`, containers their children with `a11y_child`, and
+  widgets that draw items (tabs, crumbs, emoji) expose them as virtual
+  children (`a11y_items`, `a11y_item`, `a11y_do`);
+- applications refine it as with GtkAccessible:
+  `awra_accessible_update_property / _state / _relation`, `set_role`,
+  `announce` (`update_property(&[Property::Label(..)])` in Rust);
+- Linux: AT-SPI2 over a small D-Bus client of Awra's own (no libdbus, no
+  GLib), its socket watched by the window loop. Awra asks the session bus,
+  without starting anything, whether an assistive technology runs
+  (`org.a11y.Status`), and only then joins the accessibility bus;
+- Windows: UI Automation providers answered from `WM_GETOBJECT`, with
+  `UIAutomationCore.dll` loaded at the first request;
+- while nothing listens, the hooks return at once and no widget holds
+  accessibility data; when a client listens, widgets it has seen keep a
+  snapshot and an idle pass tells it only what changed.
+
+Focus rings follow GTK's focus-visible: they show after keyboard use, hide
+on a pointer press and 3 s after the last key.
+

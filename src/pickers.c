@@ -8,6 +8,7 @@
  * SPDX-License-Identifier: GPL-3.0-or-later */
 
 #include "awra-private.h"
+#include "a11y.h"
 
 #include <ctype.h>
 #include <stdio.h>
@@ -272,7 +273,71 @@ static int grid_cursor(AwraWidget *w, int px, int py)
   return hit(w, px, py, &s, &i) ? BK_CURSOR_HAND : -1;
 }
 
+/* the emoji grid: a grid of buttons (drawn: virtual children, in the
+ * order shown) */
+static int grid_a11y_items(AwraWidget *w)
+{
+  PickerExt *x = pk(AWRA_EXT(w, GridExt)->picker);
+  int n = 0;
+  for (int s = 0; x && s < x->n_sections; s++) {
+    n += x->sections[s].n_shown;
+  }
+  return n;
+}
+
+static const Emoji *grid_item(AwraWidget *w, int i, int *r_s, int *r_k)
+{
+  PickerExt *x = pk(AWRA_EXT(w, GridExt)->picker);
+  for (int s = 0; x && s < x->n_sections; s++) {
+    Section *sec = &x->sections[s];
+    if (i < sec->n_shown) {
+      *r_s = s;
+      *r_k = i;
+      return &sec->items[sec->shown ? sec->shown[i] : i];
+    }
+    i -= sec->n_shown;
+  }
+  return NULL;
+}
+
+static void grid_a11y_item(AwraWidget *w, int i, AwraA11yInfo *info, double rect[4])
+{
+  int s, k;
+  const Emoji *e = grid_item(w, i, &s, &k);
+  if (!e) {
+    return;
+  }
+  PickerExt *x = pk(AWRA_EXT(w, GridExt)->picker);
+  info->role = AWRA_ACCESSIBLE_ROLE_BUTTON;
+  info->label = e->name && e->name[0] ? e->name : e->text;
+  info->action = "click";
+  const int cell = awra_px(CELL), cols = x->columns > 0 ? x->columns : 1;
+  const double sc = awra_scale();
+  rect[0] = (w->x + awra_px(6) + (k % cols) * cell) / sc;
+  rect[1] = (w->y + x->sections[s].y + awra_px(HEADER_H) + (k / cols) * cell) / sc;
+  rect[2] = rect[3] = cell / sc;
+}
+
+static bool grid_a11y_do(AwraWidget *w, int i, int verb, double value)
+{
+  int s, k;
+  const Emoji *e = i >= 0 ? grid_item(w, i, &s, &k) : NULL;
+  if (!e || verb != AWRA_A11Y_DO_ACTIVATE) {
+    return false;
+  }
+  AwraWidget *picker = AWRA_EXT(w, GridExt)->picker;
+  char *id = awra_strdup(e->id);
+  awra_widget_ref(picker);
+  awra_emit_text(picker, AWRA_SIGNAL_ACTIVATE, id);
+  awra_widget_unref(picker);
+  free(id);
+  return true;
+}
+
 static AwraClass grid_class = {
+    .a11y_items = grid_a11y_items,
+    .a11y_item = grid_a11y_item,
+    .a11y_do = grid_a11y_do,
     .bk = AWRA_BK("AwraEmojiGrid", 0),
     .type = "AwraEmojiGrid",
     .ext_size = sizeof(GridExt),
@@ -684,7 +749,30 @@ static void dot_activate(AwraWidget *w)
   dot_release(w, &e);
 }
 
+/* Awra 1's palette: colours are radio buttons (checked when chosen), named
+ * by their colour; "Any colour" is a button */
+static void dot_a11y(AwraWidget *w, AwraA11yInfo *info)
+{
+  DotExt *x = AWRA_EXT(w, DotExt);
+  PaletteExt *p = pl(x->palette);
+  if (!p) {
+    return;
+  }
+  if (x->index >= 0 && x->index < p->n) {
+    info->label = p->colors[x->index].name;
+    awra_a11y_set_state(info, AWRA_ACCESSIBLE_STATE_CHECKED,
+                        p->has_selected && same_color(&p->selected, &p->colors[x->index].color));
+  }
+  else if (x->index == -3) {
+    awra_a11y_set_state(info, AWRA_ACCESSIBLE_STATE_CHECKED, 1);
+  }
+  else {
+    info->role = AWRA_ACCESSIBLE_ROLE_BUTTON;
+  }
+}
+
 static AwraClass dot_class = {
+    .a11y = dot_a11y,
     .bk = AWRA_BK("AwraColorSwatch", CLS_INTERACTIVE),
     .type = "AwraColorSwatch",
     .flags = AWRA_CLASS_HOVER | AWRA_CLASS_FOCUSABLE | AWRA_CLASS_ACTIVATABLE,
@@ -753,6 +841,7 @@ AwraWidget *awra_color_palette_new(void)
   awra_widget_set_name(w, "AwraColorPalette");
   PaletteExt *p = (PaletteExt *)calloc(1, sizeof(PaletteExt));
   awra_widget_set_data(w, "awra-palette", p, palette_free);
+  awra_accessible_set_role(w, AWRA_ACCESSIBLE_ROLE_RADIO_GROUP);
   p->automatic = awra_toggle_button_new_with_label("");
   awra_widget_set_valign(p->automatic, AWRA_ALIGN_START);
   awra_widget_set_visible(p->automatic, false);

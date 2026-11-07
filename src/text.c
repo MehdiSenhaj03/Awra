@@ -70,6 +70,15 @@ float awra_font_ascent(const AwraFont *f)
   return a;
 }
 
+void awra_font_extents(const AwraFont *f, const char *s, int len, float *r_ascent,
+                       float *r_descent)
+{
+  if (len < 0) {
+    len = (int)strlen(s);
+  }
+  BUI_text_extents(f->family, font_flags(f), f->size, s, len, r_ascent, r_descent);
+}
+
 float awra_font_line_height(const AwraFont *f)
 {
   float a, d;
@@ -781,6 +790,16 @@ static void add_run(AwraTextLayout *l, int a, int b, float x)
   }
 }
 
+static bool has_non_ascii(const char *s, int len)
+{
+  for (int i = 0; i < len; i++) {
+    if ((unsigned char)s[i] >= 0x80) {
+      return true;
+    }
+  }
+  return false;
+}
+
 static void line_metrics(AwraTextLayout *l, Line *ln, bool para_start)
 {
   float asc = awra_font_ascent(&l->font), h = awra_font_line_height(&l->font);
@@ -790,6 +809,25 @@ static void line_metrics(AwraTextLayout *l, Line *ln, bool para_start)
       AwraFont f = span_font(l, r->span);
       asc = fmaxf(asc, awra_font_ascent(&f));
       h = fmaxf(h, awra_font_line_height(&f));
+    }
+  }
+  /* fonts the text falls back to (CJK, Thai, emoji...) make the line as
+   * tall as they are, as Pango's line extents take every run's font */
+  for (int i = 0; i < ln->n_runs; i++) {
+    const Run *r = &l->runs[ln->first_run + i];
+    if (r->start < 0 || r->end <= r->start || is_object(l, r->start) ||
+        !has_non_ascii(l->text + r->start, r->end - r->start))
+    {
+      continue;
+    }
+    AwraFont f = span_font(l, r->span);
+    float ea, ed;
+    awra_font_extents(&f, l->text + r->start, r->end - r->start, &ea, &ed);
+    const float fa = awra_font_ascent(&f), fd = awra_font_line_height(&f) - fa;
+    if (ea > fa + 0.01f || ed > fd + 0.01f) {
+      const float desc = fmaxf(h - asc, ed);
+      asc = fmaxf(asc, ea);
+      h = asc + desc;
     }
   }
   if (l->object_size > 0.0f) {

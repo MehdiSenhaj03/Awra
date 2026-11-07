@@ -138,6 +138,16 @@ typedef struct NSVGpath
 	struct NSVGpath* next;		// Pointer to next path, or NULL if last element.
 } NSVGpath;
 
+/* BUI: masks and clip paths (luminance masks; clip paths by their
+ * coverage), up to NSVG_MAX_MASKS of each per shape (a group's and its
+ * own) */
+#define NSVG_MAX_MASKS 2
+enum NSVGdefType {
+	NSVG_DEF_NONE = 0,
+	NSVG_DEF_MASK = 1,
+	NSVG_DEF_CLIP = 2
+};
+
 typedef struct NSVGshape
 {
 	char id[64];				// Optional 'id' attr of the shape or its group
@@ -160,6 +170,13 @@ typedef struct NSVGshape
 	float xform[6];				// Root transformation for fill/stroke gradient
 	NSVGpath* paths;			// Linked list of paths in the image.
 	struct NSVGshape* next;		// Pointer to next shape, or NULL if last element.
+	/* BUI: the masks and clip paths this shape is drawn through (ids of
+	 * NSVGimage.defs shapes, empty when unused), and for the shapes of a
+	 * <mask> or <clipPath>, the id of the one they belong to */
+	char masks[NSVG_MAX_MASKS][64];
+	char clips[NSVG_MAX_MASKS][64];
+	char defId[64];
+	char defType;				// NSVG_DEF_MASK or NSVG_DEF_CLIP (in NSVGimage.defs)
 } NSVGshape;
 
 typedef struct NSVGimage
@@ -167,6 +184,7 @@ typedef struct NSVGimage
 	float width;				// Width of the image.
 	float height;				// Height of the image.
 	NSVGshape* shapes;			// Linked list of shapes in the image.
+	NSVGshape* defs;			// BUI: the shapes of the image's <mask>s and <clipPath>s
 } NSVGimage;
 
 // Parses SVG file from a file, returns SVG image as paths.
@@ -441,6 +459,8 @@ typedef struct NSVGattrib
 	char hasFill;
 	char hasStroke;
 	char visible;
+	char masks[NSVG_MAX_MASKS][64];	/* BUI: mask="url(#id)", inherited by children */
+	char clips[NSVG_MAX_MASKS][64];	/* BUI: clip-path="url(#id)" */
 } NSVGattrib;
 
 typedef struct NSVGparser
@@ -459,7 +479,10 @@ typedef struct NSVGparser
 	float dpi;
 	char pathFlag;
 	char defsFlag;
-	int hiddenDepth; /* BUI: inside a mask, clipPath or symbol (not drawn) */
+	int hiddenDepth; /* BUI: inside a symbol or a nested mask / clipPath (not drawn) */
+	char defType;    /* BUI: inside a <mask> or <clipPath>: its shapes go to image->defs */
+	char defId[64];
+	NSVGshape* defsTail;
   /** Blender breadcrumb for layers. */
   char breadcrumb[NSVG_MAX_BREADCRUMB][64];
   /** Blender number of elements in breadcrumb. */
@@ -827,6 +850,15 @@ static NSVGgradientData* nsvg__findGradientData(NSVGparser* p, const char* id)
 	return NULL;
 }
 
+/* BUI: in objectBoundingBox units a number without a unit is a fraction of
+ * the box (x2="1" is its right edge), as a percentage is. */
+static float nsvg__gradCoord(NSVGparser* p, NSVGcoordinate c, int objectSpace, float orig, float length)
+{
+	if (objectSpace && c.units == NSVG_UNITS_USER)
+		return orig + c.value * length;
+	return nsvg__convertToPixels(p, c, orig, length);
+}
+
 static NSVGgradient* nsvg__createGradient(NSVGparser* p, const char* id, const float* localBounds, float *xform, signed char* paintType)
 {
 	NSVGgradientData* data = NULL;
@@ -877,10 +909,10 @@ static NSVGgradient* nsvg__createGradient(NSVGparser* p, const char* id, const f
 
 	if (data->type == NSVG_PAINT_LINEAR_GRADIENT) {
 		float x1, y1, x2, y2, dx, dy;
-		x1 = nsvg__convertToPixels(p, data->linear.x1, ox, sw);
-		y1 = nsvg__convertToPixels(p, data->linear.y1, oy, sh);
-		x2 = nsvg__convertToPixels(p, data->linear.x2, ox, sw);
-		y2 = nsvg__convertToPixels(p, data->linear.y2, oy, sh);
+		x1 = nsvg__gradCoord(p, data->linear.x1, data->units == NSVG_OBJECT_SPACE, ox, sw);
+		y1 = nsvg__gradCoord(p, data->linear.y1, data->units == NSVG_OBJECT_SPACE, oy, sh);
+		x2 = nsvg__gradCoord(p, data->linear.x2, data->units == NSVG_OBJECT_SPACE, ox, sw);
+		y2 = nsvg__gradCoord(p, data->linear.y2, data->units == NSVG_OBJECT_SPACE, oy, sh);
 		// Calculate transform aligned to the line
 		dx = x2 - x1;
 		dy = y2 - y1;
@@ -889,11 +921,11 @@ static NSVGgradient* nsvg__createGradient(NSVGparser* p, const char* id, const f
 		grad->xform[4] = x1; grad->xform[5] = y1;
 	} else {
 		float cx, cy, fx, fy, r;
-		cx = nsvg__convertToPixels(p, data->radial.cx, ox, sw);
-		cy = nsvg__convertToPixels(p, data->radial.cy, oy, sh);
-		fx = nsvg__convertToPixels(p, data->radial.fx, ox, sw);
-		fy = nsvg__convertToPixels(p, data->radial.fy, oy, sh);
-		r = nsvg__convertToPixels(p, data->radial.r, 0, sl);
+		cx = nsvg__gradCoord(p, data->radial.cx, data->units == NSVG_OBJECT_SPACE, ox, sw);
+		cy = nsvg__gradCoord(p, data->radial.cy, data->units == NSVG_OBJECT_SPACE, oy, sh);
+		fx = nsvg__gradCoord(p, data->radial.fx, data->units == NSVG_OBJECT_SPACE, ox, sw);
+		fy = nsvg__gradCoord(p, data->radial.fy, data->units == NSVG_OBJECT_SPACE, oy, sh);
+		r = nsvg__gradCoord(p, data->radial.r, data->units == NSVG_OBJECT_SPACE, 0, sl);
 		// Calculate transform aligned to the circle
 		grad->xform[0] = r; grad->xform[1] = 0;
 		grad->xform[2] = 0; grad->xform[3] = r;
@@ -1029,6 +1061,20 @@ static void nsvg__addShape(NSVGparser* p)
 
 	// Set flags
 	shape->flags = (attr->visible ? NSVG_FLAGS_VISIBLE : 0x00);
+
+	/* BUI: masks and clip paths */
+	memcpy(shape->masks, attr->masks, sizeof shape->masks);
+	memcpy(shape->clips, attr->clips, sizeof shape->clips);
+	if (p->defType) {
+		shape->defType = p->defType;
+		memcpy(shape->defId, p->defId, sizeof shape->defId);
+		if (p->image->defs == NULL)
+			p->image->defs = shape;
+		else
+			p->defsTail->next = shape;
+		p->defsTail = shape;
+		return;
+	}
 
 	// Add to tail
 	if (p->image->shapes == NULL)
@@ -1855,6 +1901,18 @@ static int nsvg__parseAttr(NSVGparser* p, const char* name, const char* value)
 		attr->miterLimit = nsvg__parseMiterLimit(value);
 	} else if (strcmp(name, "fill-rule") == 0) {
 		attr->fillRule = nsvg__parseFillRule(value);
+	} else if (strcmp(name, "clip-rule") == 0) {
+		/* BUI: the rule of a clip path's shapes, which draw only coverage */
+		attr->fillRule = nsvg__parseFillRule(value);
+	} else if (strcmp(name, "mask") == 0 || strcmp(name, "clip-path") == 0) {
+		/* BUI: appended to the masks / clip paths inherited from groups */
+		char (*list)[64] = name[0] == 'm' ? attr->masks : attr->clips;
+		if (strncmp(value, "url(", 4) == 0) {
+			int i;
+			for (i = 0; i < NSVG_MAX_MASKS && list[i][0]; i++) {}
+			if (i < NSVG_MAX_MASKS)
+				nsvg__parseUrl(list[i], value);
+		}
 	} else if (strcmp(name, "font-size") == 0) {
 		attr->fontSize = nsvg__parseCoordinate(p, value, 0.0f, nsvg__actualLength(p));
 	} else if (strcmp(name, "transform") == 0) {
@@ -2778,9 +2836,33 @@ static void nsvg__startElement(void* ud, const char* el, const char** attr)
 {
 	NSVGparser* p = (NSVGparser*)ud;
 
-	/* BUI: masks, clip paths and symbols are not supported; their contents
-	 * are not shapes to draw. */
-	if (strcmp(el, "mask") == 0 || strcmp(el, "clipPath") == 0 || strcmp(el, "symbol") == 0) {
+	/* BUI: the shapes of a <mask> or <clipPath> go to image->defs, drawn
+	 * only through the shapes that reference them; symbols (no <use>) and
+	 * masks nested in masks are not drawn. */
+	if (strcmp(el, "mask") == 0 || strcmp(el, "clipPath") == 0) {
+		int i;
+		if (p->defType || p->hiddenDepth > 0) {
+			p->hiddenDepth++;
+			return;
+		}
+		p->defType = el[0] == 'm' ? NSVG_DEF_MASK : NSVG_DEF_CLIP;
+		p->defId[0] = '\0';
+		for (i = 0; attr[i] && attr[i + 1]; i += 2) {
+			if (strcmp(attr[i], "id") == 0) {
+				strncpy(p->defId, attr[i + 1], 63);
+				p->defId[63] = '\0';
+			}
+		}
+		nsvg__pushAttr(p);
+		{
+			/* the content is drawn as it is, not through the masks of where it is defined */
+			NSVGattrib* a = nsvg__getAttr(p);
+			memset(a->masks, 0, sizeof a->masks);
+			memset(a->clips, 0, sizeof a->clips);
+		}
+		return;
+	}
+	if (strcmp(el, "symbol") == 0) {
 		p->hiddenDepth++;
 		return;
 	}
@@ -2788,7 +2870,7 @@ static void nsvg__startElement(void* ud, const char* el, const char** attr)
 		return;
 	}
 
-	if (p->defsFlag) {
+	if (p->defsFlag && !p->defType) {
 		// Skip everything but gradients in defs
 		if (strcmp(el, "linearGradient") == 0) {
 			nsvg__parseGradient(p, attr, NSVG_PAINT_LINEAR_GRADIENT);
@@ -2861,6 +2943,10 @@ static void nsvg__endElement(void* ud, const char* el)
 	if (strcmp(el, "mask") == 0 || strcmp(el, "clipPath") == 0 || strcmp(el, "symbol") == 0) {
 		if (p->hiddenDepth > 0) {
 			p->hiddenDepth--;
+		}
+		else if (el[0] != 's' && p->defType) {
+			p->defType = NSVG_DEF_NONE;
+			nsvg__popAttr(p);
 		}
 		return;
 	}
@@ -2986,7 +3072,9 @@ static void nsvg__scaleToViewbox(NSVGparser* p, const char* units)
 	sx *= us;
 	sy *= us;
 	avgs = (sx+sy) / 2.0f;
-	for (shape = p->image->shapes; shape != NULL; shape = shape->next) {
+	for (i = 0; i < 2; i++)
+	for (shape = i ? p->image->defs : p->image->shapes; shape != NULL; shape = shape->next) {
+		int i;
 		shape->bounds[0] = (shape->bounds[0] + tx) * sx;
 		shape->bounds[1] = (shape->bounds[1] + ty) * sy;
 		shape->bounds[2] = (shape->bounds[2] + tx) * sx;
@@ -3024,8 +3112,10 @@ static void nsvg__scaleToViewbox(NSVGparser* p, const char* units)
 static void nsvg__createGradients(NSVGparser* p)
 {
 	NSVGshape* shape;
+	int list;
 
-	for (shape = p->image->shapes; shape != NULL; shape = shape->next) {
+	for (list = 0; list < 2; list++)
+	for (shape = list ? p->image->defs : p->image->shapes; shape != NULL; shape = shape->next) {
 		if (shape->fill.type == NSVG_PAINT_UNDEF) {
 			if (shape->fillGradient[0] != '\0') {
 				float inv[6], localBounds[4];
@@ -3140,15 +3230,18 @@ error:
 void nsvgDelete(NSVGimage* image)
 {
 	NSVGshape *snext, *shape;
+	int list;
 	if (image == NULL) return;
-	shape = image->shapes;
-	while (shape != NULL) {
-		snext = shape->next;
-		nsvg__deletePaths(shape->paths);
-		nsvg__deletePaint(&shape->fill);
-		nsvg__deletePaint(&shape->stroke);
-		free(shape);
-		shape = snext;
+	for (list = 0; list < 2; list++) {
+		shape = list ? image->defs : image->shapes;
+		while (shape != NULL) {
+			snext = shape->next;
+			nsvg__deletePaths(shape->paths);
+			nsvg__deletePaint(&shape->fill);
+			nsvg__deletePaint(&shape->stroke);
+			free(shape);
+			shape = snext;
+		}
 	}
 	free(image);
 }

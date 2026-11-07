@@ -10,6 +10,7 @@
  * SPDX-License-Identifier: GPL-3.0-or-later */
 
 #include "awra-private.h"
+#include "a11y.h"
 
 #include <limits.h>
 
@@ -153,7 +154,49 @@ static void item_activate(AwraWidget *w)
   }
 }
 
+/* GtkListItemWidget: a list item, selected with the list's selection,
+ * activatable */
+static void item_a11y(AwraWidget *w, AwraA11yInfo *info)
+{
+  ItemExt *x = ITX(w);
+  if (!x->list || x->position == INVALID_POSITION) {
+    return;
+  }
+  if (x->selectable || LVX(x->list)->row_style == 1) {
+    awra_a11y_set_state(info, AWRA_ACCESSIBLE_STATE_SELECTED, LVX(x->list)->selected == x->position);
+  }
+  if (x->activatable) {
+    info->action = "activate";
+  }
+  if (x->focusable) {
+    info->flags |= AWRA_A11Y_FOCUSABLE;
+  }
+}
+
+static bool item_a11y_do(AwraWidget *w, int item, int verb, double value)
+{
+  ItemExt *x = ITX(w);
+  if (item >= 0 || !x->list || x->position == INVALID_POSITION || !awra_sensitive(w)) {
+    return false;
+  }
+  if (verb == AWRA_A11Y_DO_ACTIVATE && x->activatable) {
+    item_activate(w);
+    return true;
+  }
+  if (verb == AWRA_A11Y_DO_SELECT) {
+    awra_list_view_set_selected(x->list, x->position);
+    return true;
+  }
+  if (verb == AWRA_A11Y_DO_SCROLL_TO) {
+    awra_list_view_scroll_to(x->list, x->position, 0);
+    return true;
+  }
+  return false;
+}
+
 static AwraClass item_class = {
+    .a11y = item_a11y,
+    .a11y_do = item_a11y_do,
     .bk = AWRA_BK("AwraListItem", 0),
     .type = "AwraListItem",
     .flags = AWRA_CLASS_CONTAINER,
@@ -576,7 +619,13 @@ static void list_map(AwraWidget *w, bool mapped)
   awra_queue_allocate(w);
 }
 
+static void list_a11y(AwraWidget *w, AwraA11yInfo *info)
+{
+  info->selection = true;
+}
+
 static AwraClass list_class = {
+    .a11y = list_a11y,
     .bk = AWRA_BK("AwraListView", 0),
     .type = "AwraListView",
     .flags = AWRA_CLASS_CONTAINER,

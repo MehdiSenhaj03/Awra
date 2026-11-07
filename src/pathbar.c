@@ -10,6 +10,7 @@
  * SPDX-License-Identifier: GPL-3.0-or-later */
 
 #include "awra-private.h"
+#include "a11y.h"
 
 void awra_menu_popover_set_highlighted(AwraWidget *pop, int index);
 
@@ -294,7 +295,42 @@ static void path_finalize(AwraWidget *w)
   }
 }
 
+/* Awra 1's AwraBreadcrumbBar: a navigation landmark whose crumbs (drawn:
+ * virtual children) are buttons; editing, its entry speaks */
+static int path_a11y_items(AwraWidget *w)
+{
+  return PX(w)->editing ? 0 : PX(w)->n;
+}
+
+static void path_a11y_item(AwraWidget *w, int i, AwraA11yInfo *info, double rect[4])
+{
+  PathExt *x = PX(w);
+  if (i < 0 || i >= x->n) {
+    return;
+  }
+  info->role = AWRA_ACCESSIBLE_ROLE_BUTTON;
+  info->label = x->crumbs[i].label;
+  info->action = "click";
+  const double s = awra_scale();
+  rect[0] = (x->trail_x + x->crumbs[i].x - x->offset) / s;
+  rect[1] = w->y / s;
+  rect[2] = x->crumbs[i].w / s;
+  rect[3] = w->h / s;
+}
+
+static bool path_a11y_do(AwraWidget *w, int i, int verb, double value)
+{
+  if (i >= 0 && i < PX(w)->n && verb == AWRA_A11Y_DO_ACTIVATE && awra_sensitive(w)) {
+    awra_emit_index(w, AWRA_SIGNAL_ACTIVATE, i);
+    return true;
+  }
+  return false;
+}
+
 static AwraClass path_class = {
+    .a11y_items = path_a11y_items,
+    .a11y_item = path_a11y_item,
+    .a11y_do = path_a11y_do,
     .bk = AWRA_BK("AwraPathBar", CLS_INTERACTIVE),
     .type = "AwraPathBar",
     .flags = AWRA_CLASS_CONTAINER | AWRA_CLASS_HOVER | AWRA_CLASS_EXPAND_ISOLATED,

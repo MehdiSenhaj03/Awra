@@ -48,3 +48,10 @@
 #define BK_window_backend BK_WIN_CAT(BK_WIN_PREFIX, _window_backend)
 #define bk_window_wake_ready BK_WIN_CAT(BK_WIN_PREFIX, _window_wake_ready)
 #define bk_loop_wake_host BK_WIN_CAT(BK_WIN_PREFIX, _loop_wake_host)
+/* BUI-Awra: data transfer, window identity */
+#define BK_window_clipboard_set BK_WIN_CAT(BK_WIN_PREFIX, _window_clipboard_set)
+#define BK_window_clipboard_formats BK_WIN_CAT(BK_WIN_PREFIX, _window_clipboard_formats)
+#define BK_window_clipboard_read BK_WIN_CAT(BK_WIN_PREFIX, _window_clipboard_read)
+#define BK_window_drag_start BK_WIN_CAT(BK_WIN_PREFIX, _window_drag_start)
+#define BK_window_set_icon BK_WIN_CAT(BK_WIN_PREFIX, _window_set_icon)
+#define BK_window_activate BK_WIN_CAT(BK_WIN_PREFIX, _window_activate)

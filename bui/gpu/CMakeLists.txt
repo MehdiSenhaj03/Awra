@@ -65,7 +65,7 @@ if(BUI_TEXT_FREETYPE AND NOT BUI_TEXT_GDI)
 endif()
 if(WIN32)
   # gpu_raster.c: GDI glyph-run text engine + native window present.
-  target_link_libraries(bui_gpu PUBLIC gdi32 user32)
+  target_link_libraries(bui_gpu PUBLIC gdi32 user32 advapi32)
 elseif(NOT APPLE AND BUI_GPU)
   # GPU renderer: OpenGL 3.3 (GLX windows, EGL offscreen) in gpu_gl.c instead
   # of Direct3D 11. libGL / libEGL / libX11 are dlopen()ed at run time, never

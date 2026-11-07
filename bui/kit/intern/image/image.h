@@ -215,6 +215,8 @@ bool imb_is_a_tga(const uint8_t *mem, size_t size);
 bool imb_is_a_qoi(const uint8_t *mem, size_t size);
 bool imb_header_wuffs(const uint8_t *mem, size_t size, BKImageInfo *r_info);
 BKImBuf *imb_load_wuffs(const uint8_t *mem, size_t size, int want_w, int want_h);
+int imb_png_decode_bgra(const unsigned char *png, unsigned long len, int *r_w, int *r_h,
+                        unsigned char *dst, int pitch);
 
 bool imb_is_a_pnm(const uint8_t *mem, size_t size);
 bool imb_header_pnm(const uint8_t *mem, size_t size, BKImageInfo *r_info);

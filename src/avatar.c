@@ -10,6 +10,9 @@
  * SPDX-License-Identifier: GPL-3.0-or-later */
 
 #include "awra-private.h"
+#include "a11y.h"
+
+#include <stdio.h>
 
 #include "GPU_raster.h"
 
@@ -519,7 +522,28 @@ static void avatar_style_changed(AwraWidget *w)
   face_changed(w);
 }
 
+/* Awra 1's AwraAvatar: an image named by its person, described by their
+ * presence and speaking */
+static void avatar_a11y(AwraWidget *w, AwraA11yInfo *info)
+{
+  AvatarExt *x = AVX(w);
+  info->label = x->text && x->text[0] ? x->text : "Avatar";
+  static const char *const presence[] = {NULL, "Online", "Idle", "Do not disturb", "Offline"};
+  const char *p = x->presence > 0 && x->presence < 5 ? presence[x->presence] : NULL;
+  if (p && x->speaking) {
+    snprintf(info->buf, sizeof(info->buf), "%s, Speaking", p);
+    info->description = info->buf;
+  }
+  else if (p) {
+    info->description = p;
+  }
+  else if (x->speaking) {
+    info->description = "Speaking";
+  }
+}
+
 static AwraClass avatar_class = {
+    .a11y = avatar_a11y,
     .bk = AWRA_BK("AwraAvatar", 0),
     .type = "AwraAvatar",
     .flags = AWRA_CLASS_EXPAND_ISOLATED,
