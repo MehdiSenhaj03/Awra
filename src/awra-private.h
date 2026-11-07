@@ -386,6 +386,8 @@ typedef struct AwraResolvedMaterial {
 void awra_material_resolve(AwraMaterial material, int role, AwraElevation elevation,
                            bool blur_available, AwraResolvedMaterial *r);
 /* Paints a resolved material in box b (corner mask: TL 1 TR 2 BR 4 BL 8). */
+void awra_paint_material_edges(AwraDraw *d, AwraBox b, const AwraResolvedMaterial *m, float radius,
+                               int corner_mask, int edge_mask);
 void awra_paint_material(AwraDraw *d, AwraBox b, const AwraResolvedMaterial *m, float radius,
                          int corner_mask, int edge_mask, AwraElevation elevation);
 enum { AWRA_ROLE_GENERIC = 0, AWRA_ROLE_WINDOW, AWRA_ROLE_SIDEBAR, AWRA_ROLE_CONTENT,

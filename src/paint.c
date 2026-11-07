@@ -271,8 +271,21 @@ void awra_paint_material(AwraDraw *d, AwraBox b, const AwraResolvedMaterial *m, 
   if (m->grain_opacity > 0.0f) {
     paint_grain(d, b, radii, m->grain_opacity);
   }
-  /* outline, then the rim highlight on its edges (start and end: right and
-   * left in a right-to-left widget, as AwraSurface draws them) */
+  awra_paint_material_edges(d, b, m, radius, corner_mask, edge_mask);
+}
+
+/* A material's outline, then the rim highlight on its edges (start and
+ * end: right and left in a right-to-left widget), as AwraSurface draws them
+ * after its child. */
+void awra_paint_material_edges(AwraDraw *d, AwraBox b, const AwraResolvedMaterial *m, float radius,
+                               int corner_mask, int edge_mask)
+{
+  if (b.w <= 0 || b.h <= 0) {
+    return;
+  }
+  const float r = radius;
+  const float radii[4] = {(corner_mask & 1) ? r : 0, (corner_mask & 2) ? r : 0,
+                          (corner_mask & 4) ? r : 0, (corner_mask & 8) ? r : 0};
   const int be = m->border_edges & edge_mask, he = m->highlight_edges & edge_mask;
   const int right = d->rtl ? AWRA_EDGE_START : AWRA_EDGE_END;
   const int left = d->rtl ? AWRA_EDGE_END : AWRA_EDGE_START;

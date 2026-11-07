@@ -103,8 +103,7 @@ static void pill_draw(AwraWidget *w, AwraDraw *d)
     }
     awra_paint_rbox(d, b, r, &fill, 0, NULL);
     const AwraRGBA rim = {1, 1, 1, 0.20f};
-    awra_paint_rbox(d, (AwraBox){b.x, b.y, b.w, b.h}, r, NULL, 0, NULL);
-    awra_paint_line(d, b.x + r, b.y + s * 0.5f, b.x + b.w - r, b.y + s * 0.5f, s, &rim);
+    awra_paint_inset_shadow(d, b, r, 0, s, 0, 0, &rim); /* inset 0 1px, as GSK draws it */
     return;
   }
   const AwraRGBA sh = {0, 0, 0, 0.30f};
@@ -120,8 +119,7 @@ static void pill_draw(AwraWidget *w, AwraDraw *d)
   awra_paint_rbox(d, b, r, &cap, 0, NULL);
   /* 0 0 0 1px outline, outside */
   awra_paint_rbox(d, (AwraBox){b.x - s, b.y - s, b.w + 2 * s, b.h + 2 * s}, r + s, NULL, s, &t->outline);
-  AwraRGBA rim = t->rim;
-  awra_paint_line(d, b.x + r, b.y + s * 0.5f, b.x + b.w - r, b.y + s * 0.5f, s, &rim);
+  awra_paint_inset_shadow(d, b, r, 0, s, 0, 0, &t->rim); /* inset 0 1px @awra_rim */
 }
 
 static bool pill_child_style(AwraWidget *w, AwraRGBA *c, int *weight)

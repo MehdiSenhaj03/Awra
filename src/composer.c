@@ -204,8 +204,11 @@ static void composer_draw(AwraWidget *w, AwraDraw *d)
     awra_paint_rbox(d, b, r, &t->control_cap, s, &t->focus_ring);
     return;
   }
-  awra_paint_rbox(d, b, r, &t->control_cap, s, &t->border);
-  awra_paint_line(d, b.x + r, b.y + s * 0.5f, b.x + b.w - r, b.y + s * 0.5f, s, &t->rim);
+  /* box-shadow: inset 0 0 0 1px @awra_border, inset 0 1px @awra_rim, the
+   * rim drawn over the border as GSK draws inset shadows in turn */
+  awra_paint_rbox(d, b, r, &t->control_cap, 0, NULL);
+  awra_paint_inset_shadow(d, b, r, 0, 0, s, 0, &t->border);
+  awra_paint_inset_shadow(d, b, r, 0, s, 0, 0, &t->rim);
 }
 
 static void composer_draw_over(AwraWidget *w, AwraDraw *d)

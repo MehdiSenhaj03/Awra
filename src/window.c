@@ -294,17 +294,33 @@ static void window_allocate(AwraWidget *w)
   }
 }
 
-static void window_draw(AwraWidget *w, AwraDraw *d)
+static void window_material(AwraWidget *w, AwraResolvedMaterial *m)
 {
-  AwraResolvedMaterial m;
   /* Awra 1's AwraDialog gives its root surface the Floating material at the
    * modal elevation; other windows' are the canvas */
   const bool floating = WEXT(w)->floating;
   awra_material_resolve(floating ? AWRA_MATERIAL_FLOATING : AWRA_MATERIAL_CANVAS, AWRA_ROLE_WINDOW,
-                        floating ? AWRA_ELEVATION_MODAL : AWRA_ELEVATION_FLAT, blur_active(w), &m);
+                        floating ? AWRA_ELEVATION_MODAL : AWRA_ELEVATION_FLAT, blur_active(w), m);
+}
+
+static void window_draw(AwraWidget *w, AwraDraw *d)
+{
+  AwraResolvedMaterial m;
+  window_material(w, &m);
   const bool sq = squared(w);
-  awra_paint_material(d, awra_box_of(w), &m, sq ? 0.0f : awra_pxf(m.radius), 15,
-                      sq ? 0 : AWRA_EDGE_ALL, AWRA_ELEVATION_FLAT);
+  awra_paint_material(d, awra_box_of(w), &m, sq ? 0.0f : awra_pxf(m.radius), 15, 0, AWRA_ELEVATION_FLAT);
+}
+
+/* the root surface's outline and rim, over the content (AwraSurface's
+ * border nodes come after its child) */
+static void window_draw_over(AwraWidget *w, AwraDraw *d)
+{
+  if (squared(w)) {
+    return;
+  }
+  AwraResolvedMaterial m;
+  window_material(w, &m);
+  awra_paint_material_edges(d, awra_box_of(w), &m, awra_pxf(m.radius), 15, AWRA_EDGE_ALL);
 }
 
 /* Client-side resize: the 6 px band inside the window's edge (corners 16). */
@@ -394,6 +410,7 @@ static AwraClass window_class = {
     .measure = window_measure,
     .allocate = window_allocate,
     .draw = window_draw,
+    .draw_over = window_draw_over,
     .press = window_press,
     .cursor = window_cursor,
     .key = window_key,
