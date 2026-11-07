@@ -354,14 +354,25 @@ void awra_paint_material(AwraDraw *d, AwraBox b, const AwraResolvedMaterial *m, 
     const char *e = getenv("AWRA_SHADOWS");
     shadows = e && e[0] == '1';
   }
-  if (shadows && elevation > AWRA_ELEVATION_FLAT && m->shadow.a > 0.0f) {
+  /* the shadow, outside the rounded box: within the widget's own box (GTK
+   * clips a widget's snapshot to it) it shows only past the rounded
+   * corners; AWRA_SHADOWS=1 draws all of it */
+  if (elevation > AWRA_ELEVATION_FLAT && m->shadow.a > 0.0f &&
+      (shadows || radii[0] > 0 || radii[1] > 0 || radii[2] > 0 || radii[3] > 0))
+  {
     const float off = elevation == AWRA_ELEVATION_RAISED ? 1.5f :
                       elevation == AWRA_ELEVATION_FLOATING ? 7.0f : 12.0f;
     const float blur = elevation == AWRA_ELEVATION_RAISED ? 8.0f :
                        elevation == AWRA_ELEVATION_FLOATING ? 20.0f : 32.0f;
     float c[4] = {m->shadow.r, m->shadow.g, m->shadow.b, m->shadow.a * d->opacity};
+    if (!shadows) {
+      bk_clip_push((int)floorf(b.x), (int)floorf(b.y), (int)ceilf(b.w), (int)ceilf(b.h));
+    }
     BUI_raster_box_shadow(d->r, b.x, b.y, b.w, b.h, radii, 0, awra_pxf(off), 0, awra_pxf(blur),
                           c, 1);
+    if (!shadows) {
+      bk_clip_pop();
+    }
   }
   /* fill */
   awra_paint_rbox4(d, b, radii, &m->fill, NULL, NULL);

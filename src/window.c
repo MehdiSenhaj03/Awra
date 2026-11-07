@@ -314,7 +314,10 @@ static void window_draw(AwraWidget *w, AwraDraw *d)
   AwraResolvedMaterial m;
   window_material(w, &m);
   const bool sq = squared(w);
-  awra_paint_material(d, awra_box_of(w), &m, sq ? 0.0f : awra_pxf(m.radius), 15, 0, AWRA_ELEVATION_FLAT);
+  /* a dialog's surface is at the modal elevation: its shadow shows past
+   * its rounded corners */
+  awra_paint_material(d, awra_box_of(w), &m, sq ? 0.0f : awra_pxf(m.radius), 15, 0,
+                      WEXT(w)->floating ? AWRA_ELEVATION_MODAL : AWRA_ELEVATION_FLAT);
   WinExt *x = WEXT(w);
   x->corners_saved = false;
   if (!sq) {

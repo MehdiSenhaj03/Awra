@@ -111,8 +111,10 @@ static void pop_draw(AwraWidget *w, AwraDraw *d)
   float radius;
   AwraElevation elevation;
   pop_material(w, &m, &radius, &elevation);
-  /* the outline and rim: once, above the content (pop_draw_over) */
-  awra_paint_material(d, awra_box_of(w), &m, radius, 15, 0, elevation);
+  /* the outline and rim: once, above the content (pop_draw_over); no
+   * shadow: GtkPopover clips its contents to their rounded box */
+  (void)elevation;
+  awra_paint_material(d, awra_box_of(w), &m, radius, 15, 0, AWRA_ELEVATION_FLAT);
 }
 
 static void pop_draw_over(AwraWidget *w, AwraDraw *d)
