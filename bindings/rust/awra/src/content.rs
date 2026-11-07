@@ -301,9 +301,9 @@ impl MetadataGroup {
         let t = OptC::new(title);
         unsafe { ffi::awra_metadata_group_set_title(ptr!(self), t.ptr()) }
     }
-    pub fn append(&self, label: &str, value: &str) -> Widget {
+    pub fn append(&self, label: &str, value: &str) -> crate::MetricRow {
         let (l, v) = (cstring(label), cstring(value));
-        unsafe { Widget::from_none(ffi::awra_metadata_group_append(ptr!(self), l.as_ptr(), v.as_ptr())) }
+        crate::MetricRow::from_row(unsafe { Widget::from_none(ffi::awra_metadata_group_append(ptr!(self), l.as_ptr(), v.as_ptr())) })
     }
 }
 impl Default for MetadataGroup {

@@ -33,6 +33,8 @@ mod files;
 pub use files::{DragPreview, TransitionBin};
 mod dnd;
 mod transfer;
+mod metric;
+pub use metric::MetricRow;
 pub mod gdk;
 pub mod gio;
 pub mod glib;

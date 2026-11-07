@@ -1195,6 +1195,9 @@ extern "C" {
     pub fn awra_metadata_group_set_title(group: *mut AwraWidget, title: *const c_char);
     pub fn awra_metadata_group_append(group: *mut AwraWidget, label: *const c_char, value: *const c_char) -> *mut AwraWidget;
     pub fn awra_metric_row_new(label: *const c_char, value: *const c_char) -> *mut AwraWidget;
+    pub fn awra_metric_row_set_label(row: *mut AwraWidget, label: *const c_char);
+    pub fn awra_metric_row_set_value(row: *mut AwraWidget, value: *const c_char);
+    pub fn awra_metric_row_set_icon_name(row: *mut AwraWidget, icon_name: *const c_char);
     pub fn awra_error_state_new(title: *const c_char, description: *const c_char) -> *mut AwraWidget;
     pub fn awra_rail_new() -> *mut AwraWidget;
     pub fn awra_rail_append(rail: *mut AwraWidget, entry: *mut AwraWidget);

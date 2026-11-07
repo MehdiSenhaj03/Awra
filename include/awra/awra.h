@@ -1669,6 +1669,11 @@ void awra_metadata_group_set_title(AwraWidget *group, const char *title);
 /* Appends a row of a label and a value; returns it (borrowed). */
 AwraWidget *awra_metadata_group_append(AwraWidget *group, const char *label, const char *value);
 AwraWidget *awra_metric_row_new(const char *label, const char *value);
+/* A metric row's label, value (also its tooltip, as Awra 1) and icon
+ * (NULL or "" hides it). */
+void awra_metric_row_set_label(AwraWidget *row, const char *label);
+void awra_metric_row_set_value(AwraWidget *row, const char *value);
+void awra_metric_row_set_icon_name(AwraWidget *row, const char *icon_name);
 
 /* An error state: the empty state's layout with the error icon. */
 AwraWidget *awra_error_state_new(const char *title, const char *description);

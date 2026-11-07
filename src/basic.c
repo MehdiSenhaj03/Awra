@@ -818,6 +818,7 @@ typedef struct ImageExt {
   AwraRGBA color;
   AwraTexture *tex; /* shared pixels (textures) */
   bool no_shrink;
+  bool shown; /* drawn once (a style change then transitions) */
 } ImageExt;
 
 #define IX(w) AWRA_EXT(w, ImageExt)
@@ -937,17 +938,17 @@ static void image_draw(AwraWidget *w, AwraDraw *d)
       c.a *= 0.5f;
     }
     const float ix = w->x + floorf((w->w - s) * 0.5f), iy = w->y + floorf((w->h - s) * 0.5f);
-    if (awra_widget_has_class(w, "glow")) {
-      /* "glow": the icon lit by a soft halo of the accent (an item worth pointing at) */
-      static const float rings[3][2] = {{0.42f, 0.07f}, {0.30f, 0.10f}, {0.18f, 0.14f}};
-      for (int i = 0; i < 3; i++) {
-        AwraRGBA halo = awra_tokens()->accent;
-        halo.a = rings[i][1];
-        const float grow = s * rings[i][0];
-        AwraBox hb = {ix - grow, iy - grow, s + 2 * grow, s + 2 * grow};
-        awra_paint_rbox(d, hb, hb.w * 0.5f, &halo, 0, NULL);
+    if (awra_icon_glow_wanted(w)) {
+      const AwraIconMask *m = awra_icon_mask(x->icon, s);
+      const BuiPixmap *pm = m ? NULL : awra_icon_pixmap(x->icon, s);
+      if (m) {
+        awra_icon_glow_draw(w, d, m->a, NULL, m->w, m->h, ix, iy, !x->shown);
+      }
+      else if (pm && pm->format == BUI_PIXMAP_ARGB) {
+        awra_icon_glow_draw(w, d, NULL, pm->px, pm->w, pm->h, ix, iy, !x->shown);
       }
     }
+    x->shown = true;
     if (awra_icon_mask(x->icon, s)) {
       awra_paint_icon(d, x->icon, ix, iy, s, &c);
     }
