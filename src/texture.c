@@ -315,8 +315,17 @@ bool awra_texture_download(const AwraTexture *t, uint8_t *rgba, int stride)
 
 /* Draws a texture into box (x, y, w, h), raster pixels, with rounded
  * corners, fitted (0 fill, 1 contain, 2 cover, 3 scale-down) and clipped to
- * the box. */
+ * the box, filtered as GSK draws a texture node (mipmapped under half its
+ * size). */
 void awra_paint_texture(AwraDraw *d, const AwraTexture *t, AwraBox b, float radius, int fit)
+{
+  awra_paint_texture_filtered(d, t, b, radius, fit, BUI_IMAGE_MIPMAP_AUTO);
+}
+
+/* awra_paint_texture with BUI_IMAGE_* filter flags (BUI_IMAGE_TRILINEAR:
+ * gtk_snapshot_append_scaled_texture's GSK_SCALING_FILTER_TRILINEAR). */
+void awra_paint_texture_filtered(AwraDraw *d, const AwraTexture *t, AwraBox b, float radius, int fit,
+                                 int filter)
 {
   if (!t || b.w <= 0 || b.h <= 0) {
     return;
@@ -358,9 +367,9 @@ void awra_paint_texture(AwraDraw *d, const AwraTexture *t, AwraBox b, float radi
   BuiPixmap pm = awra_texture_pixmap(t);
   if (radius > 0.0f) {
     const float radii[4] = {radius, radius, radius, radius};
-    BUI_raster_image_rounded(d->r, bx, by, bw, bh, &pm, src, d->opacity, radii);
+    BUI_raster_image_rounded_ex(d->r, bx, by, bw, bh, &pm, src, d->opacity, radii, filter);
   }
   else {
-    BUI_raster_image(d->r, bx, by, bw, bh, &pm, src, d->opacity, 0);
+    BUI_raster_image(d->r, bx, by, bw, bh, &pm, src, d->opacity, filter);
   }
 }

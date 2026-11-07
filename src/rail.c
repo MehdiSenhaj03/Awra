@@ -639,7 +639,8 @@ static void face_draw(AwraWidget *item, AwraDraw *d)
           /* a small copy of the item's avatar: its texture or plate */
           AwraTexture *tex = awra_avatar_texture(child);
           if (tex) {
-            awra_paint_texture(d, tex, (AwraBox){mx, my, mini * s, mini * s}, mini * s / 2, 2);
+            awra_paint_texture_filtered(d, tex, (AwraBox){mx, my, mini * s, mini * s}, mini * s / 2, 2,
+                                        BUI_IMAGE_TRILINEAR); /* the minis are avatars */
             continue;
           }
         }

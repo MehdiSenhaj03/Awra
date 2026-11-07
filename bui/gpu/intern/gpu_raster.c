@@ -1547,6 +1547,307 @@ static void raster_nv12(BuiRaster *r, float x, float y, float w, float h, const 
   }
 }
 
+/* BUI-Awra: mipmap levels, as OpenGL makes them for GSK's trilinear
+ * filter (glGenerateMipmap: each level half the one above, rounded down,
+ * at least 1, a bilinear blit of it: the 2x2 average where the size is
+ * even). Kept per image for the images drawn most recently, only from the
+ * finest level a draw needed. Main thread. */
+#define MIP_LEVELS 16
+#define MIP_BUDGET (6u << 20) /* bytes of levels kept */
+typedef struct MipChain {
+  uint64_t key;
+  const uint32_t *px; /* the image the levels were made of */
+  int w, h, format;
+  int first;                   /* the finest level kept */
+  int n;                       /* levels 0 .. n-1 exist (0: the image) */
+  uint32_t *lv[MIP_LEVELS];    /* premultiplied ARGB, NULL below `first` */
+  int lw[MIP_LEVELS], lh[MIP_LEVELS];
+  size_t bytes;
+  unsigned used;
+} MipChain;
+static MipChain g_mips[32];
+static unsigned g_mip_clock;
+static size_t g_mip_bytes;
+static unsigned g_mip_forget_seen;
+
+static void mip_drop(MipChain *m)
+{
+  for (int i = 0; i < MIP_LEVELS; i++) {
+    free(m->lv[i]);
+  }
+  g_mip_bytes -= m->bytes;
+  memset(m, 0, sizeof(*m));
+}
+
+/* One level from the one above it: a bilinear blit to half its size. */
+static void mip_halve(const uint32_t *src, int sw, int sh, uint32_t *dst, int dw, int dh)
+{
+  const float kx = (float)sw / dw, ky = (float)sh / dh;
+  for (int y = 0; y < dh; y++) {
+    const float v = ((float)y + 0.5f) * ky - 0.5f;
+    const int ty = (int)floorf(v);
+    const uint32_t fy = (uint32_t)((v - (float)ty) * 256.0f + 0.5f);
+    const uint32_t *ra = src + (size_t)clampi(ty, 0, sh - 1) * sw;
+    const uint32_t *rb = src + (size_t)clampi(ty + 1, 0, sh - 1) * sw;
+    for (int x = 0; x < dw; x++) {
+      const float u = ((float)x + 0.5f) * kx - 0.5f;
+      const int tx = (int)floorf(u);
+      const uint32_t fx = (uint32_t)((u - (float)tx) * 256.0f + 0.5f);
+      const int xa = clampi(tx, 0, sw - 1), xb = clampi(tx + 1, 0, sw - 1);
+      if (fx == 128 && fy == 128) {
+        /* the 2x2 average, rounded */
+        const uint32_t c[4] = {ra[xa], ra[xb], rb[xa], rb[xb]};
+        uint32_t o = 0;
+        for (int sh8 = 0; sh8 < 32; sh8 += 8) {
+          const uint32_t t = ((c[0] >> sh8) & 255) + ((c[1] >> sh8) & 255) +
+                             ((c[2] >> sh8) & 255) + ((c[3] >> sh8) & 255);
+          o |= ((t + 2) >> 2) << sh8;
+        }
+        dst[(size_t)y * dw + x] = o;
+      }
+      else {
+        dst[(size_t)y * dw + x] = bilerp(ra[xa], ra[xb], rb[xa], rb[xb], fx > 255 ? 255 : fx,
+                                         fy > 255 ? 255 : fy);
+      }
+    }
+  }
+}
+
+/* The image's levels from `first` on (level 0 is the image itself). */
+static MipChain *mip_chain(const BuiPixmap *img, int first)
+{
+  /* images gone for good take their levels with them */
+  uint64_t gone[64];
+  const int n_gone = bui_image_forgotten(&g_mip_forget_seen, gone, 64);
+  for (int i = 0; i < (int)(sizeof(g_mips) / sizeof(g_mips[0])); i++) {
+    MipChain *m = &g_mips[i];
+    if (!m->n) {
+      continue;
+    }
+    int drop = n_gone < 0;
+    for (int k = 0; k < n_gone && !drop; k++) {
+      drop = gone[k] == m->key;
+    }
+    if (drop) {
+      mip_drop(m);
+    }
+  }
+  const uint64_t key = pixmap_key(img);
+  MipChain *m = NULL, *lru = &g_mips[0];
+  for (int i = 0; i < (int)(sizeof(g_mips) / sizeof(g_mips[0])); i++) {
+    MipChain *c = &g_mips[i];
+    if (c->n && c->key == key && c->px == img->px && c->w == img->w && c->h == img->h &&
+        c->format == img->format)
+    {
+      m = c;
+      break;
+    }
+    if (!c->n || (lru->n && c->used < lru->used)) {
+      lru = c;
+    }
+  }
+  if (m && m->first <= first) {
+    m->used = ++g_mip_clock;
+    return m;
+  }
+  if (!m) {
+    m = lru;
+    if (m->n) {
+      mip_drop(m);
+    }
+    m->key = key;
+    m->px = img->px;
+    m->w = img->w;
+    m->h = img->h;
+    m->format = img->format;
+  }
+  else {
+    /* finer levels than kept: made again from the image */
+    for (int i = 0; i < MIP_LEVELS; i++) {
+      free(m->lv[i]);
+      m->lv[i] = NULL;
+    }
+    g_mip_bytes -= m->bytes;
+    m->bytes = 0;
+  }
+  /* level 0 as premultiplied ARGB, then halved down to 1x1, keeping the
+   * levels from `first` */
+  int w = img->w, h = img->h, n = 1;
+  m->lw[0] = w;
+  m->lh[0] = h;
+  uint32_t *prev = NULL;
+  if (img->format == BUI_PIXMAP_RGBA) {
+    prev = (uint32_t *)malloc(sizeof(uint32_t) * (size_t)w * h);
+    if (!prev) {
+      return NULL;
+    }
+    for (size_t i = 0, k = (size_t)w * h; i < k; i++) {
+      prev[i] = rgba_texel(img->px + i);
+    }
+  }
+  const uint32_t *above = prev ? prev : img->px;
+  while ((w > 1 || h > 1) && n < MIP_LEVELS) {
+    const int nw = w > 1 ? w / 2 : 1, nh = h > 1 ? h / 2 : 1;
+    uint32_t *lv = (uint32_t *)malloc(sizeof(uint32_t) * (size_t)nw * nh);
+    if (!lv) {
+      break;
+    }
+    mip_halve(above, w, h, lv, nw, nh);
+    if (prev && (n - 1 < first || n - 1 == 0)) {
+      free(prev); /* a level above the finest one kept */
+    }
+    else if (prev) {
+      m->lv[n - 1] = prev;
+      m->bytes += sizeof(uint32_t) * (size_t)w * h;
+    }
+    prev = lv;
+    above = lv;
+    m->lw[n] = w = nw;
+    m->lh[n] = h = nh;
+    n++;
+  }
+  if (prev && n - 1 > 0) {
+    m->lv[n - 1] = prev;
+    m->bytes += sizeof(uint32_t) * (size_t)w * h;
+  }
+  else {
+    free(prev);
+  }
+  m->n = n;
+  m->first = first;
+  m->used = ++g_mip_clock;
+  g_mip_bytes += m->bytes;
+  /* over budget: the least recently drawn images' levels go */
+  while (g_mip_bytes > MIP_BUDGET) {
+    MipChain *old = NULL;
+    for (int i = 0; i < (int)(sizeof(g_mips) / sizeof(g_mips[0])); i++) {
+      MipChain *c = &g_mips[i];
+      if (c->n && c != m && (!old || c->used < old->used)) {
+        old = c;
+      }
+    }
+    if (!old) {
+      break;
+    }
+    mip_drop(old);
+  }
+  return m;
+}
+
+/* A bilinear tap of a level `w` texels wide (`p`, or the image itself when
+ * NULL), at texel coordinates of that level (centres at .5), clamped to
+ * the level's part `lim` of the source rectangle. */
+static inline uint32_t mip_tap(const BuiPixmap *img, const uint32_t *p, int w, float u, float v,
+                               const int lim[4])
+{
+  u -= 0.5f;
+  v -= 0.5f;
+  const int tx = (int)floorf(u), ty = (int)floorf(v);
+  const uint32_t fx = (uint32_t)((u - (float)tx) * 256.0f), fy = (uint32_t)((v - (float)ty) * 256.0f);
+  const int xa = clampi(tx, lim[0], lim[2]), xb = clampi(tx + 1, lim[0], lim[2]);
+  const size_t ra = (size_t)clampi(ty, lim[1], lim[3]) * w, rb = (size_t)clampi(ty + 1, lim[1], lim[3]) * w;
+  if (!p) {
+    return bilerp(pixmap_texel(img, ra + xa), pixmap_texel(img, ra + xb), pixmap_texel(img, rb + xa),
+                  pixmap_texel(img, rb + xb), fx, fy);
+  }
+  return bilerp(p[ra + xa], p[ra + xb], p[rb + xa], p[rb + xb], fx, fy);
+}
+
+/* BUI-Awra: how an image is sampled where it is drawn (x, y, w, h) from
+ * its part (sx, sy, sw, sh): bilinear, nearest, or trilinear between two
+ * mipmap levels with a weight, as OpenGL's LINEAR_MIPMAP_LINEAR (the
+ * level of detail log2 of the texels a pixel spans, the larger way). */
+typedef struct ImgSampler {
+  const BuiPixmap *img;
+  float x, y, sx, sy, kx, ky;
+  int nearest;
+  const MipChain *mip; /* NULL: level 0 alone */
+  int l0, l1;
+  uint32_t mix; /* 0..256: weight of l1 */
+  int lim[2][4];
+} ImgSampler;
+
+static void sampler_init(ImgSampler *s, const BuiPixmap *img, float x, float y, float w, float h,
+                         float sx, float sy, float sw, float sh, int flags)
+{
+  memset(s, 0, sizeof(*s));
+  s->img = img;
+  s->x = x;
+  s->y = y;
+  s->sx = sx;
+  s->sy = sy;
+  s->kx = sw / w;
+  s->ky = sh / h;
+  s->nearest = (flags & BUI_IMAGE_NEAREST) != 0;
+  const float rho = fmaxf(s->kx, s->ky);
+  const int rgb = img->format == BUI_PIXMAP_ARGB || img->format == BUI_PIXMAP_RGBA;
+  const int trilinear = !s->nearest && rgb && !img->stream &&
+                         ((flags & BUI_IMAGE_TRILINEAR) ||
+                          ((flags & BUI_IMAGE_MIPMAP_AUTO) && (s->kx > 2.0f || s->ky > 2.0f)));
+  for (int k = 0; k < 2; k++) {
+    s->lim[k][0] = (int)sx;
+    s->lim[k][1] = (int)sy;
+    s->lim[k][2] = (int)fmaxf(sx, ceilf(sx + sw) - 1.0f);
+    s->lim[k][3] = (int)fmaxf(sy, ceilf(sy + sh) - 1.0f);
+  }
+  if (!trilinear || rho <= 1.0f) {
+    return;
+  }
+  const float lod = log2f(rho);
+  int l0 = (int)floorf(lod);
+  uint32_t mix = (uint32_t)((lod - (float)l0) * 256.0f + 0.5f);
+  if (mix >= 256) {
+    l0++;
+    mix = 0;
+  }
+  const MipChain *m = mip_chain(img, l0);
+  if (!m) {
+    return;
+  }
+  if (l0 >= m->n - 1) {
+    l0 = m->n - 1;
+    mix = 0;
+  }
+  s->mip = m;
+  s->l0 = l0;
+  s->l1 = mix ? l0 + 1 : l0;
+  s->mix = mix;
+  for (int k = 0; k < 2; k++) {
+    const int l = k ? s->l1 : s->l0;
+    const float fx = (float)m->lw[l] / img->w, fy = (float)m->lh[l] / img->h;
+    s->lim[k][0] = clampi((int)floorf(sx * fx), 0, m->lw[l] - 1);
+    s->lim[k][1] = clampi((int)floorf(sy * fy), 0, m->lh[l] - 1);
+    s->lim[k][2] = clampi((int)ceilf((sx + sw) * fx) - 1, s->lim[k][0], m->lw[l] - 1);
+    s->lim[k][3] = clampi((int)ceilf((sy + sh) * fy) - 1, s->lim[k][1], m->lh[l] - 1);
+  }
+}
+
+/* The premultiplied colour at the centre (fx, fy) of a raster pixel. */
+static inline uint32_t sampler_at(const ImgSampler *s, float fx, float fy)
+{
+  const BuiPixmap *img = s->img;
+  /* level-0 texel coordinates */
+  const float u = s->sx + (fx - s->x) * s->kx, v = s->sy + (fy - s->y) * s->ky;
+  if (!s->mip) {
+    if (s->nearest) {
+      const int tx = clampi((int)floorf(u), s->lim[0][0], s->lim[0][2]);
+      const int ty = clampi((int)floorf(v), s->lim[0][1], s->lim[0][3]);
+      return pixmap_texel(img, (size_t)ty * img->w + tx);
+    }
+    return mip_tap(img, NULL, img->w, u, v, s->lim[0]);
+  }
+  const MipChain *m = s->mip;
+  const float nu = u / img->w, nv = v / img->h;
+  const uint32_t a = mip_tap(img, m->lv[s->l0], m->lw[s->l0], nu * m->lw[s->l0], nv * m->lh[s->l0],
+                             s->lim[0]);
+  if (!s->mix) {
+    return a;
+  }
+  const uint32_t b = mip_tap(img, m->lv[s->l1], m->lw[s->l1], nu * m->lw[s->l1], nv * m->lh[s->l1],
+                             s->lim[1]);
+  return bilerp(a, b, a, b, s->mix > 255 ? 255 : s->mix, 0);
+}
+
 void BUI_raster_image(BuiRaster *r,
                       float x,
                       float y,
@@ -1624,6 +1925,19 @@ void BUI_raster_image(BuiRaster *r,
       }
     }
     return;
+  }
+  if (flags & (BUI_IMAGE_TRILINEAR | BUI_IMAGE_MIPMAP_AUTO)) {
+    ImgSampler smp;
+    sampler_init(&smp, img, x, y, w, h, sx, sy, sw, sh, flags);
+    if (smp.mip) {
+      for (int py = y0; py < y1; py++) {
+        uint32_t *row = RASTER_ROW(r, py);
+        for (int px = x0; px < x1; px++) {
+          put_image_px(row + px, sampler_at(&smp, (float)px + 0.5f, (float)py + 0.5f), ga);
+        }
+      }
+      return;
+    }
   }
   const int nearest = (flags & BUI_IMAGE_NEAREST) != 0;
   const int rgba = img->format == BUI_PIXMAP_RGBA;

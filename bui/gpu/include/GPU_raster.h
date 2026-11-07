@@ -182,6 +182,15 @@ static inline int BUI_pixmap_yuv(int format)
 }
 enum {
   BUI_IMAGE_NEAREST = 1 << 0, /* nearest texel (CSS image-rendering: pixelated); else bilinear */
+  /* BUI-Awra: GSK's filters. TRILINEAR samples the two mipmap levels around
+   * the scale and mixes them (GSK_SCALING_FILTER_TRILINEAR, as OpenGL's
+   * LINEAR_MIPMAP_LINEAR: each level the one above halved by a bilinear
+   * blit); MIPMAP_AUTO does so only where the image is drawn under half its
+   * size, as GSK draws a texture node; without either, bilinear. RGB
+   * pixmaps on the software raster; mipmap levels are kept for the images
+   * drawn most recently (BUI_image_forget drops them). */
+  BUI_IMAGE_TRILINEAR = 1 << 1,
+  BUI_IMAGE_MIPMAP_AUTO = 1 << 2,
 };
 /* Rows y0 .. y0 + rows of `img` as premultiplied 0xAARRGGBB (`dst`: w per
  * row): a copy, or NV12 converted the way drawing converts it. */
@@ -530,6 +539,17 @@ void BUI_raster_box_shadow(BuiRaster *r,
                            const float rgba[4],
                            int clip_out);
 /* BUI_raster_image clipped to a rounded box (x, y, w, h). */
+/* BUI-Awra: BUI_raster_image_rounded with BUI_IMAGE_* flags. */
+void BUI_raster_image_rounded_ex(BuiRaster *r,
+                                 float x,
+                                 float y,
+                                 float w,
+                                 float h,
+                                 const BuiPixmap *img,
+                                 const float src[4],
+                                 float alpha,
+                                 const float radii[4],
+                                 int flags);
 void BUI_raster_image_rounded(BuiRaster *r,
                               float x,
                               float y,

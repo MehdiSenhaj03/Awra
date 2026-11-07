@@ -401,13 +401,27 @@ void BUI_raster_image_rounded(BuiRaster *r,
                               float alpha,
                               const float radii[4])
 {
+  BUI_raster_image_rounded_ex(r, x, y, w, h, img, src, alpha, radii, 0);
+}
+
+void BUI_raster_image_rounded_ex(BuiRaster *r,
+                                 float x,
+                                 float y,
+                                 float w,
+                                 float h,
+                                 const BuiPixmap *img,
+                                 const float src[4],
+                                 float alpha,
+                                 const float radii[4],
+                                 int flags)
+{
   float rad[4];
   clamp_radii(radii, w, h, rad);
   if (r->gpu && (rad[0] > 0.0f || rad[1] > 0.0f || rad[2] > 0.0f || rad[3] > 0.0f)) {
     /* the image, then what lay under its corners put back outside them */
     uint32_t key[4]; /* only its address: the corners' parts on the GPU */
     const int kept = BUI_raster_corners_save(r, x, y, w, h, rad, key);
-    BUI_raster_image(r, x, y, w, h, img, src, alpha, 0);
+    BUI_raster_image(r, x, y, w, h, img, src, alpha, flags);
     if (kept) {
       BUI_raster_corners_clip(r, x, y, w, h, rad, key);
     }
@@ -416,7 +430,7 @@ void BUI_raster_image_rounded(BuiRaster *r,
   if (r->gpu || (rad[0] <= 0.0f && rad[1] <= 0.0f && rad[2] <= 0.0f && rad[3] <= 0.0f) ||
       BUI_pixmap_yuv(img->format))
   {
-    BUI_raster_image(r, x, y, w, h, img, src, alpha, 0);
+    BUI_raster_image(r, x, y, w, h, img, src, alpha, flags);
     return;
   }
   /* draw the straight parts with the plain image path (exact, fast), then
@@ -440,18 +454,24 @@ void BUI_raster_image_rounded(BuiRaster *r,
       r->cy0 = by0;
       r->cx1 = bx1;
       r->cy1 = by1;
-      BUI_raster_image(r, x, y, w, h, img, src, alpha, 0);
+      BUI_raster_image(r, x, y, w, h, img, src, alpha, flags);
     }
   }
   r->cx0 = saved[0];
   r->cy0 = saved[1];
   r->cx1 = saved[2];
   r->cy1 = saved[3];
-  /* the corner regions: sample the image (nearest-bilinear via a 1-pixel
-   * draw into a scratch) and weight it by the rounded coverage */
-  const float sx = src ? src[0] : 0.0f, sy = src ? src[1] : 0.0f;
-  const float sw = src ? src[2] : (float)img->w, sh = src ? src[3] : (float)img->h;
-  const float kx = sw / w, ky = sh / h;
+  /* the corner regions: the image sampled as the bands sample it (GSK: the
+   * texture under a rounded clip), weighted by the rounded coverage */
+  const float sx = src ? clampf(src[0], 0.0f, (float)img->w) : 0.0f;
+  const float sy = src ? clampf(src[1], 0.0f, (float)img->h) : 0.0f;
+  const float sw = src ? clampf(src[2], 0.0f, (float)img->w - sx) : (float)img->w;
+  const float sh = src ? clampf(src[3], 0.0f, (float)img->h - sy) : (float)img->h;
+  if (!(sw > 0.0f) || !(sh > 0.0f)) {
+    return;
+  }
+  ImgSampler smp;
+  sampler_init(&smp, img, x, y, w, h, sx, sy, sw, sh, flags);
   const struct {
     float x0, y0, x1, y1;
   } corners[4] = {{x, y, x + rl, y + rt},
@@ -487,10 +507,8 @@ void BUI_raster_image_rounded(BuiRaster *r,
         if (cov <= 0.0f) {
           continue;
         }
-        const int tx = clampi((int)(sx + (fx - x) * kx), 0, img->w - 1);
-        const int ty = clampi((int)(sy + (fy - y) * ky), 0, img->h - 1);
         const uint32_t ga = (uint32_t)(clampf(alpha * cov, 0.0f, 1.0f) * 256.0f + 0.5f);
-        put_image_px(row + px, pixmap_texel(img, (size_t)ty * img->w + tx), ga);
+        put_image_px(row + px, sampler_at(&smp, fx, fy), ga);
       }
     }
   }

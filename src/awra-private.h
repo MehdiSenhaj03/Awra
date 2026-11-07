@@ -411,6 +411,7 @@ float awra_font_line_height(const AwraFont *f); /* Pango's logical line height *
 void awra_font_extents(const AwraFont *f, const char *s, int len, float *r_ascent,
                        float *r_descent);
 float awra_text_width(const AwraFont *f, const char *s, int len);
+bool awra_text_ink(const AwraFont *f, const char *s, int len, int *r_x, int *r_y, int *r_w, int *r_h);
 void awra_draw_text(AwraDraw *d, const AwraFont *f, float x, float baseline, const char *s,
                     int len, const AwraRGBA *color);
 
@@ -637,6 +638,8 @@ struct AwraCanvas {
 
 /* Textures (texture.c): fit 0 fill, 1 contain, 2 cover, 3 scale-down */
 void awra_paint_texture(AwraDraw *d, const AwraTexture *t, AwraBox b, float radius, int fit);
+void awra_paint_texture_filtered(AwraDraw *d, const AwraTexture *t, AwraBox b, float radius, int fit,
+                                 int filter);
 /* A texture of the (x, y, w, h) part of premultiplied ARGB pixels
  * (width x height); what lies outside them is transparent. */
 /* Escape in a search entry stops the search (STOP_SEARCH) even with text

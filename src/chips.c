@@ -169,7 +169,7 @@ static void chip_draw(AwraWidget *w, AwraDraw *d)
     const float size = awra_pxf(chip_icon()) * sc;
     const float iy = cy + roundf((bh - size) / 2.0f);
     if (x->texture) {
-      awra_paint_texture(d, x->texture, (AwraBox){cx, iy, size, size}, 0, 1);
+      awra_paint_texture_filtered(d, x->texture, (AwraBox){cx, iy, size, size}, 0, 1, BUI_IMAGE_TRILINEAR);
     }
     else if (x->emoji && x->emoji[0]) {
       AwraFont f = awra_font_for(AWRA_TYPOGRAPHY_BODY);
@@ -426,6 +426,8 @@ void awra_chip_set_appearance(AwraWidget *w, int appearance)
  * center or end) 10 px from it; 6 px above and below (awra.css). */
 
 #define LABEL_GAP 10
+#define DANGER_PAD_X 7
+#define DANGER_PAD_Y 1
 
 typedef struct DividerExt {
   AwraWidget *label;
@@ -510,18 +512,25 @@ static void divider_draw(AwraWidget *w, AwraDraw *d)
   }
   AwraWidget *l = x->label;
   y = floorf(l->y + l->h / 2.0f);
+  /* the label's box with its padding (awra.css: the danger pill's 1px 7px,
+   * kept as the label's margins), which the lines stop short of */
+  AwraBox lb = awra_box_of(l);
+  if (x->appearance == AWRA_DIVIDER_DANGER) {
+    const float px = awra_pxf(DANGER_PAD_X), py = awra_pxf(DANGER_PAD_Y);
+    lb = (AwraBox){lb.x - px, lb.y - py, lb.w + 2 * px, lb.h + 2 * py};
+  }
   const float gap = awra_pxf(LABEL_GAP);
-  const float a = l->x - gap - w->x;
+  const float a = lb.x - gap - w->x;
   if (a >= 1.0f) {
     awra_paint_rect(d, (AwraBox){(float)w->x, y, a, lw}, &c);
   }
-  const float from = l->x + l->w + gap;
+  const float from = lb.x + lb.w + gap;
   if (w->x + w->w - from >= 1.0f) {
     awra_paint_rect(d, (AwraBox){from, y, w->x + w->w - from, lw}, &c);
   }
   if (x->appearance == AWRA_DIVIDER_DANGER) {
-    /* the label is a pill on the danger colour */
-    awra_paint_rbox(d, awra_box_of(l), l->h / 2.0f, &awra_tokens()->danger, 0, NULL);
+    /* the label is a pill on the danger colour, its padding inside it */
+    awra_paint_rbox(d, lb, lb.h / 2.0f, &awra_tokens()->danger, 0, NULL);
   }
 }
 
@@ -566,7 +575,8 @@ static void divider_style_label(AwraWidget *w)
   const bool danger = x->appearance == AWRA_DIVIDER_DANGER;
   awra_label_set_scale(x->label, danger ? 0.72 : 0.84);
   awra_label_set_weight(x->label, danger ? 700 : 600);
-  awra_widget_set_margins(x->label, danger ? 1 : 0, danger ? 7 : 0, danger ? 1 : 0, danger ? 7 : 0);
+  awra_widget_set_margins(x->label, danger ? DANGER_PAD_Y : 0, danger ? DANGER_PAD_X : 0,
+                          danger ? DANGER_PAD_Y : 0, danger ? DANGER_PAD_X : 0);
 }
 
 AwraWidget *awra_divider_new(const char *label)

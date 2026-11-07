@@ -204,6 +204,47 @@ void awra_draw_text(AwraDraw *d, const AwraFont *f, float x, float baseline, con
   BUI_text_set_context(NULL);
 }
 
+/* The ink box of `s` drawn in `f` (Pango's pixel ink extents: the pixels
+ * its glyphs touch), relative to the pen's start on the baseline: x and y
+ * of its top left (y negative above the baseline), width and height. False
+ * when nothing is drawn. */
+bool awra_text_ink(const AwraFont *f, const char *s, int len, int *r_x, int *r_y, int *r_w, int *r_h)
+{
+  *r_x = *r_y = *r_w = *r_h = 0;
+  if (len < 0) {
+    len = (int)strlen(s);
+  }
+  float width;
+  const BuiTextRun *run = BUI_text_prepare(f->family, font_flags(f), f->size, s, len, &width);
+  if (!run) {
+    return false;
+  }
+  int mw, mh, ox, asc;
+  const uint8_t *m = BUI_text_run_mask(run, &mw, &mh, &ox, &asc);
+  if (!m) {
+    return false;
+  }
+  int x0 = mw, y0 = mh, x1 = -1, y1 = -1;
+  for (int y = 0; y < mh; y++) {
+    for (int x = 0; x < mw; x++) {
+      if (m[(size_t)y * mw + x]) {
+        x0 = x < x0 ? x : x0;
+        x1 = x > x1 ? x : x1;
+        y0 = y < y0 ? y : y0;
+        y1 = y > y1 ? y : y1;
+      }
+    }
+  }
+  if (x1 < 0) {
+    return false;
+  }
+  *r_x = x0 - ox;
+  *r_y = y0 - asc;
+  *r_w = x1 - x0 + 1;
+  *r_h = y1 - y0 + 1;
+  return true;
+}
+
 /* ----------------------------------------------------------------------- */
 /* Paragraph layout */
 

@@ -283,7 +283,8 @@ static void draw_face_cb(AwraDraw *d, void *data)
   const float s = (float)fc->s;
   const float scale = s / x->size;
   if (x->image) {
-    awra_paint_texture(d, x->image, (AwraBox){0, 0, s, s}, 0.0f, 2);
+    /* Awra 1: gtk_snapshot_append_scaled_texture, GSK_SCALING_FILTER_TRILINEAR */
+    awra_paint_texture_filtered(d, x->image, (AwraBox){0, 0, s, s}, 0.0f, 2, BUI_IMAGE_TRILINEAR);
   }
   else {
     AwraRGBA bg, fg;
@@ -298,12 +299,14 @@ static void draw_face_cb(AwraDraw *d, void *data)
       f.size = x->size * (chars > 1 ? 0.38f : 0.44f) * scale;
       f.weight = 600;
       f.letter_spacing = 0;
-      const float tw = awra_text_width(&f, x->initials, -1);
-      /* Pango's ink box of capitals: the cap height above the baseline */
-      const float cap = f.size * 0.729f;
-      const float bx = roundf((s - tw) / 2.0f);
-      const float base = roundf((s - cap) / 2.0f) + cap;
-      awra_draw_text(d, &f, bx, base, x->initials, -1, &fg);
+      /* Awra 1 centres the layout's ink box (pango_layout_get_pixel_extents),
+       * rounding the offset to whole pixels */
+      int ix, iy, iw, ih;
+      if (awra_text_ink(&f, x->initials, -1, &ix, &iy, &iw, &ih)) {
+        const float bx = roundf((s - iw) / 2.0f - ix);
+        const float base = roundf((s - ih) / 2.0f - iy);
+        awra_draw_text(d, &f, bx, base, x->initials, -1, &fg);
+      }
     }
     else {
       const int px = BK_MAX(8, (int)roundf(x->size * 0.56f * scale));
