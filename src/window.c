@@ -892,6 +892,29 @@ void awra_window_remove_shortcut(AwraWidget *win, unsigned long id)
   }
 }
 
+/* Whether a keysym is a printable character (a letter, or punctuation by
+ * its X name: "question", "plus"...): Shift may have been what made it. */
+static bool printable_keysym(const char *k)
+{
+  static const char *const names[] = {
+      "space",     "exclam",     "quotedbl",    "numbersign", "dollar",     "percent",
+      "ampersand", "apostrophe", "parenleft",   "parenright", "asterisk",   "plus",
+      "comma",     "minus",      "period",      "slash",      "colon",      "semicolon",
+      "less",      "equal",      "greater",     "question",   "at",         "bracketleft",
+      "backslash", "bracketright", "asciicircum", "underscore", "grave",    "braceleft",
+      "bar",       "braceright", "asciitilde",  "section",    "degree",     "sterling",
+      "mu",        "diaeresis",  NULL};
+  if (k[0] && !k[1]) {
+    return true;
+  }
+  for (int i = 0; names[i]; i++) {
+    if (!strcmp(k, names[i])) {
+      return true;
+    }
+  }
+  return false;
+}
+
 bool awra_window_dispatch_shortcut(AwraWidget *win, const char *keysym, int mods)
 {
   const int m = mods & (BK_SHIFT | BK_CTRL | BK_ALT);
@@ -905,7 +928,7 @@ bool awra_window_dispatch_shortcut(AwraWidget *win, const char *keysym, int mods
     }
   }
   for (Shortcut *s = WEXT(win)->shortcuts; s && !found; s = s->next) {
-    const bool shift_free = !(s->mods & BK_SHIFT) && (keysym[0] && !keysym[1]);
+    const bool shift_free = !(s->mods & BK_SHIFT) && printable_keysym(keysym);
     if (shift_free && (s->mods | BK_SHIFT) == m && bk_keysym_is(keysym, s->keysym)) {
       found = s;
     }
