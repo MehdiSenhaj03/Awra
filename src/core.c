@@ -460,6 +460,7 @@ void awra_bk_finish_edit(BKNode *n, bool confirm)
 /* Tree */
 
 static void set_mapped_tree(AwraWidget *w, bool mapped);
+void awra_window_focus_unmapped(AwraWidget *w); /* window.c */
 
 void awra_child_insert(AwraWidget *parent, AwraWidget *child, int index)
 {
@@ -895,6 +896,9 @@ static void set_mapped_tree(AwraWidget *w, bool mapped)
     return;
   }
   a->mapped = now;
+  if (!now) {
+    awra_window_focus_unmapped(w);
+  }
   if (AWRA_CLASS_OF(w)->map) {
     AWRA_CLASS_OF(w)->map(w, now);
   }

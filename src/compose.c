@@ -757,15 +757,25 @@ static void arow_measure(AwraWidget *w, int o, int f, int *mn, int *nt)
     *nt += ph;
   }
   else {
-    *mn = BK_MAX(*mn, awra_px(42)) + pv;
-    *nt = BK_MAX(*nt, awra_px(42)) + pv;
+    /* awra.css: .awra-action-row { margin: 1px 0 } outside the row */
+    *mn = BK_MAX(*mn, awra_px(42)) + pv + 2 * awra_px(1);
+    *nt = BK_MAX(*nt, awra_px(42)) + pv + 2 * awra_px(1);
   }
+}
+
+/* The row inside its 1 px vertical CSS margin. */
+static AwraBox arow_box(AwraWidget *w)
+{
+  AwraBox b = awra_box_of(w);
+  b.y += awra_pxf(1);
+  b.h -= 2 * awra_pxf(1);
+  return b;
 }
 
 static void arow_allocate(AwraWidget *w)
 {
-  awra_allocate(ARX(w)->box, w->x + awra_px(10), w->y + awra_px(8), w->w - awra_px(20),
-                w->h - awra_px(16));
+  awra_allocate(ARX(w)->box, w->x + awra_px(10), w->y + awra_px(1) + awra_px(8), w->w - awra_px(20),
+                w->h - awra_px(16) - 2 * awra_px(1));
 }
 
 static void arow_draw(AwraWidget *w, AwraDraw *d)
@@ -777,7 +787,7 @@ static void arow_draw(AwraWidget *w, AwraDraw *d)
   awra_button_colors(AWRA_LOOK_ACTION_ROW, awra_hover_t(w) > 0.5f, awra_pressed(w), false,
                      awra_sensitive(w), &c);
   c.bg.a *= awra_pressed(w) ? 1.0f : awra_hover_t(w);
-  awra_paint_button_bg(d, awra_box_of(w), awra_pxf(11), &c, 0.0f, awra_focus_visible(w));
+  awra_paint_button_bg(d, arow_box(w), awra_pxf(11), &c, 0.0f, awra_focus_visible(w));
 }
 
 static int arow_release(AwraWidget *w, BKEvent *e)

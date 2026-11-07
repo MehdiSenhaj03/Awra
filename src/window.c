@@ -40,6 +40,8 @@ typedef struct WinExt {
   AwraWidget *path[MAX_PATH];
   int npath;
   AwraWidget *focus;
+  bool focus_moving; /* the focus is unmapped: it moves on idle */
+  const void *key_press_focus; /* the focus when a key went down (compared only) */
   AwraWidget *pressed3; /* secondary-button press target */
   Shortcut *shortcuts;
   bool offscreen;
@@ -717,6 +719,66 @@ static void move_focus(AwraWidget *win, int dir)
   awra_set_focus(win, list[next], true);
 }
 
+/* The first focusable widget of `n`'s subtree, in tab order. */
+static AwraWidget *first_focusable(AwraWidget *n)
+{
+  AwraWidget *list[512];
+  int count = 0;
+  if (n) {
+    collect_focusable(n, list, &count, 512);
+  }
+  return count ? list[0] : NULL;
+}
+
+static void focus_move_unref(void *data)
+{
+  awra_widget_unref((AwraWidget *)data);
+}
+
+/* GtkWindow's move_focus: the focused widget went away; the focus goes to
+ * its nearest focusable ancestor, else to the first focusable widget of the
+ * content, then of the titlebar, keeping whether it shows as keyboard
+ * focus. */
+static bool focus_move(void *data)
+{
+  AwraWidget *win = (AwraWidget *)data;
+  WinExt *x = WEXT(win);
+  x->focus_moving = false;
+  AwraWidget *old = x->focus;
+  if (x->closed || !old || awra_widget_mapped(old)) {
+    return false;
+  }
+  const bool keyboard = awra_is_widget(old) && awra_aux(old)->focus_visible;
+  AwraWidget *next = NULL;
+  for (AwraWidget *p = old->parent; p && !next; p = p->parent) {
+    if (awra_is_widget(p) && focusable(p)) {
+      next = p;
+    }
+  }
+  if (!next) {
+    next = first_focusable(x->child);
+  }
+  if (!next) {
+    next = first_focusable(x->titlebar);
+  }
+  awra_set_focus(win, next, keyboard && next);
+  return false;
+}
+
+void awra_window_focus_unmapped(AwraWidget *w); /* core.c */
+void awra_window_focus_unmapped(AwraWidget *w)
+{
+  for (int i = 0; i < g_nwindows; i++) {
+    AwraWidget *win = g_windows[i];
+    WinExt *x = WEXT(win);
+    if (x->focus == w && !x->focus_moving && !x->closed) {
+      x->focus_moving = true;
+      awra_widget_ref(win);
+      awra_idle_add(focus_move, win, focus_move_unref);
+    }
+  }
+}
+
 static int parse_accel(const char *accel, char *keysym, size_t size)
 {
   int mods = 0;
@@ -810,6 +872,18 @@ static int key_hook(BKContext *ctx, int press, const char *text, const char *key
     return 0;
   }
   WinExt *x = WEXT(win);
+  /* gtk_window_update_focus_visible: a key that moved the focus (its
+   * widget went away, an action showed another place) shows the new focus
+   * as keyboard focus once released */
+  if (press) {
+    x->key_press_focus = x->focus;
+  }
+  else if (x->focus && x->focus != x->key_press_focus && awra_is_widget(x->focus) &&
+           !awra_aux(x->focus)->focus_visible)
+  {
+    awra_aux(x->focus)->focus_visible = 1;
+    awra_invalidate(x->focus);
+  }
   AwraWidget *start = x->focus;
   /* a focus inside a closed popup (or gone) no longer counts */
   if (start && !awra_widget_mapped(start)) {
