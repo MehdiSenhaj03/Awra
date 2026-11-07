@@ -2221,6 +2221,14 @@ void awra_bk_arrange(BKNode *n)
 static AwraDraw g_draw;
 void awra_paint_drop_active(AwraDraw *d, AwraWidget *w); /* dnd.c */
 
+/* the widgets awra.css scales while pressed */
+static bool press_scales(AwraWidget *n)
+{
+  const char *t = AWRA_CLASS_OF(n)->type;
+  return t && awra_sensitive(n) &&
+         (!strcmp(t, "AwraButton") || !strcmp(t, "AwraMenuButton") || !strcmp(t, "AwraNavigationItem"));
+}
+
 void awra_bk_draw_tree(BKNode *n)
 {
   if (!(n->flags & NF_VISIBLE)) {
@@ -2273,6 +2281,14 @@ void awra_bk_draw_tree(BKNode *n)
     else if (dropping) {
       awra_paint_rbox(&g_draw, awra_box_of(n), awra_pxf(8), &awra_tokens()->selection, 0, NULL);
     }
+    /* awra.css: .awra-button:active:not(:disabled), .awra-menu-button:active,
+     * .awra-navigation-item:active { transform: scale(.96) } */
+    AwraGroup press_group;
+    bool pressed_scaled = false;
+    if (a->press_t > 0.0f && !awra_style_reduced_motion() && press_scales(n)) {
+      pressed_scaled = awra_scale_group_begin(&g_draw, awra_box_inset(awra_box_of(n), -awra_pxf(6)),
+                                              1.0f - 0.04f * a->press_t, &press_group);
+    }
     const bool saved_rtl = g_draw.rtl;
     const float saved_sx = awra_shift_x, saved_sy = awra_shift_y;
     awra_shift_x += a->shift_x;
@@ -2301,6 +2317,9 @@ void awra_bk_draw_tree(BKNode *n)
     g_draw.rtl = saved_rtl;
     awra_shift_x = saved_sx;
     awra_shift_y = saved_sy;
+    if (pressed_scaled) {
+      awra_scale_group_end(&g_draw, &press_group);
+    }
     if (dropping) {
       const AwraBox b = awra_box_inset(awra_box_of(n), awra_pxf(1));
       awra_paint_rbox(&g_draw, b, awra_pxf(7), NULL, awra_pxf(2), &awra_tokens()->focus_ring);
@@ -2325,6 +2344,9 @@ BKNode *awra_bk_hit(BKNode *n, int x, int y)
 {
   if (awra_is_widget(n) && !awra_aux(n)->can_target) {
     return NULL;
+  }
+  if (awra_is_scrolled(n) && awra_scrolled_bar_hit(n, x, y)) {
+    return n; /* its scrollbar lies over the content */
   }
   for (int i = n->nkids - 1; i >= 0; i--) {
     BKNode *f = bk_hit(n->kids[i], x, y);

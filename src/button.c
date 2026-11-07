@@ -194,7 +194,11 @@ static AwraRGBA lerp_rgba(AwraRGBA a, AwraRGBA b, float t)
 void awra_paint_button_bg(AwraDraw *d, AwraBox b, float radius, const AwraButtonColors *c,
                           float press_t, bool focus_ring)
 {
-  /* transform: scale(.96) around the center while pressed */
+  /* transform: scale(.96) around the center while pressed (the whole
+   * widget when core.c draws it scaled) */
+  if (awra_press_group_depth > 0) {
+    press_t = 0.0f;
+  }
   if (press_t > 0.0f) {
     const float s = 1.0f - 0.04f * press_t;
     const float nw = b.w * s, nh = b.h * s;

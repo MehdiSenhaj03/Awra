@@ -1471,6 +1471,14 @@ typedef struct ScrollExt {
   float bar_t, bar_target, bar_from;
   double bar_start, bar_shown;
   unsigned bar_conceal;
+  /* .hovering: the pointer near the bar (GTK's indicator->over), its
+   * 300 ms transition (over_t), the 30 ms before it turns on, the slider
+   * under the pointer, and a drag of the slider (.dragging) */
+  bool over, on_slider;
+  float over_t, over_from;
+  double over_start;
+  unsigned over_delay, over_anim;
+  double drag_dy; /* pointer to slider start, raster px */
   bool dragging;
   int drag_y0;
   double drag_v0;
@@ -1634,6 +1642,38 @@ static bool scroll_bar_shown(AwraWidget *w)
   return x->content_h > w->h && x->vpolicy != AWRA_POLICY_EXTERNAL && x->vpolicy != AWRA_POLICY_NEVER;
 }
 
+/* GTK's default-theme scrollbar at the end edge, between its overlay
+ * indicator (t = 0: 6 px, a 3 px slider in a 1 px border, margin 2px 0,
+ * 40 px long at least) and .hovering (t = 1: 18 px in a 1 px border, the
+ * slider's 8 px fill inside a transparent 4 px border, 48 px long at
+ * least), as its 300 ms transition takes it */
+typedef struct BarGeom {
+  AwraBox bar, slider, fill;
+  float range, len, pos, top;
+} BarGeom;
+
+static void bar_geom(AwraWidget *w, BarGeom *g)
+{
+  ScrollExt *x = SX(w);
+  const float t = x->over_t;
+  const float bw = awra_pxf(6) + t * awra_pxf(12);           /* scrollbar width */
+  const float border = t * awra_pxf(1);                       /* top/bottom border */
+  const float margin = (1.0f - t) * awra_pxf(2);              /* slider margin along */
+  const float sw = awra_pxf(5) + t * awra_pxf(11);            /* slider border-box width */
+  const float inset = awra_pxf(1) + t * awra_pxf(3);          /* fill inside it */
+  const float minlen = awra_pxf(40) + t * awra_pxf(8);
+  const float track = (float)w->h - 2 * border;
+  g->range = track - 2 * margin;
+  g->len = fminf(fmaxf(g->range * (float)w->h / (float)x->content_h, minlen), g->range);
+  g->pos = (float)(x->vvalue / (x->content_h - w->h)) * (g->range - g->len);
+  g->top = (float)w->y + border + margin;
+  const float right = (float)(w->x + w->w);
+  g->bar = awra_mirror_box(w, (AwraBox){right - bw, (float)w->y, bw, (float)w->h});
+  const float sx = right - t * awra_pxf(1) - sw;
+  g->slider = awra_mirror_box(w, (AwraBox){sx, g->top + floorf(g->pos + 0.5f), sw, roundf(g->len)});
+  g->fill = awra_box_inset(g->slider, inset);
+}
+
 static void scroll_draw_over(AwraWidget *w, AwraDraw *d)
 {
   ScrollExt *x = SX(w);
@@ -1654,24 +1694,40 @@ static void scroll_draw_over(AwraWidget *w, AwraDraw *d)
                     bw * 0.5f, &c, 0, NULL);
   }
   else {
-    /* GTK's default theme: scrollbar.overlay-indicator, its slider 3 px
-     * inside a 1 px border, margin 2px 0, 40 px long at least, at the
-     * scrollbar's end edge (its start border transparent); faded as one */
-    const float m = awra_pxf(2), sw = awra_pxf(5);
-    const float range = track - 2 * m;
-    float len = fmaxf(range * (float)w->h / (float)x->content_h, awra_pxf(40));
-    len = fminf(len, range);
-    const float pos = (float)(x->vvalue / (x->content_h - w->h)) * (range - len);
-    const AwraBox sb = awra_mirror_box(w, (AwraBox){w->x + w->w - sw, w->y + m + floorf(pos + 0.5f), sw, roundf(len)});
+    BarGeom g;
+    bar_geom(w, &g);
+    const float t = x->over_t;
     const bool dark = awra_tokens()->dark;
-    AwraRGBA fill = dark ? (AwraRGBA){238 / 255.0f, 238 / 255.0f, 236 / 255.0f, 0.4f} :
-                           (AwraRGBA){46 / 255.0f, 52 / 255.0f, 54 / 255.0f, 0.4f};
+    const float a = x->bar_t;
+    /* the scrollbar's own box (.hovering: background and 1 px border) */
+    if (t > 0.0f) {
+      AwraRGBA bg = dark ? (AwraRGBA){49 / 255.0f, 49 / 255.0f, 49 / 255.0f, 0.8f} :
+                           (AwraRGBA){206 / 255.0f, 206 / 255.0f, 206 / 255.0f, 0.8f};
+      AwraRGBA bd = dark ? (AwraRGBA){0, 0, 0, 0.8f} : (AwraRGBA){1, 1, 1, 0.8f};
+      bg.a *= t * a;
+      bd.a *= t * a;
+      awra_paint_rbox(d, g.bar, 0, &bg, awra_pxf(1), &bd);
+    }
+    /* the slider: the indicator's 3 px inside a 1 px border, or the
+     * hovering 8 px fill inside its transparent 4 px border */
+    AwraRGBA fill_i = dark ? (AwraRGBA){238 / 255.0f, 238 / 255.0f, 236 / 255.0f, 0.4f} :
+                             (AwraRGBA){46 / 255.0f, 52 / 255.0f, 54 / 255.0f, 0.4f};
+    AwraRGBA fill_h = dark ? (x->dragging ? (AwraRGBA){0x1b / 255.0f, 0x6a / 255.0f, 0xcb / 255.0f, 1} :
+                              x->on_slider ? (AwraRGBA){0xc9 / 255.0f, 0xc9 / 255.0f, 0xc7 / 255.0f, 1} :
+                                             (AwraRGBA){0xa4 / 255.0f, 0xa4 / 255.0f, 0xa3 / 255.0f, 1}) :
+                             (x->dragging ? (AwraRGBA){0x1b / 255.0f, 0x6a / 255.0f, 0xcb / 255.0f, 1} :
+                              x->on_slider ? (AwraRGBA){0x56 / 255.0f, 0x5b / 255.0f, 0x5c / 255.0f, 1} :
+                                             (AwraRGBA){0x7e / 255.0f, 0x81 / 255.0f, 0x82 / 255.0f, 1});
+    AwraRGBA fill = awra_mix(fill_i, fill_h, t);
     AwraRGBA rim = dark ? (AwraRGBA){0, 0, 0, 0.4f} : (AwraRGBA){1, 1, 1, 0.4f};
-    fill.a *= x->bar_t;
-    rim.a *= x->bar_t;
-    const float r = sw * 0.5f;
-    awra_paint_rbox(d, awra_box_inset(sb, awra_pxf(1)), r - awra_pxf(1), &fill, 0, NULL);
-    awra_paint_rbox(d, sb, r, NULL, awra_pxf(1), &rim);
+    rim.a *= 1.0f - t;
+    fill.a *= a;
+    rim.a *= a;
+    const float r = g.fill.w * 0.5f;
+    if (rim.a > 0.0f) {
+      awra_paint_rbox(d, awra_box_inset(g.fill, -awra_pxf(1)), r + awra_pxf(1), NULL, awra_pxf(1), &rim);
+    }
+    awra_paint_rbox(d, g.fill, r, &fill, 0, NULL);
   }
   scroll_fade(w, d);
 }
@@ -1679,12 +1735,13 @@ static void scroll_draw_over(AwraWidget *w, AwraDraw *d)
 static void bar_dirty(AwraWidget *w)
 {
   if (bk_ctx(w)) {
-    const int bw = awra_px(8);
+    const int bw = awra_px(20);
     bk_node_dirty(w, bk_rect((int)awra_mirror_x(w, (float)(w->x + w->w - bw), (float)bw), w->y, bw, w->h));
   }
 }
 
 static void bar_set(AwraWidget *w, float pos);
+static void scroll_to(AwraWidget *w, double v, double h);
 
 static bool bar_tick(void *data)
 {
@@ -1707,7 +1764,7 @@ static bool bar_conceal(void *data)
 {
   AwraWidget *w = (AwraWidget *)data;
   ScrollExt *x = SX(w);
-  if (awra_now_ms() - x->bar_shown >= 2000.0) {
+  if (awra_now_ms() - x->bar_shown >= 2000.0 && !x->over && !x->dragging) {
     bar_fade(w, 0.0f);
   }
   return true;
@@ -1761,12 +1818,176 @@ static void show_bar(AwraWidget *w)
   bar_fade(w, 1.0f);
 }
 
-/* GtkScrolledWindow's captured motion: the pointer moved over it */
-void awra_scrolled_pointer_moved(AwraWidget *w)
+static bool over_tick(void *data)
 {
-  if (scroll_bar_shown(w)) {
-    bar_fade(w, 1.0f);
+  AwraWidget *w = (AwraWidget *)data;
+  ScrollExt *x = SX(w);
+  const double t = fmin(1.0, (awra_now_ms() - x->over_start) / 300.0);
+  /* cubic-bezier(.25, .46, .45, .94): ease out quad */
+  const float e = (float)(1.0 - (1.0 - t) * (1.0 - t));
+  x->over_t = x->over_from + e * ((x->over ? 1.0f : 0.0f) - x->over_from);
+  bar_dirty(w);
+  if (t >= 1.0) {
+    x->over_anim = 0;
+    return false;
   }
+  return true;
+}
+
+/* indicator_set_over */
+static void bar_set_over(AwraWidget *w, bool over)
+{
+  ScrollExt *x = SX(w);
+  if (x->over_delay) {
+    awra_source_remove(x->over_delay);
+    x->over_delay = 0;
+  }
+  if (x->over == over) {
+    return;
+  }
+  x->over = over;
+  if (awra_style_reduced_motion()) {
+    x->over_t = over ? 1.0f : 0.0f;
+    bar_dirty(w);
+    return;
+  }
+  x->over_from = x->over_t;
+  x->over_start = awra_now_ms();
+  if (!x->over_anim) {
+    x->over_anim = awra_timeout_add(16, over_tick, w, NULL);
+  }
+}
+
+static bool over_delay_fire(void *data)
+{
+  AwraWidget *w = (AwraWidget *)data;
+  SX(w)->over_delay = 0;
+  bar_set_over(w, true);
+  return false;
+}
+
+/* the pointer over the slider itself (its :hover colour) */
+static void bar_slider_hover(AwraWidget *w, int px, int py)
+{
+  ScrollExt *x = SX(w);
+  BarGeom g;
+  bar_geom(w, &g);
+  const bool on = x->over && px >= g.slider.x && px < g.slider.x + g.slider.w && py >= g.slider.y &&
+                  py < g.slider.y + g.slider.h;
+  if (on != x->on_slider) {
+    x->on_slider = on;
+    bar_dirty(w);
+  }
+}
+
+/* GtkScrolledWindow's captured motion: the pointer moved over it (raster
+ * px, window coordinates): the indicator shows; near it (5 px, 10 px once
+ * hovering), it widens after 30 ms; on it, at once */
+void awra_scrolled_pointer_moved(AwraWidget *w, int px, int py, bool buttons)
+{
+  ScrollExt *x = SX(w);
+  if (!scroll_bar_shown(w)) {
+    return;
+  }
+  bar_fade(w, 1.0f);
+  if (x->dragging) {
+    return;
+  }
+  if (buttons) { /* a press-drag in the content */
+    bar_set_over(w, false);
+    return;
+  }
+  BarGeom g;
+  bar_geom(w, &g);
+  const float dist = awra_pxf(x->over ? 10 : 5);
+  const bool on_bar = px >= g.bar.x && px < g.bar.x + g.bar.w;
+  const bool close = px >= g.bar.x - dist && px < g.bar.x + g.bar.w + dist;
+  if (on_bar) {
+    bar_set_over(w, true);
+  }
+  else if (close) {
+    if (x->over_delay) {
+      awra_source_remove(x->over_delay);
+    }
+    x->over_delay = awra_timeout_add(30, over_delay_fire, w, NULL);
+  }
+  else {
+    bar_set_over(w, false);
+  }
+  bar_slider_hover(w, px, py);
+}
+
+/* motion_controller_leave */
+void awra_scrolled_pointer_left(AwraWidget *w)
+{
+  if (!SX(w)->dragging) {
+    bar_set_over(w, false);
+    SX(w)->on_slider = false;
+  }
+}
+
+/* presses go to the bar while it is wide (GtkScrollbar over the content) */
+bool awra_scrolled_bar_hit(AwraWidget *w, int px, int py)
+{
+  ScrollExt *x = SX(w);
+  if (!x->over || !scroll_bar_shown(w) || x->bar_t <= 0.0f) {
+    return false;
+  }
+  BarGeom g;
+  bar_geom(w, &g);
+  return px >= g.bar.x && px < g.bar.x + g.bar.w && py >= g.bar.y && py < g.bar.y + g.bar.h;
+}
+
+static void bar_drag_to(AwraWidget *w, int py)
+{
+  ScrollExt *x = SX(w);
+  BarGeom g;
+  bar_geom(w, &g);
+  const double span = g.range - g.len;
+  const double f = span > 0 ? ((double)py - x->drag_dy - g.top) / span : 0.0;
+  scroll_to(w, fmin(fmax(f, 0.0), 1.0) * (x->content_h - w->h), x->hvalue);
+}
+
+static int scroll_press(AwraWidget *w, BKEvent *e)
+{
+  ScrollExt *x = SX(w);
+  if (!awra_scrolled_bar_hit(w, e->x, e->y)) {
+    return 0;
+  }
+  BarGeom g;
+  bar_geom(w, &g);
+  x->dragging = true;
+  if (e->y >= g.slider.y && e->y < g.slider.y + g.slider.h) {
+    x->drag_dy = e->y - g.slider.y;
+  }
+  else {
+    /* gtk-primary-button-warps-slider: the slider's middle to the click */
+    x->drag_dy = g.len * 0.5;
+    bar_drag_to(w, e->y);
+  }
+  bar_dirty(w);
+  return 1;
+}
+
+static int scroll_drag(AwraWidget *w, BKEvent *e)
+{
+  if (!SX(w)->dragging) {
+    return 0;
+  }
+  bar_drag_to(w, e->y);
+  return 1;
+}
+
+static int scroll_release(AwraWidget *w, BKEvent *e)
+{
+  ScrollExt *x = SX(w);
+  if (!x->dragging) {
+    return 0;
+  }
+  x->dragging = false;
+  awra_scrolled_pointer_moved(w, e->x, e->y, false);
+  bar_dirty(w);
+  return 1;
 }
 
 bool awra_is_scrolled(const AwraWidget *w);
@@ -1816,6 +2037,12 @@ static void scroll_finalize(AwraWidget *w)
   if (SX(w)->bar_conceal) {
     awra_source_remove(SX(w)->bar_conceal);
   }
+  if (SX(w)->over_delay) {
+    awra_source_remove(SX(w)->over_delay);
+  }
+  if (SX(w)->over_anim) {
+    awra_source_remove(SX(w)->over_anim);
+  }
   free(SX(w)->fade_under);
 }
 
@@ -1844,6 +2071,9 @@ static AwraClass scrolled_class = {
     .draw = scroll_draw,
     .draw_over = scroll_draw_over,
     .scroll = scroll_scroll,
+    .press = scroll_press,
+    .drag = scroll_drag,
+    .release = scroll_release,
 };
 
 bool awra_is_scrolled(const AwraWidget *w)

@@ -664,6 +664,11 @@ typedef struct AwraGroup {
 } AwraGroup;
 bool awra_group_begin(AwraDraw *d, AwraBox b, float alpha, AwraGroup *g);
 void awra_group_end(AwraDraw *d, AwraGroup *g);
+/* A subtree drawn scaled about its box's centre (a pressed button's
+ * transform: scale(.96)); awra_press_group_depth > 0 meanwhile. */
+bool awra_scale_group_begin(AwraDraw *d, AwraBox b, float scale, AwraGroup *g);
+void awra_scale_group_end(AwraDraw *d, AwraGroup *g);
+extern int awra_press_group_depth;
 
 /* A dashed border as GTK strokes `border: <width>px dashed` round a box
  * with corner `radius` (dash.c). */
@@ -672,7 +677,9 @@ void awra_paint_dashed_rbox(AwraDraw *d, AwraBox b, float radius, float width, c
 /* Scrolled windows (containers.c): the pointer moved over one (its overlay
  * indicator shows, as GtkScrolledWindow's captured motion does). */
 bool awra_is_scrolled(const AwraWidget *w);
-void awra_scrolled_pointer_moved(AwraWidget *w);
+void awra_scrolled_pointer_moved(AwraWidget *w, int x, int y, bool buttons);
+void awra_scrolled_pointer_left(AwraWidget *w);
+bool awra_scrolled_bar_hit(AwraWidget *w, int x, int y);
 
 /* A widget's subtree drawn shifted by a fraction of a pixel, as GTK
  * allocates a child with a fractional translation (core.c). */
