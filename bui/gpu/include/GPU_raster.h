@@ -280,6 +280,50 @@ int BUI_raster_text(BuiRaster *r,
 int BUI_text_measure(
     const char *family, int flags, float size, const char *utf8, int len, float *r_width);
 
+/* BUI-Awra: bidi and caret geometry.
+ *
+ * Text is drawn as Pango lays out a paragraph: bidi levels (UAX #9) from
+ * the first strong character's direction (left-to-right when there is
+ * none), runs in visual order, every script shaped (HarfBuzz). A caller
+ * laying out a paragraph itself (its own line breaks and reordering) draws
+ * each run of one bidi level with BUI_TEXT_LTR or BUI_TEXT_RTL in `flags`:
+ * the run is shaped in that direction and never reordered. */
+#define BUI_TEXT_LTR (1 << 20)
+#define BUI_TEXT_RTL (1 << 21)
+/* The x (from the run's left edge, as BUI_raster_text draws it at x = 0)
+ * of the leading (`trailing` 0) or trailing edge of the character at byte
+ * `index`, as pango_glyph_string_index_to_x_full places it: ligatures and
+ * clusters are split between their cursor positions (or at the font's
+ * ligature carets). `index` == `len`: the trailing edge of the last
+ * character. Returns 0 when no text engine exists. */
+int BUI_text_index_to_x(const char *family, int flags, float size, const char *utf8, int len,
+                        int index, int trailing, float *r_x);
+/* The character at x (from the run's left edge), as
+ * pango_layout_line_x_to_index finds it: the byte index of its grapheme's
+ * first character, and in `*r_trailing` 0, or the number of characters of
+ * the grapheme when x is in its trailing half. Left or right of the run:
+ * its visually first or last grapheme, at that outer edge. */
+int BUI_text_x_to_index(const char *family, int flags, float size, const char *utf8, int len,
+                        float x, int *r_index, int *r_trailing);
+/* Bidi embedding levels of the paragraph `utf8`, one per byte. `base`: 0
+ * the first strong character's direction, else left-to-right; 3 the same,
+ * else right-to-left; 1 left-to-right; 2 right-to-left. Returns the
+ * paragraph's level (0 or 1). */
+int BUI_text_bidi(const char *utf8, int len, int base, uint8_t *levels);
+/* The direction of the first strong character (pango_find_base_dir): 1
+ * left-to-right, 2 right-to-left, 0 none. */
+int BUI_text_direction(const char *utf8, int len);
+/* Grapheme boundaries as Pango finds them, per byte offset 0..len (`attrs`
+ * holds len + 1 bytes): BUI_TEXT_CURSOR at cursor positions,
+ * BUI_TEXT_BACKSPACE_CHAR where backspace deletes one character of the
+ * grapheme before it rather than the whole grapheme. */
+#define BUI_TEXT_CURSOR 1
+#define BUI_TEXT_BACKSPACE_CHAR 2
+void BUI_text_breaks(const char *utf8, int len, uint8_t *attrs);
+/* The canonical decomposition (NFD) of `utf8` into `out`: its length in
+ * bytes, -1 when it doesn't fit in `cap`. */
+int BUI_text_nfd(const char *utf8, int len, char *out, int cap);
+
 /* Parallel rasterisation. A view draws into `src`'s pixels, clipped to
  * src's clip and the rectangle [x0, x1) x [y0, y1); views over disjoint
  * rectangles may be drawn into from different threads. `dst` points at
@@ -415,9 +459,10 @@ void BUI_raster_rbox_gradient(BuiRaster *r,
 
 /* A font's ascent and descent (positive, unrounded px) at `size`. */
 int BUI_text_metrics(const char *family, int flags, float size, float *r_ascent, float *r_descent);
-/* BUI-Awra: the ascent and descent of a run of text: the font's metrics, or
- * more where the fonts it falls back to for characters it lacks reach
- * further (a line is as tall as its tallest font, as Pango lays it out). */
+/* BUI-Awra: the ascent and descent of a run of text, as Pango's logical
+ * extents of its runs: the fonts it is drawn with (the font's metrics, or
+ * more where the fonts it falls back to reach further; only the fallback
+ * fonts' when none of its characters takes the font itself). */
 int BUI_text_extents(const char *family, int flags, float size, const char *utf8, int len,
                      float *r_ascent, float *r_descent);
 /* An 8-bit coverage mask (w x h, `stride` bytes per row) at whole pixel
