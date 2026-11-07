@@ -83,6 +83,9 @@ Awra 2: the same look, without GTK.
   (right to left in a right-to-left container), with the window laid out
   first, so a window's first focus and Tab follow GTK in both directions.
   BUI: `BK_context_layout`.
+- GPU renderers: inset box shadows (entries, switches, checks) draw on the
+  GPU as in the software raster, and a Direct3D 11 window takes its device
+  as soon as it is ready instead of at its next change.
 - License: GPL-3.0-or-later (BUI derives from Blender, GPL-2.0-or-later).
   Awra 1 was LGPL-2.1-or-later.
 

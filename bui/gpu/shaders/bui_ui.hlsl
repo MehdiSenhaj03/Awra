@@ -522,7 +522,10 @@ float4 ps_awra(VOut v) : SV_Target
   if (kind == K_BOX_SHADOW) {
     const float d = sd_rbox4(s, R, v.c1);
     float cov = v.uv.y > 0.5 ? half_erfc(d * v.uv.x) : saturate(0.5 - d);
-    if (v.uv.z > 0.5) {
+    if (v.uv.z > 1.5) { // inset: inside the box, outside the (blurred) hole R
+      cov = saturate(0.5 - sd_rbox4(s, v.c2, v.c3)) * (1.0 - (v.uv.w > 0.5 ? 0.0 : cov));
+    }
+    else if (v.uv.z > 0.5) {
       cov *= 1.0 - saturate(0.5 - sd_rbox4(s, v.c2, v.c3));
     }
     return cov > 0.002 ? premul_a(v.c0, cov) : float4(0.0, 0.0, 0.0, 0.0);

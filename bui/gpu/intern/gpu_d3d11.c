@@ -442,6 +442,11 @@ static DWORD WINAPI device_thread(void *arg)
   BuiGpu *g = (BuiGpu *)arg;
   const int ok = device_init(g);
   InterlockedExchange(&g->state, ok ? 1 : -1);
+  /* the window takes the device at its next frame: ask for one, or an idle
+   * window would keep its software frame until something changes */
+  if (ok && g->hwnd) {
+    InvalidateRect(g->hwnd, NULL, FALSE);
+  }
   return 0;
 }
 

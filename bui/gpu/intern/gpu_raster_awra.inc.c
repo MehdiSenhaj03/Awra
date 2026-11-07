@@ -317,7 +317,7 @@ void BUI_raster_box_shadow_inset(BuiRaster *r,
                                  float blur,
                                  const float rgba[4])
 {
-  if (!(w > 0.0f) || !(h > 0.0f) || !rgba || !(rgba[3] > 0.0f) || r->gpu) {
+  if (!(w > 0.0f) || !(h > 0.0f) || !rgba || !(rgba[3] > 0.0f)) {
     return;
   }
   float rad[4], hrad[4];
@@ -334,8 +334,20 @@ void BUI_raster_box_shadow_inset(BuiRaster *r,
   if (!clip_box(r, x, y, x + w, y + h, &x0, &y0, &x1, &y1)) {
     return;
   }
-  const Paint p = paint_from(rgba);
   const float inv = 1.0f / (sigma * 1.41421356f);
+  if (r->gpu) { /* BG_BOX_SHADOW, inset: the same coverage per pixel */
+    BuiGpuInst *in = bui_gpu_inst_awra(r->gpu, BG_BOX_SHADOW, x0, y0, x1, y1);
+    if (in) {
+      v4(in->rect, hx0, hy0, hx1, hy1);
+      c4(in->c0, rgba);
+      c4(in->c1, hrad);
+      v4(in->c2, x, y, x + w, y + h);
+      c4(in->c3, rad);
+      v4(in->uv, inv, blur > 0.0f ? 1.0f : 0.0f, 2.0f, hx1 > hx0 && hy1 > hy0 ? 0.0f : 1.0f);
+    }
+    return;
+  }
+  const Paint p = paint_from(rgba);
   const float hmax = fmaxf(fmaxf(hrad[0], hrad[1]), fmaxf(hrad[2], hrad[3]));
   for (int py = y0; py < y1; py++) {
     uint32_t *row = RASTER_ROW(r, py);
