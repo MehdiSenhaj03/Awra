@@ -2018,7 +2018,7 @@ static void split_draw(AwraWidget *w, AwraDraw *d)
   SplitExt *x = SPLX(w);
   const int sw = split_sidebar_w(w, w->w);
   if (sw >= 0 && x->sidebar && awra_child_visible(x->sidebar)) {
-    awra_paint_rect(d, (AwraBox){(float)(w->x + sw), (float)w->y, awra_pxf(1), (float)w->h},
+    awra_paint_rect(d, awra_mirror_box(w, (AwraBox){(float)(w->x + sw), (float)w->y, awra_pxf(1), (float)w->h}),
                     &awra_tokens()->separator);
   }
 }

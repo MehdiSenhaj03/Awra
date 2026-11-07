@@ -644,7 +644,8 @@ static AwraClass kbd_class = {
     .a11y = kbd_a11y,
     .bk = AWRA_BK("AwraKeyboardView", 0),
     .type = "AwraKeyboardView",
-    .flags = AWRA_CLASS_CONTAINER | AWRA_CLASS_EXPAND_ISOLATED,
+    /* a picture of the physical keyboard: not mirrored right to left */
+    .flags = AWRA_CLASS_CONTAINER | AWRA_CLASS_EXPAND_ISOLATED | AWRA_CLASS_NO_MIRROR,
     .ext_size = sizeof(KbdExt),
     .finalize = kbd_finalize,
     .measure = kbd_measure,

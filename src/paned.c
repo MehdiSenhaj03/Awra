@@ -84,7 +84,8 @@ static void paned_draw_over(AwraWidget *w, AwraDraw *d)
   }
   const AwraRGBA *c = &awra_tokens()->separator;
   if (x->orientation == AWRA_ORIENTATION_HORIZONTAL) {
-    awra_paint_rect(d, (AwraBox){(float)(w->x + x->sep), (float)w->y, awra_pxf(1), (float)w->h}, c);
+    /* right to left, the start child is at the right (GtkPaned) */
+    awra_paint_rect(d, awra_mirror_box(w, (AwraBox){(float)(w->x + x->sep), (float)w->y, awra_pxf(1), (float)w->h}), c);
   }
   else {
     awra_paint_rect(d, (AwraBox){(float)w->x, (float)(w->y + x->sep), (float)w->w, awra_pxf(1)}, c);
@@ -97,7 +98,7 @@ static bool on_handle(AwraWidget *w, int px, int py)
   if (x->sep < 0) {
     return false;
   }
-  const int along = x->orientation == AWRA_ORIENTATION_HORIZONTAL ? px - w->x : py - w->y;
+  const int along = x->orientation == AWRA_ORIENTATION_HORIZONTAL ? awra_mirror_px(w, px) - w->x : py - w->y;
   return abs(along - x->sep) <= awra_px(HANDLE / 2) + 1;
 }
 
@@ -141,7 +142,8 @@ static int paned_drag(AwraWidget *w, BKEvent *e)
   if (total <= 0) {
     return 1;
   }
-  const double f = x->frac0 + (double)(h ? e->dx : e->dy) / total;
+  const int dx = awra_widget_rtl(w) ? -e->dx : e->dx;
+  const double f = x->frac0 + (double)(h ? dx : e->dy) / total;
   x->fraction = BK_CLAMP(f, (double)x->min_start / total, 1.0 - (double)x->min_end / total);
   awra_queue_allocate(w);
   awra_invalidate(w);
