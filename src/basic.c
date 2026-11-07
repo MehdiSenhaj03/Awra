@@ -245,8 +245,16 @@ static void label_origin(AwraWidget *w, float *r_x, float *r_y, int *r_width)
   int tw, th;
   const bool fit = x->wrap != AWRA_WRAP_NONE || x->ellipsize != AWRA_ELLIPSIZE_NONE;
   awra_text_layout_size(x->layout, fit ? w->w : -1, &tw, &th);
-  const int bw = fit ? BK_MIN(tw, w->w) : tw;
-  *r_x = (float)w->x + floorf((w->w - bw) * x->xalign + 0.5f);
+  /* GtkLabel: a layout that wraps or ellipsizes is as wide as the label,
+   * its lines aligned in it (right-to-left paragraphs at the right); the
+   * label places its logical extents (leftmost line to rightmost end) by
+   * xalign */
+  float lx0 = 0.0f, lw = (float)tw;
+  if (fit) {
+    awra_text_layout_logical(x->layout, w->w, &lx0, &lw);
+    lw = fminf(ceilf(lw), (float)w->w);
+  }
+  *r_x = (float)w->x + floorf((w->w - lw) * x->xalign + 0.5f) - lx0;
   *r_y = (float)w->y + floorf((w->h - th) * x->yalign + 0.5f);
   *r_width = fit ? w->w : -1;
 }
@@ -508,8 +516,17 @@ static void label_a11y(AwraWidget *w, AwraA11yInfo *info)
   }
 }
 
+static bool label_a11y_layout(AwraWidget *w, AwraTextLayout **r_layout, float *r_x, float *r_y,
+                              int *r_width)
+{
+  *r_layout = LX(w)->layout;
+  label_origin(w, r_x, r_y, r_width);
+  return true;
+}
+
 static AwraClass label_class = {
     .a11y = label_a11y,
+    .a11y_layout = label_a11y_layout,
     .request_mode = label_request_mode,
     .bk = AWRA_BK("AwraLabel", 0),
     .type = "AwraLabel",

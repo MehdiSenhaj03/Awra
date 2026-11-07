@@ -14,7 +14,7 @@ match.
 | GtkLayoutManager, GtkBox… | `awra_measure` / `awra_allocate`: GTK's measure contract (min / natural for a given size, height-for-width), `gtk_widget_adjust_size_allocation` for alignment, `compute_expand` only where GTK computes it (boxes, grids, stacks, scrolled windows, buttons…), `gtk_distribute_natural_allocation` |
 | GSK render nodes, GL | the kit's software raster (premultiplied ARGB) drawing only damaged regions, straight into the window's shared-memory buffer (Wayland) or DIB (Win32) |
 | CSS (awra.css) | the token set and paint code: every rule of awra.css that Awra 1's components used is a C paint routine with the same numbers (`src/button.c`, `src/paint.c`…) |
-| Pango, HarfBuzz, fontconfig | FreeType (fractional sizes, variable fonts), fontconfig loaded at run time; GDI on Windows; GTK's rules for weights, synthetic bold, hinted metrics at scale 1 and Pango's line breaking |
+| Pango, HarfBuzz, FriBidi, fontconfig | HarfBuzz 14.6 and FriBidi built into BUI (the same on every platform), FreeType (fractional sizes, variable fonts), fontconfig loaded at run time; GTK's rules for weights, synthetic bold, hinted metrics at scale 1; Pango's itemizer, bidi, cursor model and line breaking |
 | GLib main loop | the kit's host loops with loop timers; `awra_invoke` from any thread |
 | GDK backends | BUI's window hosts: Wayland, X11, Win32 |
 
@@ -51,11 +51,32 @@ Text follows what GTK did for Awra 1:
   fontconfig's sorted list for the font (FcFontSort, by charset) on Linux
   and the system's font links (SystemLink, Segoe UI Emoji / Symbol) on
   Windows; spaces and default ignorables take the font of the run they are
-  in, as Pango itemizes; a line is as tall as the tallest font in it;
+  in, as Pango itemizes; a script the user's language doesn't write takes
+  the fonts fontconfig sorts for the language Pango derives for it (Arabic:
+  ar, Devanagari: hi...); a line is as tall as the fonts drawing it, as
+  Pango's line extents are;
+- shaping is HarfBuzz's (14.6, as GTK 4.22), item by item with the run's
+  text as context, as pango_hb_shape: Arabic joining and lam-alef, marks
+  (harakat, Hebrew points), Indic, Thai, Hangul, kerning and ligatures;
+  items split where Pango's itemizer splits them (bidi level, script with
+  paired punctuation, emoji, font). Advances, carets and hit-testing match
+  Pango's exactly at scale 1 and 2 (tests compare with Pango 1.58);
+- bidi is FriBidi's (UAX #9) as Pango resolves it: a paragraph's direction
+  is its first strong character's (else the previous paragraph's, else the
+  text's), runs are reordered per line (L2), right-to-left runs mirror
+  their brackets; right-to-left paragraphs align right where GTK aligns
+  them (labels that wrap or ellipsize, text views; a label places its
+  logical extents by xalign as GtkLabel does);
+- editing is GTK's: the strong cursor (pango_layout_get_cursor_pos), Left
+  and Right move visually (pango_layout_move_cursor_visually), clicks find
+  graphemes as pango_layout_xy_to_index, Backspace deletes a grapheme or,
+  where Pango says so (Arabic marks, Indic vowel signs), its last character
+  after NFD, Delete a grapheme; selections are per run, so bidi text
+  selects in several stretches;
 - emoji follow Pango: its emoji presentation scanner splits text into emoji
   and text runs, emoji runs take the "emoji" family (a colour font when a
   VS16 asks for one), and sequences (ZWJ, skin tones, flags, keycaps, tags)
-  are shaped by the font's GSUB into one glyph. Colour glyphs are CBDT /
+  are shaped by HarfBuzz into one glyph. Colour glyphs are CBDT /
   sbix bitmaps (their PNGs decoded by the kit's Wuffs) scaled to the text
   size, or COLR layers blended by FreeType; they are cached like any glyph
   and drawn over the run's coverage mask with the text's alpha.
