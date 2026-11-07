@@ -38,6 +38,7 @@ typedef struct WPop {
   int ox, oy, w, h;
   BKRect box;
   int drawn, blur_dirty;
+  int done; /* popup_done came: closed once the events are dispatched */
 } WPop;
 
 /* GDK's last implicit grab serial: the last button or key press */
@@ -284,8 +285,21 @@ static void popup_done(void *data, struct xdg_popup *xp)
 {
   WPop *p = (WPop *)data;
   /* the compositor dismissed it (a click elsewhere, the grab broken): it
-   * and the popups above it close, as GDK's popup_done */
-  bk_popup_dismissed(p->win->ctx, p->slot);
+   * and the popups above it close, as GDK's popup_done, once the events
+   * read with it are dispatched (they may name its surface) */
+  p->done = 1;
+  p->win->render_pending = 1;
+}
+
+/* Popups the compositor dismissed close (the lowest closes those above). */
+static void wl_popups_dismissed(BKWindow *win)
+{
+  for (int i = 0; win->pops && i < BK_POPUP_SLOTS; i++) {
+    if (win->pops[i].surface && win->pops[i].done) {
+      bk_popup_dismissed(win->ctx, i);
+      return;
+    }
+  }
 }
 
 static void popup_repositioned(void *data, struct xdg_popup *xp, uint32_t token)
@@ -672,6 +686,7 @@ static int pop_render(BKWindow *win, WPop *p)
 static int wl_popups_render(BKWindow *win)
 {
   int committed = 0;
+  wl_popups_dismissed(win);
   for (int i = 0; win->pops && i < BK_POPUP_SLOTS; i++) {
     if (win->pops[i].surface) {
       committed += pop_render(win, &win->pops[i]);

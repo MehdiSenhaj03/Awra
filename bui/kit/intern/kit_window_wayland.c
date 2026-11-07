@@ -211,6 +211,7 @@ static int wl_popups_render(BKWindow *win); /* surfaces committed */
 static void wl_popups_free(BKWindow *win);
 static int wl_popups_in_flight(const BKWindow *win);
 static int wl_popups_ready(const BKWindow *win);
+static void wl_popups_dismissed(BKWindow *win);
 static BKWindow *window_of_any_surface(struct wl_surface *s, struct WPop **r_pop);
 static BKWindow *g_leave_win; /* left: a leave unless one of its surfaces is entered */
 static struct WPop *g_pointer_pop, *g_key_pop; /* the popup surface entered, NULL: the window */
@@ -2467,6 +2468,11 @@ static void loop_turn(int timeout_ms)
   }
   wl_display_dispatch_pending(g_dpy);
   flush_leave(); /* BUI-Awra: seats without pointer frames */
+  for (BKWindow *win = g_windows; win; win = win->next) {
+    if (win->open) {
+      wl_popups_dismissed(win); /* BUI-Awra */
+    }
+  }
   if (n > 0 && g_wake_pipe[0] >= 0 && (fds[1].revents & POLLIN)) {
     char buf[64];
     while (read(g_wake_pipe[0], buf, sizeof(buf)) > 0) {
