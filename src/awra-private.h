@@ -22,6 +22,10 @@
 
 #include "awra/awra.h"
 #include "kit_intern.h"
+#include "raster-shift.h"
+
+/* style.c: GTK's theme variant (the desktop's scheme), not the Awra appearance */
+bool awra_style_gtk_dark(void);
 
 /* ----------------------------------------------------------------------- */
 /* Classes */
@@ -191,6 +195,9 @@ typedef struct AwraAux {
   unsigned user_hidden : 1, child_hidden : 1, overflow_hidden : 1;
   unsigned char typography;
   float opacity;
+  /* GTK's fractional child transform (raster px): the subtree draws this
+   * much further right and down (an AwraPage's column centred at x.5) */
+  float shift_x, shift_y;
   /* measurement cache: [orientation] for one for_size each */
   int cache_for[2], cache_min[2], cache_nat[2];
   unsigned cache_valid : 2;
@@ -366,6 +373,8 @@ void awra_paint_shadow(AwraDraw *d, AwraBox b, float radius, float dx, float dy,
 void awra_paint_rect(AwraDraw *d, AwraBox b, const AwraRGBA *color);
 void awra_paint_focus_ring(AwraDraw *d, AwraBox b, float radius);
 void awra_paint_circle(AwraDraw *d, float cx, float cy, float r, const AwraRGBA *fill);
+void awra_paint_polyline(AwraDraw *d, const float (*pts)[2], int n, float width,
+                         const AwraRGBA *color);
 void awra_paint_line(AwraDraw *d, float x0, float y0, float x1, float y1, float width,
                      const AwraRGBA *color);
 
@@ -385,14 +394,14 @@ typedef struct AwraResolvedMaterial {
 } AwraResolvedMaterial;
 void awra_material_resolve(AwraMaterial material, int role, AwraElevation elevation,
                            bool blur_available, AwraResolvedMaterial *r);
-/* Paints a resolved material in box b (corner mask: TL 1 TR 2 BR 4 BL 8). */
 /* awra.css's restyling of a scrolled window's scrollbar (scrollbar.c): 0
- * GTK's, 1 a list's, 2 a picker's, 3 a composer's, 4 none */
+ * GTK's, 1 a list's, 2 a picker's, 3 a composer's, 4 none, 5 Awra's pill */
 void awra_scrolled_set_scrollbar_style_internal(AwraWidget *w, int style);
-void awra_paint_material_edges(AwraDraw *d, AwraBox b, const AwraResolvedMaterial *m, float radius,
-                               int corner_mask, int edge_mask);
+/* Paints a resolved material in box b (corner mask: TL 1 TR 2 BR 4 BL 8). */
 void awra_paint_material(AwraDraw *d, AwraBox b, const AwraResolvedMaterial *m, float radius,
                          int corner_mask, int edge_mask, AwraElevation elevation);
+void awra_paint_material_edges(AwraDraw *d, AwraBox b, const AwraResolvedMaterial *m, float radius,
+                               int corner_mask, int edge_mask);
 enum { AWRA_ROLE_GENERIC = 0, AWRA_ROLE_WINDOW, AWRA_ROLE_SIDEBAR, AWRA_ROLE_CONTENT,
        AWRA_ROLE_POPOVER, AWRA_ROLE_TOOLTIP };
 
@@ -665,3 +674,27 @@ struct BuiRaster *awra_window_raster(AwraWidget *window);
 /* PNG writing (png.c), premultiplied ARGB in */
 bool awra_write_png(const char *path, const uint32_t *argb, int w, int h);
 const char *awra_key_code_name(int evdev);
+
+/* Group opacity (group.c): between begin and end, what is drawn inside `b`
+ * fades to `alpha` as one layer (GTK's CSS opacity), not primitive by
+ * primitive. Each primitive takes the opacity instead where the raster
+ * cannot read back. */
+typedef struct AwraGroup {
+  int x, y, w, h;
+  uint32_t *saved;
+  float alpha, opacity;
+} AwraGroup;
+bool awra_group_begin(AwraDraw *d, AwraBox b, float alpha, AwraGroup *g);
+void awra_group_end(AwraDraw *d, AwraGroup *g);
+
+/* A dashed border as GTK strokes `border: <width>px dashed` round a box
+ * with corner `radius` (dash.c). */
+void awra_paint_dashed_rbox(AwraDraw *d, AwraBox b, float radius, float width, const AwraRGBA *color);
+
+/* Whether a widget is a scrolled window (containers.c); its scrollbar sees
+ * the pointer through awra_scrolled_captured_motion_internal. */
+bool awra_is_scrolled(const AwraWidget *w);
+
+/* A widget's subtree drawn shifted by a fraction of a pixel, as GTK
+ * allocates a child with a fractional translation (core.c). */
+void awra_widget_set_draw_shift(AwraWidget *w, float dx, float dy);

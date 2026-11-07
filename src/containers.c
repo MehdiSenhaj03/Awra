@@ -401,8 +401,30 @@ static GridCell *cell_of(AwraWidget *c)
   return (GridCell *)awra_widget_get_data(c, "awra-grid-cell");
 }
 
-/* Line sizes along `o` (columns when horizontal); returns the count. */
-static int grid_lines(AwraWidget *g, int o, int **r_min, int **r_nat, bool **r_expand)
+/* The size along the other orientation a child spans, given those lines'
+ * sizes (`other`, `n_other` of them): what GtkGridLayout measures it for
+ * (height for width); -1 without them. */
+static int grid_span_size(AwraWidget *g, const GridCell *c, int o, const int *other, int n_other)
+{
+  if (!other) {
+    return -1;
+  }
+  const GridExt *ge = AWRA_EXT(g, GridExt);
+  const bool rows = o == AWRA_ORIENTATION_HORIZONTAL; /* the other lines are rows */
+  const int start = rows ? c->row : c->col, span = rows ? c->h : c->w;
+  const int sp = awra_px(rows ? ge->row_spacing : ge->col_spacing);
+  int size = 0;
+  for (int s = start; s < start + span && s < n_other; s++) {
+    size += other[s] + (s > start ? sp : 0);
+  }
+  return size;
+}
+
+/* Line sizes along `o` (columns when horizontal); returns the count.
+ * `other`: the sizes of the lines across (columns when measuring rows),
+ * children measured for the size they span (NULL: for any). */
+static int grid_lines_for(AwraWidget *g, int o, const int *other, int n_other, int **r_min, int **r_nat,
+                          bool **r_expand)
 {
   int count = 0;
   for (int i = 0; i < g->nkids; i++) {
@@ -468,7 +490,7 @@ static int grid_lines(AwraWidget *g, int o, int **r_min, int **r_nat, bool **r_e
         continue;
       }
       int cm, cn;
-      awra_measure(k, o, -1, &cm, &cn);
+      awra_measure(k, o, grid_span_size(g, c, o, other, n_other), &cm, &cn);
       if (span == 1) {
         mn[start] = BK_MAX(mn[start], cm);
         nt[start] = BK_MAX(nt[start], cn);
@@ -523,11 +545,29 @@ static int grid_lines(AwraWidget *g, int o, int **r_min, int **r_nat, bool **r_e
   return count;
 }
 
+static int grid_lines(AwraWidget *g, int o, int **r_min, int **r_nat, bool **r_expand)
+{
+  return grid_lines_for(g, o, NULL, 0, r_min, r_nat, r_expand);
+}
+
+static int *grid_sizes_for(AwraWidget *g, int o, int avail, const int *other, int n_other, int *r_n);
+
 static void grid_measure(AwraWidget *g, int o, int for_size, int *r_min, int *r_nat)
 {
   int *mn, *nt;
   bool *ex;
-  const int n = grid_lines(g, o, &mn, &nt, &ex);
+  int n;
+  if (o == AWRA_ORIENTATION_VERTICAL && for_size >= 0) {
+    /* height for width: the columns that width gives, each child's
+     * height for the columns it spans (gtk_grid_layout_measure) */
+    int nc;
+    int *cw = grid_sizes_for(g, AWRA_ORIENTATION_HORIZONTAL, for_size, NULL, 0, &nc);
+    n = grid_lines_for(g, o, cw, nc, &mn, &nt, &ex);
+    free(cw);
+  }
+  else {
+    n = grid_lines(g, o, &mn, &nt, &ex);
+  }
   const GridExt *ge = AWRA_EXT(g, GridExt);
   const int sp = awra_px(o == AWRA_ORIENTATION_HORIZONTAL ? ge->col_spacing : ge->row_spacing);
   int sm = 0, sn = 0;
@@ -546,11 +586,11 @@ static void grid_measure(AwraWidget *g, int o, int for_size, int *r_min, int *r_
   *r_nat = sn;
 }
 
-static int *grid_sizes(AwraWidget *g, int o, int avail, int *r_n)
+static int *grid_sizes_for(AwraWidget *g, int o, int avail, const int *other, int n_other, int *r_n)
 {
   int *mn, *nt;
   bool *ex;
-  const int n = grid_lines(g, o, &mn, &nt, &ex);
+  const int n = grid_lines_for(g, o, other, n_other, &mn, &nt, &ex);
   const GridExt *ge = AWRA_EXT(g, GridExt);
   const int sp = awra_px(o == AWRA_ORIENTATION_HORIZONTAL ? ge->col_spacing : ge->row_spacing);
   const bool homo = o == AWRA_ORIENTATION_HORIZONTAL ? ge->col_homo : ge->row_homo;
@@ -591,8 +631,8 @@ static int *grid_sizes(AwraWidget *g, int o, int avail, int *r_n)
 static void grid_allocate(AwraWidget *g)
 {
   int nc, nr;
-  int *cw = grid_sizes(g, AWRA_ORIENTATION_HORIZONTAL, g->w, &nc);
-  int *rh = grid_sizes(g, AWRA_ORIENTATION_VERTICAL, g->h, &nr);
+  int *cw = grid_sizes_for(g, AWRA_ORIENTATION_HORIZONTAL, g->w, NULL, 0, &nc);
+  int *rh = grid_sizes_for(g, AWRA_ORIENTATION_VERTICAL, g->h, cw, nc, &nr);
   const GridExt *ge = AWRA_EXT(g, GridExt);
   const int cs = awra_px(ge->col_spacing), rs = awra_px(ge->row_spacing);
   for (int i = 0; i < g->nkids; i++) {
@@ -1329,6 +1369,47 @@ static void overlay_allocate(AwraWidget *w)
       awra_allocate(c, w->x + awra_px(rx), w->y + awra_px(ry), awra_px(rw), awra_px(rh));
       continue;
     }
+    AwraAux *a = awra_aux(c);
+    if (c != x->child && (a->halign == AWRA_ALIGN_CENTER || a->valign == AWRA_ALIGN_CENTER) &&
+        awra_child_visible(c))
+    {
+      /* GtkOverlay's own get-child-position: the preferred size within
+       * the overlay, centred as width / 2 - size / 2 in whole logical px
+       * (half a pixel lower and further right than gtk_widget's
+       * (size - natural) / 2) */
+      const int k = BK_MAX(1, (int)awra_scale());
+      int min_w, nat_w, min_h, nat_h, unused;
+      awra_measure(c, AWRA_ORIENTATION_HORIZONTAL, -1, &min_w, &nat_w);
+      awra_measure(c, AWRA_ORIENTATION_VERTICAL, min_w, &min_h, &unused);
+      awra_measure(c, AWRA_ORIENTATION_VERTICAL, nat_w, &unused, &nat_h);
+      int cw = BK_MAX(min_w, BK_MIN(w->w, nat_w)), ch = BK_MAX(min_h, BK_MIN(w->h, nat_h));
+      int cx = 0, cy = 0;
+      if (a->halign == AWRA_ALIGN_CENTER) {
+        cx = (w->w / k / 2 - cw / k / 2) * k;
+      }
+      else if (a->halign == AWRA_ALIGN_FILL) {
+        cw = BK_MAX(cw, w->w);
+      }
+      else {
+        cx = 0;
+        cw = w->w; /* start / end: aligned by awra_allocate */
+      }
+      if (a->valign == AWRA_ALIGN_CENTER) {
+        cy = (w->h / k / 2 - ch / k / 2) * k;
+      }
+      else if (a->valign == AWRA_ALIGN_FILL) {
+        ch = BK_MAX(ch, w->h);
+      }
+      else {
+        cy = 0;
+        ch = w->h;
+      }
+      if (awra_widget_rtl(w) && a->halign == AWRA_ALIGN_CENTER) {
+        cx = w->w - cx - cw; /* mirrored back by awra_allocate */
+      }
+      awra_allocate(c, w->x + cx, w->y + cy, cw, ch);
+      continue;
+    }
     awra_allocate(c, w->x, w->y, w->w, w->h);
   }
 }
@@ -1418,6 +1499,7 @@ void awra_overlay_add_overlay(AwraWidget *w, AwraWidget *child)
 typedef struct ScrollExt {
   AwraWidget *child;
   AwraPolicy hpolicy, vpolicy;
+  bool whole_steps; /* GtkListBase's adjustments: whole px after each step */
   bool prop_w, prop_h;
   int max_h, min_h; /* logical, -1 none */
   int max_w, min_w; /* logical, 0 none (GtkScrolledWindow's content widths) */
@@ -1553,8 +1635,8 @@ static void scroll_draw(AwraWidget *w, AwraDraw *d)
     x->fade_cap = need;
   }
   /* top rows first, the bottom rows after them */
-  x->fade_h[0] = top && BUI_raster_read(d->r, w->x, w->y, w->w, top, x->fade_under) ? top : 0;
-  x->fade_h[1] = bottom && BUI_raster_read(d->r, w->x, w->y + w->h - bottom, w->w, bottom,
+  x->fade_h[0] = top && SR_read(d->r, w->x, w->y, w->w, top, x->fade_under) ? top : 0;
+  x->fade_h[1] = bottom && SR_read(d->r, w->x, w->y + w->h - bottom, w->w, bottom,
                                            x->fade_under + (size_t)w->w * top) ?
                      bottom :
                      0;
@@ -1565,13 +1647,31 @@ static void scroll_fade(AwraWidget *w, AwraDraw *d)
 {
   ScrollExt *x = SX(w);
   if (x->fade_h[0] > 0) {
-    BUI_raster_fade(d->r, w->x, w->y, w->w, x->fade_h[0], x->fade_under, 0.0f, 1.0f);
+    SR_fade(d->r, w->x, w->y, w->w, x->fade_h[0], x->fade_under, 0.0f, 1.0f);
   }
   if (x->fade_h[1] > 0) {
-    BUI_raster_fade(d->r, w->x, w->y + w->h - x->fade_h[1], w->w, x->fade_h[1],
+    SR_fade(d->r, w->x, w->y + w->h - x->fade_h[1], w->w, x->fade_h[1],
                     x->fade_under + (size_t)w->w * x->fade_skip, 1.0f, 0.0f);
   }
   x->fade_h[0] = x->fade_h[1] = 0;
+}
+
+/* Whether a scrolled window's indicator is Awra's 5 px pill (awra.css's
+ * awrapage scrollbar slider, and .awra-dropdown-popup's): under an
+ * AwraPage, or marked so ("awra-pill-bar"). Widgets that style their own
+ * scrollbar (list views, conversations, pickers) set its style instead. */
+bool awra_scrolled_pill_bar_internal(AwraWidget *w);
+bool awra_scrolled_pill_bar_internal(AwraWidget *w)
+{
+  if (awra_widget_get_data(w, "awra-pill-bar")) {
+    return true;
+  }
+  for (AwraWidget *p = w->parent; p; p = p->parent) {
+    if (awra_is_widget(p) && awra_widget_is(p, "AwraPage")) {
+      return true;
+    }
+  }
+  return false;
 }
 
 static void scroll_draw_over(AwraWidget *w, AwraDraw *d)
@@ -1605,15 +1705,22 @@ static int scroll_scroll(AwraWidget *w, BKEvent *e)
   if (!can_v && !can_h) {
     return 0;
   }
-  /* GTK: a wheel step is page_size^(2/3) pixels */
-  const double step_v = pow((double)w->h, 2.0 / 3.0), step_h = pow((double)w->w, 2.0 / 3.0);
+  /* GTK: a wheel step is page_size^(2/3) (logical) pixels */
+  const double k = awra_scale();
+  const double step_v = pow((double)w->h / k, 2.0 / 3.0) * k, step_h = pow((double)w->w / k, 2.0 / 3.0) * k;
   double dy = -e->wheel_y, dx = e->wheel_x;
   if ((e->mods & BK_SHIFT) && !can_v) {
     dx = dy;
     dy = 0;
   }
-  const double nv = x->vvalue + (can_v ? dy * step_v : 0);
-  const double nh = x->hvalue + (can_h ? dx * step_h : 0);
+  double nv = x->vvalue + (can_v ? dy * step_v : 0);
+  double nh = x->hvalue + (can_h ? dx * step_h : 0);
+  /* GtkListBase (a tile grid is GtkGridView's layout) keeps its
+   * adjustments on whole px: each step lands truncated */
+  if (x->whole_steps || (x->child && awra_widget_is(x->child, "AwraTileGrid"))) {
+    nv = trunc(nv / k) * k;
+    nh = trunc(nh / k) * k;
+  }
   const double ov = x->vvalue, oh = x->hvalue;
   scroll_to(w, nv, nh);
   return x->vvalue != ov || x->hvalue != oh || can_v;
@@ -1700,6 +1807,11 @@ static AwraClass scrolled_class = {
     .scroll = scroll_scroll,
 };
 
+bool awra_is_scrolled(const AwraWidget *w)
+{
+  return w && awra_is_widget((AwraWidget *)w) && AWRA_CLASS_OF(w) == &scrolled_class;
+}
+
 AwraWidget *awra_scrolled_new(void)
 {
   AwraWidget *w = awra_widget_new(&scrolled_class);
@@ -1738,6 +1850,11 @@ void awra_scrolled_set_child(AwraWidget *w, AwraWidget *child)
 AwraWidget *awra_scrolled_child(AwraWidget *w)
 {
   return SX(w)->child;
+}
+
+void awra_scrolled_set_whole_steps(AwraWidget *w, bool whole)
+{
+  SX(w)->whole_steps = whole;
 }
 
 void awra_scrolled_set_policy(AwraWidget *w, AwraPolicy h, AwraPolicy v)

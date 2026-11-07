@@ -339,6 +339,8 @@ static int eff_look(const AwraWidget *w)
 }
 
 /* padding (logical) and radius per variant (spec B §1.1) */
+static bool toast_action_button(const AwraWidget *w);
+
 static void geometry(const AwraWidget *w, float *pad_x, float *pad_y, float *min_w, float *min_h,
                      float *radius)
 {
@@ -436,6 +438,21 @@ static void geometry(const AwraWidget *w, float *pad_x, float *pad_y, float *min
     *pad_y = 3;
     *min_h = 20;
   }
+  if (toast_action_button(w)) { /* min-height: 20px; padding: 5px 12px */
+    *pad_x = 12;
+    *pad_y = 5;
+    *min_h = 20;
+  }
+}
+
+/* a toast's action (awra.css .awra-button.awra-toast-action) */
+static bool toast_action_button(const AwraWidget *w)
+{
+  static int bit = -2;
+  if (bit == -2) {
+    bit = awra_class_bit("toast-action");
+  }
+  return bit >= 0 && awra_has_class_bit(w, bit);
 }
 
 static AwraFont button_font(AwraWidget *w)
@@ -446,6 +463,9 @@ static AwraFont button_font(AwraWidget *w)
   }
   if (BX(w)->font_px > 0.0f) {
     f.size = awra_pxf(BX(w)->font_px);
+  }
+  if (toast_action_button(w)) {
+    f.weight = 700;
   }
   return f;
 }
@@ -631,18 +651,16 @@ static void button_draw(AwraWidget *w, AwraDraw *d)
   AwraButtonColors c;
   current_colors(w, &c);
   const bool reduced = awra_style_reduced_motion();
-  if (x->clear_border) {
-    /* a 1 px transparent border with background-clip: padding-box
-     * (button.awra-dropdown-button): the background and its insets inside
-     * it, the focus outline around the border box */
-    const AwraBox ob = awra_box_of(w);
-    const float bd = awra_pxf(1);
-    const AwraBox ib = {ob.x + bd, ob.y + bd, ob.w - 2 * bd, ob.h - 2 * bd};
-    awra_paint_button_bg(d, ib, awra_pxf(rad) - bd, &c, reduced ? 0.0f : awra_press_t(w), false);
+  if (x->clear_border || awra_widget_get_data(w, "awra-dropdown")) {
+    /* button.awra-dropdown-button: a 1 px transparent border, and
+     * .awra-button's background-clip: padding-box inside it; the focus
+     * outline around the border box */
+    const float bw = awra_pxf(1);
+    awra_paint_button_bg(d, awra_box_inset(awra_box_of(w), bw), awra_pxf(rad) - bw, &c,
+                         reduced ? 0.0f : awra_press_t(w), false);
     if (awra_focus_visible(w)) {
-      const float fw = awra_pxf(3), off = awra_pxf(2);
-      const AwraBox o = {ob.x - off - fw, ob.y - off - fw, ob.w + 2 * (off + fw), ob.h + 2 * (off + fw)};
-      awra_paint_rbox(d, o, awra_pxf(rad) + off + fw, NULL, fw, &awra_tokens()->focus_ring);
+      AwraButtonColors ring = {0};
+      awra_paint_button_bg(d, awra_box_of(w), awra_pxf(rad), &ring, 0.0f, true);
     }
   }
   else {

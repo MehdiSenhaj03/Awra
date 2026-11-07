@@ -419,7 +419,7 @@ static void avatar_draw(AwraWidget *w, AwraDraw *d)
   }
   if (x->face) {
     const BuiPixmap pm = {x->face, s, s, x->face_key, BUI_PIXMAP_ARGB, 0};
-    BUI_raster_image(d->r, ox, oy, (float)s, (float)s, &pm, NULL, d->opacity, 0);
+    SR_image(d->r, ox, oy, (float)s, (float)s, &pm, NULL, d->opacity, 0);
   }
   if (x->shown_presence != AWRA_PRESENCE_NONE && x->presence_scale > 0.0f) {
     const AwraTokens *t = awra_tokens();
@@ -470,7 +470,7 @@ static void avatar_draw(AwraWidget *w, AwraDraw *d)
       }
     }
     float col[4] = {c.r, c.g, c.b, c.a * d->opacity};
-    BUI_raster_mask(d->r, x0, y0, mask, n, n, n, col);
+    SR_mask(d->r, x0, y0, mask, n, n, n, col);
     if (mask != stackbuf) {
       free(mask);
     }
@@ -876,6 +876,6 @@ void awra_paint_rbox_cut(AwraDraw *d, AwraBox b, float radius, AwraBox cut, floa
     }
   }
   float c[4] = {color->r, color->g, color->b, color->a * d->opacity};
-  BUI_raster_mask(d->r, x0, y0, mask, n_w, n_h, n_w, c);
+  SR_mask(d->r, x0, y0, mask, n_w, n_h, n_w, c);
   free(mask);
 }

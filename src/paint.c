@@ -20,7 +20,7 @@ void awra_paint_rect(AwraDraw *d, AwraBox b, const AwraRGBA *color)
   }
   float c[4];
   col(d, color, c);
-  BUI_raster_fill_rect(d->r, b.x, b.y, b.w, b.h, c);
+  SR_fill_rect(d->r, b.x, b.y, b.w, b.h, c);
 }
 
 void awra_paint_rbox4(AwraDraw *d, AwraBox b, const float radii[4], const AwraRGBA *fill,
@@ -33,7 +33,7 @@ void awra_paint_rbox4(AwraDraw *d, AwraBox b, const float radii[4], const AwraRG
   if (border) {
     col(d, border, o);
   }
-  BUI_raster_rbox(d->r, b.x, b.y, b.w, b.h, radii, fill ? f : NULL, widths,
+  SR_rbox(d->r, b.x, b.y, b.w, b.h, radii, fill ? f : NULL, widths,
                   border ? o : NULL);
 }
 
@@ -55,7 +55,7 @@ void awra_paint_inset_shadow(AwraDraw *d, AwraBox b, float radius, float dx, flo
   float c[4];
   col(d, color, c);
   const float r4[4] = {radius, radius, radius, radius};
-  BUI_raster_box_shadow_inset(d->r, b.x, b.y, b.w, b.h, r4, dx, dy, spread, blur, c);
+  SR_box_shadow_inset(d->r, b.x, b.y, b.w, b.h, r4, dx, dy, spread, blur, c);
 }
 
 void awra_paint_shadow(AwraDraw *d, AwraBox b, float radius, float dx, float dy, float spread,
@@ -67,7 +67,7 @@ void awra_paint_shadow(AwraDraw *d, AwraBox b, float radius, float dx, float dy,
   float c[4];
   col(d, color, c);
   const float r4[4] = {radius, radius, radius, radius};
-  BUI_raster_box_shadow(d->r, b.x, b.y, b.w, b.h, r4, dx, dy, spread, blur, c, clip_out);
+  SR_box_shadow(d->r, b.x, b.y, b.w, b.h, r4, dx, dy, spread, blur, c, clip_out);
 }
 
 void awra_paint_circle(AwraDraw *d, float cx, float cy, float r, const AwraRGBA *fill)
@@ -77,7 +77,7 @@ void awra_paint_circle(AwraDraw *d, float cx, float cy, float r, const AwraRGBA 
   }
   float c[4];
   col(d, fill, c);
-  BUI_raster_circle(d->r, cx, cy, r, 0.0f, c);
+  SR_circle(d->r, cx, cy, r, 0.0f, c);
 }
 
 void awra_paint_line(AwraDraw *d, float x0, float y0, float x1, float y1, float width,
@@ -88,7 +88,104 @@ void awra_paint_line(AwraDraw *d, float x0, float y0, float x1, float y1, float 
   }
   float c[4];
   col(d, color, c);
-  BUI_raster_line(d->r, x0, y0, x1, y1, width, c);
+  SR_line(d->r, x0, y0, x1, y1, width, c);
+}
+
+/* cairo_stroke of an open polyline with round caps and round joins
+ * (CAIRO_LINE_CAP_ROUND, CAIRO_LINE_JOIN_ROUND): the outline of the stroke
+ * filled once, so the segments don't overlap where they meet (two lines
+ * and dots would be darker at the joints). */
+void awra_paint_polyline(AwraDraw *d, const float (*pts)[2], int n, float width, const AwraRGBA *color)
+{
+  if (!color || color->a <= 0.0f || n < 2 || n > 16) {
+    return;
+  }
+  enum { ARC = 12 }; /* segments per half turn */
+  float out[16 * 2 * (ARC + 2) + 8][2];
+  int k = 0;
+  const float h = width * 0.5f;
+  float nx[16], ny[16]; /* each segment's left normal */
+  for (int i = 0; i + 1 < n; i++) {
+    float dx = pts[i + 1][0] - pts[i][0], dy = pts[i + 1][1] - pts[i][1];
+    const float l = sqrtf(dx * dx + dy * dy);
+    if (l <= 0.0f) {
+      return;
+    }
+    nx[i] = -dy / l;
+    ny[i] = dx / l;
+  }
+  /* an arc around c from angle a0 turning by `sweep` (radians) */
+#define ARC_TO(cx, cy, a0, sweep)                                              \
+  do {                                                                         \
+    const int steps_ = BK_MAX(1, (int)ceilf(fabsf(sweep) / (float)M_PI * ARC)); \
+    for (int s_ = 0; s_ <= steps_; s_++) {                                     \
+      const float t_ = (a0) + (sweep) * (float)s_ / (float)steps_;             \
+      out[k][0] = (cx) + h * cosf(t_);                                         \
+      out[k][1] = (cy) + h * sinf(t_);                                         \
+      k++;                                                                     \
+    }                                                                          \
+  } while (0)
+  /* one side forward (left normal), the other back, joined by the caps */
+  for (int side = 0; side < 2; side++) {
+    const float sg = side == 0 ? 1.0f : -1.0f;
+    for (int j = 0; j + 1 < n; j++) {
+      const int i = side == 0 ? j : n - 2 - j; /* segment */
+      const int a = side == 0 ? i : i + 1, b = side == 0 ? i + 1 : i;
+      const float ox = sg * nx[i] * h, oy = sg * ny[i] * h;
+      if (j == 0) {
+        out[k][0] = pts[a][0] + ox;
+        out[k][1] = pts[a][1] + oy;
+        k++;
+      }
+      if (j + 2 < n) { /* the joint at b with the next segment of this side */
+        const int i2 = side == 0 ? i + 1 : i - 1;
+        const float ox2 = sg * nx[i2] * h, oy2 = sg * ny[i2] * h;
+        /* this side is the outer one when the next segment turns away
+         * from it */
+        const int c2 = side == 0 ? i + 2 : i - 1;
+        const float nxd = pts[c2][0] - pts[b][0], nyd = pts[c2][1] - pts[b][1];
+        const bool outer = nxd * ox + nyd * oy < 0.0f;
+        if (outer) {
+          float a0 = atan2f(oy, ox), a1 = atan2f(oy2, ox2);
+          float sweep = a1 - a0;
+          while (sweep > (float)M_PI) {
+            sweep -= 2.0f * (float)M_PI;
+          }
+          while (sweep < -(float)M_PI) {
+            sweep += 2.0f * (float)M_PI;
+          }
+          ARC_TO(pts[b][0], pts[b][1], a0, sweep);
+        }
+        else { /* inner: where the two offset edges cross */
+          const float px1 = pts[a][0] + ox, py1 = pts[a][1] + oy;
+          const float px2 = pts[c2][0] + ox2, py2 = pts[c2][1] + oy2;
+          const float ex1 = pts[b][0] - pts[a][0], ey1 = pts[b][1] - pts[a][1];
+          const float ex2 = pts[b][0] - pts[c2][0], ey2 = pts[b][1] - pts[c2][1];
+          const float den = ex1 * ey2 - ey1 * ex2;
+          if (fabsf(den) > 1e-6f) {
+            const float t = ((px2 - px1) * ey2 - (py2 - py1) * ex2) / den;
+            out[k][0] = px1 + t * ex1;
+            out[k][1] = py1 + t * ey1;
+          }
+          else {
+            out[k][0] = pts[b][0] + ox;
+            out[k][1] = pts[b][1] + oy;
+          }
+          k++;
+        }
+      }
+      else { /* the end: round cap half a turn around it */
+        out[k][0] = pts[b][0] + ox;
+        out[k][1] = pts[b][1] + oy;
+        k++;
+        ARC_TO(pts[b][0], pts[b][1], atan2f(oy, ox), -(float)M_PI);
+      }
+    }
+  }
+#undef ARC_TO
+  float c[4];
+  col(d, color, c);
+  SR_polygon(d->r, (const float(*)[2])out, k, c);
 }
 
 /* Keyboard focus: a 2px accent ring just outside the widget's shape
@@ -235,7 +332,7 @@ static void paint_grain(AwraDraw *d, AwraBox b, const float radii[4], float opac
     for (float x = b.x; x < b.x + b.w; x += 96) {
       const float w = fminf(96, b.x + b.w - x), h = fminf(96, b.y + b.h - y);
       const float src[4] = {0, 0, w, h};
-      BUI_raster_image_rounded(d->r, x, y, w, h, &pm, src, opacity * d->opacity, radii);
+      SR_image_rounded(d->r, x, y, w, h, &pm, src, opacity * d->opacity, radii);
     }
   }
 }
@@ -257,14 +354,26 @@ void awra_paint_material(AwraDraw *d, AwraBox b, const AwraResolvedMaterial *m, 
     const char *e = getenv("AWRA_SHADOWS");
     shadows = e && e[0] == '1';
   }
-  if (shadows && elevation > AWRA_ELEVATION_FLAT && m->shadow.a > 0.0f) {
+  /* the shadow, outside the rounded box: within the widget's own box (GTK
+   * clips a widget's snapshot to it) it shows only past the rounded
+   * corners; AWRA_SHADOWS=1 draws all of it */
+  if (elevation > AWRA_ELEVATION_FLAT && m->shadow.a > 0.0f &&
+      (shadows || radii[0] > 0 || radii[1] > 0 || radii[2] > 0 || radii[3] > 0))
+  {
     const float off = elevation == AWRA_ELEVATION_RAISED ? 1.5f :
                       elevation == AWRA_ELEVATION_FLOATING ? 7.0f : 12.0f;
     const float blur = elevation == AWRA_ELEVATION_RAISED ? 8.0f :
                        elevation == AWRA_ELEVATION_FLOATING ? 20.0f : 32.0f;
     float c[4] = {m->shadow.r, m->shadow.g, m->shadow.b, m->shadow.a * d->opacity};
-    BUI_raster_box_shadow(d->r, b.x, b.y, b.w, b.h, radii, 0, awra_pxf(off), 0, awra_pxf(blur),
+    if (!shadows) {
+      bk_clip_push((int)floorf(b.x + awra_shift_x), (int)floorf(b.y + awra_shift_y), (int)ceilf(b.w),
+                   (int)ceilf(b.h));
+    }
+    SR_box_shadow(d->r, b.x, b.y, b.w, b.h, radii, 0, awra_pxf(off), 0, awra_pxf(blur),
                           c, 1);
+    if (!shadows) {
+      bk_clip_pop();
+    }
   }
   /* fill */
   awra_paint_rbox4(d, b, radii, &m->fill, NULL, NULL);
@@ -274,9 +383,10 @@ void awra_paint_material(AwraDraw *d, AwraBox b, const AwraResolvedMaterial *m, 
   awra_paint_material_edges(d, b, m, radius, corner_mask, edge_mask);
 }
 
-/* A material's outline, then the rim highlight on its edges (start and
- * end: right and left in a right-to-left widget), as AwraSurface draws them
- * after its child. */
+/* The outline, then the rim highlight on its edges (start and end: right
+ * and left in a right-to-left widget), as AwraSurface draws them after its
+ * child: a surface with content paints its material with edge_mask 0 and
+ * these over its content. */
 void awra_paint_material_edges(AwraDraw *d, AwraBox b, const AwraResolvedMaterial *m, float radius,
                                int corner_mask, int edge_mask)
 {

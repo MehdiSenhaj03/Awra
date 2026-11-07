@@ -167,7 +167,7 @@ static void draw_text_x(AwraDraw *d, const AwraFont *f, int xflags, float x, flo
     return;
   }
   BUI_raster_set_font(d->r, f->family, font_flags(f) | xflags);
-  BUI_raster_text(d->r, x, baseline, s, len, f->size, c);
+  SR_text(d->r, x, baseline, s, len, f->size, c);
 }
 
 /* the glyphs of bytes [from, to) of the run `s` shaped whole (in the
@@ -182,7 +182,7 @@ static void draw_text_part_x(AwraDraw *d, const AwraFont *f, int xflags, float x
     return;
   }
   BUI_raster_set_font(d->r, f->family, font_flags(f) | xflags);
-  BUI_raster_text_part(d->r, x, baseline, s, len, from, to, f->size, c);
+  SR_text_part(d->r, x, baseline, s, len, from, to, f->size, c);
 }
 
 void awra_draw_text(AwraDraw *d, const AwraFont *f, float x, float baseline, const char *s,
@@ -1810,8 +1810,17 @@ static void layout(AwraTextLayout *l, int width)
     h = awra_font_line_height(&l->font);
   }
   l->wf = w;
-  l->w = (int)ceilf(w);
-  l->h = (int)ceilf(h);
+  /* GtkLabel measures in application pixels: at a whole scale factor its
+   * size is a whole number of them (pango_layout_get_pixel_size's ceil) */
+  const float sc = awra_scale();
+  if (sc > 1.0f && sc == floorf(sc)) {
+    l->w = (int)(ceilf(w / sc - 1e-3f) * sc);
+    l->h = (int)(ceilf(h / sc - 1e-3f) * sc);
+  }
+  else {
+    l->w = (int)ceilf(w);
+    l->h = (int)ceilf(h);
+  }
   l->baseline = l->n_lines ? (int)floorf(l->lines[0].ascent + 0.5f) : 0;
 }
 

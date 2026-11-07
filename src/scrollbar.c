@@ -62,7 +62,20 @@ enum {
   STYLE_PICKER = 2,   /* awraemojipicker / completion popover */
   STYLE_COMPOSER = 3, /* awracomposer's field */
   STYLE_NONE = 4,     /* the rail, tab strips */
+  STYLE_PILL = 5,     /* Awra's 5 px pill: awrapage's, .awra-dropdown-popup's */
 };
+
+bool awra_scrolled_pill_bar_internal(AwraWidget *sw);
+
+/* GTK's default theme scrollbar unless a widget restyled it, or Awra's pill
+ * under an AwraPage (or a dropdown's popup) */
+static int style_of(const BarExt *x)
+{
+  if (x->style == STYLE_DEFAULT && x->sw && awra_scrolled_pill_bar_internal(x->sw)) {
+    return STYLE_PILL;
+  }
+  return x->style;
+}
 
 /* the scrolled window's metrics: value, upper, page (raster px) */
 void awra_scrolled_metrics_internal(AwraWidget *sw, double *r_value, double *r_upper, double *r_page,
@@ -121,6 +134,20 @@ static bool geometry(AwraWidget *w, BarGeom *g)
   memset(g, 0, sizeof(*g));
   if (!can || x->style == STYLE_NONE || sw->w <= 0 || sw->h <= 0) {
     return false;
+  }
+  if (style_of(x) == STYLE_PILL) {
+    /* awra.css: a 6 px scrollbar, its slider 5 px wide and 18 long at
+     * least, no border, @awra_thumb, the same in every state */
+    const float bw = awra_pxf(5);
+    g->bar = awra_mirror_box(sw, (AwraBox){(float)(sw->x + sw->w) - awra_pxf(6), (float)sw->y, bw, (float)sw->h});
+    g->trough = g->bar;
+    float len = upper > 0 ? (float)(g->bar.h * page / upper) : g->bar.h;
+    len = fminf(fmaxf(len, awra_pxf(18)), g->bar.h);
+    const double range = upper - page;
+    const float pos = range > 0 ? (float)(value / range) * (g->bar.h - len) : 0.0f;
+    g->slider = (AwraBox){g->bar.x, g->bar.y + pos, bw, len};
+    g->shown = true;
+    return true;
   }
   int m[4];
   style_margins(x, m);
@@ -198,15 +225,27 @@ static void bar_draw(AwraWidget *w, AwraDraw *d)
   x->drawn = true;
   const float saved = d->opacity;
   d->opacity *= alpha;
-  /* GTK's default theme, light: fg #2e3436, bg #f6f5f4 */
-  const AwraRGBA fg = {46 / 255.0f, 52 / 255.0f, 54 / 255.0f, 1};
-  const AwraRGBA bg = {246 / 255.0f, 245 / 255.0f, 244 / 255.0f, 1};
+  if (style_of(x) == STYLE_PILL) {
+    awra_paint_rbox(d, g.slider, g.slider.w * 0.5f, &awra_tokens()->control_thumb, 0, NULL);
+    d->opacity = saved;
+    return;
+  }
+  /* GTK's default theme, in its variant for the desktop's scheme (not the
+   * application's appearance): light fg #2e3436, bg #f6f5f4; dark fg
+   * #eeeeec, bg #353535, base #2d2d2d */
+  const bool dark = awra_style_gtk_dark();
+  const AwraRGBA fg = dark ? (AwraRGBA){238 / 255.0f, 238 / 255.0f, 236 / 255.0f, 1} :
+                             (AwraRGBA){46 / 255.0f, 52 / 255.0f, 54 / 255.0f, 1};
+  const AwraRGBA bg = dark ? (AwraRGBA){53 / 255.0f, 53 / 255.0f, 53 / 255.0f, 1} :
+                             (AwraRGBA){246 / 255.0f, 245 / 255.0f, 244 / 255.0f, 1};
+  const AwraRGBA contrast = dark ? (AwraRGBA){0, 0, 0, 1} : (AwraRGBA){1, 1, 1, 1};
   const float q = g.q;
   if (q > 0.0f) {
-    /* .hovering: gtkalpha ($scrollbar_bg_color, .8) in white at .8 */
-    AwraRGBA sb = awra_mix(bg, fg, 0.2f);
+    /* .hovering: gtkalpha ($scrollbar_bg_color, .8), its border white (black
+     * in the dark) at .8; $scrollbar_bg_color is mix (base, bg) dark */
+    AwraRGBA sb = dark ? (AwraRGBA){49 / 255.0f, 49 / 255.0f, 49 / 255.0f, 1} : awra_mix(bg, fg, 0.2f);
     sb.a = 0.8f * q;
-    const AwraRGBA edge = {1, 1, 1, 0.8f * q};
+    const AwraRGBA edge = awra_with_alpha(contrast, 0.8f * q);
     awra_paint_rect(d, g.bar, &sb);
     if (g.border > 0.0f) {
       const float b4[4] = {g.border, g.border, g.border, g.border};
@@ -234,7 +273,7 @@ static void bar_draw(AwraWidget *w, AwraDraw *d)
   const float r = fminf(awra_pxf(10.0f) - g.inset, fminf(s.w, s.h) * 0.5f);
   awra_paint_rbox(d, s, fmaxf(r, 0.0f), &fill, 0, NULL);
   if (q < 1.0f) {
-    const AwraRGBA rim = {1, 1, 1, 0.4f * (1.0f - q)};
+    const AwraRGBA rim = awra_with_alpha(contrast, 0.4f * (1.0f - q));
     awra_paint_rbox(d, s, fmaxf(r, 0.0f), NULL, awra_pxf(1.0f), &rim);
   }
   d->opacity = saved;
