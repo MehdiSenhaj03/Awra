@@ -32,6 +32,7 @@
 #  include "kit_transfer.h"
 
 #  define WM_BK_RENDER (WM_APP + 1)
+#  define WM_BK_LEAVE (WM_APP + 10) /* BUI-Awra: the pointer left a surface */
 #  define ID_TIP 1
 #  define ID_ANIM 2
 #  define ID_WAKE 3 /* BK_TIMER_CUSTOM: custom nodes' frames */
@@ -59,10 +60,21 @@ struct BKWindow {
   DWORD restore_style;
   struct DropTarget *drop;
   HICON icon_big, icon_small; /* BUI-Awra: WM_SETICON's */
+  /* BUI-Awra: popups in tool windows of their own (kit_popup_win32.inc.c) */
+  BKPopupHost pophost;
+  struct WinPop *pops; /* BK_POPUP_SLOTS, allocated with the first popup */
+  POINT pop_origin;    /* the client origin on screen when they were placed */
 };
 
 static int g_open = 0;
 static BKWindow *g_any_window; /* BUI-Awra: a window to own the clipboard */
+/* BUI-Awra: popups (kit_popup_win32.inc.c) */
+static void win32_popups_init(BKWindow *win);
+static void win32_popups_render(BKWindow *win);
+static void win32_popups_free(BKWindow *win);
+static void win32_popups_follow(BKWindow *win);
+static void win32_popups_deactivated(BKWindow *win, HWND other);
+static int pointer_on_window(const BKWindow *win);
 
 /* Wake BK_window_run's GetMessage without WM_QUIT: a quit message would also
  * end any other loop on this thread (e.g. a Tk mainloop in the same app). */
@@ -465,6 +477,7 @@ static void do_render(BKWindow *win)
     BUI_raster_present_native(win->raster, win->hwnd, resized);
     win->frames++;
   }
+  win32_popups_render(win); /* BUI-Awra */
   QueryPerformanceCounter(&t2);
   if (prof) {
     QueryPerformanceFrequency(&freq);
@@ -989,9 +1002,22 @@ static LRESULT CALLBACK wndproc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
       }
       break;
     case WM_ACTIVATE:
+      if (LOWORD(wp) == WA_INACTIVE) {
+        win32_popups_deactivated(win, (HWND)lp); /* BUI-Awra */
+      }
+      PostMessageW(hwnd, WM_APP + 9, 0, 0); /* the state once the change is done */
+      break;
     case WM_SHOWWINDOW:
       PostMessageW(hwnd, WM_APP + 9, 0, 0); /* the state once the change is done */
       break;
+    case WM_MOVE:
+      win32_popups_follow(win); /* BUI-Awra: popups keep their place on it */
+      break;
+    case WM_BK_LEAVE: /* BUI-Awra: a leave, unless onto the window or its popups */
+      if (!pointer_on_window(win) && GetCapture() == NULL) {
+        BK_motion(ctx, -100000, -100000, 0);
+      }
+      return 0;
     case WM_APP + 9:
       report_state(win);
       return 0;
@@ -1082,7 +1108,9 @@ static LRESULT CALLBACK wndproc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
     case WM_MOUSELEAVE:
       win->tracking = 0;
       if (GetCapture() != hwnd) {
-        BK_motion(ctx, -100000, -100000, 0);
+        /* BUI-Awra: onto one of its popups is no leave: decided once the
+         * popup had its move */
+        PostMessageW(hwnd, WM_BK_LEAVE, 0, 0);
       }
       return 0;
     case WM_LBUTTONDOWN:
@@ -1244,6 +1272,7 @@ static LRESULT CALLBACK wndproc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
         g_getobject_hook(hwnd, msg, (uintptr_t)wp, (intptr_t)lp, ctx, &handled);
       }
       drop_unregister(win);
+      win32_popups_free(win); /* BUI-Awra: owned windows go with it */
       win->hwnd = NULL;
       if (--g_open <= 0) {
         wake_loop();
@@ -1345,6 +1374,7 @@ BKWindow *BK_window_new_ex(BKContext *ctx, const char *title, int width, int hei
                  host_clipboard_get, host_clipboard_set, host_schedule, host_emit};
   BK_context_set_host(ctx, &host);
   drop_register(win);
+  win32_popups_init(win); /* BUI-Awra */
   return win;
 }
 
@@ -1474,6 +1504,7 @@ float BK_window_scale(BKWindow *win)
 void BK_window_hide(BKWindow *win)
 {
   if (win && win->hwnd) {
+    BK_close_popups(win->ctx); /* BUI-Awra: hidden with their window */
     ShowWindow(win->hwnd, SW_HIDE);
     report_state(win);
   }
@@ -1529,6 +1560,7 @@ void BK_window_free(BKWindow *win)
   if (win->icon_small) {
     DestroyIcon(win->icon_small);
   }
+  win32_popups_free(win); /* BUI-Awra */
   if (win->hwnd) {
     SetWindowLongPtrW(win->hwnd, GWLP_USERDATA, 0);
     DestroyWindow(win->hwnd);
@@ -1539,6 +1571,7 @@ void BK_window_free(BKWindow *win)
   if (win->ctx) {
     BK_context_set_host(win->ctx, &win->prev);
   }
+  free(win->pops);
   BUI_raster_free(win->raster);
   free(win);
 }
@@ -2624,4 +2657,5 @@ void BK_window_activate(BKWindow *win, const char *startup_id)
     SetForegroundWindow(win->hwnd);
   }
 }
+#  include "kit_popup_win32.inc.c"
 #endif /* _WIN32 */
