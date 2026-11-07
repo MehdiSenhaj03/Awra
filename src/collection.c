@@ -1214,6 +1214,7 @@ void awra_collection_view_set_item_count(AwraWidget *w, int n)
   CollExt *x = CX(w);
   unbind_all(w);
   x->n = BK_MAX(0, n);
+  const bool had_selection = x->sel_count > 0;
   clear_sel(x);
   ensure_sel(x);
   x->cursor = -1;
@@ -1224,6 +1225,9 @@ void awra_collection_view_set_item_count(AwraWidget *w, int n)
   awra_widget_queue_resize(w);
   awra_queue_allocate(w);
   awra_invalidate(w);
+  if (had_selection) {
+    coll_emit_selection(w);
+  }
 }
 
 int awra_collection_view_item_count(AwraWidget *w)

@@ -208,6 +208,11 @@ static void ensure_caret_visible(AwraWidget *w)
 {
   EditExt *x = EX(w);
   AwraBox a = text_area(w);
+  if (a.w <= 0) {
+    /* not laid out yet: the text starts at its beginning */
+    x->scroll_x = 0;
+    return;
+  }
   float cx, cy, ch;
   awra_text_layout_index_to_pos(x->layout, x->multiline ? (int)a.w : -1,
                                 shown_index(w, x->te->caret), &cx, &cy, &ch);
