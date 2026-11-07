@@ -58,6 +58,10 @@ void awra_invoke(void (*fn)(void *data), void *data);
  * callback returns false to stop. */
 unsigned awra_timeout_add(unsigned ms, bool (*fn)(void *data), void *data,
                           AwraDestroyNotify destroy);
+/* g_timeout_add_seconds: a coarse timer, due on the second at a mark the
+ * session's coarse timers share (up to 3/4 s off the exact time). */
+unsigned awra_timeout_add_seconds(unsigned seconds, bool (*fn)(void *data), void *data,
+                                  AwraDestroyNotify destroy);
 unsigned awra_idle_add(bool (*fn)(void *data), void *data, AwraDestroyNotify destroy);
 void awra_source_remove(unsigned id);
 /* The window backend in use: "wayland", "x11", "win32". */

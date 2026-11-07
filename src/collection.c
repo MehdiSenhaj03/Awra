@@ -497,6 +497,15 @@ static void coll_allocate(AwraWidget *w)
 /* ----------------------------------------------------------------------- */
 /* Painting */
 
+/* GtkListBase's focus: its focused row, or before there is one, the first
+ * row widget (gtk_widget_grab_focus gives the list's first child the
+ * focus: GTK rings that row and moving the cursor onto it keeps the focus
+ * where it is) */
+static int focus_row(const CollExt *x)
+{
+  return x->cursor >= 0 ? x->cursor : x->n > 0 ? (x->nvis > 0 ? x->first : 0) : -1;
+}
+
 static void paint_item_bg(AwraWidget *w, AwraDraw *d, int i)
 {
   CollExt *x = CX(w);
@@ -522,7 +531,7 @@ static void paint_item_bg(AwraWidget *w, AwraDraw *d, int i)
   if (drop) {
     awra_paint_rbox(d, b, awra_pxf(8), NULL, awra_pxf(2), &t->focus_ring);
   }
-  if (i == x->cursor && awra_focus_visible(w)) {
+  if (i == focus_row(x) && awra_focus_visible(w)) {
     awra_paint_rbox(d, b, radius, NULL, awra_pxf(2), &t->focus_ring);
   }
 }
@@ -1227,9 +1236,10 @@ static int coll_key(AwraWidget *w, BKEvent *e)
   if (to == -2) {
     return 0;
   }
-  awra_aux(w)->focus_visible = 1;
+  const int was = focus_row(x);
   move_cursor(w, to, mods);
-  return 1;
+  /* 2: the focus stayed on its row (no ring shown for it, as GTK) */
+  return x->cursor != was ? 1 : 2;
 }
 
 static void coll_finalize(AwraWidget *w)

@@ -8,6 +8,8 @@
 #include "kit_loop.h"
 
 #include <stdio.h>
+#include <stdlib.h>
+#include <time.h>
 
 #ifdef _WIN32
 #  ifndef WIN32_LEAN_AND_MEAN
@@ -253,6 +255,52 @@ unsigned awra_timeout_add(unsigned ms, bool (*fn)(void *data), void *data,
   g_sources = s;
   s->timer = BK_loop_timer((int)ms, source_fire, s);
   return s->id;
+}
+
+/* g_timeout_add_seconds: due on the second, at a per-session mark (the
+ * hash of the session bus's address, else the host's name), so that a
+ * session's coarse timers wake together: between 3/4 s early and 3/4 s
+ * late. Then every `seconds` (not re-aligned). */
+unsigned awra_timeout_add_seconds(unsigned seconds, bool (*fn)(void *data), void *data,
+                                  AwraDestroyNotify destroy)
+{
+  static long long perturb = -1;
+  if (perturb < 0) {
+    const char *a = getenv("DBUS_SESSION_BUS_ADDRESS");
+    if (!a) {
+      a = getenv("HOSTNAME");
+    }
+    perturb = 0;
+    if (a) {
+      unsigned h = 5381; /* g_str_hash */
+      for (const signed char *p = (const signed char *)a; *p; p++) {
+        h = (h << 5) + h + (unsigned)*p;
+      }
+      perturb = llabs((long long)(int)h) % 1000000;
+    }
+  }
+  long long now;
+#ifdef _WIN32
+  now = (long long)(bk_time() * 1e6);
+#else
+  struct timespec ts;
+  clock_gettime(CLOCK_MONOTONIC, &ts); /* g_get_monotonic_time */
+  now = (long long)ts.tv_sec * 1000000 + ts.tv_nsec / 1000;
+#endif
+  long long due = now + (long long)seconds * 1000000 - perturb;
+  const long long rem = due % 1000000;
+  if (rem >= 1000000 / 4) {
+    due += 1000000;
+  }
+  due = due - rem + perturb;
+  const long long first = due > now ? (due - now + 999) / 1000 : 0;
+  const unsigned id = awra_timeout_add((unsigned)first, fn, data, destroy);
+  for (Source *s = g_sources; s; s = s->next) {
+    if (s->id == id) {
+      s->ms = seconds * 1000; /* its repeats */
+    }
+  }
+  return id;
 }
 
 unsigned awra_idle_add(bool (*fn)(void *data), void *data, AwraDestroyNotify destroy)

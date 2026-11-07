@@ -59,7 +59,7 @@ typedef struct WinExt {
   /* GTK's focus-visible: the window shows its focus ring after keyboard
    * use (a key that moved the focus or a cursor, Alt), hides it on a
    * pointer press and 3 s after the last key */
-  bool focus_visible, key_tracked;
+  bool focus_visible;
   AwraWidget *key_press_focus; /* compared only, not held */
   unsigned focus_visible_timer;
   /* passive floating widgets (awra_window_add_overlay) */
@@ -839,7 +839,7 @@ static bool focus_visible_expired(void *data)
 }
 
 /* gtk_window_set_focus_visible: the focus widget's ring follows; a timer
- * hides it 3 s later (re-armed by each keyboard use) */
+ * hides it about 3 s later (re-armed by each keyboard use) */
 static void set_focus_visible(AwraWidget *win, bool visible)
 {
   WinExt *x = WEXT(win);
@@ -848,7 +848,8 @@ static void set_focus_visible(AwraWidget *win, bool visible)
     x->focus_visible_timer = 0;
   }
   if (visible && !x->offscreen) {
-    x->focus_visible_timer = awra_timeout_add(3000, focus_visible_expired, win, NULL);
+    /* VISIBLE_FOCUS_DURATION, with g_timeout_add_seconds */
+    x->focus_visible_timer = awra_timeout_add_seconds(3, focus_visible_expired, win, NULL);
   }
   x->focus_visible = visible;
   AwraWidget *f = x->focus;
@@ -900,20 +901,6 @@ void awra_set_focus(AwraWidget *win, AwraWidget *w, bool keyboard)
   awra_emit_text(win, AWRA_SIGNAL_NOTIFY, "focus");
 }
 
-static bool is_modifier(const char *keysym)
-{
-  static const char *const mods[] = {"Shift_L", "Shift_R", "Control_L", "Control_R", "Alt_L",
-                                     "Alt_R", "Super_L", "Super_R", "Meta_L", "Meta_R",
-                                     "ISO_Level3_Shift", "Caps_Lock", "Num_Lock", "Hyper_L",
-                                     "Hyper_R"};
-  for (size_t i = 0; i < sizeof(mods) / sizeof(mods[0]); i++) {
-    if (bk_keysym_is(keysym, mods[i])) {
-      return true;
-    }
-  }
-  return false;
-}
-
 static bool is_navigation(const char *keysym)
 {
   static const char *const keys[] = {"Up", "Down", "Left", "Right", "Home", "End", "Page_Up",
@@ -927,15 +914,17 @@ static bool is_navigation(const char *keysym)
   return false;
 }
 
-/* _gtk_window_update_focus_visible: a key press remembers the focus; its
- * release shows the ring if the focus moved (or it showed already); Alt
- * alone shows it */
+/* _gtk_window_update_focus_visible: a key press remembers the focus (none
+ * while the ring shows); its release shows the ring if the focus is not
+ * the one remembered, and forgets it; Alt alone shows it. GTK hides the
+ * ring again when the focus stayed; Awra leaves that to its timer. A press
+ * the application's shortcuts take is not seen (key_hook): GTK's controller
+ * for this runs after them. */
 static void key_focus_visible(AwraWidget *win, bool press, const char *keysym, int mods)
 {
   WinExt *x = WEXT(win);
   if (press) {
-    x->key_tracked = !x->focus_visible;
-    x->key_press_focus = x->focus;
+    x->key_press_focus = x->focus_visible ? NULL : x->focus;
     if ((bk_keysym_is(keysym, "Alt_L") || bk_keysym_is(keysym, "Alt_R")) &&
         !(mods & (BK_CTRL | BK_SHIFT)))
     {
@@ -943,13 +932,9 @@ static void key_focus_visible(AwraWidget *win, bool press, const char *keysym, i
     }
     return;
   }
-  if (is_modifier(keysym) && !x->focus_visible) {
-    return;
-  }
-  if (!x->key_tracked || x->focus != x->key_press_focus) {
+  if (x->focus != x->key_press_focus) {
     set_focus_visible(win, true);
   }
-  x->key_tracked = false;
   x->key_press_focus = NULL;
 }
 
@@ -1251,6 +1236,7 @@ static int key_hook(BKContext *ctx, int press, const char *text, const char *key
   e.x = ctx->pointer_x;
   e.y = ctx->pointer_y;
   awra_widget_ref(win);
+  AwraWidget *const press_focus_before = x->key_press_focus;
   key_focus_visible(win, press != 0, keysym, mods);
   int handled = 0;
   const AwraSignal sig = press ? AWRA_SIGNAL_KEY_PRESSED : AWRA_SIGNAL_KEY_RELEASED;
@@ -1263,6 +1249,11 @@ static int key_hook(BKContext *ctx, int press, const char *text, const char *key
     a.code = code;
     a.mods = mods & (BK_SHIFT | BK_CTRL | BK_ALT);
     handled = awra_emit(win, &a);
+    if (handled) {
+      /* the application's controllers on the window run before GTK's
+       * visible-focus one (added first, run last): it never saw this press */
+      x->key_press_focus = press_focus_before;
+    }
     /* the handler may have moved the focus */
     start = x->focus && awra_widget_mapped(x->focus) ? x->focus : NULL;
   }
@@ -1282,10 +1273,13 @@ static int key_hook(BKContext *ctx, int press, const char *text, const char *key
         break;
       }
     }
-    if (press && n != win && AWRA_CLASS_OF(n)->key && AWRA_CLASS_OF(n)->key(n, &e)) {
+    int took = 0;
+    if (press && n != win && AWRA_CLASS_OF(n)->key && (took = AWRA_CLASS_OF(n)->key(n, &e))) {
       handled = 1;
-      if (is_navigation(keysym)) {
-        set_focus_visible(win, true); /* a cursor moved inside the widget */
+      /* a cursor moved inside the widget: in GTK the focus moved to another
+       * of its children (2: it stayed on the same one) */
+      if (is_navigation(keysym) && took != 2) {
+        set_focus_visible(win, true);
       }
     }
   }
@@ -1296,6 +1290,7 @@ static int key_hook(BKContext *ctx, int press, const char *text, const char *key
     }
     else if (awra_window_dispatch_shortcut(win, keysym, mods)) {
       handled = 1;
+      x->key_press_focus = press_focus_before; /* unseen (key_focus_visible) */
     }
     else if (bk_keysym_is(keysym, "Tab") || bk_keysym_is(keysym, "ISO_Left_Tab")) {
       move_focus(win, (mods & BK_SHIFT) || bk_keysym_is(keysym, "ISO_Left_Tab") ? -1 : 1);

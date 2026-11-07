@@ -80,7 +80,8 @@ struct AwraClass {
   int (*release)(AwraWidget *w, BKEvent *e);
   int (*drag)(AwraWidget *w, BKEvent *e);
   int (*motion)(AwraWidget *w, BKEvent *e);
-  int (*key)(AwraWidget *w, BKEvent *e);
+  int (*key)(AwraWidget *w, BKEvent *e); /* 1 handled; 2 handled, the focus stayed on the
+                                          * same child (no ring for a navigation key) */
   int (*scroll)(AwraWidget *w, BKEvent *e);
   void (*activate)(AwraWidget *w); /* Return / Space / mnemonic */
   int (*cursor)(AwraWidget *w, int x, int y); /* BK_CURSOR_* or -1 */

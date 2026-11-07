@@ -389,6 +389,7 @@ extern "C" {
     pub fn awra_pump() -> c_int;
     pub fn awra_invoke(fn_: Option<unsafe extern "C" fn(*mut c_void)>, data: *mut c_void);
     pub fn awra_timeout_add(ms: c_uint, fn_: Option<unsafe extern "C" fn(*mut c_void) -> bool>, data: *mut c_void, destroy: Option<unsafe extern "C" fn(*mut c_void)>) -> c_uint;
+    pub fn awra_timeout_add_seconds(seconds: c_uint, fn_: Option<unsafe extern "C" fn(*mut c_void) -> bool>, data: *mut c_void, destroy: Option<unsafe extern "C" fn(*mut c_void)>) -> c_uint;
     pub fn awra_idle_add(fn_: Option<unsafe extern "C" fn(*mut c_void) -> bool>, data: *mut c_void, destroy: Option<unsafe extern "C" fn(*mut c_void)>) -> c_uint;
     pub fn awra_source_remove(id: c_uint);
     pub fn awra_backend() -> *const c_char;
