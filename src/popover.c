@@ -2576,8 +2576,9 @@ static void tip_draw(BKContext *ctx, const char *text, const BKRect *rect)
 {
   AwraDraw d = {bk_draw.r, 1.0f};
   AwraBox b = {(float)rect->xmin, (float)rect->ymin, (float)bk_rw(rect), (float)bk_rh(rect)};
-  AwraRGBA bg = awra_tokens()->material_tint[AWRA_MATERIAL_FLOATING];
-  bg.a = 1.0f; /* drawn over the window's content: the opaque fallback */
+  /* tooltip.background: @awra_floating as it is, translucent, in the
+   * tooltip's own surface (over the window's content where it has none) */
+  const AwraRGBA bg = awra_tokens()->material_tint[AWRA_MATERIAL_FLOATING];
   awra_paint_rbox(&d, b, awra_pxf(8), &bg, 0, NULL);
   AwraTextLayout *l = awra_text_layout_new();
   AwraFont f = tip_font();
