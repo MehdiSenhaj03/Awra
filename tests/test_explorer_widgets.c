@@ -218,8 +218,8 @@ static void stack_page_gone(void)
   frame();
 }
 
-/* Escape closes the palette whatever was typed, and the keyboard goes back
- * where it was; the same after a menu opened from the keyboard */
+/* The palette is a window of its own, as Awra 1's: presenting and closing
+ * it leaves the window's keyboard focus where it was */
 static void focus_comes_back(void)
 {
   AwraWidget *box = awra_box_new(AWRA_ORIENTATION_VERTICAL, 0);
@@ -236,11 +236,12 @@ static void focus_comes_back(void)
   awra_command_palette_set_commands(palette, cmds, 1);
   awra_command_palette_present(palette, g_win);
   frame();
-  CHECK(awra_window_focus(g_win) != button, "the palette didn't take the keyboard");
-  BK_key(awra_ctx(g_win), "z", "z", 0);
-  BK_key(awra_ctx(g_win), "", "Escape", 0);
+  AwraWidget *pw = awra_widget_root(palette);
+  CHECK(pw && pw != g_win, "the palette isn't a window of its own");
+  CHECK(awra_window_focus(g_win) == button, "the palette moved its parent's focus");
+  awra_command_palette_close(palette);
   frame();
-  CHECK(!awra_window_has_popup(g_win), "Escape with text left the palette open");
+  CHECK(awra_window_state(pw) & AWRA_WINDOW_STATE_HIDDEN, "the palette stayed open");
   CHECK(awra_window_focus(g_win) == button, "the keyboard didn't come back");
   awra_widget_unref(palette);
   awra_window_set_child(g_win, NULL);
