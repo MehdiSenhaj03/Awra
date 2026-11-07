@@ -979,7 +979,16 @@ static void image_draw(AwraWidget *w, AwraDraw *d)
       bw = nw * s;
     }
   }
-  decode_at(w, (int)ceilf(bw), (int)ceilf(bh));
+  /* GSK samples the texture itself (linear, at the place and scale the
+   * fit gives): it is decoded at its own size, unless shown at less than
+   * half of it (a large photo in a small box keeps memory down; GSK uses
+   * mipmaps there) */
+  if (x->iw > 0 && x->ih > 0 && bw * 2.0f >= (float)x->iw && bh * 2.0f >= (float)x->ih) {
+    decode_at(w, x->iw, x->ih);
+  }
+  else {
+    decode_at(w, (int)ceilf(bw), (int)ceilf(bh));
+  }
   if (!x->argb) {
     return;
   }
