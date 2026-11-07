@@ -1364,4 +1364,11 @@ extern "C" {
     pub fn awra_widget_set_drop_active(widget: *mut AwraWidget, active: bool);
     pub fn awra_window_set_drag_action(window: *mut AwraWidget, action: c_int);
     pub fn awra_widget_drop_active(widget: *mut AwraWidget) -> bool;
+    pub fn awra_tile_grid_new() -> *mut AwraWidget;
+    pub fn awra_tile_grid_append(grid: *mut AwraWidget, child: *mut AwraWidget);
+    pub fn awra_tile_grid_insert(grid: *mut AwraWidget, child: *mut AwraWidget, position: c_int);
+    pub fn awra_tile_grid_set_columns(grid: *mut AwraWidget, min_columns: c_int, max_columns: c_int);
+    pub fn awra_tile_grid_set_spacing(grid: *mut AwraWidget, row_spacing: c_int, column_spacing: c_int);
+    pub fn awra_tile_grid_set_natural_rows(grid: *mut AwraWidget, natural: bool);
+    pub fn awra_tile_grid_columns(grid: *mut AwraWidget) -> c_int;
 }

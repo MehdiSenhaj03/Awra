@@ -26,6 +26,8 @@ mod enums;
 mod widget;
 mod widgets;
 mod collection;
+mod tilegrid;
+pub use tilegrid::TileGrid;
 mod window;
 mod video;
 mod texture_data;

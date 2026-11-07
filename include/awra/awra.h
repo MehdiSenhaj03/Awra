@@ -2199,6 +2199,26 @@ void awra_window_set_drag_action(AwraWidget *window, int action);
 bool awra_widget_drop_active(AwraWidget *widget);
 
 
+
+/* ----------------------------------------------------------------------- */
+/* Tile grid */
+
+/* Children laid out as GtkGridView lays out its items, without
+ * virtualization: columns as wide as the widest child's minimum allows,
+ * min_columns to max_columns of them (GtkGridView's 1 and 7 by default),
+ * (width + spacing) / n - spacing px each at ceil'd positions, rows as
+ * tall as their tallest child's minimum height for that width
+ * (GTK_SCROLL_MINIMUM) or, with natural rows, its natural height. */
+AwraWidget *awra_tile_grid_new(void);
+void awra_tile_grid_append(AwraWidget *grid, AwraWidget *child);
+void awra_tile_grid_insert(AwraWidget *grid, AwraWidget *child, int position);
+void awra_tile_grid_set_columns(AwraWidget *grid, int min_columns, int max_columns);
+/* logical px (GtkListBase's border-spacing) */
+void awra_tile_grid_set_spacing(AwraWidget *grid, int row_spacing, int column_spacing);
+void awra_tile_grid_set_natural_rows(AwraWidget *grid, bool natural);
+/* The columns for the grid's current width. */
+int awra_tile_grid_columns(AwraWidget *grid);
+
 #ifdef __cplusplus
 }
 
