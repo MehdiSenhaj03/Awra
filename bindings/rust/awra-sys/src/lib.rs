@@ -1313,6 +1313,7 @@ extern "C" {
     pub fn awra_transition_bin_set_child(bin: *mut AwraWidget, child: *mut AwraWidget);
     pub fn awra_transition_bin_child(bin: *mut AwraWidget) -> *mut AwraWidget;
     pub fn awra_transition_bin_set_fixed_top(bin: *mut AwraWidget, height: c_int);
+    pub fn awra_transition_bin_set_motion(bin: *mut AwraWidget, preset: c_int);
     pub fn awra_transition_bin_play(bin: *mut AwraWidget, dx: f64, dy: f64);
     pub fn awra_drag_preview_new() -> *mut AwraWidget;
     pub fn awra_drag_preview_set_icon_size(preview: *mut AwraWidget, size: c_int);

@@ -28,6 +28,8 @@ typedef struct TransitionExt {
   float shift[2];        /* raster px the child is moved by, now */
   float child_opacity;   /* the child's own, given back at the end */
   double started;
+  unsigned ms;     /* this motion's duration */
+  int preset;      /* AwraMotionPreset of the next ones (0: Normal) */
   double progress; /* 0..1, linear */
   bool playing;
 } TransitionExt;
@@ -122,8 +124,7 @@ static void transition_anim(AwraWidget *w, double t, void *data)
   if (!x->playing) {
     return;
   }
-  const double ms = awra_motion_duration(AWRA_MOTION_NORMAL);
-  x->progress = ms > 0 ? (awra_now_ms() - x->started) / ms : 1.0;
+  x->progress = x->ms > 0 ? (awra_now_ms() - x->started) / x->ms : 1.0;
   if (x->progress >= 1.0) {
     return; /* transition_done gives everything back */
   }
@@ -214,10 +215,15 @@ void awra_transition_bin_set_fixed_top(AwraWidget *w, int height)
   TRX(w)->fixed_top = height < 0 ? 0 : height;
 }
 
+void awra_transition_bin_set_motion(AwraWidget *w, AwraMotionPreset preset)
+{
+  TRX(w)->preset = (int)preset;
+}
+
 void awra_transition_bin_play(AwraWidget *w, double dx, double dy)
 {
   TransitionExt *x = TRX(w);
-  const unsigned ms = awra_motion_duration(AWRA_MOTION_NORMAL);
+  const unsigned ms = awra_motion_duration(x->preset ? (AwraMotionPreset)x->preset : AWRA_MOTION_NORMAL);
   if (!x->child || ms == 0 || !awra_widget_mapped(w) || w->w <= 0 || w->h <= 0) {
     return;
   }
@@ -235,6 +241,7 @@ void awra_transition_bin_play(AwraWidget *w, double dx, double dy)
   x->offset[1] = (float)dy;
   x->child_opacity = awra_aux(x->child)->opacity;
   x->started = awra_now_ms();
+  x->ms = ms;
   x->progress = 0.0;
   x->playing = true;
   awra_widget_ref(w);

@@ -2011,7 +2011,8 @@ bool awra_drag_start(AwraWidget *source, const char *const *mimes, const void *c
                      const size_t *lengths, int n, AwraTexture *icon, int hot_x, int hot_y,
                      int actions, AwraHandler done, void *user_data);
 /* GtkDragSource's images when it has none: a label of the text a drag
- * carries, or an icon (size: logical px), at the window scale. */
+ * carries, or an icon (size: logical px), at the window scale; a symbolic
+ * icon in the text colour, a full-colour one as it is. */
 AwraTexture *awra_texture_new_for_text(const char *text);
 AwraTexture *awra_texture_new_for_icon(const char *icon_name, int size);
 /* Files: text/uri-list and the paths as text (Windows: CF_HDROP). */
@@ -2047,6 +2048,8 @@ AwraWidget *awra_transition_bin_new(void);
 void awra_transition_bin_set_child(AwraWidget *bin, AwraWidget *child);
 AwraWidget *awra_transition_bin_child(AwraWidget *bin);
 void awra_transition_bin_set_fixed_top(AwraWidget *bin, int height);
+/* How long the next changes play (AWRA_MOTION_NORMAL by default). */
+void awra_transition_bin_set_motion(AwraWidget *bin, AwraMotionPreset preset);
 void awra_transition_bin_play(AwraWidget *bin, double dx, double dy);
 
 /* ----------------------------------------------------------------------- */

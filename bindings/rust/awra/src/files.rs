@@ -62,6 +62,10 @@ impl TransitionBin {
     pub fn set_fixed_top(&self, height: i32) {
         unsafe { ffi::awra_transition_bin_set_fixed_top(ptr!(self), height) }
     }
+    /// How long the next changes play (Normal by default).
+    pub fn set_motion(&self, preset: crate::MotionPreset) {
+        unsafe { ffi::awra_transition_bin_set_motion(ptr!(self), preset as i32) }
+    }
     /// Call it right after the child's content changed, before the next frame.
     pub fn play(&self, dx: f64, dy: f64) {
         unsafe { ffi::awra_transition_bin_play(ptr!(self), dx, dy) }

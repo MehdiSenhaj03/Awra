@@ -895,22 +895,32 @@ void awra_window_remove_shortcut(AwraWidget *win, unsigned long id)
 bool awra_window_dispatch_shortcut(AwraWidget *win, const char *keysym, int mods)
 {
   const int m = mods & (BK_SHIFT | BK_CTRL | BK_ALT);
-  for (Shortcut *s = WEXT(win)->shortcuts; s; s = s->next) {
-    const bool shift_free = !(s->mods & BK_SHIFT) && (keysym[0] && !keysym[1]);
-    if ((s->mods == m || (shift_free && (s->mods | BK_SHIFT) == m)) &&
-        bk_keysym_is(keysym, s->keysym))
-    {
-      AwraArgs a = {0};
-      a.signal = AWRA_SIGNAL_ACTIVATE;
-      a.keysym = keysym;
-      a.mods = m;
-      bool handled = true;
-      a.handled = &handled;
-      s->fn(win, &a, s->data);
-      return true;
+  /* an exact match first (Ctrl+Shift+B is <Primary><Shift>b, not
+   * <Primary>b), then one where Shift only made the character (GTK's
+   * GDK_KEY_MATCH_EXACT before _PARTIAL) */
+  Shortcut *found = NULL;
+  for (Shortcut *s = WEXT(win)->shortcuts; s && !found; s = s->next) {
+    if (s->mods == m && bk_keysym_is(keysym, s->keysym)) {
+      found = s;
     }
   }
-  return false;
+  for (Shortcut *s = WEXT(win)->shortcuts; s && !found; s = s->next) {
+    const bool shift_free = !(s->mods & BK_SHIFT) && (keysym[0] && !keysym[1]);
+    if (shift_free && (s->mods | BK_SHIFT) == m && bk_keysym_is(keysym, s->keysym)) {
+      found = s;
+    }
+  }
+  if (!found) {
+    return false;
+  }
+  AwraArgs a = {0};
+  a.signal = AWRA_SIGNAL_ACTIVATE;
+  a.keysym = keysym;
+  a.mods = m;
+  bool handled = true;
+  a.handled = &handled;
+  found->fn(win, &a, found->data);
+  return true;
 }
 
 static int key_hook(BKContext *ctx, int press, const char *text, const char *keysym, int mods)

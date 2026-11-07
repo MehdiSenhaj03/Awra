@@ -347,15 +347,7 @@ void awra_drag_preview_set_item(AwraWidget *w, int index, const AwraTexture *tex
 
 void awra_drag_preview_set_item_icon(AwraWidget *w, int index, const char *icon_name)
 {
-  const int px = awra_px(PVX(w)->icon_size);
-  AwraTexture *t = NULL;
-  const BuiPixmap *pm = icon_name && !strstr(icon_name, "-symbolic") ? awra_icon_pixmap(icon_name, px) : NULL;
-  if (pm && pm->px) {
-    t = awra_texture_new_argb(pm->px, pm->w, pm->h);
-  }
-  else if (icon_name) {
-    t = awra_texture_new_for_icon(icon_name, PVX(w)->icon_size);
-  }
+  AwraTexture *t = icon_name ? awra_texture_new_for_icon(icon_name, PVX(w)->icon_size) : NULL;
   awra_drag_preview_set_item(w, index, t);
   if (t) {
     awra_texture_unref(t);
