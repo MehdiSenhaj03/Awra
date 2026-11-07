@@ -214,8 +214,23 @@ impl Window {
     pub fn set_keep_rounded_corners(&self, keep: bool) {
         unsafe { ffi::awra_window_set_keep_rounded_corners(self.0.as_ptr(), keep) }
     }
-    pub fn set_modal(&self, _m: bool) {}
-    pub fn set_transient_for(&self, _w: Option<&Window>) {}
+    /// GtkWindow's modal: while shown, the window it is transient for
+    /// takes no pointer or key input.
+    pub fn set_modal(&self, m: bool) {
+        unsafe { ffi::awra_window_set_modal(self.0.as_ptr(), m) }
+    }
+    pub fn is_modal(&self) -> bool {
+        unsafe { ffi::awra_window_get_modal(self.0.as_ptr()) }
+    }
+    /// GtkWindow's transient-for: kept above `w` (a dialog to the window
+    /// manager).
+    pub fn set_transient_for(&self, w: Option<&Window>) {
+        unsafe { ffi::awra_window_set_transient_for(self.0.as_ptr(), w.map_or(std::ptr::null_mut(), |w| w.0.as_ptr())) }
+    }
+    pub fn transient_for(&self) -> Option<Window> {
+        let p = unsafe { ffi::awra_window_get_transient_for(self.0.as_ptr()) };
+        (!p.is_null()).then(|| unsafe { Window::from_none_ptr(p) })
+    }
     pub fn set_destroy_with_parent(&self, _d: bool) {}
     pub fn set_decorated(&self, _d: bool) {}
     pub fn native_handle(&self) -> *mut c_void {

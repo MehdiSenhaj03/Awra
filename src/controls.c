@@ -378,6 +378,11 @@ typedef struct SliderExt {
 
 #define SLX(w) AWRA_EXT(w, SliderExt)
 
+bool awra_slider_dragging(const AwraWidget *w)
+{
+  return SLX(w)->dragging;
+}
+
 /* GtkScale's value text: "%.*f" of the value (C locale) */
 static int slider_value_text(const SliderExt *x, double v, char *buf, size_t size)
 {

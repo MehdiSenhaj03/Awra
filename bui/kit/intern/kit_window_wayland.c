@@ -91,6 +91,7 @@ struct BKWindow {
   struct wl_surface *surface;
   struct xdg_surface *xdg_surface;
   struct xdg_toplevel *toplevel;
+  struct BKWindow *parent_win; /* BUI-Awra: xdg_toplevel.set_parent */
   struct zxdg_toplevel_decoration_v1 *deco;
   char *parent_handle;                  /* BUI-Awra: xdg-foreign, another client's window above which it stays */
   struct zxdg_imported_v2 *imported;
@@ -1827,6 +1828,9 @@ static void map_window(BKWindow *win)
   }
   win_icon_apply(win);
   transient_apply(win);
+  if (win->parent_win && win->parent_win->toplevel) {
+    xdg_toplevel_set_parent(win->toplevel, win->parent_win->toplevel);
+  }
   if (win->min_w > 0 || win->min_h > 0) {
     xdg_toplevel_set_min_size(win->toplevel, win->min_w, win->min_h);
   }
@@ -2693,6 +2697,21 @@ void BK_window_set_transient_for_exported(BKWindow *win, const char *handle)
   win->parent_handle = handle && handle[0] ? strdup(handle) : NULL;
   if (win->toplevel) {
     transient_apply(win);
+    wl_display_flush(g_dpy);
+  }
+}
+
+/* BUI-Awra: one of our windows as parent (the compositor keeps it above
+ * and may centre it); modality is the application's */
+void BK_window_set_parent(BKWindow *win, BKWindow *parent, int modal)
+{
+  (void)modal;
+  if (!win) {
+    return;
+  }
+  win->parent_win = parent;
+  if (win->toplevel) {
+    xdg_toplevel_set_parent(win->toplevel, parent && parent->toplevel ? parent->toplevel : NULL);
     wl_display_flush(g_dpy);
   }
 }

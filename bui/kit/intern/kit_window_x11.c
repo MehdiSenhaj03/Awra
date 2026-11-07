@@ -236,6 +236,7 @@ struct BKWindow {
   struct XPop *pops; /* BK_POPUP_SLOTS, allocated with the first popup */
   int root_x, root_y; /* the window's origin on the screen when popups were placed */
   int leave_pending;  /* the pointer left a surface: a leave unless it entered another */
+  int mapped;         /* shown: the WM is asked for state changes */
 };
 
 static Display *g_dpy = NULL;
@@ -841,6 +842,7 @@ void BK_window_show(BKWindow *win)
     XMapWindow(g_dpy, win->xid);
     XFlush(g_dpy);
     win->render_pending = 1;
+    win->mapped = 1;
   }
 }
 
@@ -1377,6 +1379,7 @@ void BK_window_hide(BKWindow *win)
     XUnmapWindow(g_dpy, win->xid);
     XFlush(g_dpy);
     win->states |= BK_WSTATE_HIDDEN;
+    win->mapped = 0;
   }
 }
 
@@ -2368,6 +2371,50 @@ void BK_window_set_transient_for_exported(BKWindow *win, const char *handle)
     const long value = (long)parent;
     XChangeProperty(g_dpy, win->xid, 68 /* XA_WM_TRANSIENT_FOR */, 33 /* XA_WINDOW */, 32,
                     PropModeReplace, (const unsigned char *)&value, 1);
+  }
+  XFlush(g_dpy);
+}
+
+/* BUI-Awra: WM_TRANSIENT_FOR one of our windows, typed a dialog
+ * (_NET_WM_WINDOW_TYPE_DIALOG), modal by _NET_WM_STATE_MODAL (set before
+ * it maps, as GTK does; a mapped window asks the WM) */
+void BK_window_set_parent(BKWindow *win, BKWindow *parent, int modal)
+{
+  if (!win || !win->xid) {
+    return;
+  }
+  const Atom type = XInternAtom(g_dpy, "_NET_WM_WINDOW_TYPE", False);
+  if (!parent || !parent->xid) {
+    XDeleteProperty(g_dpy, win->xid, 68 /* XA_WM_TRANSIENT_FOR */);
+    XDeleteProperty(g_dpy, win->xid, type);
+  }
+  else {
+    const long value = (long)parent->xid;
+    XChangeProperty(g_dpy, win->xid, 68 /* XA_WM_TRANSIENT_FOR */, 33 /* XA_WINDOW */, 32,
+                    PropModeReplace, (const unsigned char *)&value, 1);
+    const long dialog = (long)XInternAtom(g_dpy, "_NET_WM_WINDOW_TYPE_DIALOG", False);
+    XChangeProperty(g_dpy, win->xid, type, 4 /* XA_ATOM */, 32, PropModeReplace,
+                    (const unsigned char *)&dialog, 1);
+  }
+  const Atom state = XInternAtom(g_dpy, "_NET_WM_STATE", False);
+  const Atom modal_atom = XInternAtom(g_dpy, "_NET_WM_STATE_MODAL", False);
+  if (win->mapped) {
+    XEvent ev;
+    memset(&ev, 0, sizeof(ev));
+    ev.xclient.type = ClientMessage;
+    ev.xclient.window = win->xid;
+    ev.xclient.message_type = state;
+    ev.xclient.format = 32;
+    ev.xclient.data.l[0] = modal && parent ? 1 : 0; /* _NET_WM_STATE_ADD / REMOVE */
+    ev.xclient.data.l[1] = (long)modal_atom;
+    ev.xclient.data.l[3] = 1;
+    XSendEvent(g_dpy, DefaultRootWindow(g_dpy), False,
+               SubstructureRedirectMask | SubstructureNotifyMask, &ev);
+  }
+  else if (modal && parent) {
+    const long value = (long)modal_atom;
+    XChangeProperty(g_dpy, win->xid, state, 4 /* XA_ATOM */, 32, PropModeAppend,
+                    (const unsigned char *)&value, 1);
   }
   XFlush(g_dpy);
 }

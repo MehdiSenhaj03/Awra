@@ -1228,6 +1228,7 @@ typedef struct MediaExt {
   AwraWidget *grid, *tile, *title, *subtitle, *play, *stop, *volume, *seek, *elapsed, *total,
       *suffix, *ends;
   bool has_accent, playing, seekable;
+  bool syncing; /* the seek bar follows the position: no seek signal */
   AwraRGBA accent;
   double duration, position;
 } MediaExt;
@@ -1301,17 +1302,7 @@ static void media_value_text(MediaExt *x)
   awra_accessible_update_property_string(x->seek, AWRA_ACCESSIBLE_PROPERTY_VALUE_TEXT, vt);
 }
 
-static void media_sync_times(AwraWidget *w)
-{
-  MediaExt *x = MX(w);
-  char a[16], b[16];
-  fmt_time(a, sizeof(a), x->position);
-  fmt_time(b, sizeof(b), x->duration);
-  awra_label_set_text(x->elapsed, a);
-  awra_label_set_text(x->total, b);
-  awra_slider_set_range(x->seek, 0, x->duration > 0 ? x->duration : 1);
-  media_value_text(x);
-}
+static void media_sync(AwraWidget *w);
 
 static void media_play(AwraWidget *b, const AwraArgs *a, void *data)
 {
@@ -1331,10 +1322,14 @@ static void media_volume(AwraWidget *v, const AwraArgs *a, void *data)
 static void media_seek(AwraWidget *s, const AwraArgs *a, void *data)
 {
   AwraWidget *w = (AwraWidget *)data;
-  if (awra_widget_get_data(w, "awra-syncing")) {
+  if (MX(w)->syncing) {
     return;
   }
   awra_emit_value(w, AWRA_SIGNAL_SEEK, a->value);
+  /* while scrubbing, the elapsed time follows the thumb (update_times) */
+  char t[16];
+  fmt_time(t, sizeof(t), a->value);
+  awra_label_set_text(MX(w)->elapsed, t);
 }
 
 static AwraWidget *small_label(void)
@@ -1365,6 +1360,7 @@ AwraWidget *awra_media_row_new(const char *title)
   awra_label_set_xalign(x->title, 0.0f);
   awra_label_set_ellipsize(x->title, AWRA_ELLIPSIZE_END);
   awra_label_set_weight(x->title, 650);
+  awra_widget_set_tooltip(x->title, title && title[0] ? title : NULL);
   x->subtitle = awra_label_new("");
   awra_widget_set_typography(x->subtitle, AWRA_TYPOGRAPHY_MUTED);
   awra_label_set_xalign(x->subtitle, 0.0f);
@@ -1420,13 +1416,15 @@ AwraWidget *awra_media_row_new(const char *title)
   awra_signal_connect(x->volume, AWRA_SIGNAL_VALUE_CHANGED, media_volume, w, NULL);
   awra_signal_connect(x->seek, AWRA_SIGNAL_VALUE_CHANGED, media_seek, w, NULL);
   x->seekable = true;
-  media_sync_times(w);
+  media_sync(w);
   return w;
 }
 
 void awra_media_row_set_title(AwraWidget *w, const char *t)
 {
   awra_label_set_text(MX(w)->title, t);
+  /* Awra 1: the title tells itself whole when ellipsized */
+  awra_widget_set_tooltip(MX(w)->title, t && t[0] ? t : NULL);
 }
 
 void awra_media_row_set_subtitle(AwraWidget *w, const char *s)
@@ -1480,39 +1478,74 @@ void awra_media_row_set_volume(AwraWidget *w, double v)
   awra_volume_control_set_value(MX(w)->volume, v);
 }
 
+/* Awra 1's sync_seek: a row without a duration is idle: its seek bar sits
+ * at 0 and takes no input, its stop button too unless it plays, its title
+ * and times are disabled-coloured (.awra-media-idle) */
+static void media_sync(AwraWidget *w)
+{
+  MediaExt *x = MX(w);
+  const bool idle = x->duration <= 0.0;
+  awra_slider_set_range(x->seek, 0, x->duration > 1.0 ? x->duration : 1.0);
+  const bool scrubbing = awra_slider_dragging(x->seek);
+  if (!scrubbing) {
+    x->syncing = true;
+    awra_slider_set_value(x->seek, idle ? 0.0 : BK_CLAMP(x->position, 0.0, x->duration));
+    x->syncing = false;
+  }
+  awra_widget_set_sensitive(x->seek, !idle && x->seekable);
+  awra_widget_set_sensitive(x->stop, !idle || x->playing);
+  const AwraRGBA *dim = idle ? &awra_tokens()->disabled : NULL;
+  awra_label_set_color(x->title, dim);
+  awra_label_set_color(x->elapsed, dim);
+  awra_label_set_color(x->total, dim);
+  char a[16], b[16];
+  fmt_time(a, sizeof(a), idle ? 0.0 : scrubbing ? awra_slider_value(x->seek) : x->position);
+  fmt_time(b, sizeof(b), x->duration);
+  awra_label_set_text(x->elapsed, a);
+  awra_label_set_text(x->total, b);
+  media_value_text(x);
+}
+
 void awra_media_row_set_playing(AwraWidget *w, bool p)
 {
   MediaExt *x = MX(w);
+  if (x->playing == p) {
+    return;
+  }
   x->playing = p;
   awra_button_set_icon_name(x->play, p ? "media-playback-pause-symbolic" : "media-playback-start-symbolic");
   awra_accessible_update_property_string(x->play, AWRA_ACCESSIBLE_PROPERTY_LABEL, p ? "Pause" : "Play");
-  awra_label_set_color(x->title, p ? NULL : &awra_tokens()->disabled);
-  awra_widget_set_sensitive(x->seek, p && x->seekable);
+  media_sync(w);
 }
 
 void awra_media_row_set_duration(AwraWidget *w, double s)
 {
-  MX(w)->duration = s;
-  media_sync_times(w);
+  if (!isfinite(s) || s < 0.0) {
+    s = 0.0;
+  }
+  if (MX(w)->duration != s) {
+    MX(w)->duration = s;
+    media_sync(w);
+  }
 }
 
 void awra_media_row_set_position(AwraWidget *w, double s)
 {
-  MediaExt *x = MX(w);
-  x->position = s;
-  awra_widget_set_data(w, "awra-syncing", (void *)1, NULL);
-  awra_slider_set_value(x->seek, s);
-  awra_widget_set_data(w, "awra-syncing", NULL, NULL);
-  char a[16];
-  fmt_time(a, sizeof(a), s);
-  awra_label_set_text(x->elapsed, a);
-  media_value_text(x);
+  if (!isfinite(s) || s < 0.0) {
+    s = 0.0;
+  }
+  if (MX(w)->position != s) {
+    MX(w)->position = s;
+    media_sync(w);
+  }
 }
 
 void awra_media_row_set_seekable(AwraWidget *w, bool s)
 {
-  MX(w)->seekable = s;
-  awra_widget_set_sensitive(MX(w)->seek, s && MX(w)->playing);
+  if (MX(w)->seekable != s) {
+    MX(w)->seekable = s;
+    media_sync(w);
+  }
 }
 
 void awra_media_row_set_suffix(AwraWidget *w, AwraWidget *suffix)

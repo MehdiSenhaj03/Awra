@@ -512,6 +512,11 @@ static void current_colors(AwraWidget *w, AwraButtonColors *c)
   const bool checked = x->toggle && x->active;
   AwraButtonColors rest, hov, prs;
   const AwraLook look = (AwraLook)eff_look(w);
+  if (awra_menu_button_open(w)) {
+    /* .awra-menu-button.awra-open: as :active (control_pressed, inset) */
+    awra_button_colors(look, true, true, checked, sens, c);
+    return;
+  }
   awra_button_colors(look, false, false, checked, sens, &rest);
   if (ht <= 0.0f && pt <= 0.0f) {
     *c = rest;

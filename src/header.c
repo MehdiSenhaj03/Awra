@@ -398,6 +398,16 @@ void awra_header_set_dialog(AwraWidget *w, bool dialog)
   awra_widget_queue_resize(w);
 }
 
+/* A window's header with only its close button (a non-resizable transient
+ * window: Awra 1's command palette) */
+void awra_header_set_close_only(AwraWidget *w);
+void awra_header_set_close_only(AwraWidget *w)
+{
+  HeaderExt *x = HX(w);
+  awra_widget_set_visible(x->minimize, false);
+  awra_widget_set_visible(x->maximize, false);
+}
+
 void awra_header_set_material(AwraWidget *w, AwraMaterial material)
 {
   HX(w)->material = material;

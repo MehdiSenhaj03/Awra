@@ -3592,8 +3592,23 @@ int BK_eval_number(const char *expr, double *r_value)
   bk_views_check(ctx); \
   return r
 
+void BK_context_set_blocked(BKContext *ctx, int blocked)
+{
+  if (!ctx || ctx->blocked == (blocked != 0)) {
+    return;
+  }
+  if (blocked) {
+    BK_motion(ctx, -60000, -60000, 0); /* the pointer leaves what it was over */
+    hide_tooltip(ctx);
+  }
+  ctx->blocked = blocked != 0;
+}
+
 int BK_press(BKContext *ctx, int x, int y, int mods)
 {
+  if (ctx->blocked) {
+    return 0;
+  }
   if (ctx->pointer_hook) {
     ctx->pointer_hook(ctx, BK_EV_PRESS, x, y, mods);
   }
@@ -3602,6 +3617,9 @@ int BK_press(BKContext *ctx, int x, int y, int mods)
 
 int BK_release(BKContext *ctx, int x, int y, int mods)
 {
+  if (ctx->blocked) {
+    return 0;
+  }
   if (ctx->pointer_hook) {
     ctx->pointer_hook(ctx, BK_EV_RELEASE, x, y, mods);
   }
@@ -3610,6 +3628,11 @@ int BK_release(BKContext *ctx, int x, int y, int mods)
 
 int BK_motion(BKContext *ctx, int x, int y, int mods)
 {
+  if (ctx->blocked) {
+    ctx->pointer_x = x; /* where it is once input comes back */
+    ctx->pointer_y = y;
+    return 0;
+  }
   if (ctx->pointer_hook) {
     ctx->pointer_hook(ctx, (x <= -50000 || y <= -50000) ? BK_EV_LEAVE : BK_EV_MOTION, x, y,
                       mods);
@@ -3619,11 +3642,17 @@ int BK_motion(BKContext *ctx, int x, int y, int mods)
 
 int BK_wheel(BKContext *ctx, int x, int y, int delta, int mods)
 {
+  if (ctx->blocked) {
+    return 0;
+  }
   INPUT_ENTRY(in_BK_wheel(ctx, x, y, delta, mods));
 }
 
 int BK_key(BKContext *ctx, const char *text, const char *keysym, int mods)
 {
+  if (ctx->blocked) {
+    return 0;
+  }
   if (ctx->key_hook && ctx->key_hook(ctx, 1, text ? text : "", keysym ? keysym : "", mods)) {
     bk_views_check(ctx);
     return 1;
@@ -3633,6 +3662,9 @@ int BK_key(BKContext *ctx, const char *text, const char *keysym, int mods)
 
 int BK_scroll(BKContext *ctx, int x, int y, float dx, float dy, int mods)
 {
+  if (ctx->blocked) {
+    return 0;
+  }
   BKNode *t = BK_IS_CUSTOM(ctx->grab) ? ctx->grab : (ctx->modal ? NULL : hit_all(ctx, x, y));
   if (BK_IS_CUSTOM(t) && NODE_ENABLED(t)) {
     if (dx == 0.0f && dy == 0.0f) {
@@ -3681,6 +3713,9 @@ int BK_scroll(BKContext *ctx, int x, int y, float dx, float dy, int mods)
 
 int BK_context_menu(BKContext *ctx, int x, int y, int mods)
 {
+  if (ctx->blocked) {
+    return 0;
+  }
   if (ctx->pointer_hook) {
     /* BUI-Awra: a menu the extension opened for this press (a context
      * menu) is not an outside popup the press closes */
@@ -3697,6 +3732,9 @@ int BK_context_menu(BKContext *ctx, int x, int y, int mods)
 
 int BK_key_release(BKContext *ctx, const char *keysym, int mods)
 {
+  if (ctx->blocked) {
+    return 0;
+  }
   if (ctx->key_hook && ctx->key_hook(ctx, 0, "", keysym ? keysym : "", mods)) {
     return 1;
   }
@@ -3724,6 +3762,9 @@ int BK_key_release(BKContext *ctx, const char *keysym, int mods)
 
 int BK_button(BKContext *ctx, int x, int y, int button, int release, int mods)
 {
+  if (ctx->blocked) {
+    return 0;
+  }
   if (ctx->pointer_hook && (button == 2 || button == 3) && (release || button == 2)) {
     ctx->pointer_hook(ctx, release ? BK_EV_RELEASE : BK_EV_PRESS, x, y,
                       mods | (button == 2 ? BK_BUTTON2 : BK_BUTTON3));

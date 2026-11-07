@@ -971,6 +971,9 @@ void awra_popover_set_autohide(AwraWidget *popover, bool autohide);
 bool awra_popover_autohide(AwraWidget *popover);
 /* A popover menu of items, at a point of `relative_to` (context menus). */
 AwraWidget *awra_menu_popover_new(const AwraMenuItem *items, int n);
+/* The items as `popover`'s content, with a menu's insets (a popover built
+ * from a menu model, GtkPopoverMenu). */
+void awra_popover_set_menu(AwraWidget *popover, const AwraMenuItem *items, int n);
 void awra_context_menu_attach(AwraWidget *widget, const AwraMenuItem *items, int n);
 
 AwraWidget *awra_dialog_new(const char *title);
@@ -2120,6 +2123,13 @@ void awra_window_set_startup_id(AwraWidget *window, const char *startup_id);
  * names it: "wayland:<xdg-foreign handle>" or "x11:<window id in hex>" (GTK's
  * gdk_toplevel_set_transient_for_exported). NULL or "" lets it go. */
 void awra_window_set_transient_for_exported(AwraWidget *window, const char *parent);
+/* GtkWindow's transient-for (one of the application's windows: kept above
+ * it, a dialog to the window manager) and modality (the parent takes no
+ * pointer or key input while the modal window shows, as GTK's grab). */
+void awra_window_set_transient_for(AwraWidget *window, AwraWidget *parent);
+AwraWidget *awra_window_get_transient_for(AwraWidget *window);
+void awra_window_set_modal(AwraWidget *window, bool modal);
+bool awra_window_get_modal(AwraWidget *window);
 /* Whether a popover or menu is open over the window (its keys go there
  * first: a window-wide key handler leaves them alone). */
 bool awra_window_has_popup(AwraWidget *window);
