@@ -1010,6 +1010,15 @@ static void ensure_native(AwraWidget *w)
   if (x->bkw || x->offscreen || x->closed) {
     return;
   }
+  /* GtkWindow: the default size, but never under what the contents need */
+  if (x->child || x->titlebar) {
+    const float s = awra_scale();
+    int mn = 0, nat = 0;
+    window_measure(w, AWRA_ORIENTATION_HORIZONTAL, -1, &mn, &nat);
+    x->default_w = BK_MAX(x->default_w, (int)ceilf(mn / s));
+    window_measure(w, AWRA_ORIENTATION_VERTICAL, (int)(x->default_w * s), &mn, &nat);
+    x->default_h = BK_MAX(x->default_h, (int)ceilf(mn / s));
+  }
   x->bkw = BK_window_new_ex(x->ctx, x->title, x->default_w, x->default_h,
                             BK_WINDOW_TRANSPARENT | BK_WINDOW_UNDECORATED);
   if (!x->bkw) {
@@ -1069,6 +1078,22 @@ void awra_window_present(AwraWidget *w)
       awra_timeout_add((unsigned)atoi(dump) * 1000, dump_later, w, NULL);
     }
     awra_map_tree(w, true);
+    /* gtk_window_show: a window without focus moves it forward, to the
+     * first focusable widget of its content, then of its titlebar (not
+     * shown as keyboard focus) */
+    if (!x->focus) {
+      AwraWidget *list[512];
+      int n = 0;
+      if (x->child) {
+        collect_focusable(x->child, list, &n, 512);
+      }
+      if (!n && x->titlebar) {
+        collect_focusable(x->titlebar, list, &n, 512);
+      }
+      if (n) {
+        awra_set_focus(w, list[0], false);
+      }
+    }
   }
   x->state &= ~AWRA_WINDOW_STATE_HIDDEN;
   if (x->bkw) {
