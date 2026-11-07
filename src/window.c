@@ -1287,6 +1287,14 @@ static int key_hook(BKContext *ctx, int press, const char *text, const char *key
     /* the handler may have moved the focus */
     start = x->focus && awra_widget_mapped(x->focus) ? x->focus : NULL;
   }
+  /* the application's accelerators come next, before the focused widget's
+   * own keys: GtkWindow runs them in the capture phase, as a global
+   * shortcut controller added when the window got its application */
+  bool accels_done = false;
+  if (press && !handled && !ctx->npopups) {
+    accels_done = true;
+    handled = awra_window_dispatch_shortcut(win, keysym, mods);
+  }
   for (AwraWidget *n = start ? start : win; n && !handled; n = n->parent) {
     if (!awra_is_widget(n)) {
       continue;
@@ -1315,7 +1323,7 @@ static int key_hook(BKContext *ctx, int press, const char *text, const char *key
     if (ctx->npopups && bk_keysym_is(keysym, "Escape")) {
       handled = 0; /* the kit closes the top popup */
     }
-    else if (awra_window_dispatch_shortcut(win, keysym, mods)) {
+    else if (!accels_done && awra_window_dispatch_shortcut(win, keysym, mods)) {
       handled = 1;
     }
     else if (bk_keysym_is(keysym, "Tab") || bk_keysym_is(keysym, "ISO_Left_Tab")) {
