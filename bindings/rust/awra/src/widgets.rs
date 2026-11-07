@@ -931,7 +931,17 @@ fn menu_items(menu: &Menu, keep: &mut Vec<std::ffi::CString>, dispatch: *mut c_v
                 }
                 it.label = push_str(Some(d.label.as_deref().unwrap_or("")), keep);
                 it.icon_name = push_str(d.icon.as_deref(), keep);
-                it.accel = push_str(d.accel.as_deref().map(crate::window::accel_label).as_deref(), keep);
+                // GtkModelButton: the item's accel, else the application's
+                // first accelerator for its action
+                let accel = d.accel.clone().or_else(|| {
+                    let action = d.action.as_deref()?;
+                    let detailed = match &d.target {
+                        Some(t) => format!("{action}::{}", t.str().unwrap_or("")),
+                        None => action.to_owned(),
+                    };
+                    crate::gio::Application::default()?.accels_for_action(&detailed).into_iter().next()
+                });
+                it.accel = push_str(accel.as_deref().map(crate::window::accel_label).as_deref(), keep);
                 it.handler = Some(menu_item_activated);
                 it.data = dispatch;
                 acts.push((d.action.clone(), d.target.clone()));
