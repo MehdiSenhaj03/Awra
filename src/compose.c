@@ -1396,8 +1396,8 @@ static bool nav_child_style(AwraWidget *w, AwraRGBA *col, int *weight)
   return true;
 }
 
-/* a colour a label reads in on this appearance (awra_rgba_readable) */
-static AwraRGBA readable(AwraRGBA c)
+/* a colour a label reads in on this appearance (Awra 1's awra_rgba_readable) */
+AwraRGBA awra_rgba_readable(AwraRGBA c)
 {
   const bool dark = awra_tokens()->dark;
   const float l = 0.2126f * c.r + 0.7152f * c.g + 0.0722f * c.b;
@@ -1415,7 +1415,7 @@ static void nav_sync_label(AwraWidget *w)
   NavExt *x = NX(w);
   awra_label_set_weight(x->label, nav_label_weight(w));
   if (x->has_label_color) {
-    AwraRGBA c = readable(x->label_color);
+    AwraRGBA c = awra_rgba_readable(x->label_color);
     awra_label_set_color(x->label, &c);
   }
   else {

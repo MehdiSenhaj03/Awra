@@ -490,6 +490,8 @@ AwraWidget *awra_flow_box_new(void);
 void awra_flow_box_append(AwraWidget *flow, AwraWidget *child);
 void awra_flow_box_insert(AwraWidget *flow, AwraWidget *child, int position);
 void awra_flow_box_set_spacing(AwraWidget *flow, int row_spacing, int column_spacing);
+/* Padding around each child (logical px; GTK's theme: 3, a flat-list: 0). */
+void awra_flow_box_set_child_padding(AwraWidget *flow, int padding);
 void awra_flow_box_set_columns(AwraWidget *flow, int min_per_line, int max_per_line);
 void awra_flow_box_set_homogeneous(AwraWidget *flow, bool homogeneous);
 void awra_flow_box_set_selection_mode(AwraWidget *flow, AwraSelectionMode mode);

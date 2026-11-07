@@ -202,6 +202,8 @@ bool awra_compute_expand(AwraWidget *w, int orientation);
 /* GtkSizeRequestMode: its height depends on its width (wrapping text,
  * pictures keeping their aspect, what holds them); else constant size. */
 bool awra_height_for_width(AwraWidget *w);
+/* a colour that reads against this appearance's background */
+AwraRGBA awra_rgba_readable(AwraRGBA c);
 /* Distributes `extra` among n children by GTK's natural-allocation rule:
  * sizes[] start at their minimums and grow towards their naturals. */
 int awra_distribute(int extra, int n, int *sizes, const int *naturals);

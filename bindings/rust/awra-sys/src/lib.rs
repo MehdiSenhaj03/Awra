@@ -54,6 +54,7 @@ pub const AWRA_BUTTON_SECONDARY: c_int = 1;
 pub const AWRA_BUTTON_GHOST: c_int = 2;
 pub const AWRA_BUTTON_DESTRUCTIVE: c_int = 3;
 pub const AWRA_BUTTON_TOOLBAR: c_int = 4;
+pub const AWRA_BUTTON_SUCCESS: c_int = 5;
 pub const AWRA_CARD_PLAIN: c_int = 0;
 pub const AWRA_CARD_TINTED: c_int = 1;
 pub const AWRA_CARD_RAISED: c_int = 2;
@@ -358,6 +359,7 @@ extern "C" {
     pub fn awra_flow_box_append(flow: *mut AwraWidget, child: *mut AwraWidget);
     pub fn awra_flow_box_insert(flow: *mut AwraWidget, child: *mut AwraWidget, position: c_int);
     pub fn awra_flow_box_set_spacing(flow: *mut AwraWidget, row_spacing: c_int, column_spacing: c_int);
+    pub fn awra_flow_box_set_child_padding(flow: *mut AwraWidget, padding: c_int);
     pub fn awra_flow_box_set_columns(flow: *mut AwraWidget, min_per_line: c_int, max_per_line: c_int);
     pub fn awra_flow_box_set_homogeneous(flow: *mut AwraWidget, homogeneous: bool);
     pub fn awra_flow_box_set_selection_mode(flow: *mut AwraWidget, mode: c_int);

@@ -612,6 +612,7 @@ typedef struct FlowExt {
   bool (*filter)(AwraWidget *child, void *data);
   void *filter_data;
   AwraDestroyNotify filter_destroy;
+  int child_pad; /* logical px; -1: the theme's */
 } FlowExt;
 
 static bool flow_shown(AwraWidget *f, AwraWidget *c)
@@ -623,8 +624,21 @@ static bool flow_shown(AwraWidget *f, AwraWidget *c)
   return !x->filter || x->filter(c, x->filter_data);
 }
 
-/* GtkFlowBoxChild's padding in GTK's default theme (flowboxchild { padding: 3px }) */
-#define FLOW_PAD awra_px(3)
+/* GtkFlowBoxChild's padding in GTK's default theme (flowboxchild { padding:
+ * 3px }); none in a flat list (awra.css .awra-role-flat-list) or where set */
+static int flow_pad(AwraWidget *f)
+{
+  static int flat = -2;
+  if (flat == -2) {
+    flat = awra_class_bit("flat-list");
+  }
+  const int set = AWRA_EXT(f, FlowExt)->child_pad;
+  if (set >= 0) {
+    return awra_px(set);
+  }
+  return flat >= 0 && awra_has_class_bit(f, flat) ? 0 : awra_px(3);
+}
+#define FLOW_PAD flow_pad(f)
 #define FLOW_MAX_ITEMS 64
 
 /* The shown children with their widths (padding included). */
@@ -632,11 +646,13 @@ typedef struct FlowItems {
   AwraWidget *c[FLOW_MAX_ITEMS * 4];
   int min[FLOW_MAX_ITEMS * 4], nat[FLOW_MAX_ITEMS * 4];
   int n, max_min, max_nat;
+  int pad; /* each child's padding */
 } FlowItems;
 
 static void flow_items(AwraWidget *f, FlowItems *it)
 {
   it->n = it->max_min = it->max_nat = 0;
+  it->pad = FLOW_PAD;
   for (int i = 0; i < f->nkids && it->n < FLOW_MAX_ITEMS * 4; i++) {
     AwraWidget *c = f->kids[i];
     if (!flow_shown(f, c)) {
@@ -742,9 +758,9 @@ static int flow_line_heights(const FlowItems *it, int len, const int *cols, int 
   }
   for (int i = 0; i < it->n; i++) {
     int cm, cn;
-    awra_measure(it->c[i], AWRA_ORIENTATION_VERTICAL, BK_MAX(0, cols[i % len] - 2 * FLOW_PAD), &cm, &cn);
-    mins[i / len] = BK_MAX(mins[i / len], cm + 2 * FLOW_PAD);
-    nats[i / len] = BK_MAX(nats[i / len], cn + 2 * FLOW_PAD);
+    awra_measure(it->c[i], AWRA_ORIENTATION_VERTICAL, BK_MAX(0, cols[i % len] - 2 * it->pad), &cm, &cn);
+    mins[i / len] = BK_MAX(mins[i / len], cm + 2 * it->pad);
+    nats[i / len] = BK_MAX(nats[i / len], cn + 2 * it->pad);
   }
   return lines;
 }
@@ -863,6 +879,7 @@ AwraWidget *awra_flow_box_new(void)
   x->min_per_line = 1;
   x->max_per_line = 7; /* GtkFlowBox's default */
   x->mode = AWRA_SELECTION_SINGLE;
+  x->child_pad = -1;
   return w;
 }
 
@@ -1544,4 +1561,10 @@ void awra_scrolled_get_vadjustment(AwraWidget *w, double *value, double *upper, 
   if (page) {
     *page = w->h / s;
   }
+}
+
+void awra_flow_box_set_child_padding(AwraWidget *flow, int padding)
+{
+  AWRA_EXT(flow, FlowExt)->child_pad = padding;
+  awra_widget_queue_resize(flow);
 }

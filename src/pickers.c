@@ -504,7 +504,7 @@ typedef struct Swatch {
 } Swatch;
 
 typedef struct PaletteExt {
-  AwraWidget *flow, *automatic, *custom, *popover, *entry;
+  AwraWidget *root, *flow, *automatic, *custom, *popover, *entry;
   Swatch *colors;
   int n;
   bool has_selected, allows_custom;
@@ -518,20 +518,42 @@ static PaletteExt *pl(AwraWidget *w)
 
 typedef struct DotExt {
   AwraWidget *palette;
-  int index; /* -1 automatic, -2 custom */
+  int index; /* a colour; -2 "any colour", -3 the custom colour chosen */
 } DotExt;
 
+/* a swatch: a 24 px dot in 3 px of padding and a 1 px border (awra.css
+ * .awra-color-swatch on a GtkButton) */
+#define DOT 24
 static void dot_measure(AwraWidget *w, int o, int f, int *mn, int *nt)
 {
   (void)w;
   (void)o;
   (void)f;
-  *mn = *nt = awra_px(24 + 6);
+  /* 3 px of padding and GTK's 1 px button border around the dot */
+  *mn = *nt = awra_px(DOT + 8);
 }
+
+static bool known_color(PaletteExt *p, const AwraRGBA *c);
 
 static bool same_color(const AwraRGBA *a, const AwraRGBA *b)
 {
   return fabsf(a->r - b->r) < 0.004f && fabsf(a->g - b->g) < 0.004f && fabsf(a->b - b->b) < 0.004f;
+}
+
+/* Awra 1's AwraSwatchDot: a faint outline, the colour inside it, and when
+ * chosen, the colour drawn smaller inside a ring of it */
+static void paint_dot(AwraDraw *d, float cx, float cy, const AwraRGBA *color, bool chosen)
+{
+  const AwraTokens *t = awra_tokens();
+  const float half = awra_pxf(DOT) / 2, inset = awra_pxf(chosen ? 5 : 2);
+  const AwraRGBA edge = awra_with_alpha(t->foreground, 0.18f);
+  awra_paint_circle(d, cx, cy, half - inset + awra_pxf(1), &edge);
+  awra_paint_circle(d, cx, cy, half - inset, color);
+  if (chosen) {
+    const AwraRGBA ring = awra_rgba_readable(*color);
+    awra_paint_rbox(d, (AwraBox){cx - half, cy - half, 2 * half, 2 * half}, half, NULL, awra_pxf(2),
+                    &ring);
+  }
 }
 
 static void dot_draw(AwraWidget *w, AwraDraw *d)
@@ -543,39 +565,46 @@ static void dot_draw(AwraWidget *w, AwraDraw *d)
   if (awra_hovered(w)) {
     awra_paint_rbox(d, b, b.h / 2, &t->control_cap_hover, 0, NULL);
   }
-  const float cx = b.x + b.w / 2, cy = b.y + b.h / 2, r = awra_pxf(12);
-  bool selected = false;
+  const float cx = b.x + b.w / 2, cy = b.y + b.h / 2;
   if (x->index >= 0) {
-    awra_paint_circle(d, cx, cy, r, &p->colors[x->index].color);
-    selected = p->has_selected && same_color(&p->selected, &p->colors[x->index].color);
+    paint_dot(d, cx, cy, &p->colors[x->index].color,
+              p->has_selected && same_color(&p->selected, &p->colors[x->index].color));
   }
-  else if (x->index == -1) {
-    AwraRGBA c = t->accent;
-    awra_paint_circle(d, cx, cy, r, &c);
-    awra_paint_rbox(d, (AwraBox){cx - r, cy - r, 2 * r, 2 * r}, r, NULL, awra_pxf(1), &t->outline);
-    selected = !p->has_selected;
+  else if (x->index == -3) {
+    /* the custom colour chosen */
+    paint_dot(d, cx, cy, &p->selected, true);
   }
   else {
-    awra_paint_rbox(d, (AwraBox){cx - r, cy - r, 2 * r, 2 * r}, r, NULL, awra_pxf(1.5), &t->muted);
-    awra_paint_icon(d, "list-add-symbolic", cx - awra_pxf(8), cy - awra_pxf(8), awra_px(16), &t->muted);
-    if (p->has_selected) {
-      bool known = false;
-      for (int i = 0; i < p->n; i++) {
-        known |= same_color(&p->selected, &p->colors[i].color);
-      }
-      if (!known) {
-        awra_paint_circle(d, cx, cy, r - awra_pxf(3), &p->selected);
-        selected = true;
-      }
-    }
-  }
-  if (selected) {
-    /* a ring in the foreground around the chosen one */
-    awra_paint_rbox(d, (AwraBox){cx - r - awra_pxf(3), cy - r - awra_pxf(3), 2 * r + awra_pxf(6), 2 * r + awra_pxf(6)},
-                    r + awra_pxf(3), NULL, awra_pxf(2), &t->foreground);
+    /* "Any colour…": a flat button with the add icon */
+    awra_paint_icon(d, "list-add-symbolic", cx - awra_pxf(8), cy - awra_pxf(8), awra_px(16),
+                    awra_hovered(w) ? &t->foreground : &t->muted);
   }
   if (awra_focus_visible(w)) {
     awra_paint_rbox(d, b, b.h / 2, NULL, awra_pxf(2), &t->focus_ring);
+  }
+}
+
+static bool known_color(PaletteExt *p, const AwraRGBA *c)
+{
+  for (int i = 0; i < p->n; i++) {
+    if (same_color(c, &p->colors[i].color)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+static void palette_sync(AwraWidget *palette)
+{
+  PaletteExt *p = pl(palette);
+  if (p->automatic) {
+    awra_toggle_button_set_active(p->automatic, !p->has_selected);
+  }
+  if (p->custom) {
+    awra_widget_set_visible(p->custom, p->has_selected && !known_color(p, &p->selected));
+  }
+  for (int i = 0; i < p->flow->nkids; i++) {
+    awra_invalidate(p->flow->kids[i]);
   }
 }
 
@@ -586,9 +615,7 @@ static void palette_chosen(AwraWidget *palette, const AwraRGBA *c)
   if (c) {
     p->selected = *c;
   }
-  for (int i = 0; i < p->flow->nkids; i++) {
-    awra_invalidate(p->flow->kids[i]);
-  }
+  palette_sync(palette);
   AwraArgs a = {0};
   a.signal = AWRA_SIGNAL_SELECTED;
   a.index = c ? 1 : 0;
@@ -623,8 +650,9 @@ static int dot_release(AwraWidget *w, BKEvent *e)
     AwraRGBA c = p->colors[x->index].color;
     palette_chosen(x->palette, &c);
   }
-  else if (x->index == -1) {
-    palette_chosen(x->palette, NULL);
+  else if (x->index == -3) {
+    AwraRGBA c = p->selected;
+    palette_chosen(x->palette, &c);
   }
   else {
     if (!p->popover) {
@@ -689,37 +717,53 @@ static void palette_free(void *data)
   free(p);
 }
 
+static void automatic_clicked(AwraWidget *button, const AwraArgs *a, void *data)
+{
+  (void)button;
+  (void)a;
+  palette_chosen((AwraWidget *)data, NULL);
+}
+
 static void palette_rebuild(AwraWidget *w)
 {
   PaletteExt *p = pl(w);
   awra_container_remove_all(p->flow);
-  if (p->automatic) {
-    AwraWidget *a = dot_new(w, -1, awra_widget_get_data(w, "awra-automatic-label"));
-    awra_flow_box_append(p->flow, a);
-    awra_widget_unref(a);
-  }
+  p->custom = NULL;
   for (int i = 0; i < p->n; i++) {
     AwraWidget *d = dot_new(w, i, p->colors[i].name);
     awra_flow_box_append(p->flow, d);
     awra_widget_unref(d);
   }
   if (p->allows_custom) {
-    AwraWidget *c = dot_new(w, -2, "Another colour");
+    p->custom = dot_new(w, -3, "Your colour");
+    awra_flow_box_append(p->flow, p->custom);
+    awra_widget_unref(p->custom);
+    AwraWidget *c = dot_new(w, -2, "Any colour\xE2\x80\xA6");
     awra_flow_box_append(p->flow, c);
     awra_widget_unref(c);
   }
+  palette_sync(w);
 }
 
+/* Awra 1: the automatic choice (a toggle button with its label) stands
+ * apart, before the swatches, which flow 2 px apart */
 AwraWidget *awra_color_palette_new(void)
 {
-  AwraWidget *w = awra_box_new(AWRA_ORIENTATION_HORIZONTAL, 0);
+  AwraWidget *w = awra_box_new(AWRA_ORIENTATION_HORIZONTAL, 6);
   awra_widget_set_name(w, "AwraColorPalette");
   PaletteExt *p = (PaletteExt *)calloc(1, sizeof(PaletteExt));
   awra_widget_set_data(w, "awra-palette", p, palette_free);
+  p->automatic = awra_toggle_button_new_with_label("");
+  awra_widget_set_valign(p->automatic, AWRA_ALIGN_START);
+  awra_widget_set_visible(p->automatic, false);
+  awra_signal_connect(p->automatic, AWRA_SIGNAL_CLICKED, automatic_clicked, w, NULL);
+  awra_box_append(w, p->automatic);
+  awra_widget_unref(p->automatic);
   p->flow = awra_flow_box_new();
   awra_flow_box_set_selection_mode(p->flow, AWRA_SELECTION_NONE);
-  awra_flow_box_set_spacing(p->flow, 4, 4);
-  awra_flow_box_set_columns(p->flow, 1, 16);
+  awra_flow_box_set_spacing(p->flow, 2, 2);
+  awra_flow_box_set_child_padding(p->flow, 0);
+  awra_flow_box_set_columns(p->flow, 1, 64);
   awra_widget_set_hexpand(p->flow, true);
   awra_box_append(w, p->flow);
   awra_widget_unref(p->flow);
@@ -749,9 +793,9 @@ void awra_color_palette_clear(AwraWidget *w)
 void awra_color_palette_set_automatic_label(AwraWidget *w, const char *label)
 {
   PaletteExt *p = pl(w);
-  awra_widget_set_data(w, "awra-automatic-label", label ? awra_strdup(label) : NULL, free);
-  p->automatic = label ? w : NULL;
-  palette_rebuild(w);
+  awra_button_set_label(p->automatic, label ? label : "");
+  awra_widget_set_visible(p->automatic, label != NULL);
+  palette_sync(w);
 }
 
 void awra_color_palette_set_allows_custom(AwraWidget *w, bool allows)
@@ -767,9 +811,7 @@ void awra_color_palette_set_selected(AwraWidget *w, const AwraRGBA *color)
   if (color) {
     p->selected = *color;
   }
-  for (int i = 0; i < p->flow->nkids; i++) {
-    awra_invalidate(p->flow->kids[i]);
-  }
+  palette_sync(w);
 }
 
 bool awra_color_palette_selected(AwraWidget *w, AwraRGBA *r_color)
