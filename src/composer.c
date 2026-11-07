@@ -128,6 +128,14 @@ static void composer_measure(AwraWidget *w, int o, int for_size, int *r_min, int
   *r_min = *r_nat = (int)ceilf(h) + pad;
 }
 
+/* Awra 1 centres the row's buttons in the band with a fractional offset
+ * (a GskTransform of (band - height) / 2.0), which GTK draws on the pixel
+ * row below the half: the half pixel rounds up. */
+static int row_offset(int band, int height)
+{
+  return (int)floorf((float)(band - height) * 0.5f + 0.5f);
+}
+
 static void composer_allocate(AwraWidget *w)
 {
   ComposerExt *x = CPX(w);
@@ -158,7 +166,7 @@ static void composer_allocate(AwraWidget *w)
   do {                                                                                        \
     if (shown(c) && (cw) > 0) {                                                               \
       const int ch = height_for((c), (cw));                                                   \
-      awra_allocate((c), cx, bottom - band + (band - ch) / 2, (cw), ch);                      \
+      awra_allocate((c), cx, bottom - band + row_offset(band, ch), (cw), ch);                 \
       cx += (cw) + awra_px(GAP);                                                              \
     }                                                                                         \
   } while (0)
@@ -169,7 +177,7 @@ static void composer_allocate(AwraWidget *w)
 #undef PLACE
   const int sw = nat_w(x->send);
   const int sh = height_for(x->send, -1);
-  awra_allocate(x->send, ox + width - sw, bottom - band + (band - sh) / 2, sw, sh);
+  awra_allocate(x->send, ox + width - sw, bottom - band + row_offset(band, sh), sw, sh);
   awra_aux(x->send)->opacity = x->send_reveal;
 }
 

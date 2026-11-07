@@ -118,7 +118,9 @@ Awra 2: the same look, without GTK.
 - Dialogs have Awra 1's AwraDialog surface: the Floating material at the
   modal elevation (lighter, with its radius), not the window canvas.
 - An entry's placeholder is centred as GtkText's placeholder label is: its
-  own layout, the half pixel rounded down.
+  own layout, the half pixel rounded down. The composer's buttons sit on
+  the pixel row GTK draws Awra 1's half-pixel offset on (the half rounded
+  up).
 - GPU text from the glyph images of the software raster, as GSK draws from
   its glyph cache: the same pixels on the GPU as on the CPU (BUI's default,
   Slug, is off in Awra's build; `-DBUI_SLUG=ON` turns it back on). Slug
