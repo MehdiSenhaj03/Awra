@@ -267,6 +267,13 @@ static void window_allocate(AwraWidget *w)
     }
   }
   follow_contents(w, mw, nw);
+  /* the contents' minimum height at the width they get (height for width:
+   * at the minimum width a wrapped text is taller than it is here) */
+  if (w->w > mw) {
+    int mh2, nh2;
+    window_measure(w, AWRA_ORIENTATION_VERTICAL, w->w, &mh2, &nh2);
+    mh = mh2;
+  }
   if (x->child) {
     /* (a stack takes the window's size as GtkWindow gives it, and places
      * its page itself) */
