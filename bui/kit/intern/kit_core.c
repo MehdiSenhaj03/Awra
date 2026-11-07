@@ -3065,6 +3065,37 @@ static int in_BK_key(BKContext *ctx, const char *text, const char *keysym, int m
   return undo_key(ctx, e.keysym, mods);
 }
 
+static BKNode *scroller_in(BKNode *n, int x, int y)
+{
+  if (!NODE_VISIBLE(n) || !bk_contains(n, x, y)) {
+    return NULL;
+  }
+  for (int i = n->nkids - 1; i >= 0; i--) {
+    BKNode *f = scroller_in(n->kids[i], x, y);
+    if (f) {
+      return f;
+    }
+  }
+  return (n->cls->flags & CLS_SCROLLER) ? n : NULL;
+}
+
+BKNode *BK_scroller_at(BKContext *ctx, BKNode *hit, int x, int y)
+{
+  if (!ctx || !ctx->root || ctx->npopups > 0) {
+    return NULL;
+  }
+  BKNode *s = scroller_in(ctx->root, x, y);
+  if (!s || !hit) {
+    return s;
+  }
+  for (BKNode *p = s; p; p = p->parent) {
+    if (p == hit) {
+      return s; /* nothing interactive inside it covers it there */
+    }
+  }
+  return NULL;
+}
+
 static BKNode *deepest(BKNode *n, int x, int y)
 {
   if (!NODE_VISIBLE(n) || !bk_contains(n, x, y)) {
@@ -3700,6 +3731,15 @@ int BK_scroll(BKContext *ctx, int x, int y, float dx, float dy, int mods)
     BKNode *under = t;
     if (!under && ctx->npopups == 0 && ctx->root) {
       under = deepest(ctx->root, x, y);
+    }
+    else if (under) {
+      /* a scroller inside the node hit (a page of labels in a scrolled
+       * window, under a window that takes events) sees the wheel, as GTK's
+       * scroll controllers bubble from the widget picked */
+      BKNode *s = BK_scroller_at(ctx, under, x, y);
+      if (s) {
+        under = s;
+      }
     }
     for (BKNode *n = under; n; n = n->parent) {
       if (n->cls->scroll && NODE_ENABLED(n)) {

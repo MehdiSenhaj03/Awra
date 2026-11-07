@@ -2488,8 +2488,12 @@ static void motion_sws_update(AwraWidget **now, int k)
 int awra_bk_move(BKNode *n, BKEvent *e)
 {
   const AwraClass *c = AWRA_CLASS_OF(n);
+  /* the scrolled windows around the deepest widget there: the one hit may
+   * hold them (motion over a page's labels hits what holds the page) */
+  BKNode *s = BK_scroller_at(bk_ctx(n), n, e->x, e->y);
+  BKNode *from = s ? s : n;
   AwraWidget *now[MOTION_SWS];
-  const int k = motion_sws_of(n, now);
+  const int k = motion_sws_of(from, now);
   motion_sws_update(now, k);
   for (int i = 0; i < k; i++) {
     awra_scrolled_captured_motion_internal(now[i], (AwraWidget *)n, e->x, e->y,
@@ -2503,7 +2507,11 @@ int awra_bk_leave(BKNode *n)
   /* the node the pointer is over now (or none: it left the window) */
   BKContext *ctx = bk_ctx(n);
   AwraWidget *now[MOTION_SWS];
-  const int k = ctx && ctx->hover ? motion_sws_of(ctx->hover, now) : 0;
+  int k = 0;
+  if (ctx && ctx->hover) {
+    BKNode *s = BK_scroller_at(ctx, ctx->hover, ctx->pointer_x, ctx->pointer_y);
+    k = motion_sws_of(s ? s : ctx->hover, now);
+  }
   motion_sws_update(now, k);
   return 0;
 }

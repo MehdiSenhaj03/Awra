@@ -306,6 +306,9 @@ enum {
   CLS_POPUP = 1 << 2,
   CLS_BUTTONS = 1 << 3, /* middle / right presses arrive as press, drag, release with
                          * BK_BUTTON2 / BK_BUTTON3 in the event's mods (editors) */
+  /* BUI-Awra: scrolls what it holds (GtkScrolledWindow): wheels and motion
+   * over its parts nothing interactive covers reach it */
+  CLS_SCROLLER = 1 << 4,
 };
 
 enum { DRAG_GROUP_TOGGLE = 1, DRAG_GROUP_PANEL = 2 };
@@ -774,6 +777,10 @@ void bk_popup_dismissed(BKContext *ctx, int slot);
 /* Damage `r` of whatever tree `n` is in (its popup's surface or the
  * window). */
 void bk_node_dirty(BKNode *n, BKRect r);
+/* BUI-Awra: the deepest scroller (CLS_SCROLLER) at (x, y) in the topmost
+ * branch of the window holding one, if `hit` (the node hit there, or NULL)
+ * holds it: what wheels and motion over a scroller's plain parts reach */
+BKNode *BK_scroller_at(BKContext *ctx, BKNode *hit, int x, int y);
 /* Damage `r` of surface `slot` (-1: the window). */
 void bk_surface_dirty(BKContext *ctx, int slot, BKRect r);
 /* Renders slot's popup (or the tooltip) into `r` (w x h px, the surface's

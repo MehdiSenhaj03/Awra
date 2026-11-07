@@ -1687,7 +1687,7 @@ void awra_scrolled_set_edge_fades(AwraWidget *w, int top, int bottom)
 }
 
 static AwraClass scrolled_class = {
-    .bk = AWRA_BK("AwraScrolledWindow", 0),
+    .bk = AWRA_BK("AwraScrolledWindow", CLS_SCROLLER),
     .type = "AwraScrolledWindow",
     /* it places its content itself (scrolled, kept at the right end right to left) */
     .flags = AWRA_CLASS_CONTAINER | AWRA_CLASS_CLIP | AWRA_CLASS_NO_MIRROR,
@@ -1706,9 +1706,6 @@ AwraWidget *awra_scrolled_new(void)
   ScrollExt *x = SX(w);
   x->hpolicy = AWRA_POLICY_AUTOMATIC;
   x->vpolicy = AWRA_POLICY_AUTOMATIC;
-  /* hit where nothing inside takes events, so wheels and motion over its
-   * empty parts reach it (GtkScrolledWindow's own controllers) */
-  w->flags |= NF_EVENTS;
   x->vbar = awra_scrollbar_new_internal(w);
   awra_child_insert(w, x->vbar, -1);
   awra_widget_unref(x->vbar); /* held as a child */
