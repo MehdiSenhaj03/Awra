@@ -697,19 +697,6 @@ impl crate::VolumeControl {
     }
 }
 
-pub mod accessible {
-    //! GtkAccessible properties (Awra 2 has no accessibility tree yet).
-    pub enum Property<'a> {
-        Label(&'a str),
-        Description(&'a str),
-    }
-}
-
-impl Widget {
-    /// Accessible properties (no accessibility tree yet: kept nowhere).
-    pub fn update_property(&self, _props: &[accessible::Property]) {}
-}
-
 // ===========================================================================
 // Shortcut captures by keys
 

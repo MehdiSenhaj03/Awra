@@ -16,6 +16,7 @@
 pub use awra_sys as ffi;
 
 pub mod object;
+pub mod accessible;
 mod compat;
 mod compat2;
 mod compat3;
@@ -39,6 +40,10 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 pub use enums::*;
+pub use accessible::{
+    AccessibleAnnouncementPriority, AccessibleAutocomplete, AccessibleInvalidState, AccessibleRole,
+    AccessibleSort, AccessibleTristate,
+};
 pub use gio::Application;
 pub use object::{IntoOptStr, IntoOptWidget, IsWidget, StaticType, WeakRef, Widget};
 pub use signal::{raw_args as signal_args, sig, Args, SignalHandlerId};
