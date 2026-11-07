@@ -269,7 +269,8 @@ impl MenuItem {
     pub fn set_label(&self, label: Option<&str>) {
         self.0.borrow_mut().label = label.map(str::to_owned);
     }
-    /// An item opening `submenu` (shown as a titled section).
+    /// An item opening `submenu`: a row with a chevron whose menu opens
+    /// beside it (on click, Return, Right, or when the pointer rests on it).
     pub fn new_submenu(label: Option<&str>, submenu: &Menu) -> MenuItem {
         let item = MenuItem::new(label, None);
         item.0.borrow_mut().submenu = Some(submenu.clone());
@@ -411,6 +412,9 @@ pub(crate) enum FlatEntry {
     Heading(String),
     Item(ItemData, Option<String>),
     Custom(String),
+    /// A submenu row; its entries follow, up to the matching `SubmenuEnd`.
+    Submenu(ItemData),
+    SubmenuEnd,
 }
 
 fn flatten_into(menu: &Menu, out: &mut Vec<FlatEntry>, depth: usize) {
@@ -426,15 +430,16 @@ fn flatten_level(menu: &Menu, out: &mut Vec<FlatEntry>, depth: usize, section: &
                 if let Some(id) = d.custom.clone() {
                     out.push(FlatEntry::Custom(id));
                 } else if let Some(sub) = d.submenu.clone() {
-                    if !out.is_empty() && !matches!(out.last(), Some(FlatEntry::Separator)) {
-                        out.push(FlatEntry::Separator);
-                    }
-                    if let Some(l) = &d.label {
-                        out.push(FlatEntry::Heading(l.clone()));
-                    }
                     let mut inner = d.label.clone().or_else(|| section.clone());
-                    flatten_level(&sub, out, depth + 1, &mut inner);
-                    out.push(FlatEntry::Separator);
+                    out.push(FlatEntry::Submenu(d));
+                    let mut entries = Vec::new();
+                    flatten_level(&sub, &mut entries, depth + 1, &mut inner);
+                    // the submenu's own separators sit between its entries
+                    while matches!(entries.last(), Some(FlatEntry::Separator)) {
+                        entries.pop();
+                    }
+                    out.extend(entries);
+                    out.push(FlatEntry::SubmenuEnd);
                 } else {
                     out.push(FlatEntry::Item(d, section.clone()));
                 }
@@ -544,8 +549,10 @@ impl Application {
         self.0.installed.borrow_mut().insert(key, ids);
     }
     /// Runs the main loop until the last window closes or `quit`.
+    /// Activates (connect_activate's handlers, as GApplication::run does),
+    /// then runs the loop.
     pub fn run(&self) {
-        crate::run();
+        self.run_with_args::<&str>(&[]);
     }
     pub fn quit(&self) {
         crate::quit();

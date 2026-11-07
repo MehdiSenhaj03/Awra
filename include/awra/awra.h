@@ -649,6 +649,16 @@ typedef struct AwraMenuItem {
   void *data;
 } AwraMenuItem;
 void awra_menu_button_set_menu(AwraWidget *button, const AwraMenuItem *items, int n);
+/* Submenus: an item whose check is AWRA_MENU_ITEM_SUBMENU is a row (its
+ * label and icon, a chevron) opening the items after it, up to the
+ * matching AWRA_MENU_ITEM_SUBMENU_END item, as a menu beside it (Awra 1's
+ * nested menu popovers). Submenus nest. A submenu opens on click, Return,
+ * Right or when the pointer rests on its row; Left and Escape close it.
+ * Handlers get args->index = the item's index in the whole array. */
+typedef enum {
+  AWRA_MENU_ITEM_SUBMENU_END = -5,
+  AWRA_MENU_ITEM_SUBMENU = -4,
+} AwraMenuItemKind;
 
 /* ----------------------------------------------------------------------- */
 /* Inputs */
@@ -1081,6 +1091,7 @@ void awra_keyboard_connect_layout_changed(void (*fn)(void *data), void *data);
 char *awra_clipboard_get_text(AwraWidget *widget);
 void awra_clipboard_set_text(AwraWidget *widget, const char *text);
 void awra_free(void *p);
+
 
 /* Opens a URI or file with the desktop's default handler. */
 bool awra_show_uri(const char *uri);
@@ -1920,6 +1931,86 @@ void awra_accessible_announce(AwraWidget *widget, const char *message,
                               AwraAccessibleAnnouncementPriority priority);
 /* An assistive technology is connected (the tree is exposed). */
 bool awra_accessible_active(void);
+
+/* ----------------------------------------------------------------------- */
+/* Data transfer: the clipboard with images, files and any type
+ * (GdkClipboard), PNG encoding, widget snapshots, drags out to other
+ * applications. MIME types name the data ("image/png", "text/uri-list",
+ * "text/plain;charset=utf-8"...); every function takes any widget of the
+ * window (or NULL for the application's first window). */
+
+/* Puts n items (each type with its bytes, copied) on the clipboard. */
+bool awra_clipboard_set_data(AwraWidget *widget, const char *const *mimes,
+                             const void *const *data, const size_t *lengths, int n);
+/* An image, as PNG (Windows: also CF_DIBV5 / CF_DIB). */
+bool awra_clipboard_set_texture(AwraWidget *widget, const AwraTexture *texture);
+/* Files: text/uri-list, GNOME's copied-files list and the paths as text
+ * (Windows: CF_HDROP). */
+bool awra_clipboard_set_files(AwraWidget *widget, const char *const *paths, int n);
+/* The types on the clipboard: '\n'-separated (free with awra_free), NULL
+ * when it is empty. */
+char *awra_clipboard_formats(AwraWidget *widget);
+/* Whether the clipboard holds `mime` (a type ending in a star: any of that
+ * kind, "image/" and a star for any image). */
+bool awra_clipboard_has(AwraWidget *widget, const char *mime);
+/* The clipboard's data of a type (free with awra_free; a NUL past
+ * *length), NULL when it has none. */
+void *awra_clipboard_get_data(AwraWidget *widget, const char *mime, size_t *length);
+/* The clipboard's image (PNG, WebP, JPEG, GIF, SVG or a DIB), NULL none. */
+AwraTexture *awra_clipboard_get_texture(AwraWidget *widget);
+/* The clipboard's local files: '\n'-separated paths (awra_free), NULL none. */
+char *awra_clipboard_get_files(AwraWidget *widget);
+
+/* A texture as a PNG file / in memory (awra_free), straight RGBA. */
+bool awra_texture_save_png(const AwraTexture *texture, const char *path);
+void *awra_texture_save_png_bytes(const AwraTexture *texture, size_t *length);
+
+/* The widget as it is drawn now (GtkWidgetPaintable's current image), at
+ * the window's scale; NULL when it isn't shown. */
+AwraTexture *awra_widget_snapshot(AwraWidget *widget);
+/* The image a drag inside the window shows under the pointer (its point
+ * hot_x, hot_y under the pointer, texture pixels); NULL takes it away. */
+void awra_window_set_drag_icon(AwraWidget *window, AwraTexture *icon, int hot_x, int hot_y);
+
+/* Drags out of the application: the system's drag (Wayland, X11's XDND,
+ * Windows' OLE) carrying the items, started from the button press the
+ * pointer holds (call it while the button is down, e.g. when an
+ * in-application drag leaves the window). `icon` follows the pointer.
+ * done(source, args) gets args->index = the action the target took
+ * (AWRA_DRAG_NONE when cancelled or refused). False when no drag can start. */
+typedef enum {
+  AWRA_DRAG_NONE = 0,
+  AWRA_DRAG_COPY = 1,
+  AWRA_DRAG_MOVE = 2,
+} AwraDragAction;
+bool awra_drag_start(AwraWidget *source, const char *const *mimes, const void *const *data,
+                     const size_t *lengths, int n, AwraTexture *icon, int hot_x, int hot_y,
+                     int actions, AwraHandler done, void *user_data);
+/* GtkDragSource's images when it has none: a label of the text a drag
+ * carries, or an icon (size: logical px), at the window scale. */
+AwraTexture *awra_texture_new_for_text(const char *text);
+AwraTexture *awra_texture_new_for_icon(const char *icon_name, int size);
+/* Files: text/uri-list and the paths as text (Windows: CF_HDROP). */
+bool awra_drag_start_files(AwraWidget *source, const char *const *paths, int n,
+                           AwraTexture *icon, int hot_x, int hot_y, int actions,
+                           AwraHandler done, void *user_data);
+
+/* ----------------------------------------------------------------------- */
+/* Window identity (GtkWindow's icon and startup ID). */
+
+/* The window's icon by its theme name (an application ID as installed in
+ * hicolor, or an SVG registered with awra_icon_register_svg); NULL: the
+ * default one. X11 and Windows get its images, Wayland its name
+ * (xdg-toplevel-icon) or its images when no theme has it. */
+void awra_window_set_icon_name(AwraWidget *window, const char *name);
+const char *awra_window_icon_name(AwraWidget *window);
+/* The icon of windows that set none. */
+void awra_window_set_default_icon_name(const char *name);
+/* The startup notification ID (X11) or activation token (Wayland) the
+ * window is presented with, once (another instance hands it over): set on
+ * a window shown already, it brings that window forward now. Without one,
+ * the first window shown uses DESKTOP_STARTUP_ID / XDG_ACTIVATION_TOKEN. */
+void awra_window_set_startup_id(AwraWidget *window, const char *startup_id);
 
 #ifdef __cplusplus
 }

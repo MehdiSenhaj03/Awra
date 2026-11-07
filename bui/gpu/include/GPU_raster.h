@@ -307,6 +307,14 @@ int BUI_text_add_font(const char *family, int flags, const void *data, int len);
 /* The embedded default UI face (Inter, Blender's UI font: the variable
  * TrueType, read-only, static). NULL when the build left it out. */
 const void *BUI_text_default_font(int *r_len);
+/* BUI-Awra: the PNG decoder colour bitmap glyphs (CBDT / sbix emoji fonts
+ * such as Noto Color Emoji) need: decodes `png` into premultiplied BGRA
+ * rows of `pitch` bytes at `dst`, or with `dst` NULL only reads the size.
+ * Returns 0 on bad data. The kit registers its own (BK_text_init_images);
+ * without one those glyphs fall back to other fonts. */
+typedef int (*BuiPngDecodeFn)(const unsigned char *png, unsigned long len, int *r_w, int *r_h,
+                              unsigned char *dst, int pitch);
+void BUI_text_set_png_decoder(BuiPngDecodeFn decode);
 
 /* GPU rendering (Direct3D 11 on Windows, OpenGL 3.3 on Linux). A raster in
  * GPU mode records its primitives as instances and draws them on the GPU at
@@ -407,6 +415,11 @@ void BUI_raster_rbox_gradient(BuiRaster *r,
 
 /* A font's ascent and descent (positive, unrounded px) at `size`. */
 int BUI_text_metrics(const char *family, int flags, float size, float *r_ascent, float *r_descent);
+/* BUI-Awra: the ascent and descent of a run of text: the font's metrics, or
+ * more where the fonts it falls back to for characters it lacks reach
+ * further (a line is as tall as its tallest font, as Pango lays it out). */
+int BUI_text_extents(const char *family, int flags, float size, const char *utf8, int len,
+                     float *r_ascent, float *r_descent);
 /* An 8-bit coverage mask (w x h, `stride` bytes per row) at whole pixel
  * x, y, colored `rgba`: symbolic icons tinted at draw time. */
 void BUI_raster_mask(BuiRaster *r,

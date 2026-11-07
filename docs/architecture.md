@@ -47,6 +47,18 @@ Text follows what GTK did for Awra 1:
 - labels measure as GtkLabel (approximate char width for width-chars,
   widest line at max-width-chars, width-for-height when allocated with an
   alignment), and lines break as Pango breaks them.
+- characters the font lacks fall back, character by character, through
+  fontconfig's sorted list for the font (FcFontSort, by charset) on Linux
+  and the system's font links (SystemLink, Segoe UI Emoji / Symbol) on
+  Windows; spaces and default ignorables take the font of the run they are
+  in, as Pango itemizes; a line is as tall as the tallest font in it;
+- emoji follow Pango: its emoji presentation scanner splits text into emoji
+  and text runs, emoji runs take the "emoji" family (a colour font when a
+  VS16 asks for one), and sequences (ZWJ, skin tones, flags, keycaps, tags)
+  are shaped by the font's GSUB into one glyph. Colour glyphs are CBDT /
+  sbix bitmaps (their PNGs decoded by the kit's Wuffs) scaled to the text
+  size, or COLR layers blended by FreeType; they are cached like any glyph
+  and drawn over the run's coverage mask with the text's alpha.
 
 ## Windows
 
@@ -57,6 +69,22 @@ backdrop (Windows 11 22H2+) or the accent blur (Windows 10), rounds the
 corners and draws the shadow; resizing goes through a native border band.
 Physical keys come from scan codes (as evdev codes, the names KeyToMusic
 binds), key labels from the layout, file drops through OLE (hover and drop).
+
+## Data transfer
+
+The clipboard carries any type (BK_window_clipboard_*): text under every
+name applications ask for it, images as PNG (encoded by Awra; on Windows
+also CF_DIBV5 / CF_DIB), files as text/uri-list (GNOME's copied-files list
+on Linux, CF_HDROP on Windows). Wayland serves the data source from memory
+and reads offers through pipes; X11 owns the selections with a hidden window
+(large data through INCR both ways); Windows uses the clipboard formats
+directly. Drags out of the application are the system's: Wayland's
+wl_data_source + start_drag with an icon surface, X11's XDND (source and
+target, with an override-redirect image window), OLE's DoDragDrop with an
+IDataObject and the shell's drag image helper. Inside the window a drag's
+image (a widget snapshot, as GtkWidgetPaintable) is drawn above everything
+and follows the pointer; the Rust DragSource hands a drag of text or files
+to the system when the pointer leaves the window.
 
 ## Rust
 

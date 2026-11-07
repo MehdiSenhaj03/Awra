@@ -8,4 +8,5 @@ Last Commit: "Merge pull request #236 from sezero/signed-char"
 Last Commit Date: December 4, 2022
 
 Local modifications: Added some functionality to manage grease pencil layers;
-BUI: the contents of <mask>, <clipPath> and <symbol> are not drawn (nsvg__startElement).
+BUI: <mask> (luminance) and <clipPath> drawn through the shapes that reference them
+(mask / clip-path attributes, NSVGimage.defs, nsvg__drawMasked); <symbol> contents not drawn.

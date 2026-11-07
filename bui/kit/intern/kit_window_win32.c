@@ -29,6 +29,7 @@
 #  include <dwmapi.h>
 
 #  include "kit_loop.h"
+#  include "kit_transfer.h"
 
 #  define WM_BK_RENDER (WM_APP + 1)
 #  define ID_TIP 1
@@ -57,9 +58,11 @@ struct BKWindow {
   WINDOWPLACEMENT restore;        /* before fullscreen */
   DWORD restore_style;
   struct DropTarget *drop;
+  HICON icon_big, icon_small; /* BUI-Awra: WM_SETICON's */
 };
 
 static int g_open = 0;
+static BKWindow *g_any_window; /* BUI-Awra: a window to own the clipboard */
 
 /* Wake BK_window_run's GetMessage without WM_QUIT: a quit message would also
  * end any other loop on this thread (e.g. a Tk mainloop in the same app). */
@@ -361,41 +364,17 @@ static void host_warp(void *data, int x, int y)
   SetCursorPos(p.x, p.y);
 }
 
+/* BUI-Awra: plain text through the typed clipboard (BK_window_clipboard_*) */
 static char *host_clipboard_get(void *data)
 {
-  BKWindow *win = (BKWindow *)data;
-  char *out = NULL;
-  if (!OpenClipboard(win->hwnd)) {
-    return NULL;
-  }
-  HANDLE h = GetClipboardData(CF_UNICODETEXT);
-  if (h) {
-    const wchar_t *w = (const wchar_t *)GlobalLock(h);
-    if (w) {
-      out = wide_to_utf8(w, -1);
-      GlobalUnlock(h);
-    }
-  }
-  CloseClipboard();
-  return out;
+  size_t len;
+  return (char *)BK_window_clipboard_read((BKWindow *)data, "text/plain;charset=utf-8", &len);
 }
 
 static void host_clipboard_set(void *data, const char *text)
 {
-  BKWindow *win = (BKWindow *)data;
-  wchar_t *w = utf8_to_wide(text);
-  const size_t bytes = (wcslen(w) + 1) * sizeof(wchar_t);
-  if (OpenClipboard(win->hwnd)) {
-    EmptyClipboard();
-    HGLOBAL h = GlobalAlloc(GMEM_MOVEABLE, bytes);
-    if (h) {
-      memcpy(GlobalLock(h), w, bytes);
-      GlobalUnlock(h);
-      SetClipboardData(CF_UNICODETEXT, h);
-    }
-    CloseClipboard();
-  }
-  free(w);
+  const BKClipItem it = {"text/plain;charset=utf-8", text ? text : "", text ? strlen(text) : 0};
+  BK_window_clipboard_set((BKWindow *)data, &it, 1);
 }
 
 static void host_schedule(void *data, int ms, int timer)
@@ -1337,6 +1316,9 @@ BKWindow *BK_window_new_ex(BKContext *ctx, const char *title, int width, int hei
   }
   SetWindowLongPtrW(win->hwnd, GWLP_USERDATA, (LONG_PTR)win);
   g_open++;
+  if (!g_any_window) {
+    g_any_window = win; /* BUI-Awra: the clipboard's owner when none is named */
+  }
   if (flags & BK_WINDOW_UNDECORATED) {
     /* the new client area (the whole window) takes effect now */
     SetWindowPos(win->hwnd, NULL, 0, 0, 0, 0,
@@ -1538,6 +1520,15 @@ void BK_window_free(BKWindow *win)
     return;
   }
   drop_unregister(win);
+  if (g_any_window == win) {
+    g_any_window = NULL;
+  }
+  if (win->icon_big) {
+    DestroyIcon(win->icon_big);
+  }
+  if (win->icon_small) {
+    DestroyIcon(win->icon_small);
+  }
   if (win->hwnd) {
     SetWindowLongPtrW(win->hwnd, GWLP_USERDATA, 0);
     DestroyWindow(win->hwnd);
@@ -1838,4 +1829,793 @@ int BK_window_pump(void)
   return g_open;
 }
 
+
+/* =========================================================================
+ * BUI-Awra: data transfer. The clipboard by type (text as CF_UNICODETEXT,
+ * file lists as CF_HDROP, PNG images as "PNG" plus CF_DIBV5 / CF_DIB for
+ * the applications that only take those, other types under their MIME
+ * name), and drags out through OLE (DoDragDrop with an IDataObject, the
+ * image through the shell's drag image helper).
+ * ========================================================================= */
+
+/* shlobj.h, which WIN32_LEAN_AND_MEAN leaves out */
+HRESULT WINAPI SHCreateStdEnumFmtEtc(UINT cfmt, const FORMATETC afmt[], IEnumFORMATETC **out);
+
+/* DROPFILES (shlobj.h) */
+typedef struct BuiDropFiles {
+  DWORD pFiles;
+  POINT pt;
+  BOOL fNC;
+  BOOL fWide;
+} BuiDropFiles;
+
+static UINT cf_png(void)
+{
+  static UINT cf = 0;
+  if (!cf) {
+    cf = RegisterClipboardFormatA("PNG");
+  }
+  return cf;
+}
+
+static HGLOBAL global_bytes(const void *data, size_t len)
+{
+  HGLOBAL h = GlobalAlloc(GMEM_MOVEABLE, len ? len : 1);
+  void *p = h ? GlobalLock(h) : NULL;
+  if (!p) {
+    if (h) {
+      GlobalFree(h);
+    }
+    return NULL;
+  }
+  if (len) {
+    memcpy(p, data, len);
+  }
+  GlobalUnlock(h);
+  return h;
+}
+
+static HGLOBAL global_text(const char *utf8)
+{
+  wchar_t *w = utf8_to_wide(utf8);
+  if (!w) {
+    return NULL;
+  }
+  HGLOBAL h = global_bytes(w, (wcslen(w) + 1) * sizeof(wchar_t));
+  free(w);
+  return h;
+}
+
+/* text/uri-list -> DROPFILES (wide paths, double NUL) */
+static HGLOBAL global_hdrop(const char *uris, size_t len)
+{
+  size_t wchars = 1;
+  wchar_t **paths = NULL;
+  int n = 0, cap = 0;
+  for (const char *p = uris, *end = uris + len; p < end;) {
+    const char *eol = p;
+    while (eol < end && *eol != '\n' && *eol != '\r') {
+      eol++;
+    }
+    if (eol > p && *p != '#') {
+      char *path = bk_uri_to_path(p, (size_t)(eol - p));
+      if (path) {
+        for (char *c = path; *c; c++) {
+          if (*c == '/') {
+            *c = '\\';
+          }
+        }
+        if (n == cap) {
+          cap = cap ? cap * 2 : 8;
+          wchar_t **g = (wchar_t **)realloc(paths, sizeof(wchar_t *) * (size_t)cap);
+          if (!g) {
+            free(path);
+            break;
+          }
+          paths = g;
+        }
+        paths[n] = utf8_to_wide(path);
+        free(path);
+        if (paths[n]) {
+          wchars += wcslen(paths[n]) + 1;
+          n++;
+        }
+      }
+    }
+    p = eol;
+    while (p < end && (*p == '\n' || *p == '\r')) {
+      p++;
+    }
+  }
+  HGLOBAL h = NULL;
+  if (n > 0) {
+    h = GlobalAlloc(GMEM_MOVEABLE | GMEM_ZEROINIT, sizeof(BuiDropFiles) + wchars * sizeof(wchar_t));
+    BuiDropFiles *df = h ? (BuiDropFiles *)GlobalLock(h) : NULL;
+    if (df) {
+      df->pFiles = sizeof(BuiDropFiles);
+      df->fWide = TRUE;
+      wchar_t *w = (wchar_t *)(df + 1);
+      for (int i = 0; i < n; i++) {
+        const size_t l = wcslen(paths[i]) + 1;
+        memcpy(w, paths[i], l * sizeof(wchar_t));
+        w += l;
+      }
+      *w = 0;
+      GlobalUnlock(h);
+    }
+  }
+  for (int i = 0; i < n; i++) {
+    free(paths[i]);
+  }
+  free(paths);
+  return h;
+}
+
+/* A decoded image as a DIB: v5 (with its alpha) or the plain one. */
+static HGLOBAL global_dib(const void *png, size_t len, int v5)
+{
+  BKImBuf *ib = BK_imbuf_decode(png, len, 0, 0);
+  if (!ib) {
+    return NULL;
+  }
+  int w = 0, h = 0;
+  BK_imbuf_size(ib, &w, &h);
+  const uint32_t *px = BK_imbuf_pixels(ib, 0);
+  const size_t head = v5 ? sizeof(BITMAPV5HEADER) : sizeof(BITMAPINFOHEADER);
+  const size_t bytes = (size_t)w * h * 4;
+  HGLOBAL g = GlobalAlloc(GMEM_MOVEABLE | GMEM_ZEROINIT, head + bytes);
+  unsigned char *p = g ? (unsigned char *)GlobalLock(g) : NULL;
+  if (p && px) {
+    BITMAPV5HEADER *bh = (BITMAPV5HEADER *)p; /* the v4/v5 fields only when v5 */
+    bh->bV5Size = (DWORD)head;
+    bh->bV5Width = w;
+    bh->bV5Height = h; /* bottom-up */
+    bh->bV5Planes = 1;
+    bh->bV5BitCount = 32;
+    bh->bV5Compression = v5 ? BI_BITFIELDS : BI_RGB;
+    bh->bV5SizeImage = (DWORD)bytes;
+    if (v5) {
+      bh->bV5RedMask = 0x00FF0000;
+      bh->bV5GreenMask = 0x0000FF00;
+      bh->bV5BlueMask = 0x000000FF;
+      bh->bV5AlphaMask = 0xFF000000;
+      bh->bV5CSType = 0x73524742; /* LCS_sRGB, 'sRGB' */
+      bh->bV5Intent = LCS_GM_IMAGES;
+    }
+    uint32_t *dst = (uint32_t *)(p + head);
+    for (int y = 0; y < h; y++) {
+      const uint32_t *row = px + (size_t)(h - 1 - y) * w;
+      for (int x = 0; x < w; x++) { /* straight colour */
+        const uint32_t c = row[x], a = c >> 24;
+        uint32_t o = c;
+        if (a && a < 255) {
+          o = (a << 24) | (((c >> 16 & 255) * 255 / a) << 16) | (((c >> 8 & 255) * 255 / a) << 8) |
+              ((c & 255) * 255 / a);
+        }
+        dst[(size_t)y * w + x] = o;
+      }
+    }
+  }
+  if (p) {
+    GlobalUnlock(g);
+  }
+  else if (g) {
+    GlobalFree(g);
+    g = NULL;
+  }
+  BK_imbuf_free(ib);
+  return g;
+}
+
+/* The clipboard formats an entry goes by, and their data (one each). */
+static int entry_formats(const BKClipEntry *e, UINT *cf, HGLOBAL *data, int max)
+{
+  int n = 0;
+  if (bk_mime_is_text(e->mime)) {
+    cf[n] = CF_UNICODETEXT;
+    data[n++] = global_text((const char *)e->data);
+  }
+  else if (!strcmp(e->mime, "text/uri-list")) {
+    cf[n] = CF_HDROP;
+    data[n++] = global_hdrop((const char *)e->data, e->len);
+  }
+  else if (!strcmp(e->mime, "image/png")) {
+    cf[n] = cf_png();
+    data[n++] = global_bytes(e->data, e->len);
+    if (max >= 3) {
+      cf[n] = CF_DIBV5;
+      data[n++] = global_dib(e->data, e->len, 1);
+      cf[n] = CF_DIB;
+      data[n++] = global_dib(e->data, e->len, 0);
+    }
+  }
+  else {
+    cf[n] = RegisterClipboardFormatA(e->mime);
+    data[n++] = cf[0] ? global_bytes(e->data, e->len) : NULL;
+  }
+  return n;
+}
+
+
+static HWND clip_owner(BKWindow *win)
+{
+  return win && win->hwnd ? win->hwnd : (g_any_window ? g_any_window->hwnd : NULL);
+}
+
+int BK_window_clipboard_set(BKWindow *win, const BKClipItem *items, int n)
+{
+  BKClipSet *set = bk_clipset_new(items, n);
+  if (!set) {
+    return 0;
+  }
+  int ok = 0;
+  if (OpenClipboard(clip_owner(win))) {
+    EmptyClipboard();
+    for (int i = 0; i < set->n; i++) {
+      UINT cf[4];
+      HGLOBAL data[4];
+      const int k = entry_formats(&set->e[i], cf, data, 4);
+      for (int j = 0; j < k; j++) {
+        if (data[j] && SetClipboardData(cf[j], data[j])) {
+          ok = 1;
+        }
+        else if (data[j]) {
+          GlobalFree(data[j]);
+        }
+      }
+    }
+    CloseClipboard();
+  }
+  bk_clipset_free(set);
+  return ok;
+}
+
+char *BK_window_clipboard_formats(BKWindow *win)
+{
+  if (!OpenClipboard(clip_owner(win))) {
+    return NULL;
+  }
+  const char *names[64];
+  char owned[32][128];
+  int n = 0, k = 0, text = 0, files = 0, png = 0, dib = 0;
+  for (UINT cf = EnumClipboardFormats(0); cf && n < 60; cf = EnumClipboardFormats(cf)) {
+    if (cf == CF_UNICODETEXT || cf == CF_TEXT || cf == CF_OEMTEXT) {
+      text = 1;
+    }
+    else if (cf == CF_HDROP) {
+      files = 1;
+    }
+    else if (cf == cf_png()) {
+      png = 1;
+    }
+    else if (cf == CF_DIB || cf == CF_DIBV5 || cf == CF_BITMAP) {
+      dib = 1;
+    }
+    else if (cf >= 0xC000 && k < 32 &&
+             GetClipboardFormatNameA(cf, owned[k], (int)sizeof(owned[k])) > 0 &&
+             strchr(owned[k], '/'))
+    {
+      names[n++] = owned[k++];
+    }
+  }
+  CloseClipboard();
+  if (files) {
+    names[n++] = "text/uri-list";
+  }
+  if (png) {
+    names[n++] = "image/png";
+  }
+  if (dib) {
+    names[n++] = "image/bmp";
+  }
+  if (text) {
+    names[n++] = "text/plain;charset=utf-8";
+  }
+  return bk_mimes_join(names, n);
+}
+
+static void *global_copy(HANDLE h, size_t *r_len)
+{
+  const void *p = h ? GlobalLock(h) : NULL;
+  if (!p) {
+    return NULL;
+  }
+  void *out = bk_bytes_dup(p, GlobalSize(h), r_len);
+  GlobalUnlock(h);
+  return out;
+}
+
+void *BK_window_clipboard_read(BKWindow *win, const char *mime, size_t *r_len)
+{
+  *r_len = 0;
+  if (!mime || !OpenClipboard(clip_owner(win))) {
+    return NULL;
+  }
+  void *out = NULL;
+  if (bk_mime_is_text(mime)) {
+    HANDLE h = GetClipboardData(CF_UNICODETEXT);
+    const wchar_t *w = h ? (const wchar_t *)GlobalLock(h) : NULL;
+    if (w) {
+      char *s = wide_to_utf8(w, -1);
+      GlobalUnlock(h);
+      if (s) {
+        *r_len = strlen(s);
+        out = s;
+      }
+    }
+  }
+  else if (!strcmp(mime, "text/uri-list")) {
+    HANDLE h = GetClipboardData(CF_HDROP);
+    HDROP drop = h ? (HDROP)GlobalLock(h) : NULL;
+    if (drop) {
+      char *s = hdrop_uris(drop);
+      GlobalUnlock(h);
+      if (s) {
+        *r_len = strlen(s);
+        out = s;
+      }
+    }
+  }
+  else if (!strcmp(mime, "image/png")) {
+    out = global_copy(GetClipboardData(cf_png()), r_len);
+  }
+  else if (!strcmp(mime, "image/bmp")) { /* the DIB as it is (no file header) */
+    HANDLE h = GetClipboardData(CF_DIBV5);
+    if (!h) {
+      h = GetClipboardData(CF_DIB);
+    }
+    out = global_copy(h, r_len);
+  }
+  else {
+    const UINT cf = RegisterClipboardFormatA(mime);
+    out = cf ? global_copy(GetClipboardData(cf), r_len) : NULL;
+  }
+  CloseClipboard();
+  return out;
+}
+
+/* -- drags out: IDataObject, IDropSource ------------------------------------ */
+
+typedef struct DataEntry {
+  FORMATETC fmt;
+  STGMEDIUM med;
+} DataEntry;
+
+typedef struct DataObj {
+  IDataObject iface;
+  LONG refs;
+  DataEntry *e;
+  int n, cap;
+} DataObj;
+
+static int dobj_find(DataObj *d, const FORMATETC *f)
+{
+  for (int i = 0; i < d->n; i++) {
+    if (d->e[i].fmt.cfFormat == f->cfFormat && (d->e[i].fmt.tymed & f->tymed) &&
+        d->e[i].fmt.dwAspect == f->dwAspect)
+    {
+      return i;
+    }
+  }
+  return -1;
+}
+
+static HRESULT STDMETHODCALLTYPE do_query(IDataObject *self, REFIID riid, void **out)
+{
+  if (IsEqualIID(riid, &IID_IUnknown) || IsEqualIID(riid, &IID_IDataObject)) {
+    *out = self;
+    self->lpVtbl->AddRef(self);
+    return S_OK;
+  }
+  *out = NULL;
+  return E_NOINTERFACE;
+}
+static ULONG STDMETHODCALLTYPE do_addref(IDataObject *self)
+{
+  return (ULONG)InterlockedIncrement(&((DataObj *)self)->refs);
+}
+static ULONG STDMETHODCALLTYPE do_release(IDataObject *self)
+{
+  DataObj *d = (DataObj *)self;
+  const LONG n = InterlockedDecrement(&d->refs);
+  if (n == 0) {
+    for (int i = 0; i < d->n; i++) {
+      ReleaseStgMedium(&d->e[i].med);
+    }
+    free(d->e);
+    free(d);
+  }
+  return (ULONG)n;
+}
+static HRESULT STDMETHODCALLTYPE do_get(IDataObject *self, FORMATETC *f, STGMEDIUM *out)
+{
+  DataObj *d = (DataObj *)self;
+  const int i = dobj_find(d, f);
+  if (i < 0) {
+    return DV_E_FORMATETC;
+  }
+  memset(out, 0, sizeof(*out));
+  const STGMEDIUM *m = &d->e[i].med;
+  if (m->tymed == TYMED_HGLOBAL) { /* a copy the caller frees */
+    const SIZE_T len = GlobalSize(m->hGlobal);
+    const void *src = GlobalLock(m->hGlobal);
+    HGLOBAL h = src ? global_bytes(src, len) : NULL;
+    if (src) {
+      GlobalUnlock(m->hGlobal);
+    }
+    if (!h) {
+      return E_OUTOFMEMORY;
+    }
+    out->tymed = TYMED_HGLOBAL;
+    out->hGlobal = h;
+    return S_OK;
+  }
+  return DV_E_TYMED;
+}
+static HRESULT STDMETHODCALLTYPE do_get_here(IDataObject *self, FORMATETC *f, STGMEDIUM *m)
+{
+  return E_NOTIMPL;
+}
+static HRESULT STDMETHODCALLTYPE do_query_get(IDataObject *self, FORMATETC *f)
+{
+  return dobj_find((DataObj *)self, f) >= 0 ? S_OK : DV_E_FORMATETC;
+}
+static HRESULT STDMETHODCALLTYPE do_canonical(IDataObject *self, FORMATETC *in, FORMATETC *out)
+{
+  out->ptd = NULL;
+  return E_NOTIMPL;
+}
+static int dobj_add(DataObj *d, CLIPFORMAT cf, HGLOBAL h)
+{
+  if (!h) {
+    return 0;
+  }
+  if (d->n == d->cap) {
+    const int cap = d->cap ? d->cap * 2 : 8;
+    DataEntry *e = (DataEntry *)realloc(d->e, sizeof(DataEntry) * (size_t)cap);
+    if (!e) {
+      GlobalFree(h);
+      return 0;
+    }
+    d->e = e;
+    d->cap = cap;
+  }
+  DataEntry *e = &d->e[d->n++];
+  memset(e, 0, sizeof(*e));
+  e->fmt.cfFormat = cf;
+  e->fmt.dwAspect = DVASPECT_CONTENT;
+  e->fmt.lindex = -1;
+  e->fmt.tymed = TYMED_HGLOBAL;
+  e->med.tymed = TYMED_HGLOBAL;
+  e->med.hGlobal = h;
+  return 1;
+}
+/* the shell's drag image helper stores its own formats here */
+static HRESULT STDMETHODCALLTYPE do_set(IDataObject *self, FORMATETC *f, STGMEDIUM *m, BOOL release)
+{
+  DataObj *d = (DataObj *)self;
+  if (!f || !m || m->tymed != TYMED_HGLOBAL) {
+    return E_NOTIMPL;
+  }
+  const int i = dobj_find(d, f);
+  HGLOBAL h = m->hGlobal;
+  if (!release) {
+    const void *src = GlobalLock(m->hGlobal);
+    h = src ? global_bytes(src, GlobalSize(m->hGlobal)) : NULL;
+    if (src) {
+      GlobalUnlock(m->hGlobal);
+    }
+  }
+  if (!h) {
+    return E_OUTOFMEMORY;
+  }
+  if (i >= 0) {
+    ReleaseStgMedium(&d->e[i].med);
+    d->e[i].med.tymed = TYMED_HGLOBAL;
+    d->e[i].med.hGlobal = h;
+    d->e[i].med.pUnkForRelease = NULL;
+    return S_OK;
+  }
+  return dobj_add(d, f->cfFormat, h) ? S_OK : E_OUTOFMEMORY;
+}
+static HRESULT STDMETHODCALLTYPE do_enum(IDataObject *self, DWORD dir, IEnumFORMATETC **out)
+{
+  DataObj *d = (DataObj *)self;
+  if (dir != DATADIR_GET) {
+    return E_NOTIMPL;
+  }
+  FORMATETC *fmts = (FORMATETC *)malloc(sizeof(FORMATETC) * (size_t)(d->n ? d->n : 1));
+  if (!fmts) {
+    return E_OUTOFMEMORY;
+  }
+  for (int i = 0; i < d->n; i++) {
+    fmts[i] = d->e[i].fmt;
+  }
+  const HRESULT hr = SHCreateStdEnumFmtEtc((UINT)d->n, fmts, out);
+  free(fmts);
+  return hr;
+}
+static HRESULT STDMETHODCALLTYPE do_advise(IDataObject *self, FORMATETC *f, DWORD a,
+                                           IAdviseSink *s, DWORD *c)
+{
+  return OLE_E_ADVISENOTSUPPORTED;
+}
+static HRESULT STDMETHODCALLTYPE do_unadvise(IDataObject *self, DWORD c)
+{
+  return OLE_E_ADVISENOTSUPPORTED;
+}
+static HRESULT STDMETHODCALLTYPE do_enum_advise(IDataObject *self, IEnumSTATDATA **e)
+{
+  return OLE_E_ADVISENOTSUPPORTED;
+}
+static IDataObjectVtbl g_dobj_vtbl = {do_query,     do_addref,  do_release,   do_get,
+                                      do_get_here,  do_query_get, do_canonical, do_set,
+                                      do_enum,      do_advise,  do_unadvise,  do_enum_advise};
+
+typedef struct DropSrc {
+  IDropSource iface;
+  LONG refs;
+} DropSrc;
+static HRESULT STDMETHODCALLTYPE ds_query(IDropSource *self, REFIID riid, void **out)
+{
+  if (IsEqualIID(riid, &IID_IUnknown) || IsEqualIID(riid, &IID_IDropSource)) {
+    *out = self;
+    self->lpVtbl->AddRef(self);
+    return S_OK;
+  }
+  *out = NULL;
+  return E_NOINTERFACE;
+}
+static ULONG STDMETHODCALLTYPE ds_addref(IDropSource *self)
+{
+  return (ULONG)InterlockedIncrement(&((DropSrc *)self)->refs);
+}
+static ULONG STDMETHODCALLTYPE ds_release(IDropSource *self)
+{
+  DropSrc *d = (DropSrc *)self;
+  const LONG n = InterlockedDecrement(&d->refs);
+  if (n == 0) {
+    free(d);
+  }
+  return (ULONG)n;
+}
+static HRESULT STDMETHODCALLTYPE ds_continue(IDropSource *self, BOOL escape, DWORD keys)
+{
+  if (escape) {
+    return DRAGDROP_S_CANCEL;
+  }
+  if (!(keys & (MK_LBUTTON | MK_RBUTTON | MK_MBUTTON))) {
+    return DRAGDROP_S_DROP;
+  }
+  return S_OK;
+}
+static HRESULT STDMETHODCALLTYPE ds_feedback(IDropSource *self, DWORD effect)
+{
+  return DRAGDROP_S_USEDEFAULTCURSORS;
+}
+static IDropSourceVtbl g_dsrc_vtbl = {ds_query, ds_addref, ds_release, ds_continue, ds_feedback};
+
+/* IDragSourceHelper (shobjidl.h), declared here: the shell draws the image */
+typedef struct BuiShDragImage {
+  SIZE sizeDragImage;
+  POINT ptOffset;
+  HBITMAP hbmpDragImage;
+  COLORREF crColorKey;
+} BuiShDragImage;
+typedef struct BuiDragHelper BuiDragHelper;
+typedef struct BuiDragHelperVtbl {
+  HRESULT(STDMETHODCALLTYPE *QueryInterface)(BuiDragHelper *, REFIID, void **);
+  ULONG(STDMETHODCALLTYPE *AddRef)(BuiDragHelper *);
+  ULONG(STDMETHODCALLTYPE *Release)(BuiDragHelper *);
+  HRESULT(STDMETHODCALLTYPE *InitializeFromBitmap)(BuiDragHelper *, BuiShDragImage *, IDataObject *);
+  HRESULT(STDMETHODCALLTYPE *InitializeFromWindow)(BuiDragHelper *, HWND, POINT *, IDataObject *);
+} BuiDragHelperVtbl;
+struct BuiDragHelper {
+  const BuiDragHelperVtbl *lpVtbl;
+};
+static const GUID g_clsid_drag_helper = {0x4657278a, 0x411b, 0x11d2, {0x83, 0x9a, 0x00, 0xc0, 0x4f, 0xd9, 0x18, 0xd0}};
+static const GUID g_iid_drag_source_helper = {0xde5bf786, 0x477a, 0x11d2, {0x83, 0x9d, 0x00, 0xc0, 0x4f, 0xd9, 0x18, 0xd0}};
+
+static void drag_image(IDataObject *data, const uint32_t *px, int w, int h, int hx, int hy)
+{
+  BuiDragHelper *helper = NULL;
+  if (FAILED(CoCreateInstance(&g_clsid_drag_helper, NULL, CLSCTX_INPROC_SERVER,
+                              &g_iid_drag_source_helper, (void **)&helper)) ||
+      !helper)
+  {
+    return;
+  }
+  BITMAPINFO bi;
+  memset(&bi, 0, sizeof(bi));
+  bi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
+  bi.bmiHeader.biWidth = w;
+  bi.bmiHeader.biHeight = -h; /* top-down, premultiplied alpha */
+  bi.bmiHeader.biPlanes = 1;
+  bi.bmiHeader.biBitCount = 32;
+  bi.bmiHeader.biCompression = BI_RGB;
+  void *bits = NULL;
+  HBITMAP bmp = CreateDIBSection(NULL, &bi, DIB_RGB_COLORS, &bits, NULL, 0);
+  if (bmp && bits) {
+    memcpy(bits, px, (size_t)w * h * 4);
+    BuiShDragImage img;
+    img.sizeDragImage.cx = w;
+    img.sizeDragImage.cy = h;
+    img.ptOffset.x = hx;
+    img.ptOffset.y = hy;
+    img.hbmpDragImage = bmp;
+    img.crColorKey = CLR_NONE;
+    if (FAILED(helper->lpVtbl->InitializeFromBitmap(helper, &img, data))) {
+      DeleteObject(bmp); /* the helper owns it when it succeeds */
+    }
+  }
+  else if (bmp) {
+    DeleteObject(bmp);
+  }
+  helper->lpVtbl->Release(helper);
+}
+
+int BK_window_drag_start(BKWindow *win, const BKClipItem *items, int n, const uint32_t *icon,
+                         int icon_w, int icon_h, int hot_x, int hot_y, int actions,
+                         BKDragDoneFn done, void *user)
+{
+  if (!win || !win->hwnd || !(GetKeyState(VK_LBUTTON) & 0x8000)) {
+    return 0;
+  }
+  if (FAILED(OleInitialize(NULL))) { /* balanced below (counted per thread) */
+    return 0;
+  }
+  BKClipSet *set = bk_clipset_new(items, n);
+  DataObj *d = set ? (DataObj *)calloc(1, sizeof(DataObj)) : NULL;
+  DropSrc *src = d ? (DropSrc *)calloc(1, sizeof(DropSrc)) : NULL;
+  if (!src) {
+    free(d);
+    bk_clipset_free(set);
+    OleUninitialize();
+    return 0;
+  }
+  d->iface.lpVtbl = &g_dobj_vtbl;
+  d->refs = 1;
+  src->iface.lpVtbl = &g_dsrc_vtbl;
+  src->refs = 1;
+  for (int i = 0; i < set->n; i++) {
+    UINT cf[4];
+    HGLOBAL data[4];
+    const int k = entry_formats(&set->e[i], cf, data, 2); /* PNG without DIBs */
+    for (int j = 0; j < k; j++) {
+      dobj_add(d, (CLIPFORMAT)cf[j], data[j]);
+    }
+  }
+  bk_clipset_free(set);
+  if (icon && icon_w > 0 && icon_h > 0) {
+    drag_image(&d->iface, icon, icon_w, icon_h, hot_x, hot_y);
+  }
+  ReleaseCapture();
+  BK_pointer_cancel(win->ctx);
+  DWORD ok = 0;
+  ok |= (actions & BK_DRAG_COPY) || !actions ? DROPEFFECT_COPY : 0;
+  ok |= (actions & BK_DRAG_MOVE) ? DROPEFFECT_MOVE : 0;
+  DWORD effect = DROPEFFECT_NONE;
+  const HRESULT hr = DoDragDrop(&d->iface, &src->iface, ok, &effect);
+  d->iface.lpVtbl->Release(&d->iface);
+  src->iface.lpVtbl->Release(&src->iface);
+  OleUninitialize();
+  const int action = hr != DRAGDROP_S_DROP ? BK_DRAG_NONE :
+                     (effect & DROPEFFECT_MOVE) ? BK_DRAG_MOVE :
+                     (effect & DROPEFFECT_COPY) ? BK_DRAG_COPY : BK_DRAG_NONE;
+  if (done) {
+    done(user, action);
+  }
+  return 1;
+}
+
+/* =========================================================================
+ * BUI-Awra: window identity: WM_SETICON from the images nearest the
+ * system's icon sizes; activation brings the window forward.
+ * ========================================================================= */
+
+static HICON make_icon(const uint32_t *px, int size, int want)
+{
+  BITMAPV5HEADER bh;
+  memset(&bh, 0, sizeof(bh));
+  bh.bV5Size = sizeof(bh);
+  bh.bV5Width = want;
+  bh.bV5Height = -want; /* top-down */
+  bh.bV5Planes = 1;
+  bh.bV5BitCount = 32;
+  bh.bV5Compression = BI_BITFIELDS;
+  bh.bV5RedMask = 0x00FF0000;
+  bh.bV5GreenMask = 0x0000FF00;
+  bh.bV5BlueMask = 0x000000FF;
+  bh.bV5AlphaMask = 0xFF000000;
+  void *bits = NULL;
+  HDC dc = GetDC(NULL);
+  HBITMAP color = CreateDIBSection(dc, (BITMAPINFO *)&bh, DIB_RGB_COLORS, &bits, NULL, 0);
+  ReleaseDC(NULL, dc);
+  HBITMAP mask = CreateBitmap(want, want, 1, 1, NULL);
+  HICON icon = NULL;
+  if (color && mask && bits) {
+    uint32_t *dst = (uint32_t *)bits;
+    for (int y = 0; y < want; y++) { /* nearest sample, straight alpha */
+      const uint32_t *row = px + (size_t)(y * size / want) * size;
+      for (int x = 0; x < want; x++) {
+        const uint32_t c = row[x * size / want], a = c >> 24;
+        uint32_t o = c;
+        if (a && a < 255) {
+          o = (a << 24) | (((c >> 16 & 255) * 255 / a) << 16) | (((c >> 8 & 255) * 255 / a) << 8) |
+              ((c & 255) * 255 / a);
+        }
+        dst[(size_t)y * want + x] = o;
+      }
+    }
+    ICONINFO ii;
+    memset(&ii, 0, sizeof(ii));
+    ii.fIcon = TRUE;
+    ii.hbmMask = mask;
+    ii.hbmColor = color;
+    icon = CreateIconIndirect(&ii);
+  }
+  if (color) {
+    DeleteObject(color);
+  }
+  if (mask) {
+    DeleteObject(mask);
+  }
+  return icon;
+}
+
+/* the image nearest `want` (the smallest at least as big, else the biggest) */
+static int icon_pick(const int *sizes, int n, int want)
+{
+  int best = -1;
+  for (int i = 0; i < n; i++) {
+    if (sizes[i] <= 0) {
+      continue;
+    }
+    if (best < 0 || (sizes[i] >= want && (sizes[best] < want || sizes[i] < sizes[best])) ||
+        (sizes[best] < want && sizes[i] > sizes[best]))
+    {
+      best = i;
+    }
+  }
+  return best;
+}
+
+void BK_window_set_icon(BKWindow *win, const char *name, const uint32_t *const *pixels,
+                        const int *sizes, int n)
+{
+  (void)name;
+  if (!win || !win->hwnd) {
+    return;
+  }
+  HICON big = NULL, small = NULL;
+  const int wb = GetSystemMetrics(SM_CXICON), ws = GetSystemMetrics(SM_CXSMICON);
+  const int ib = icon_pick(sizes, n, wb), is = icon_pick(sizes, n, ws);
+  if (ib >= 0 && pixels[ib]) {
+    big = make_icon(pixels[ib], sizes[ib], wb);
+  }
+  if (is >= 0 && pixels[is]) {
+    small = make_icon(pixels[is], sizes[is], ws);
+  }
+  SendMessageW(win->hwnd, WM_SETICON, ICON_BIG, (LPARAM)big);
+  SendMessageW(win->hwnd, WM_SETICON, ICON_SMALL, (LPARAM)small);
+  if (win->icon_big) {
+    DestroyIcon(win->icon_big);
+  }
+  if (win->icon_small) {
+    DestroyIcon(win->icon_small);
+  }
+  win->icon_big = big;
+  win->icon_small = small;
+}
+
+void BK_window_activate(BKWindow *win, const char *startup_id)
+{
+  (void)startup_id;
+  if (win && win->hwnd) {
+    if (IsIconic(win->hwnd)) {
+      ShowWindow(win->hwnd, SW_RESTORE);
+    }
+    SetForegroundWindow(win->hwnd);
+  }
+}
 #endif /* _WIN32 */

@@ -28,6 +28,7 @@ mod widgets;
 mod collection;
 mod window;
 mod video;
+mod transfer;
 pub mod gdk;
 pub mod gio;
 pub mod glib;
@@ -56,6 +57,7 @@ pub use compat2::*;
 pub use compat3::*;
 pub use pango::WrapMode;
 pub use content::*;
+pub use transfer::{drag_out_data, drag_out_files, widget_snapshot, ContentFormats, ContentType, TextureType, WidgetPaintable};
 pub use window::{accel_label, ApplicationWindow, Window};
 
 pub mod prelude {
