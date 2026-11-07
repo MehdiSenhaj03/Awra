@@ -30,6 +30,7 @@ typedef struct PathExt {
   int offset;           /* trail scrolled to show its end */
   char **values;
   int nsugg, highlight;
+  unsigned focus_idle; /* the entry lost the keyboard: editing ends on idle */
 } PathExt;
 
 #define PX(w) AWRA_EXT(w, PathExt)
@@ -278,6 +279,9 @@ static void path_leave(AwraWidget *w, const AwraArgs *a, void *data)
 static void path_finalize(AwraWidget *w)
 {
   PathExt *x = PX(w);
+  if (x->focus_idle) {
+    awra_source_remove(x->focus_idle);
+  }
   for (int i = 0; i < x->n; i++) {
     free(x->crumbs[i].label);
   }
@@ -442,6 +446,37 @@ static void suggestion_activated(AwraWidget *row, const AwraArgs *a, void *data)
 /* ----------------------------------------------------------------------- */
 /* Public API */
 
+/* Awra 1's focus_left_idle: the keyboard left the entry and its
+ * suggestions: editing ends, unless the window itself went inactive
+ * (switching windows keeps a half-typed location) */
+static bool focus_left_idle(void *data)
+{
+  AwraWidget *w = (AwraWidget *)data;
+  PathExt *x = PX(w);
+  x->focus_idle = 0;
+  AwraWidget *win = awra_window_of(w);
+  if (x->editing && !awra_widget_has_focus(x->entry) && !awra_widget_focus_within(w) &&
+      (!win || awra_window_is_active(win) || !awra_window_native_handle(win)))
+  {
+    set_editing(w, false);
+  }
+  return false;
+}
+
+static void focus_idle_done(void *data)
+{
+  awra_widget_unref((AwraWidget *)data);
+}
+
+static void entry_notify(AwraWidget *e, const AwraArgs *a, void *data)
+{
+  AwraWidget *w = (AwraWidget *)data;
+  PathExt *x = PX(w);
+  if (a->text && !strcmp(a->text, "has-focus") && !awra_widget_has_focus(e) && !x->focus_idle) {
+    x->focus_idle = awra_timeout_add(0, focus_left_idle, awra_widget_ref(w), focus_idle_done);
+  }
+}
+
 AwraWidget *awra_path_bar_new(void)
 {
   AwraWidget *w = awra_widget_new(&path_class);
@@ -454,6 +489,7 @@ AwraWidget *awra_path_bar_new(void)
   awra_widget_unref(x->entry);
   awra_signal_connect(x->entry, AWRA_SIGNAL_KEY_PRESSED, entry_key, w, NULL);
   awra_signal_connect(x->entry, AWRA_SIGNAL_CHANGED, entry_changed, w, NULL);
+  awra_signal_connect(x->entry, AWRA_SIGNAL_NOTIFY, entry_notify, w, NULL);
   awra_signal_connect(w, AWRA_SIGNAL_LEAVE, path_leave, NULL, NULL);
   awra_widget_set_hexpand(w, true);
   awra_widget_set_cursor(w, NULL);
@@ -578,6 +614,10 @@ void awra_path_bar_set_suggestions(AwraWidget *w, const char *const *titles,
   free(items);
   awra_popover_set_anchor(x->popover, w);
   awra_widget_set_halign(x->popover, AWRA_ALIGN_START); /* Awra 1: GTK_POS_BOTTOM, start */
+  /* Awra 1: not autohide (an autohiding popover would take the keyboard
+   * from the field); it closes when editing ends (Escape, Return, the
+   * keyboard leaving the field) */
+  awra_popover_set_autohide(x->popover, false);
   awra_popover_popup(x->popover);
   /* the field keeps the keyboard */
   AwraWidget *win = awra_window_of(w);

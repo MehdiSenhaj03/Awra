@@ -33,6 +33,25 @@ static int win32_pop_place(void *data, int slot, const BKPopupLayout *l, int w, 
                            BKRect *r_rect);
 static void win32_pop_close(void *data, int slot);
 
+/* GDK's gtk-cursor-theme-size on Windows: SM_CXCURSOR (at the window's
+ * DPI), in logical px */
+static int win32_cursor_size(const BKWindow *win)
+{
+  HMODULE user32 = GetModuleHandleW(L"user32.dll");
+  typedef int(WINAPI * MetricsForDpi)(int, UINT);
+  MetricsForDpi get = user32 ? (MetricsForDpi)(void *)GetProcAddress(user32, "GetSystemMetricsForDpi") :
+                               NULL;
+  const UINT dpi = (UINT)(96 * win->scale + 0.5f);
+  const int px = get ? get(SM_CXCURSOR, dpi) : GetSystemMetrics(SM_CXCURSOR);
+  return px > 0 ? BK_MAX(1, (int)(px / BK_MAX(1.0f, win->scale) + 0.5f)) : 0;
+}
+
+static void *win32_pop_handle(void *data, int slot)
+{
+  BKWindow *win = (BKWindow *)data;
+  return win->pops && slot >= 0 && slot < BK_POPUP_SLOTS ? (void *)win->pops[slot].hwnd : NULL;
+}
+
 static void win32_popups_init(BKWindow *win)
 {
   dwm_load();
@@ -42,6 +61,8 @@ static void win32_popups_init(BKWindow *win)
   win->pophost.corner_radius = g_dwm.build >= BUILD_WIN11 ? (int)(4 * win->scale + 0.5f) : 0;
   win->pophost.place = win32_pop_place;
   win->pophost.close = win32_pop_close;
+  win->pophost.cursor_size = win32_cursor_size(win);
+  win->pophost.handle = win32_pop_handle;
   if (win->flags & BK_WINDOW_TRANSPARENT) {
     bk_popup_host_set(win->ctx, &win->pophost);
   }

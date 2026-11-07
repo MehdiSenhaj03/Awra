@@ -2184,11 +2184,11 @@ void bk_tooltip_layout(BKContext *ctx, BKPopupLayout *l)
 {
   memset(l, 0, sizeof(*l));
   const float s = bk_scale_fac;
-  static int cursor_size = -1;
-  if (cursor_size < 0) {
-    const char *e = getenv("XCURSOR_SIZE");
-    cursor_size = e && atoi(e) > 0 ? atoi(e) : 16; /* gtk-cursor-theme-size, else 16 */
-  }
+  /* gtk-cursor-theme-size: the host's (the size its cursors are drawn
+   * at), else GTK's 16 */
+  const int cursor_size = ctx->popup_host && ctx->popup_host->cursor_size > 0 ?
+                              ctx->popup_host->cursor_size :
+                              16;
   const int pad = (int)(BK_MAX(4, cursor_size - 32) * s + 0.5f);
   BKRect a = bk_node_rect(ctx->tip_node);
   a.xmin -= pad;

@@ -49,6 +49,7 @@ typedef struct PopExt {
   bool autohide_off;
   bool surfaced; /* the last placement gave it a native surface */
   bool blur;     /* ... and the compositor blurs behind it */
+  unsigned too_small; /* the idle closing it: its surface is under its minimum size */
 } PopExt;
 
 #define POPX(w) AWRA_EXT(w, PopExt)
@@ -243,6 +244,34 @@ static void pop_layout(AwraWidget *w, int nw, int nh, int win_w, int win_h, BKPo
   l->hints = BK_ANCHOR_FLIP_Y | BK_ANCHOR_SLIDE_X | BK_ANCHOR_RESIZE;
 }
 
+static void too_small_done(void *data)
+{
+  awra_widget_unref((AwraWidget *)data);
+}
+
+static bool too_small_fire(void *data)
+{
+  AwraWidget *w = (AwraWidget *)data;
+  POPX(w)->too_small = 0;
+  awra_popover_popdown(w);
+  return false;
+}
+
+/* GtkPopover's is_acceptable_size: the system gave its surface less than
+ * the popover's minimum size (GDK_ANCHOR_RESIZE on a work area too small):
+ * it pops down, as GTK's do (on idle: this is its layout). */
+static void pop_check_size(AwraWidget *w, int width, int height)
+{
+  PopExt *x = POPX(w);
+  int min_w, nat, min_h;
+  awra_measure(w, AWRA_ORIENTATION_HORIZONTAL, -1, &min_w, &nat);
+  awra_measure(w, AWRA_ORIENTATION_VERTICAL, BK_MAX(width, min_w), &min_h, &nat);
+  if ((width >= min_w && height >= min_h) || x->too_small || !x->open) {
+    return;
+  }
+  x->too_small = awra_timeout_add(0, too_small_fire, awra_widget_ref(w), too_small_done);
+}
+
 static void pop_place(BKNode *n, int win_w, int win_h)
 {
   AwraWidget *w = n;
@@ -282,6 +311,9 @@ static void pop_place(BKNode *n, int win_w, int win_h)
   if (surfaced != x->surfaced) {
     x->surfaced = surfaced;
     bk_invalidate(w);
+  }
+  if (surfaced) {
+    pop_check_size(w, bk_rw(&box), bk_rh(&box));
   }
   const int x0 = box.xmin;
   /* unfold: translateY(-4px) while it opens (inside its surface, as GTK's
