@@ -223,6 +223,34 @@ static void check_line_height(void)
   awra_text_layout_free(b);
 }
 
+/* Pango's ellipsizing: the line fills the width (the ellipsis is padded
+ * out), an RTL paragraph's END ellipsis is at its left, the kept text keeps
+ * its first character */
+static void check_ellipsize(bool arabic)
+{
+  if (!arabic) {
+    return;
+  }
+  AwraFont f = awra_font_for(AWRA_TYPOGRAPHY_BODY);
+  f.family = "";
+  AwraTextLayout *l = awra_text_layout_new();
+  awra_text_layout_set_font(l, &f);
+  const char *t = AR_MEEM AR_BEH AR_ALEF " " AR_LAM AR_ALEF " " AR_BEH AR_MEEM AR_BEH AR_MEEM " "
+                  AR_MEEM AR_BEH AR_ALEF " " AR_LAM AR_ALEF " " AR_BEH AR_MEEM AR_BEH AR_MEEM;
+  awra_text_layout_set_text(l, t, false);
+  awra_text_layout_set_wrap(l, AWRA_WRAP_NONE, AWRA_ELLIPSIZE_END, -1);
+  float lx, lw;
+  awra_text_layout_logical(l, 60, &lx, &lw);
+  CHECK(fabsf(lx) < 0.01f && fabsf(lw - 60.0f) < 0.01f, "ellipsized line %.2f + %.2f, not 0 + 60", lx, lw);
+  float r[4];
+  awra_text_layout_char_rect(l, 60, 0, r);
+  CHECK(fabsf(r[0] + r[2] - 60.0f) < 0.01f, "first character's box ends at %.2f, not 60", r[0] + r[2]);
+  /* the ellipsis is the leftmost thing: clicking it lands in the hidden text */
+  const int hit = awra_text_layout_pos_to_index(l, 60, 1.0f, 2.0f);
+  CHECK(hit > 0 && hit <= (int)strlen(t), "hit on the ellipsis: %d", hit);
+  awra_text_layout_free(l);
+}
+
 int main(void)
 {
   awra_init("org.awra.TestBidi");
@@ -240,6 +268,7 @@ int main(void)
   check_shaping(arabic, hebrew);
   check_layout(arabic, hebrew);
   check_line_height();
+  check_ellipsize(arabic);
   if (failures) {
     fprintf(stderr, "%d failure(s)\n", failures);
     return 1;

@@ -305,6 +305,20 @@ int BUI_text_index_to_x(const char *family, int flags, float size, const char *u
  * its visually first or last grapheme, at that outer edge. */
 int BUI_text_x_to_index(const char *family, int flags, float size, const char *utf8, int len,
                         float x, int *r_index, int *r_trailing);
+/* Draws only the glyphs of bytes [from, to) of the run, where they are in
+ * the whole run drawn at x (Pango's split glyph items: an ellipsized
+ * line keeps its letters' contextual forms). The raster's font and flags. */
+int BUI_raster_text_part(BuiRaster *r, float x, float y, const char *utf8, int len, int from, int to,
+                         float size, const float rgba[4]);
+/* The run's clusters (characters shaped together) in logical order: their
+ * byte ranges and widths as drawn. Returns how many were written (at most
+ * `max`), or with `out` NULL how many there are. */
+typedef struct BuiTextCluster {
+  int start, end;
+  float width;
+} BuiTextCluster;
+int BUI_text_clusters(const char *family, int flags, float size, const char *utf8, int len,
+                      BuiTextCluster *out, int max);
 /* Bidi embedding levels of the paragraph `utf8`, one per byte. `base`: 0
  * the first strong character's direction, else left-to-right; 3 the same,
  * else right-to-left; 1 left-to-right; 2 right-to-left. Returns the

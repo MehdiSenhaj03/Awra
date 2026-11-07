@@ -166,6 +166,28 @@ static void draw_text_x(AwraDraw *d, const AwraFont *f, int xflags, float x, flo
   }
 }
 
+/* the glyphs of bytes [from, to) of the run `s` shaped whole, drawn where
+ * they are in it (the run's origin at x) */
+static void draw_text_part_x(AwraDraw *d, const AwraFont *f, int xflags, float x, float baseline,
+                             const char *s, int len, int from, int to, const AwraRGBA *color)
+{
+  if (f->letter_spacing != 0.0f) {
+    /* letter-spaced text is drawn character by character anyway */
+    const float skip = (xflags & BUI_TEXT_RTL) ? text_width_x(f, xflags, s + to, len - to) :
+                                                 text_width_x(f, xflags, s, from);
+    draw_text_x(d, f, xflags, x + skip, baseline, s + from, to - from, color);
+    return;
+  }
+  float c[4];
+  awra_rgba_f(color, c);
+  c[3] *= d->opacity;
+  if (c[3] <= 0.0f || to <= from) {
+    return;
+  }
+  BUI_raster_set_font(d->r, f->family, font_flags(f) | xflags);
+  BUI_raster_text_part(d->r, x, baseline, s, len, from, to, f->size, c);
+}
+
 void awra_draw_text(AwraDraw *d, const AwraFont *f, float x, float baseline, const char *s,
                     int len, const AwraRGBA *color)
 {
@@ -196,6 +218,8 @@ typedef struct Run {
   int start, end; /* -1: an ellipsis */
   int span;
   float x, w;     /* x: visual, from the line's left edge */
+  float sx;       /* a part kept by ellipsizing: where it starts in its whole run (visual) */
+  int shp_start, shp_end; /* the run it was shaped as (a part: the whole one) */
   uint8_t level;  /* bidi embedding level */
   bool zero;      /* the spaces a wrapped line ends with: no width, not drawn */
 } Run;
@@ -988,6 +1012,8 @@ static void add_run(AwraTextLayout *l, int a, int b, float x)
     r->end = e;
     r->span = span_at(l, a);
     r->level = (uint8_t)level_at(l, a);
+    r->shp_start = a;
+    r->shp_end = e;
     AwraFont f = span_font(l, r->span);
     r->w = seg_width(l, &f, a, e);
     a = e;
@@ -1128,77 +1154,255 @@ static Line *push_line(AwraTextLayout *l)
 
 static const char ELLIPSIS[] = "\xE2\x80\xA6";
 
-/* Lays out a line [a, b) ellipsized to `width` (END / START / MIDDLE), as
- * Pango ellipsizes: in logical order, whole graphemes, the ellipsis at the
- * paragraph's level. */
+/* Ellipsizes the line [a, b) to `width` as Pango does
+ * (_pango_layout_line_ellipsize): over the line's runs in logical order and
+ * their shaped clusters, a gap starts at the cluster at the mode's centre
+ * (END: the line's end, START: its start, MIDDLE: its middle), widened to
+ * grapheme boundaries, then grown one span at a time on the side that
+ * keeps it closest to the centre until the line fits. The ellipsis takes
+ * the font at the gap's start and the lowest level of the text it hides,
+ * and fills the line out to `width`; what is kept is drawn from the runs
+ * as they were shaped (no reshaping: letters keep their joined forms). */
+typedef struct EllRun {
+  Run r;
+  BuiTextCluster *cl;
+  int ncl;
+} EllRun;
+
+typedef struct EllIter {
+  int k, c; /* run, cluster */
+} EllIter;
+
+static float ell_width(const EllRun *er, EllIter it)
+{
+  return er[it.k].cl[it.c].width;
+}
+
+static bool ell_prev(const EllRun *er, EllIter *it)
+{
+  if (it->c > 0) {
+    it->c--;
+    return true;
+  }
+  for (int k = it->k - 1; k >= 0; k--) {
+    if (er[k].ncl > 0) {
+      it->k = k;
+      it->c = er[k].ncl - 1;
+      return true;
+    }
+  }
+  return false;
+}
+
+static bool ell_next(const EllRun *er, int nr, EllIter *it)
+{
+  if (it->c + 1 < er[it->k].ncl) {
+    it->c++;
+    return true;
+  }
+  for (int k = it->k + 1; k < nr; k++) {
+    if (er[k].ncl > 0) {
+      it->k = k;
+      it->c = 0;
+      return true;
+    }
+  }
+  return false;
+}
+
+static float ell_ellipsis(AwraTextLayout *l, const EllRun *er, EllIter gs)
+{
+  AwraFont f = span_font(l, span_at(l, er[gs.k].cl[gs.c].start));
+  return awra_text_width(&f, ELLIPSIS, 3);
+}
+
+/* a kept part [from, to) of a run: drawn from the run's own shaping */
+static void ell_keep(AwraTextLayout *l, const EllRun *e, int c0, int c1)
+{
+  if (c1 <= c0) {
+    return;
+  }
+  Run *r = push_run(l);
+  *r = e->r;
+  r->start = e->cl[c0].start;
+  r->end = e->cl[c1 - 1].end;
+  float before = 0.0f, kept = 0.0f, after = 0.0f;
+  for (int c = 0; c < e->ncl; c++) {
+    if (c < c0) {
+      before += e->cl[c].width;
+    }
+    else if (c < c1) {
+      kept += e->cl[c].width;
+    }
+    else {
+      after += e->cl[c].width;
+    }
+  }
+  r->w = kept;
+  r->sx = (r->level & 1) ? after : before; /* where the part starts in the run, visually */
+}
+
 static void ellipsize_line(AwraTextLayout *l, Line *ln, int a, int b, float width)
 {
-  AwraFont f0 = span_font(l, span_at(l, a));
-  const float ew = awra_text_width(&f0, ELLIPSIS, 3);
-  const float avail = width - ew;
   free(l->ell_text);
   l->ell_text = NULL;
-  if (l->ellipsize == AWRA_ELLIPSIZE_START) {
-    /* keep the longest tail that fits */
-    int start = b;
-    for (int i = b; i > a;) {
-      const int j = BK_MAX(a, prev_cursor(l, i));
-      if (range_width(l, j, b) > avail) {
+  /* the line's runs in logical order, and their clusters */
+  const int first = l->n_runs;
+  add_run(l, a, b, 0);
+  const int nr = l->n_runs - first;
+  EllRun local[16];
+  EllRun *er = nr <= 16 ? local : (EllRun *)calloc((size_t)nr, sizeof(EllRun));
+  if (!er || nr == 0) {
+    if (er && er != local) {
+      free(er);
+    }
+    ln->n_runs = l->n_runs - ln->first_run;
+    finish_line(l, ln);
+    return;
+  }
+  float total = 0.0f;
+  int ok = 1;
+  for (int k = 0; k < nr; k++) {
+    EllRun *e = &er[k];
+    e->r = l->runs[first + k];
+    total += e->r.w;
+    const int n = e->r.end - e->r.start;
+    if (is_object(l, e->r.start)) {
+      e->cl = (BuiTextCluster *)malloc(sizeof(BuiTextCluster));
+      e->ncl = e->cl ? 1 : 0;
+      if (e->cl) {
+        e->cl[0] = (BuiTextCluster){e->r.start, e->r.end, e->r.w};
+      }
+    }
+    else {
+      AwraFont f = span_font(l, e->r.span);
+      const int xf = font_flags(&f) | level_flags(l, e->r.level);
+      const int count = BUI_text_clusters(f.family, xf, f.size, l->text + e->r.start, n, NULL, 0);
+      e->cl = count > 0 ? (BuiTextCluster *)malloc(sizeof(BuiTextCluster) * (size_t)count) : NULL;
+      e->ncl = e->cl ? BUI_text_clusters(f.family, xf, f.size, l->text + e->r.start, n, e->cl, count) : 0;
+      for (int c = 0; c < e->ncl; c++) {
+        e->cl[c].start += e->r.start;
+        e->cl[c].end += e->r.start;
+        if (f.letter_spacing != 0.0f) {
+          e->cl[c].width += f.letter_spacing * utf8_count(l->text + e->cl[c].start,
+                                                          e->cl[c].end - e->cl[c].start);
+        }
+      }
+    }
+    ok = ok && e->ncl > 0;
+  }
+  l->n_runs = first;
+  if (ok) {
+    /* the cluster at the gap's centre */
+    const float center = l->ellipsize == AWRA_ELLIPSIZE_START ? 0.0f :
+                         l->ellipsize == AWRA_ELLIPSIZE_MIDDLE ? total / 2.0f :
+                                                                  total;
+    float x = 0.0f;
+    int k = 0;
+    for (; k < nr; k++) {
+      if (x + er[k].r.w > center) {
         break;
       }
-      start = j;
-      i = j;
+      x += er[k].r.w;
     }
-    add_ellipsis(l, a, ew);
-    add_run(l, start, b, 0);
-  }
-  else if (l->ellipsize == AWRA_ELLIPSIZE_MIDDLE) {
-    int head = a, tail = b;
-    float used = 0.0f;
-    for (bool front = true;; front = !front) {
-      if (front) {
-        const int n = BK_MIN(tail, next_cursor(l, head));
-        const float cw = range_width(l, head, n);
-        if (head >= tail || used + cw > avail) {
+    if (k == nr) {
+      k--;
+      x -= er[k].r.w;
+    }
+    int c = 0;
+    float cw = 0.0f;
+    bool have = false;
+    for (; c < er[k].ncl; c++) {
+      cw = er[k].cl[c].width;
+      have = true;
+      if (x + cw > center) {
+        break;
+      }
+      x += cw;
+    }
+    if (c == er[k].ncl) {
+      c--;
+      x -= cw;
+    }
+    (void)have;
+    EllIter gs = {k, c}, ge = {k, c};
+    float gsx = x, gex = x + cw;
+    /* widened to grapheme boundaries */
+    while (!(gs.k == 0 && gs.c == 0) && !is_cursor(l, er[gs.k].cl[gs.c].start)) {
+      if (!ell_prev(er, &gs)) {
+        break;
+      }
+      gsx -= ell_width(er, gs);
+    }
+    while (!(ge.k == nr - 1 && ge.c == er[ge.k].ncl - 1) && !is_cursor(l, er[ge.k].cl[ge.c].end)) {
+      if (!ell_next(er, nr, &ge)) {
+        break;
+      }
+      gex += ell_width(er, ge);
+    }
+    float ew = ell_ellipsis(l, er, gs);
+    while (total - (gex - gsx) + ew > width) {
+      /* one span further on each side (remove_one_span) */
+      EllIter ns = gs, ne = ge;
+      float nsx = gsx, nex = gex, w = 0.0f;
+      do {
+        if (!ell_prev(er, &ns)) {
           break;
         }
-        used += cw;
-        head = n;
+        w = ell_width(er, ns);
+        nsx -= w;
+      } while (!((ns.k == 0 && ns.c == 0) || is_cursor(l, er[ns.k].cl[ns.c].start)) || w == 0.0f);
+      do {
+        if (!ell_next(er, nr, &ne)) {
+          break;
+        }
+        w = ell_width(er, ne);
+        nex += w;
+      } while (!((ne.k == nr - 1 && ne.c == er[ne.k].ncl - 1) || is_cursor(l, er[ne.k].cl[ne.c].end)) ||
+               w == 0.0f);
+      if (gex == nex && gsx == nsx) {
+        break;
+      }
+      if (gex == nex || (gsx != nsx && center - nsx < nex - center)) {
+        gs = ns;
+        gsx = nsx;
+        ew = ell_ellipsis(l, er, gs);
       }
       else {
-        const int j = BK_MAX(head, prev_cursor(l, tail));
-        const float cw = range_width(l, j, tail);
-        if (j <= head || used + cw > avail) {
-          break;
-        }
-        used += cw;
-        tail = j;
+        ge = ne;
+        gex = nex;
       }
     }
-    add_run(l, a, head, 0);
-    add_ellipsis(l, head > a ? head - 1 : a, ew);
-    add_run(l, tail, b, 0);
+    const float extra = fmaxf(width - (total - (gex - gsx) + ew), 0.0f);
+    /* the line: what comes before the gap, the ellipsis, what comes after */
+    for (int q = 0; q < gs.k; q++) {
+      Run *r = push_run(l);
+      *r = er[q].r;
+    }
+    ell_keep(l, &er[gs.k], 0, gs.c);
+    int level = 255;
+    for (int q = gs.k; q <= ge.k; q++) {
+      level = BK_MIN(level, (int)er[q].r.level);
+    }
+    add_ellipsis(l, er[gs.k].cl[gs.c].start, ew + extra);
+    l->runs[l->n_runs - 1].level = (uint8_t)level;
+    ell_keep(l, &er[ge.k], ge.c + 1, er[ge.k].ncl);
+    for (int q = ge.k + 1; q < nr; q++) {
+      Run *r = push_run(l);
+      *r = er[q].r;
+    }
   }
   else {
-    /* END: the longest head that fits */
-    float used = 0.0f;
-    int cut = a;
-    for (int i = a; i < b;) {
-      const int n = BK_MIN(b, next_cursor(l, i));
-      const float cw = range_width(l, i, n);
-      if (used + cw > avail) {
-        break;
-      }
-      used += cw;
-      i = n;
-      cut = i;
+    for (int q = 0; q < nr; q++) {
+      Run *r = push_run(l);
+      *r = er[q].r;
     }
-    /* no trailing space before the ellipsis */
-    while (cut > a && l->text[cut - 1] == ' ') {
-      cut--;
-    }
-    add_run(l, a, cut, 0);
-    add_ellipsis(l, cut > a ? cut - 1 : a, ew);
+  }
+  for (int q = 0; q < nr; q++) {
+    free(er[q].cl);
+  }
+  if (er != local) {
+    free(er);
   }
   ln->n_runs = l->n_runs - ln->first_run;
   finish_line(l, ln);
@@ -1474,8 +1678,16 @@ void awra_text_layout_draw(AwraTextLayout *l, AwraDraw *d, float x, float y, int
         draw_text_x(d, &f, 0, lx + r->x, base, ELLIPSIS, 3, &c);
       }
       else {
-        draw_text_x(d, &f, level_flags(l, r->level), lx + r->x, base, l->text + r->start,
-                    r->end - r->start, &c);
+        if (r->shp_start != r->start || r->shp_end != r->end) {
+          /* a part kept by ellipsizing: from the whole run's shaping */
+          draw_text_part_x(d, &f, level_flags(l, r->level), lx + r->x - r->sx, base,
+                           l->text + r->shp_start, r->shp_end - r->shp_start,
+                           r->start - r->shp_start, r->end - r->shp_start, &c);
+        }
+        else {
+          draw_text_x(d, &f, level_flags(l, r->level), lx + r->x, base, l->text + r->start,
+                      r->end - r->start, &c);
+        }
       }
       if (r->span >= 0 && (l->spans[r->span].underline || l->spans[r->span].strike)) {
         const float t = fmaxf(1.0f, f.size / 14.0f);
@@ -1513,8 +1725,9 @@ static float run_index_x(AwraTextLayout *l, const Run *r, int index, bool traili
   AwraFont f = span_font(l, r->span);
   float x = 0.0f;
   BUI_text_index_to_x(f.family, font_flags(&f) | level_flags(l, r->level), f.size,
-                      l->text + r->start, r->end - r->start, index - r->start, trailing, &x);
-  return r->x + x;
+                      l->text + r->shp_start, r->shp_end - r->shp_start, index - r->shp_start,
+                      trailing, &x);
+  return r->x + x - r->sx;
 }
 
 /* the line holding byte `index` (a boundary between two lines is the
@@ -1661,8 +1874,8 @@ static int line_x_to_index(AwraTextLayout *l, int li, float x, int *r_trailing)
     AwraFont f = span_font(l, r->span);
     int idx = 0, tr = 0;
     BUI_text_x_to_index(f.family, font_flags(&f) | level_flags(l, r->level), f.size,
-                        l->text + r->start, r->end - r->start, rel, &idx, &tr);
-    int index = r->start + idx;
+                        l->text + r->shp_start, r->shp_end - r->shp_start, rel + r->sx, &idx, &tr);
+    int index = BK_CLAMP(r->shp_start + idx, r->start, r->end);
     if (tr && suppress) {
       int e = index;
       for (int c = 0; c < tr && e < l->len; c++) {
