@@ -715,3 +715,7 @@ static inline int awra_ceilpx(float v)
   }
   return (int)ceilf(v);
 }
+
+/* A material's outline and rim highlight only (paint.c). */
+void awra_paint_material_edges(AwraDraw *d, AwraBox b, const AwraResolvedMaterial *m, float radius,
+                               int corner_mask, int edge_mask);

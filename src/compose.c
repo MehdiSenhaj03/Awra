@@ -25,6 +25,7 @@ typedef struct BinExt {
   float radius; /* < 0: the material's */
   int corner_mask, edge_mask;
   bool paints;
+  bool edges_after; /* the outline and rim are still to draw, over the child */
   /* cards */
   bool activatable;
   /* badges / banners: their look */
@@ -126,11 +127,14 @@ static void surface_save_corners(AwraWidget *w, AwraDraw *d)
   }
 }
 
+static void surface_edges(AwraWidget *w, AwraDraw *d);
+
 static void surface_draw_over(AwraWidget *w, AwraDraw *d)
 {
   AwraBox b;
   float radii[4];
   if (!awra_aux(w)->corners_saved) {
+    surface_edges(w, d);
     return;
   }
   awra_aux(w)->corners_saved = 0;
@@ -140,6 +144,7 @@ static void surface_draw_over(AwraWidget *w, AwraDraw *d)
   const size_t n = (size_t)BUI_raster_corners_size(b.w, b.h, radii);
   g_corners_top -= n;
   SR_corners_clip(d->r, b.x, b.y, b.w, b.h, radii, g_corners + g_corners_top);
+  surface_edges(w, d);
 }
 
 static void surface_draw(AwraWidget *w, AwraDraw *d)
@@ -155,14 +160,35 @@ static void surface_draw(AwraWidget *w, AwraDraw *d)
   if (x->inset_end >= 0) {
     box.w += awra_pxf(x->inset) - awra_pxf(x->inset_end);
   }
+  x->edges_after = false;
   if (!(x->backdrop &&
         awra_paint_material_backdrop(d, box, (AwraMaterial)x->material, x->role,
                                      (AwraElevation)x->elevation, r, x->corner_mask, x->edge_mask,
                                      x->backdrop)))
   {
-    awra_paint_material(d, box, &m, r, x->corner_mask, x->edge_mask, (AwraElevation)x->elevation);
+    /* the fill now, its outline and rim after the child (AwraSurface's
+     * snapshot) */
+    awra_paint_material(d, box, &m, r, x->corner_mask, 0, (AwraElevation)x->elevation);
+    x->edges_after = true;
   }
   surface_save_corners(w, d);
+}
+
+static void surface_edges(AwraWidget *w, AwraDraw *d)
+{
+  BinExt *x = BINX(w);
+  if (!x->paints || !x->edges_after) {
+    return;
+  }
+  x->edges_after = false;
+  AwraResolvedMaterial m;
+  awra_material_resolve((AwraMaterial)x->material, x->role, (AwraElevation)x->elevation, false, &m);
+  const float r = x->radius >= 0 ? awra_pxf(x->radius) : awra_pxf(m.radius);
+  AwraBox box = awra_box_inset(awra_box_of(w), awra_pxf(x->inset));
+  if (x->inset_end >= 0) {
+    box.w += awra_pxf(x->inset) - awra_pxf(x->inset_end);
+  }
+  awra_paint_material_edges(d, box, &m, r, x->corner_mask, x->edge_mask);
 }
 
 static void bin_finalize(AwraWidget *w)

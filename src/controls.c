@@ -262,14 +262,18 @@ static void switch_draw(AwraWidget *w, AwraDraw *d)
   }
   const bool on = x->active && awra_sensitive(w);
   /* the color follows the state with a 110 ms transition, carried by pos */
-  awra_paint_rbox(d, b, bh * 0.5f, on ? &t->accent : &t->control_well, 0, NULL);
+  /* background-clip: padding-box inside a 1 px border (transparent, or
+   * rgba(255,255,255,.08) when checked) */
+  const AwraBox pb = awra_box_inset(b, awra_pxf(1));
+  const float pr = bh * 0.5f - awra_pxf(1);
+  awra_paint_rbox(d, pb, pr, on ? &t->accent : &t->control_well, 0, NULL);
   if (on) {
     const AwraRGBA edge = {1, 1, 1, 0.08f};
     awra_paint_rbox(d, b, bh * 0.5f, NULL, awra_pxf(1), &edge);
   }
-  else { /* inset 0 1px 2px rgba(0,0,0,.22) */
+  else { /* inset 0 1px 2px rgba(0,0,0,.22), inside the border */
     const AwraRGBA sh = {0, 0, 0, 0.22f};
-    awra_paint_inset_shadow(d, b, bh * 0.5f, 0, awra_pxf(1), 0, awra_pxf(2), &sh);
+    awra_paint_inset_shadow(d, pb, pr, 0, awra_pxf(1), 0, awra_pxf(2), &sh);
   }
   const float tw = awra_pxf(21), th = awra_pxf(22), inset = awra_pxf(3);
   AwraBox thumb = {b.x + inset + floorf(x->pos * tw + 0.5f), b.y + inset, tw, th};

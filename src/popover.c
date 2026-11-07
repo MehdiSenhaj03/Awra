@@ -2688,8 +2688,10 @@ static void tip_draw(BKContext *ctx, const char *text, const BKRect *rect)
 {
   AwraDraw d = {bk_draw.r, 1.0f};
   AwraBox b = {(float)rect->xmin, (float)rect->ymin, (float)bk_rw(rect), (float)bk_rh(rect)};
-  AwraRGBA bg = awra_tokens()->material_tint[AWRA_MATERIAL_FLOATING];
-  bg.a = 1.0f; /* drawn over the window's content: the opaque fallback */
+  /* tooltip.background { background-color: @awra_floating; color: white }:
+   * translucent on its own surface (the compositor shows what is under it;
+   * without one, black), white text in both themes */
+  const AwraRGBA bg = awra_tokens()->material_tint[AWRA_MATERIAL_FLOATING];
   awra_paint_rbox(&d, b, awra_pxf(8), &bg, 0, NULL);
   AwraTextLayout *l = awra_text_layout_new();
   AwraFont f = tip_font();
@@ -2697,7 +2699,7 @@ static void tip_draw(BKContext *ctx, const char *text, const BKRect *rect)
   awra_text_layout_set_base_dir(l, awra_widget_rtl(NULL));
   awra_text_layout_set_text(l, text, false);
   awra_text_layout_set_wrap(l, AWRA_WRAP_WORD, AWRA_ELLIPSIZE_NONE, -1);
-  const AwraRGBA fg = awra_tokens()->dark ? awra_rgba(1, 1, 1, 1) : awra_tokens()->foreground;
+  const AwraRGBA fg = awra_rgba(1, 1, 1, 1);
   awra_text_layout_draw(l, &d, b.x + awra_px(10), b.y + awra_px(6), (int)b.w - awra_px(20), &fg);
   awra_text_layout_free(l);
 }

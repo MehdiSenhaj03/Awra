@@ -306,8 +306,19 @@ static void window_draw(AwraWidget *w, AwraDraw *d)
   awra_material_resolve(floating ? AWRA_MATERIAL_FLOATING : AWRA_MATERIAL_CANVAS, AWRA_ROLE_WINDOW,
                         floating ? AWRA_ELEVATION_MODAL : AWRA_ELEVATION_FLAT, blur_active(w), &m);
   const bool sq = squared(w);
-  awra_paint_material(d, awra_box_of(w), &m, sq ? 0.0f : awra_pxf(m.radius), 15,
-                      sq ? 0 : AWRA_EDGE_ALL, AWRA_ELEVATION_FLAT);
+  /* its outline and rim: over the content (window_draw_over) */
+  awra_paint_material(d, awra_box_of(w), &m, sq ? 0.0f : awra_pxf(m.radius), 15, 0, AWRA_ELEVATION_FLAT);
+}
+
+/* AwraSurface draws its borders after its child */
+static void window_draw_over(AwraWidget *w, AwraDraw *d)
+{
+  AwraResolvedMaterial m;
+  const bool floating = WEXT(w)->floating;
+  awra_material_resolve(floating ? AWRA_MATERIAL_FLOATING : AWRA_MATERIAL_CANVAS, AWRA_ROLE_WINDOW,
+                        floating ? AWRA_ELEVATION_MODAL : AWRA_ELEVATION_FLAT, blur_active(w), &m);
+  const bool sq = squared(w);
+  awra_paint_material_edges(d, awra_box_of(w), &m, sq ? 0.0f : awra_pxf(m.radius), 15, sq ? 0 : AWRA_EDGE_ALL);
 }
 
 /* Client-side resize: the 6 px band inside the window's edge (corners 16). */
@@ -397,6 +408,7 @@ static AwraClass window_class = {
     .measure = window_measure,
     .allocate = window_allocate,
     .draw = window_draw,
+    .draw_over = window_draw_over,
     .press = window_press,
     .cursor = window_cursor,
     .key = window_key,
