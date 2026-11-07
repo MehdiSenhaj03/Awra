@@ -144,14 +144,15 @@ static void path_draw(AwraWidget *w, AwraDraw *d)
   const int b = awra_px(1);
   if (x->icon) {
     const int s = awra_px(15);
-    const float ix = w->x + b + awra_px(6) + awra_px(2);
+    const float ix = awra_mirror_x(w, w->x + b + awra_px(6) + awra_px(2), (float)s);
     awra_paint_icon(d, x->icon, ix, w->y + floorf((w->h - s) * 0.5f), s, &t->muted);
   }
   if (x->editing) {
     return;
   }
-  /* breadcrumbs */
-  bk_clip_push(x->trail_x, w->y, x->trail_w + (x->offset ? 0 : awra_px(36)), w->h);
+  /* breadcrumbs (laid out left to right, mirrored right to left) */
+  const int clip_w = x->trail_w + (x->offset ? 0 : awra_px(36));
+  bk_clip_push((int)awra_mirror_x(w, (float)x->trail_x, (float)clip_w), w->y, clip_w, w->h);
   const bool compact = awra_in_compact_header(w);
   const int ch = BK_MIN(w->h - 2 * awra_px(1), compact ? awra_px(32) : awra_px(24));
   const float cy = w->y + floorf((w->h - ch) * 0.5f);
@@ -162,10 +163,10 @@ static void path_draw(AwraWidget *w, AwraDraw *d)
     if (i > 0) {
       const int s = awra_px(12);
       const int gap = awra_px(awra_spacing(AWRA_SPACING_XS));
-      awra_paint_icon(d, "go-next-symbolic", cx - gap - s, w->y + floorf((w->h - s) * 0.5f), s,
-                      &t->disabled);
+      awra_paint_icon(d, "go-next-symbolic", awra_mirror_x(w, cx - gap - s, (float)s),
+                      w->y + floorf((w->h - s) * 0.5f), s, &t->disabled);
     }
-    AwraBox cb = {cx, cy, (float)c->w, (float)ch};
+    AwraBox cb = awra_mirror_box(w, (AwraBox){cx, cy, (float)c->w, (float)ch});
     if (i == x->drop) {
       awra_paint_rbox(d, cb, awra_pxf(6), &t->accent_soft, awra_pxf(1), &t->accent);
     }
@@ -177,7 +178,7 @@ static void path_draw(AwraWidget *w, AwraDraw *d)
                   (current || (i == x->hover && awra_hovered(w))) ? t->foreground : t->muted;
     const float base = w->y + floorf((w->h - awra_font_line_height(&f)) * 0.5f + 0.5f) + awra_font_ascent(&f);
     const float tw = awra_text_width(&f, c->label, (int)strlen(c->label));
-    const float tx = cx + floorf((c->w - tw) * 0.5f);
+    const float tx = awra_mirror_x(w, cx + floorf((c->w - tw) * 0.5f), tw);
     awra_draw_text(d, &f, tx, base, c->label, (int)strlen(c->label), &fg);
   }
   bk_clip_pop();
@@ -186,6 +187,7 @@ static void path_draw(AwraWidget *w, AwraDraw *d)
 static int crumb_at(AwraWidget *w, int px, int py)
 {
   PathExt *x = PX(w);
+  px = awra_mirror_px(w, px);
   if (x->editing || py < w->y || py >= w->y + w->h || px < x->trail_x ||
       px >= x->trail_x + x->trail_w + (x->offset ? 0 : awra_px(36)))
   {
@@ -312,7 +314,7 @@ static void path_a11y_item(AwraWidget *w, int i, AwraA11yInfo *info, double rect
   info->label = x->crumbs[i].label;
   info->action = "click";
   const double s = awra_scale();
-  rect[0] = (x->trail_x + x->crumbs[i].x - x->offset) / s;
+  rect[0] = awra_mirror_x(w, (float)(x->trail_x + x->crumbs[i].x - x->offset), (float)x->crumbs[i].w) / s;
   rect[1] = w->y / s;
   rect[2] = x->crumbs[i].w / s;
   rect[3] = w->h / s;

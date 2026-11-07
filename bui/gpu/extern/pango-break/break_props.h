@@ -1,5 +1,6 @@
-/* Indic syllabic and Indic_Conjunct_Break properties for grapheme
- * boundaries (UAX #29 GB9c) and backspace, taken from Pango's generated
+/* Indic syllabic, Indic_Conjunct_Break and East_Asian_Width (wide)
+ * properties for grapheme boundaries (UAX #29 GB9c), backspace and line
+ * breaking (UAX #14 LB19a, LB30), taken from Pango's generated
  * pango-break-table.h (Unicode 17.0.0 data; Pango is LGPL-2.1-or-later,
  * the data is under the Unicode license). Only the types were renamed for
  * BUI: gunichar -> uint32_t, gboolean -> int.
@@ -1475,6 +1476,260 @@ bui_is_Indic_Conjunct_Break_Extend (uint32_t wc)
 		return 1;
 	      return 0;
 	    }
+	  return 0;
+	}
+      return 0;
+    }
+  return 0;
+}
+
+static inline int
+bui_is_EastAsianWide (uint32_t wc)
+{
+  if ((wc >= 0x1100 && wc <= 0x2797))
+    {
+      if ((wc >= 0x1100 && wc <= 0x25FE))
+	{
+	  if ((wc >= 0x1100 && wc <= 0x115F) || wc == 0x20A9)
+	    return 1;
+	  if ((wc >= 0x231A && wc <= 0x231B) ||
+	      (wc >= 0x2329 && wc <= 0x232A))
+	    return 1;
+	  if ((wc >= 0x23E9 && wc <= 0x23EC) || wc == 0x23F0)
+	    return 1;
+	  if (wc == 0x23F3 || (wc >= 0x25FD && wc <= 0x25FE))
+	    return 1;
+	  return 0;
+	}
+      if ((wc >= 0x2614 && wc <= 0x26AB))
+	{
+	  if ((wc >= 0x2614 && wc <= 0x2615) ||
+	      (wc >= 0x2630 && wc <= 0x2637))
+	    return 1;
+	  if ((wc >= 0x2648 && wc <= 0x2653) || wc == 0x267F)
+	    return 1;
+	  if ((wc >= 0x268A && wc <= 0x268F) || wc == 0x2693)
+	    return 1;
+	  if (wc == 0x26A1 || (wc >= 0x26AA && wc <= 0x26AB))
+	    return 1;
+	  return 0;
+	}
+      if ((wc >= 0x26BD && wc <= 0x26FA))
+	{
+	  if ((wc >= 0x26BD && wc <= 0x26BE) ||
+	      (wc >= 0x26C4 && wc <= 0x26C5))
+	    return 1;
+	  if (wc == 0x26CE || wc == 0x26D4)
+	    return 1;
+	  if (wc == 0x26EA || (wc >= 0x26F2 && wc <= 0x26F3))
+	    return 1;
+	  if (wc == 0x26F5 || wc == 0x26FA)
+	    return 1;
+	  return 0;
+	}
+      if ((wc >= 0x26FD && wc <= 0x2797))
+	{
+	  if (wc == 0x26FD || wc == 0x2705)
+	    return 1;
+	  if ((wc >= 0x270A && wc <= 0x270B) || wc == 0x2728)
+	    return 1;
+	  if (wc == 0x274C || wc == 0x274E)
+	    return 1;
+	  if ((wc >= 0x2753 && wc <= 0x2755) ||
+	      wc == 0x2757 || (wc >= 0x2795 && wc <= 0x2797))
+	    return 1;
+	  return 0;
+	}
+      return 0;
+    }
+  if ((wc >= 0x27B0 && wc <= 0xFFDC))
+    {
+      if ((wc >= 0x27B0 && wc <= 0x2FD5))
+	{
+	  if (wc == 0x27B0 || wc == 0x27BF)
+	    return 1;
+	  if ((wc >= 0x2B1B && wc <= 0x2B1C) || wc == 0x2B50)
+	    return 1;
+	  if (wc == 0x2B55 || (wc >= 0x2E80 && wc <= 0x2E99))
+	    return 1;
+	  if ((wc >= 0x2E9B && wc <= 0x2EF3) ||
+	      (wc >= 0x2F00 && wc <= 0x2FD5))
+	    return 1;
+	  return 0;
+	}
+      if ((wc >= 0x2FF0 && wc <= 0x31E5))
+	{
+	  if ((wc >= 0x2FF0 && wc <= 0x2FFF) || wc == 0x3000)
+	    return 1;
+	  if ((wc >= 0x3001 && wc <= 0x303E) ||
+	      (wc >= 0x3041 && wc <= 0x3096))
+	    return 1;
+	  if ((wc >= 0x3099 && wc <= 0x30FF) ||
+	      (wc >= 0x3105 && wc <= 0x312F))
+	    return 1;
+	  if ((wc >= 0x3131 && wc <= 0x318E) ||
+	      (wc >= 0x3190 && wc <= 0x31E5))
+	    return 1;
+	  return 0;
+	}
+      if ((wc >= 0x31EF && wc <= 0xFE19))
+	{
+	  if ((wc >= 0x31EF && wc <= 0x321E) ||
+	      (wc >= 0x3220 && wc <= 0x3247))
+	    return 1;
+	  if ((wc >= 0x3250 && wc <= 0xA48C) ||
+	      (wc >= 0xA490 && wc <= 0xA4C6))
+	    return 1;
+	  if ((wc >= 0xA960 && wc <= 0xA97C) ||
+	      (wc >= 0xAC00 && wc <= 0xD7A3))
+	    return 1;
+	  if ((wc >= 0xF900 && wc <= 0xFAFF) ||
+	      (wc >= 0xFE10 && wc <= 0xFE19))
+	    return 1;
+	  return 0;
+	}
+      if ((wc >= 0xFE30 && wc <= 0xFFDC))
+	{
+	  if ((wc >= 0xFE30 && wc <= 0xFE52) ||
+	      (wc >= 0xFE54 && wc <= 0xFE66))
+	    return 1;
+	  if ((wc >= 0xFE68 && wc <= 0xFE6B) ||
+	      (wc >= 0xFF01 && wc <= 0xFF60))
+	    return 1;
+	  if ((wc >= 0xFF61 && wc <= 0xFFBE) ||
+	      (wc >= 0xFFC2 && wc <= 0xFFC7))
+	    return 1;
+	  if ((wc >= 0xFFCA && wc <= 0xFFCF) ||
+	      (wc >= 0xFFD2 && wc <= 0xFFD7) ||
+	      (wc >= 0xFFDA && wc <= 0xFFDC))
+	    return 1;
+	  return 0;
+	}
+      return 0;
+    }
+  if ((wc >= 0xFFE0 && wc <= 0x1F3D3))
+    {
+      if ((wc >= 0xFFE0 && wc <= 0x1AFF3))
+	{
+	  if ((wc >= 0xFFE0 && wc <= 0xFFE6) ||
+	      (wc >= 0xFFE8 && wc <= 0xFFEE))
+	    return 1;
+	  if ((wc >= 0x16FE0 && wc <= 0x16FE4) ||
+	      (wc >= 0x16FF0 && wc <= 0x16FF6))
+	    return 1;
+	  if ((wc >= 0x17000 && wc <= 0x18CD5) ||
+	      (wc >= 0x18CFF && wc <= 0x18D1E))
+	    return 1;
+	  if ((wc >= 0x18D80 && wc <= 0x18DF2) ||
+	      (wc >= 0x1AFF0 && wc <= 0x1AFF3))
+	    return 1;
+	  return 0;
+	}
+      if ((wc >= 0x1AFF5 && wc <= 0x1B2FB))
+	{
+	  if ((wc >= 0x1AFF5 && wc <= 0x1AFFB) ||
+	      (wc >= 0x1AFFD && wc <= 0x1AFFE))
+	    return 1;
+	  if ((wc >= 0x1B000 && wc <= 0x1B122) || wc == 0x1B132)
+	    return 1;
+	  if ((wc >= 0x1B150 && wc <= 0x1B152) || wc == 0x1B155)
+	    return 1;
+	  if ((wc >= 0x1B164 && wc <= 0x1B167) ||
+	      (wc >= 0x1B170 && wc <= 0x1B2FB))
+	    return 1;
+	  return 0;
+	}
+      if ((wc >= 0x1D300 && wc <= 0x1F23B))
+	{
+	  if ((wc >= 0x1D300 && wc <= 0x1D356) ||
+	      (wc >= 0x1D360 && wc <= 0x1D376))
+	    return 1;
+	  if (wc == 0x1F004 || wc == 0x1F0CF)
+	    return 1;
+	  if (wc == 0x1F18E || (wc >= 0x1F191 && wc <= 0x1F19A))
+	    return 1;
+	  if ((wc >= 0x1F200 && wc <= 0x1F202) ||
+	      (wc >= 0x1F210 && wc <= 0x1F23B))
+	    return 1;
+	  return 0;
+	}
+      if ((wc >= 0x1F240 && wc <= 0x1F3D3))
+	{
+	  if ((wc >= 0x1F240 && wc <= 0x1F248) ||
+	      (wc >= 0x1F250 && wc <= 0x1F251))
+	    return 1;
+	  if ((wc >= 0x1F260 && wc <= 0x1F265) ||
+	      (wc >= 0x1F300 && wc <= 0x1F320))
+	    return 1;
+	  if ((wc >= 0x1F32D && wc <= 0x1F335) ||
+	      (wc >= 0x1F337 && wc <= 0x1F37C))
+	    return 1;
+	  if ((wc >= 0x1F37E && wc <= 0x1F393) ||
+	      (wc >= 0x1F3A0 && wc <= 0x1F3CA) ||
+	      (wc >= 0x1F3CF && wc <= 0x1F3D3))
+	    return 1;
+	  return 0;
+	}
+      return 0;
+    }
+  if ((wc >= 0x1F3E0 && wc <= 0x3FFFD))
+    {
+      if ((wc >= 0x1F3E0 && wc <= 0x1F567))
+	{
+	  if ((wc >= 0x1F3E0 && wc <= 0x1F3F0) || wc == 0x1F3F4)
+	    return 1;
+	  if ((wc >= 0x1F3F8 && wc <= 0x1F43E) || wc == 0x1F440)
+	    return 1;
+	  if ((wc >= 0x1F442 && wc <= 0x1F4FC) ||
+	      (wc >= 0x1F4FF && wc <= 0x1F53D))
+	    return 1;
+	  if ((wc >= 0x1F54B && wc <= 0x1F54E) ||
+	      (wc >= 0x1F550 && wc <= 0x1F567))
+	    return 1;
+	  return 0;
+	}
+      if ((wc >= 0x1F57A && wc <= 0x1F6D8))
+	{
+	  if (wc == 0x1F57A || (wc >= 0x1F595 && wc <= 0x1F596))
+	    return 1;
+	  if (wc == 0x1F5A4 || (wc >= 0x1F5FB && wc <= 0x1F64F))
+	    return 1;
+	  if ((wc >= 0x1F680 && wc <= 0x1F6C5) || wc == 0x1F6CC)
+	    return 1;
+	  if ((wc >= 0x1F6D0 && wc <= 0x1F6D2) ||
+	      (wc >= 0x1F6D5 && wc <= 0x1F6D8))
+	    return 1;
+	  return 0;
+	}
+      if ((wc >= 0x1F6DC && wc <= 0x1F9FF))
+	{
+	  if ((wc >= 0x1F6DC && wc <= 0x1F6DF) ||
+	      (wc >= 0x1F6EB && wc <= 0x1F6EC))
+	    return 1;
+	  if ((wc >= 0x1F6F4 && wc <= 0x1F6FC) ||
+	      (wc >= 0x1F7E0 && wc <= 0x1F7EB))
+	    return 1;
+	  if (wc == 0x1F7F0 || (wc >= 0x1F90C && wc <= 0x1F93A))
+	    return 1;
+	  if ((wc >= 0x1F93C && wc <= 0x1F945) ||
+	      (wc >= 0x1F947 && wc <= 0x1F9FF))
+	    return 1;
+	  return 0;
+	}
+      if ((wc >= 0x1FA70 && wc <= 0x3FFFD))
+	{
+	  if ((wc >= 0x1FA70 && wc <= 0x1FA7C) ||
+	      (wc >= 0x1FA80 && wc <= 0x1FA8A))
+	    return 1;
+	  if ((wc >= 0x1FA8E && wc <= 0x1FAC6) || wc == 0x1FAC8)
+	    return 1;
+	  if ((wc >= 0x1FACD && wc <= 0x1FADC) ||
+	      (wc >= 0x1FADF && wc <= 0x1FAEA))
+	    return 1;
+	  if ((wc >= 0x1FAEF && wc <= 0x1FAF8) ||
+	      (wc >= 0x20000 && wc <= 0x2FFFD) ||
+	      (wc >= 0x30000 && wc <= 0x3FFFD))
+	    return 1;
 	  return 0;
 	}
       return 0;

@@ -2177,7 +2177,11 @@ static void split_allocate(AwraWidget *w)
 static int split_sep(AwraWidget *w)
 {
   SplitExt *x = SPLX(w);
-  return x->sidebar && awra_child_visible(x->sidebar) && split_has_sidebar(w) ? x->sidebar->x + x->sidebar->w : -1;
+  if (!x->sidebar || !awra_child_visible(x->sidebar) || !split_has_sidebar(w)) {
+    return -1;
+  }
+  /* right to left, the sidebar is mirrored to the right: the line is at its left */
+  return awra_widget_rtl(w) ? x->sidebar->x - awra_px(1) : x->sidebar->x + x->sidebar->w;
 }
 
 static bool on_split_handle(AwraWidget *w, int px)
@@ -2216,7 +2220,7 @@ static int split_drag(AwraWidget *w, BKEvent *e)
   if (!x->dragging) {
     return 0;
   }
-  x->pos = x->drag_pos0 + e->dx; /* clamped as it is allocated */
+  x->pos = x->drag_pos0 + (awra_widget_rtl(w) ? -e->dx : e->dx); /* clamped as it is allocated */
   awra_queue_allocate(w);
   awra_invalidate(w);
   return 1;

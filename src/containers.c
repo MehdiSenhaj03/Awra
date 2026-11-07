@@ -1334,6 +1334,7 @@ typedef struct ScrollExt {
   int max_h, min_h; /* logical, -1 none */
   double vvalue, hvalue; /* raster px */
   int content_w, content_h;
+  int view_w;       /* the width hvalue was kept for (right to left) */
   float bar_t;      /* indicator opacity */
   double bar_until; /* ms: keep showing */
   bool dragging;
@@ -1408,6 +1409,13 @@ static void scroll_allocate(AwraWidget *w)
     awra_measure(x->child, AWRA_ORIENTATION_VERTICAL, cw, &mn, &nat);
     ch = BK_MAX(w->h, mn);
   }
+  if (awra_widget_rtl(w) && (cw != x->content_w || w->w != x->view_w)) {
+    /* GtkViewport clamps to the right right to left: the distance from
+     * the content's right end stays (it starts at the right end) */
+    const double dist = x->content_w - x->hvalue - x->view_w;
+    x->hvalue = cw - dist - w->w;
+  }
+  x->view_w = w->w;
   x->content_w = cw;
   x->content_h = ch;
   scroll_clamp(w);
@@ -1477,8 +1485,9 @@ static void scroll_draw_over(AwraWidget *w, AwraDraw *d)
   AwraRGBA c = awra_tokens()->control_thumb;
   c.a *= x->bar_t;
   const float bw = awra_pxf(5);
-  awra_paint_rbox(d, (AwraBox){w->x + w->w - awra_pxf(6), w->y + pos, bw, len}, bw * 0.5f, &c, 0,
-                  NULL);
+  /* at the left, right to left (GtkScrolledWindow's placement swaps) */
+  awra_paint_rbox(d, awra_mirror_box(w, (AwraBox){w->x + w->w - awra_pxf(6), w->y + pos, bw, len}),
+                  bw * 0.5f, &c, 0, NULL);
   scroll_fade(w, d);
 }
 
@@ -1493,7 +1502,8 @@ static bool fade_tick(void *data)
   /* 1 s fade after the 2 s delay */
   const float t = (float)(1.0 - (now - x->bar_until) / 1000.0);
   x->bar_t = t > 0 ? t : 0;
-  BKRect r = bk_rect(w->x + w->w - awra_px(8), w->y, awra_px(8), w->h);
+  BKRect r = bk_rect((int)awra_mirror_x(w, (float)(w->x + w->w - awra_px(8)), (float)awra_px(8)), w->y,
+                     awra_px(8), w->h);
   BKContext *ctx = bk_ctx(w);
   if (ctx) {
     bk_node_dirty(w, r);
@@ -1576,7 +1586,8 @@ void awra_scrolled_set_edge_fades(AwraWidget *w, int top, int bottom)
 static AwraClass scrolled_class = {
     .bk = AWRA_BK("AwraScrolledWindow", 0),
     .type = "AwraScrolledWindow",
-    .flags = AWRA_CLASS_CONTAINER | AWRA_CLASS_CLIP,
+    /* it places its content itself (scrolled, kept at the right end right to left) */
+    .flags = AWRA_CLASS_CONTAINER | AWRA_CLASS_CLIP | AWRA_CLASS_NO_MIRROR,
     .ext_size = sizeof(ScrollExt),
     .finalize = scroll_finalize,
     .measure = scroll_measure,

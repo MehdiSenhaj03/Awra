@@ -111,6 +111,8 @@ static void wake_cb(void)
 static void ref_retain(void *ref);
 static void ref_release(void *ref);
 
+static void init_default_direction(void);
+
 void awra_init(const char *app_id)
 {
   if (app_id && (!g_app_id || strcmp(app_id, g_app_id) != 0)) {
@@ -125,6 +127,7 @@ void awra_init(const char *app_id)
   BK_text_init_images(); /* colour emoji */
   /* reduced motion turns the kit's own animations off too */
   awra_style_init();
+  init_default_direction();
   BK_window_supported(); /* opens the display: the backend is known */
   BK_window_wake_init(wake_cb);
   awra_tooltips_install();
@@ -1352,6 +1355,145 @@ void awra_widget_set_typography(AwraWidget *w, AwraTypography t)
   awra_invalidate(w);
 }
 
+/* ----------------------------------------------------------------------- */
+/* Reading direction */
+
+static AwraTextDirection g_default_dir = AWRA_TEXT_DIR_LTR;
+
+/* The languages GTK's translations say read right to left ("default:RTL"
+ * in gtk40's ar, az_IR, fa, he, ps, ug, ur, yi). */
+static AwraTextDirection dir_of_language(const char *lang)
+{
+  static const char *const rtl[] = {"ar", "fa", "he", "ps", "ug", "ur", "yi", "az_IR"};
+  if (!lang || !lang[0]) {
+    return AWRA_TEXT_DIR_LTR;
+  }
+  for (size_t i = 0; i < sizeof(rtl) / sizeof(rtl[0]); i++) {
+    const size_t n = strlen(rtl[i]);
+    if (strncmp(lang, rtl[i], n) == 0 && (lang[n] == 0 || lang[n] == '_' || lang[n] == '.' ||
+                                          lang[n] == '@' || lang[n] == ':' || lang[n] == '-'))
+    {
+      return AWRA_TEXT_DIR_RTL;
+    }
+  }
+  return AWRA_TEXT_DIR_LTR;
+}
+
+AwraTextDirection awra_get_locale_direction(void)
+{
+#ifdef _WIN32
+  wchar_t wname[LOCALE_NAME_MAX_LENGTH];
+  char name[LOCALE_NAME_MAX_LENGTH];
+  const LANGID id = GetUserDefaultUILanguage();
+  if (LCIDToLocaleName(MAKELCID(id, SORT_DEFAULT), wname, LOCALE_NAME_MAX_LENGTH, 0) > 0 &&
+      WideCharToMultiByte(CP_UTF8, 0, wname, -1, name, (int)sizeof(name), NULL, NULL) > 0)
+  {
+    return dir_of_language(name);
+  }
+  return AWRA_TEXT_DIR_LTR;
+#else
+  /* gettext's order for messages: LC_ALL, LC_MESSAGES, LANG decide the
+   * locale; LANGUAGE's list goes first unless that locale is C */
+  const char *loc = NULL;
+  static const char *const vars[] = {"LC_ALL", "LC_MESSAGES", "LANG"};
+  for (int i = 0; i < 3 && !loc; i++) {
+    const char *v = getenv(vars[i]);
+    if (v && v[0]) {
+      loc = v;
+    }
+  }
+  if (!loc || !strcmp(loc, "C") || !strncmp(loc, "C.", 2) || !strcmp(loc, "POSIX")) {
+    return AWRA_TEXT_DIR_LTR;
+  }
+  const char *language = getenv("LANGUAGE");
+  if (language && language[0]) {
+    return dir_of_language(language); /* its first entry */
+  }
+  return dir_of_language(loc);
+#endif
+}
+
+static void init_default_direction(void)
+{
+  g_default_dir = awra_get_locale_direction();
+  const char *dbg = getenv("GTK_DEBUG");
+  if (dbg && strstr(dbg, "invert-text-dir")) {
+    g_default_dir = g_default_dir == AWRA_TEXT_DIR_RTL ? AWRA_TEXT_DIR_LTR : AWRA_TEXT_DIR_RTL;
+  }
+}
+
+bool awra_widget_rtl(const AwraWidget *w)
+{
+  const unsigned d = w && awra_is_widget(w) ? awra_aux(w)->dir : AWRA_TEXT_DIR_NONE;
+  return (d == AWRA_TEXT_DIR_NONE ? (unsigned)g_default_dir : d) == AWRA_TEXT_DIR_RTL;
+}
+
+float awra_mirror_x(const AwraWidget *w, float x, float width)
+{
+  return awra_widget_rtl(w) ? 2.0f * (float)w->x + (float)w->w - x - width : x;
+}
+
+AwraTextDirection awra_widget_get_direction(const AwraWidget *w)
+{
+  return awra_widget_rtl(w) ? AWRA_TEXT_DIR_RTL : AWRA_TEXT_DIR_LTR;
+}
+
+/* the direction changed for `w` and the descendants that follow it: they
+ * measure, place and draw themselves again */
+static void direction_changed(AwraWidget *w, bool all)
+{
+  if (!awra_is_widget(w)) {
+    return;
+  }
+  if (AWRA_CLASS_OF(w)->style_changed) {
+    AWRA_CLASS_OF(w)->style_changed(w);
+  }
+  for (int i = 0; i < w->nkids; i++) {
+    BKNode *c = w->kids[i];
+    if (awra_is_widget(c) && (all || awra_aux(c)->dir == AWRA_TEXT_DIR_NONE)) {
+      direction_changed(c, all);
+    }
+  }
+  awra_aux(w)->needs_allocate = 1;
+  awra_widget_queue_resize(w);
+  awra_invalidate(w);
+  awra_a11y_dirty(w);
+}
+
+void awra_widget_set_direction(AwraWidget *w, AwraTextDirection dir)
+{
+  AUX_OR_RETURN(w);
+  if (dir < AWRA_TEXT_DIR_NONE || dir > AWRA_TEXT_DIR_RTL || a->dir == (unsigned)dir) {
+    return;
+  }
+  const bool was = awra_widget_rtl(w);
+  a->dir = (unsigned)dir;
+  if (awra_widget_rtl(w) != was) {
+    direction_changed(w, false);
+  }
+}
+
+void awra_windows_direction_changed(void (*fn)(AwraWidget *)); /* window.c */
+
+static void default_direction_changed(AwraWidget *win)
+{
+  direction_changed(win, false);
+}
+
+void awra_widget_set_default_direction(AwraTextDirection dir)
+{
+  if ((dir != AWRA_TEXT_DIR_LTR && dir != AWRA_TEXT_DIR_RTL) || dir == g_default_dir) {
+    return;
+  }
+  g_default_dir = dir;
+  awra_windows_direction_changed(default_direction_changed);
+}
+
+AwraTextDirection awra_widget_get_default_direction(void)
+{
+  return g_default_dir;
+}
+
 AwraTypography awra_widget_typography(const AwraWidget *w)
 {
   for (const BKNode *n = w; n; n = n->parent) {
@@ -1939,6 +2081,14 @@ void awra_allocate(AwraWidget *w, int x, int y, int width, int height)
       align_span(a->valign, nat_h - mt - mb, &y, &height);
     }
   }
+  /* a right-to-left parent's children are mirrored in it, margins and
+   * alignment with them (start is right), as GTK's containers place them */
+  const BKNode *p = w->parent;
+  if (p && awra_is_widget(p) && awra_widget_rtl(p) &&
+      !(AWRA_CLASS_OF(p)->flags & AWRA_CLASS_NO_MIRROR) && !(AWRA_CLASS_OF(w)->flags & AWRA_CLASS_POPUP))
+  {
+    x = 2 * p->x + p->w - x - width;
+  }
   allocate_rect(w, x, y, width, height);
 }
 
@@ -2033,6 +2183,8 @@ void awra_bk_draw_tree(BKNode *n)
     else if (dropping) {
       awra_paint_rbox(&g_draw, awra_box_of(n), awra_pxf(8), &awra_tokens()->selection, 0, NULL);
     }
+    const bool saved_rtl = g_draw.rtl;
+    g_draw.rtl = awra_widget_rtl(n);
     if (c->draw) {
       c->draw(n, &g_draw);
     }
@@ -2049,9 +2201,11 @@ void awra_bk_draw_tree(BKNode *n)
         bk_clip_pop();
       }
     }
+    g_draw.rtl = awra_widget_rtl(n);
     if (c->draw_over) {
       c->draw_over(n, &g_draw);
     }
+    g_draw.rtl = saved_rtl;
     if (dropping) {
       const AwraBox b = awra_box_inset(awra_box_of(n), awra_pxf(1));
       awra_paint_rbox(&g_draw, b, awra_pxf(7), NULL, awra_pxf(2), &awra_tokens()->focus_ring);

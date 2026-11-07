@@ -14,6 +14,19 @@ macro_rules! c_enum {
 
 c_enum!(Orientation { Horizontal = 0, Vertical = 1 } default Horizontal);
 c_enum!(Align { Fill = 0, Start = 1, End = 2, Center = 3, Baseline = 4 } default Fill);
+c_enum!(
+    /// GtkTextDirection: a widget's reading direction; `None` follows the default one.
+    TextDirection { None = 0, Ltr = 1, Rtl = 2 } default None
+);
+impl TextDirection {
+    pub(crate) fn from_c(v: i32) -> Self {
+        match v {
+            2 => TextDirection::Rtl,
+            1 => TextDirection::Ltr,
+            _ => TextDirection::None,
+        }
+    }
+}
 c_enum!(Spacing { None = -1, Xs = 0, Sm = 1, Md = 2, Lg = 3, Xl = 4, Xxl = 5 } default Md);
 c_enum!(Radius { Small = 0, Medium = 1, Large = 2, Window = 3, Pill = 4 } default Medium);
 c_enum!(Typography {

@@ -46,7 +46,17 @@ Text follows what GTK did for Awra 1:
   asks for it;
 - labels measure as GtkLabel (approximate char width for width-chars,
   widest line at max-width-chars, width-for-height when allocated with an
-  alignment), and lines break as Pango breaks them.
+  alignment), and lines break as PangoLayout breaks them: Pango 1.58's
+  break.c ported (UAX #14 with Pango's tailorings: CJK between ideographs,
+  kinsoku, numbers, quotes; UAX #29 graphemes and words; hyphens shown at
+  soft hyphens and inside words broken by CHAR wrapping) over GLib's
+  Line_Break data, Thai words from libthai when installed (loaded at run
+  time; without it Thai breaks only at spaces, as Pango built without it),
+  tailored item by item as PangoLayout tailors (items end where the font
+  changes); process_item's choice of break (log widths from shaping the
+  paragraph once, the last fitting break measured whole, a narrower one
+  further on taken); WORD overflows a too-long word, WORD_CHAR breaks it;
+  a wrapping label's minimum width is its layout at width 0;
 - characters the font lacks fall back, character by character, through
   fontconfig's sorted list for the font (FcFontSort, by charset) on Linux
   and the system's font links (SystemLink, Segoe UI Emoji / Symbol) on
@@ -55,8 +65,12 @@ Text follows what GTK did for Awra 1:
   the fonts fontconfig sorts for the language Pango derives for it (Arabic:
   ar, Devanagari: hi...); a line is as tall as the fonts drawing it, as
   Pango's line extents are;
-- shaping is HarfBuzz's (14.6, as GTK 4.22), item by item with the run's
-  text as context, as pango_hb_shape: Arabic joining and lam-alef, marks
+- shaping is HarfBuzz's (14.6, as GTK 4.22), item by item with the
+  paragraph's text around it as context, as pango_hb_shape (a span inside
+  an Arabic word keeps it joined; `BUI_text_set_context`), letter spacing
+  added per grapheme with ligatures off and trimmed at line ends as Pango
+  does, fallback fonts' baselines aligned to the first item's script
+  baseline (apply_baseline_shift): Arabic joining and lam-alef, marks
   (harakat, Hebrew points), Indic, Thai, Hangul, kerning and ligatures;
   items split where Pango's itemizer splits them (bidi level, script with
   paired punctuation, emoji, font). Advances, carets and hit-testing match
@@ -67,6 +81,13 @@ Text follows what GTK did for Awra 1:
   their brackets; right-to-left paragraphs align right where GTK aligns
   them (labels that wrap or ellipsize, text views; a label places its
   logical extents by xalign as GtkLabel does);
+- right to left (`awra_widget_set_direction`, the default from the
+  locale as gtk_get_locale_direction): containers mirror their children
+  (start is right), text layouts take the widget's direction as Pango's
+  base direction, labels and entries flip their xalign, scales and
+  progress bars run from the right, switches are on at the left, menus,
+  tabs, path bars, column headers and scrolled windows mirror, popovers
+  swap start and end, icons with -rtl variants are drawn mirrored;
 - editing is GTK's: the strong cursor (pango_layout_get_cursor_pos), Left
   and Right move visually (pango_layout_move_cursor_visually), clicks find
   graphemes as pango_layout_xy_to_index, Backspace deletes a grapheme or,

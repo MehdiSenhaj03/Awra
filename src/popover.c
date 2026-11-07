@@ -182,6 +182,9 @@ static void pop_layout(AwraWidget *w, int nw, int nh, int win_w, int win_h, BKPo
     return;
   }
   const float s = awra_scale();
+  /* right to left, start and end swap (GtkPopover's halign gravities,
+   * submenus and menus at a point open towards the left) */
+  const bool rtl = awra_widget_rtl(w);
   if (x->relative) { /* popup_at / point_to: the point */
     l->anchor = bk_rect(parent->x + (int)floor(x->at_x * s), parent->y + (int)floor(x->at_y * s), 1,
                         1);
@@ -189,7 +192,8 @@ static void pop_layout(AwraWidget *w, int nw, int nh, int win_w, int win_h, BKPo
       /* popup_at: its corner at the point (below it, or above it for side
        * 1, a caret), flipped and slid to stay on the work area */
       l->rect_anchor = BK_GRAVITY_NORTH_WEST;
-      l->surface_anchor = x->side == 1 ? BK_GRAVITY_SOUTH_WEST : BK_GRAVITY_NORTH_WEST;
+      l->surface_anchor = x->side == 1 ? (rtl ? BK_GRAVITY_SOUTH_EAST : BK_GRAVITY_SOUTH_WEST) :
+                                         (rtl ? BK_GRAVITY_NORTH_EAST : BK_GRAVITY_NORTH_WEST);
       l->hints = BK_ANCHOR_FLIP | BK_ANCHOR_SLIDE | BK_ANCHOR_RESIZE;
       return;
     }
@@ -207,7 +211,7 @@ static void pop_layout(AwraWidget *w, int nw, int nh, int win_w, int win_h, BKPo
   /* Awra's sides: 0 bottom 1 top 2 start (left) 3 end (right) */
   const int side = x->submenu_row ? 3 : x->side;
   if (side == 2 || side == 3) {
-    const bool left = side == 2;
+    const bool left = (side == 2) != rtl;
     switch (a->valign) {
       case AWRA_ALIGN_START:
         l->rect_anchor = left ? BK_GRAVITY_NORTH_WEST : BK_GRAVITY_NORTH_EAST;
@@ -226,7 +230,10 @@ static void pop_layout(AwraWidget *w, int nw, int nh, int win_w, int win_h, BKPo
     return;
   }
   const bool top = side == 1;
-  switch (a->halign) {
+  const int halign = rtl && a->halign == AWRA_ALIGN_START ? AWRA_ALIGN_END :
+                     rtl && a->halign == AWRA_ALIGN_END   ? AWRA_ALIGN_START :
+                                                            a->halign;
+  switch (halign) {
     case AWRA_ALIGN_START:
       l->rect_anchor = top ? BK_GRAVITY_NORTH_WEST : BK_GRAVITY_SOUTH_WEST;
       l->surface_anchor = top ? BK_GRAVITY_SOUTH_WEST : BK_GRAVITY_NORTH_WEST;
@@ -759,32 +766,38 @@ static void row_draw(AwraWidget *w, AwraDraw *d)
     if (!sens) {
       ic.a *= 0.5f;
     }
-    awra_paint_icon(d, x->icon, cx, floorf(cy - s * 0.5f + 0.5f), s, &ic);
+    awra_paint_icon(d, x->icon, awra_mirror_x(w, cx, (float)s), floorf(cy - s * 0.5f + 0.5f), s, &ic);
     cx += s + gap;
   }
+  /* laid out left to right, mirrored right to left (GtkModelButton: the
+   * icon starts the row, the submenu arrow points left at its left end) */
   float right = (float)(w->x + w->w - px);
+  const bool rtl = awra_widget_rtl(w);
+  const float mx0 = 2.0f * w->x + w->w;
   if (x->kind == 3) {
     /* Awra 1's submenu chevron: a 1.7 px polyline, round caps, muted, in a
      * 16 px box */
     const float s = awra_scale(), lw = 1.7f * s;
     const float ccx = right - awra_pxf(8), ccy = cy;
     const AwraRGBA *c = &t->muted;
-    awra_paint_line(d, ccx - 1.5f * s, ccy - 3 * s, ccx + 1.8f * s, ccy, lw, c);
-    awra_paint_line(d, ccx + 1.8f * s, ccy, ccx - 1.5f * s, ccy + 3 * s, lw, c);
-    awra_paint_circle(d, ccx - 1.5f * s, ccy - 3 * s, lw * 0.5f, c);
-    awra_paint_circle(d, ccx - 1.5f * s, ccy + 3 * s, lw * 0.5f, c);
-    awra_paint_circle(d, ccx + 1.8f * s, ccy, lw * 0.5f, c);
+    const float k = rtl ? -1.0f : 1.0f, ox = rtl ? mx0 - ccx : ccx; /* points mirrored */
+    awra_paint_line(d, ox - k * 1.5f * s, ccy - 3 * s, ox + k * 1.8f * s, ccy, lw, c);
+    awra_paint_line(d, ox + k * 1.8f * s, ccy, ox - k * 1.5f * s, ccy + 3 * s, lw, c);
+    awra_paint_circle(d, ox - k * 1.5f * s, ccy - 3 * s, lw * 0.5f, c);
+    awra_paint_circle(d, ox - k * 1.5f * s, ccy + 3 * s, lw * 0.5f, c);
+    awra_paint_circle(d, ox + k * 1.8f * s, ccy, lw * 0.5f, c);
     right -= awra_px(16) + gap;
   }
   if (x->kind == 1 && x->selected) {
-    awra_paint_circle(d, right - awra_pxf(4), cy, awra_pxf(3), &t->accent_content);
+    awra_paint_circle(d, rtl ? mx0 - (right - awra_pxf(4)) : right - awra_pxf(4), cy, awra_pxf(3),
+                      &t->accent_content);
     right -= awra_pxf(8) + gap;
   }
   if (x->check >= 0) {
     if (x->check == 1) {
       const int s = awra_px(14);
-      awra_paint_icon(d, "object-select-symbolic", right - s, floorf(cy - s * 0.5f + 0.5f), s,
-                      &t->accent_content);
+      awra_paint_icon(d, "object-select-symbolic", awra_mirror_x(w, right - s, (float)s),
+                      floorf(cy - s * 0.5f + 0.5f), s, &t->accent_content);
     }
     right -= awra_px(14) + gap;
   }
@@ -792,8 +805,9 @@ static void row_draw(AwraWidget *w, AwraDraw *d)
     AwraFont af = awra_font_for(AWRA_TYPOGRAPHY_BODY);
     af.size *= x->kind == 2 ? 0.92f : 0.86f;
     const float aw = awra_text_width(&af, x->accel, -1);
-    awra_draw_text(d, &af, right - aw, floorf(cy - awra_font_line_height(&af) * 0.5f + awra_font_ascent(&af) + 0.5f),
-                   x->accel, -1, &t->muted);
+    awra_draw_text(d, &af, awra_mirror_x(w, right - aw, aw),
+                   floorf(cy - awra_font_line_height(&af) * 0.5f + awra_font_ascent(&af) + 0.5f), x->accel,
+                   -1, &t->muted);
     right -= aw + gap;
   }
   AwraFont f = row_font();
@@ -802,11 +816,19 @@ static void row_draw(AwraWidget *w, AwraDraw *d)
   }
   AwraTextLayout *l = awra_text_layout_new();
   awra_text_layout_set_font(l, &f);
+  awra_text_layout_set_base_dir(l, awra_widget_rtl(w));
   awra_text_layout_set_text(l, x->label ? x->label : "", false);
   awra_text_layout_set_wrap(l, AWRA_WRAP_NONE, AWRA_ELLIPSIZE_END, 1);
   int tw, th;
-  awra_text_layout_size(l, (int)(right - cx), &tw, &th);
-  awra_text_layout_draw(l, d, cx, floorf(cy - th * 0.5f + 0.5f), (int)(right - cx), &fg);
+  const int avail = (int)(right - cx);
+  awra_text_layout_size(l, avail, &tw, &th);
+  float lx = cx;
+  if (rtl) { /* the label's xalign flips: its text ends at the region's right */
+    float lx0 = 0.0f, lw = (float)tw;
+    awra_text_layout_logical(l, avail, &lx0, &lw);
+    lx = awra_mirror_x(w, cx, (float)avail) + avail - fminf(ceilf(lw), (float)avail) - lx0;
+  }
+  awra_text_layout_draw(l, d, lx, floorf(cy - th * 0.5f + 0.5f), avail, &fg);
   awra_text_layout_free(l);
 }
 
@@ -1120,7 +1142,9 @@ static int menu_key(AwraWidget *pop, BKEvent *e)
   const char *k = e->keysym;
   const bool down = bk_keysym_is(k, "Down"), up = bk_keysym_is(k, "Up");
   const bool home = bk_keysym_is(k, "Home"), end = bk_keysym_is(k, "End");
-  const bool right = bk_keysym_is(k, "Right"), left = bk_keysym_is(k, "Left");
+  /* right to left, submenus open with Left and close with Right */
+  const bool rtl = awra_widget_rtl(pop);
+  const bool right = bk_keysym_is(k, rtl ? "Left" : "Right"), left = bk_keysym_is(k, rtl ? "Right" : "Left");
   if (!down && !up && !home && !end && !right && !left) {
     return 0;
   }
@@ -2419,6 +2443,7 @@ static void tip_measure(BKContext *ctx, const char *text, int *r_w, int *r_h)
   AwraTextLayout *l = awra_text_layout_new();
   AwraFont f = tip_font();
   awra_text_layout_set_font(l, &f);
+  awra_text_layout_set_base_dir(l, awra_widget_rtl(NULL));
   awra_text_layout_set_text(l, text, false);
   awra_text_layout_set_wrap(l, AWRA_WRAP_WORD, AWRA_ELLIPSIZE_NONE, -1);
   const int maxw = (int)ceilf(awra_text_width(&f, "abcdefghijklmnopqrstuvwxyz", 26) / 26.0f * 50.0f);
@@ -2439,6 +2464,7 @@ static void tip_draw(BKContext *ctx, const char *text, const BKRect *rect)
   AwraTextLayout *l = awra_text_layout_new();
   AwraFont f = tip_font();
   awra_text_layout_set_font(l, &f);
+  awra_text_layout_set_base_dir(l, awra_widget_rtl(NULL));
   awra_text_layout_set_text(l, text, false);
   awra_text_layout_set_wrap(l, AWRA_WRAP_WORD, AWRA_ELLIPSIZE_NONE, -1);
   const AwraRGBA fg = awra_tokens()->dark ? awra_rgba(1, 1, 1, 1) : awra_tokens()->foreground;

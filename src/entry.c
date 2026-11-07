@@ -63,6 +63,7 @@ static void layout_sync(AwraWidget *w)
   EditExt *x = EX(w);
   AwraFont f = edit_font(w);
   awra_text_layout_set_font(x->layout, &f);
+  awra_text_layout_set_base_dir(x->layout, awra_widget_rtl(w));
   awra_text_layout_set_wrap(x->layout, x->multiline ? AWRA_WRAP_WORD : AWRA_WRAP_NONE,
                             AWRA_ELLIPSIZE_NONE, -1);
   awra_text_layout_set_text_view(x->layout, x->multiline);
@@ -182,6 +183,11 @@ static void edit_pads(AwraWidget *w, int *l, int *r, int *t, int *b)
     *t = *b = awra_px(x->bare_my);
     *l = *r = awra_px(x->bare_mx);
   }
+  if (awra_widget_rtl(w)) { /* the start (icon) side is the right one */
+    const int k = *l;
+    *l = *r;
+    *r = k;
+  }
 }
 
 static void edit_measure(AwraWidget *w, int o, int for_size, int *r_min, int *r_nat)
@@ -236,6 +242,22 @@ static AwraBox text_area(AwraWidget *w)
   int l, r, t, b;
   edit_pads(w, &l, &r, &t, &b);
   return (AwraBox){(float)(w->x + l), (float)(w->y + t), (float)(w->w - l - r), (float)(w->h - t - b)};
+}
+
+/* x of the text's origin: scrolled; right to left, a single line shorter
+ * than its area sits at the area's right (GtkText's xalign flips with the
+ * widget's direction) */
+static float text_x(AwraWidget *w, AwraBox a)
+{
+  EditExt *x = EX(w);
+  if (!x->multiline && awra_widget_rtl(w)) {
+    int tw;
+    awra_text_layout_size(x->layout, -1, &tw, NULL);
+    if (tw <= a.w) {
+      return a.x + a.w - tw;
+    }
+  }
+  return a.x - x->scroll_x;
 }
 
 static void ensure_caret_visible(AwraWidget *w)
@@ -342,7 +364,7 @@ static void edit_draw(AwraWidget *w, AwraDraw *d)
   /* icons */
   if (x->search || x->icon) {
     const int s = awra_px(16);
-    const float ix = b.x + awra_pxf(1) + awra_pxf(x->search ? 8 : 11);
+    const float ix = awra_mirror_x(w, b.x + awra_pxf(1) + awra_pxf(x->search ? 8 : 11), (float)s);
     awra_paint_icon(d, x->search ? "system-search-symbolic" : x->icon, ix,
                     b.y + floorf((b.h - s) * 0.5f + 0.5f), s, &t->muted);
   }
@@ -354,7 +376,7 @@ static void edit_draw(AwraWidget *w, AwraDraw *d)
   }
   if (x->search && x->te->len > 0) {
     const int s = awra_px(16);
-    const float ix = b.x + b.w - awra_pxf(1) - awra_pxf(8) - s;
+    const float ix = awra_mirror_x(w, b.x + b.w - awra_pxf(1) - awra_pxf(8) - s, (float)s);
     awra_paint_icon(d, "edit-clear-symbolic", ix, b.y + floorf((b.h - s) * 0.5f + 0.5f), s,
                     &t->muted);
   }
@@ -362,7 +384,7 @@ static void edit_draw(AwraWidget *w, AwraDraw *d)
     AwraFont f = edit_font(w);
     f.size *= 0.86f;
     const float aw = awra_text_width(&f, x->accel, -1);
-    const float ax = b.x + b.w - awra_pxf(12) - aw;
+    const float ax = awra_mirror_x(w, b.x + b.w - awra_pxf(12) - aw, aw);
     const float base = b.y + floorf((b.h - awra_font_line_height(&f)) * 0.5f + awra_font_ascent(&f) + 0.5f);
     awra_draw_text(d, &f, ax, base, x->accel, -1, &t->muted);
   }
@@ -370,8 +392,8 @@ static void edit_draw(AwraWidget *w, AwraDraw *d)
     const int s = awra_px(16);
     const float bw = awra_pxf(48);
     for (int k = 0; k < 2; k++) {
-      AwraBox sb = {b.x + b.w - awra_pxf(12) - bw * (2 - k), b.y + (b.h - awra_pxf(24)) * 0.5f, bw,
-                    awra_pxf(24)};
+      AwraBox sb = awra_mirror_box(w, (AwraBox){b.x + b.w - awra_pxf(12) - bw * (2 - k),
+                                                b.y + (b.h - awra_pxf(24)) * 0.5f, bw, awra_pxf(24)});
       const bool at_limit = k == 0 ? x->value <= x->min : x->value >= x->max;
       if (x->spin_hot == k && !at_limit && sens) {
         awra_paint_rbox(d, sb, awra_pxf(6), &t->selection, 0, NULL);
@@ -390,12 +412,13 @@ static void edit_draw(AwraWidget *w, AwraDraw *d)
   const int lw = x->multiline ? (int)a.w : -1;
   awra_text_layout_size(x->layout, lw, &tw, &th);
   const float ty = x->multiline ? a.y - x->scroll_y : a.y + floorf((a.h - th) * 0.5f + 0.5f);
-  const float tx = a.x - x->scroll_x;
+  const float tx = text_x(w, a);
   if (x->te->len == 0) {
     if (x->placeholder && !(x->spin)) {
       AwraTextLayout *pl = awra_text_layout_new();
       AwraFont f = edit_font(w);
       awra_text_layout_set_font(pl, &f);
+      awra_text_layout_set_base_dir(pl, awra_widget_rtl(w));
       awra_text_layout_set_text(pl, x->placeholder, false);
       awra_text_layout_set_wrap(pl, AWRA_WRAP_NONE, AWRA_ELLIPSIZE_END, 1);
       AwraRGBA pc = fg;
@@ -403,7 +426,15 @@ static void edit_draw(AwraWidget *w, AwraDraw *d)
       if (x->bare) {
         pc = sens ? t->muted : t->disabled;
       }
-      awra_text_layout_draw(pl, d, a.x, ty, (int)a.w, &pc);
+      float px = a.x;
+      if (awra_widget_rtl(w)) { /* the placeholder label's xalign flips too */
+        int pw;
+        awra_text_layout_size(pl, (int)a.w, &pw, NULL);
+        float lx0 = 0.0f, lw0 = (float)pw;
+        awra_text_layout_logical(pl, (int)a.w, &lx0, &lw0);
+        px = a.x + a.w - fminf(ceilf(lw0), a.w) - lx0;
+      }
+      awra_text_layout_draw(pl, d, px, ty, (int)a.w, &pc);
       awra_text_layout_free(pl);
     }
   }
@@ -627,7 +658,7 @@ static int edit_index_at(AwraWidget *w, int px, int py)
   const int lw = x->multiline ? (int)a.w : -1;
   awra_text_layout_size(x->layout, lw, &tw, &th);
   const float ty = x->multiline ? a.y - x->scroll_y : a.y + floorf((a.h - th) * 0.5f + 0.5f);
-  return real_index(w, awra_text_layout_pos_to_index(x->layout, lw, px - (a.x - x->scroll_x), py - ty));
+  return real_index(w, awra_text_layout_pos_to_index(x->layout, lw, px - text_x(w, a), py - ty));
 }
 
 static bool in_peek_icon(AwraWidget *w, int px)
@@ -637,7 +668,7 @@ static bool in_peek_icon(AwraWidget *w, int px)
 
 static bool in_clear_icon(AwraWidget *w, int px)
 {
-  return EX(w)->search && EX(w)->te->len > 0 && px > w->x + w->w - awra_px(8 + 16 + 4);
+  return EX(w)->search && EX(w)->te->len > 0 && awra_mirror_px(w, px) > w->x + w->w - awra_px(8 + 16 + 4);
 }
 
 static int spin_button_at(AwraWidget *w, int px, int py)
@@ -648,6 +679,7 @@ static int spin_button_at(AwraWidget *w, int px, int py)
   }
   const float bw = awra_pxf(48);
   const float right = w->x + w->w - awra_pxf(12);
+  px = awra_mirror_px(w, px);
   if (px >= right - 2 * bw && px < right - bw) {
     return 0;
   }
@@ -881,7 +913,7 @@ static bool edit_a11y_layout(AwraWidget *w, AwraTextLayout **r_layout, float *r_
   int tw, th;
   awra_text_layout_size(x->layout, lw, &tw, &th);
   *r_layout = x->layout;
-  *r_x = a.x - x->scroll_x;
+  *r_x = text_x(w, a);
   *r_y = x->multiline ? a.y - x->scroll_y : a.y + floorf((a.h - th) * 0.5f + 0.5f);
   *r_width = lw;
   return true;
@@ -1697,7 +1729,7 @@ void awra_editable_caret_rect(AwraWidget *w, double *r_x, double *r_y, double *r
   float cx, cy, ch;
   awra_text_layout_index_to_pos(x->layout, lw, shown_index(w, x->te->caret), &cx, &cy, &ch);
   const float s = awra_scale();
-  *r_x = (a.x - w->x + cx - x->scroll_x) / s;
+  *r_x = (text_x(w, a) - w->x + cx) / s;
   *r_y = (a.y - w->y + cy - (x->multiline ? x->scroll_y : 0)) / s;
   *r_h = ch / s;
 }
