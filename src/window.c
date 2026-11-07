@@ -990,7 +990,9 @@ static AwraWidget *window_create(const char *title, int width, int height, bool 
   /* the window list keeps toplevels alive, as GTK does */
   g_windows = (AwraWidget **)realloc(g_windows, sizeof(AwraWidget *) * (size_t)(g_nwindows + 1));
   g_windows[g_nwindows++] = w;
-  awra_window_set_titlebar(w, awra_header_new_default(w));
+  AwraWidget *header = awra_header_new_default(w);
+  awra_window_set_titlebar(w, header);
+  awra_widget_unref(header); /* the window's slot holds it */
   return w;
 }
 
