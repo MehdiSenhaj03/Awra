@@ -104,6 +104,8 @@ void awra_dbus_reply(AwraDBus *bus, const AwraDBusMsg *call, const char *sig,
 void awra_dbus_error(AwraDBus *bus, const AwraDBusMsg *call, const char *name, const char *text);
 void awra_dbus_signal(AwraDBus *bus, const char *path, const char *iface, const char *member,
                       const char *sig, const AwraDBusW *body);
+/* Reads and dispatches what comes until *done or timeout_ms passed. */
+void awra_dbus_pump(AwraDBus *bus, const bool *done, int timeout_ms);
 /* org.freedesktop.DBus.AddMatch / RemoveMatch */
 void awra_dbus_add_match(AwraDBus *bus, const char *rule);
 

@@ -29,6 +29,8 @@ static struct {
   double grain_scale;
   /* desktop */
   bool system_dark;
+  bool files_dark;  /* what the desktop's files say (settings.ini, kdeglobals, GTK_THEME) */
+  int portal_scheme; /* the portal's color-scheme: -1 unknown, 0 none, 1 dark, 2 light */
   bool system_accent_ok;
   AwraRGBA system_accent;
   char font_family[96];
@@ -330,6 +332,14 @@ static void read_desktop(void)
     if (!ini) {
       continue;
     }
+    if (ini_get(ini, "gtk-interface-color-scheme", v, sizeof(v))) { /* GTK 4.20+ */
+      if (strstr(v, "dark") || !strcmp(v, "2")) {
+        S.system_dark = true;
+      }
+      else if (strstr(v, "light") || !strcmp(v, "3")) {
+        S.system_dark = false;
+      }
+    }
     if (ini_get(ini, "gtk-application-prefer-dark-theme", v, sizeof(v))) {
       S.system_dark = !strcmp(v, "1") || !strcmp(v, "true");
     }
@@ -555,6 +565,16 @@ unsigned awra_style_generation(void)
 }
 
 static bool g_style_inited;
+void awra_portal_start(void); /* portal.c */
+
+static void apply_portal(void)
+{
+  const char *force = getenv("AWRA_APPEARANCE");
+  if (force && (!strcmp(force, "dark") || !strcmp(force, "light"))) {
+    return; /* the override stands */
+  }
+  S.system_dark = S.portal_scheme == 1 ? true : S.portal_scheme == 2 ? false : S.files_dark;
+}
 
 void awra_style_init(void)
 {
@@ -562,8 +582,27 @@ void awra_style_init(void)
     return;
   }
   g_style_inited = true;
+  S.portal_scheme = -1;
   read_desktop();
+  S.files_dark = S.system_dark;
+  awra_portal_start(); /* may answer now, before the tokens are built */
+  apply_portal();
   build_tokens();
+}
+
+static void style_changed(void);
+
+/* portal.c: org.freedesktop.appearance color-scheme (GTK's
+ * gtk-interface-color-scheme): 1 dark, 2 light, 0 no preference */
+void awra_style_set_portal_scheme(int scheme);
+void awra_style_set_portal_scheme(int scheme)
+{
+  S.portal_scheme = scheme;
+  const bool was = S.system_dark;
+  apply_portal();
+  if (g_style_inited && S.system_dark != was && S.appearance == AWRA_APPEARANCE_SYSTEM) {
+    style_changed();
+  }
 }
 
 static void style_changed(void)

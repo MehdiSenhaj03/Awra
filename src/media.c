@@ -1089,24 +1089,6 @@ static int wave_release(AwraWidget *w, BKEvent *e)
   return 1;
 }
 
-static int wave_motion(AwraWidget *w, BKEvent *e)
-{
-  WaveExt *x = WVX(w);
-  if (x->duration > 0) {
-    x->hint = wave_seconds(w, e->x);
-    awra_invalidate(w);
-    awra_emit_text(w, AWRA_SIGNAL_NOTIFY, "hint-position");
-  }
-  return 0;
-}
-
-static void wave_leave_handler(AwraWidget *w, const AwraArgs *a, void *data)
-{
-  WVX(w)->hint = -1;
-  awra_invalidate(w);
-  awra_emit_text(w, AWRA_SIGNAL_NOTIFY, "hint-position");
-}
-
 static void wave_finalize(AwraWidget *w)
 {
   free(WVX(w)->peaks);
@@ -1149,7 +1131,6 @@ static AwraClass wave_class = {
     .press = wave_press,
     .drag = wave_drag,
     .release = wave_release,
-    .motion = wave_motion,
     .overdraw = 6,
 };
 
@@ -1158,7 +1139,6 @@ AwraWidget *awra_waveform_view_new(void)
   AwraWidget *w = awra_widget_new(&wave_class);
   WaveExt *x = WVX(w);
   x->position = x->hint = x->marker = -1;
-  awra_signal_connect(w, AWRA_SIGNAL_LEAVE, wave_leave_handler, NULL, NULL);
   return w;
 }
 
@@ -1194,10 +1174,19 @@ void awra_waveform_view_set_position(AwraWidget *w, double s)
   }
 }
 
+/* Awra 1's hint: a dashed secondary marker the application sets (a
+ * suggestion), negative hides it; it notifies "hint-position" */
 void awra_waveform_view_set_hint_position(AwraWidget *w, double s)
 {
+  if (!isfinite(s) || s < 0.0) {
+    s = -1.0;
+  }
+  if (WVX(w)->hint == s) {
+    return;
+  }
   WVX(w)->hint = s;
   awra_invalidate(w);
+  awra_emit_text(w, AWRA_SIGNAL_NOTIFY, "hint-position");
 }
 
 double awra_waveform_view_hint_position(AwraWidget *w)
