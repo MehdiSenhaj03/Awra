@@ -108,7 +108,11 @@
   F(XExtendedMaxRequestSize) \
   F(XMaxRequestSize) \
   F(XQueryTree) \
-  F(XGetWindowAttributes)
+  F(XGetWindowAttributes) \
+  F(XGrabKeyboard) \
+  F(XUngrabKeyboard) \
+  F(XMoveResizeWindow) \
+  F(XMapRaised)
 
 #  define BK_X11_DECL(f) static __typeof__(&f) p_##f;
 BK_X11_FUNCS(BK_X11_DECL)
@@ -196,6 +200,10 @@ static int x11_load(void)
 #  define XMaxRequestSize (*p_XMaxRequestSize)
 #  define XQueryTree (*p_XQueryTree)
 #  define XGetWindowAttributes (*p_XGetWindowAttributes)
+#  define XGrabKeyboard (*p_XGrabKeyboard)
+#  define XUngrabKeyboard (*p_XUngrabKeyboard)
+#  define XMoveResizeWindow (*p_XMoveResizeWindow)
+#  define XMapRaised (*p_XMapRaised)
 
 #  define MAX_TIMERS 64
 
@@ -220,8 +228,14 @@ struct BKWindow {
   int flags, states, depth; /* BUI-Awra: BK_WINDOW_*, BK_WSTATE_*, visual depth */
   Visual *visual;
   Timer timers[MAX_TIMERS];
-  Cursor cursors[12];
+  Cursor cursors[16];
   struct BKWindow *next;
+  /* BUI-Awra: popups in override-redirect windows (kit_popup_x11.inc.c) */
+  Colormap cmap;
+  BKPopupHost pophost;
+  struct XPop *pops; /* BK_POPUP_SLOTS, allocated with the first popup */
+  int root_x, root_y; /* the window's origin on the screen when popups were placed */
+  int leave_pending;  /* the pointer left a surface: a leave unless it entered another */
 };
 
 static Display *g_dpy = NULL;
@@ -233,6 +247,13 @@ static void (*g_wake_cb)(void) = NULL;
 static int g_wake_pipe[2] = {-1, -1};
 static BKClipSet *g_clip = NULL; /* BUI-Awra: what we own on CLIPBOARD, by type */
 static int x11_transfer_event(XEvent *ev); /* data transfer (below) */
+/* popups (kit_popup_x11.inc.c) */
+static int x11_popup_event(XEvent *ev);
+static void x11_popups_init(BKWindow *win);
+static void x11_popups_render(BKWindow *win);
+static void x11_popups_free(BKWindow *win);
+static void x11_popups_follow(BKWindow *win);
+static void x11_pop_cursor(BKWindow *win, int slot, Cursor c);
 static void x11_xdnd_aware(Window xid);
 
 static double now_ms(void)
@@ -319,8 +340,34 @@ static void host_set_cursor(void *data, int c)
   if (!win->xid) {
     return;
   }
-  c = BK_CLAMP(c, 0, 11);
+  c = BK_CLAMP(c, 0, 15);
   win->cursor = c;
+  if (!win->cursors[c]) {
+    /* BUI-Awra: the cursor theme's, by its names (GDK's), as Xcursor
+     * loads them; the core font's when the theme has none */
+    static Cursor (*load)(Display *, const char *) = NULL;
+    static int tried = 0;
+    if (!tried) {
+      tried = 1;
+      void *lib = dlopen("libXcursor.so.1", RTLD_NOW | RTLD_LOCAL);
+      load = lib ? (Cursor(*)(Display *, const char *))dlsym(lib, "XcursorLibraryLoadCursor") :
+                   NULL;
+    }
+    static const char *const names[16] = {
+        "default",     "ew-resize",   "ns-resize", "text",        "crosshair", "pointer",
+        "move",        NULL,          "nesw-resize", "nwse-resize", "not-allowed", "wait",
+        "progress",    "copy",        "dnd-move",  "no-drop"};
+    static const char *const fallback[16] = {
+        "left_ptr", "sb_h_double_arrow", "sb_v_double_arrow", "xterm", "crosshair", "hand2",
+        "fleur", NULL, "fd_double_arrow", "bd_double_arrow", "crossed_circle", "watch",
+        "left_ptr_watch", "dnd-copy", "dnd-move", "dnd-none"};
+    if (load && names[c]) {
+      win->cursors[c] = load(g_dpy, names[c]);
+      if (!win->cursors[c] && fallback[c]) {
+        win->cursors[c] = load(g_dpy, fallback[c]);
+      }
+    }
+  }
   if (!win->cursors[c]) {
     if (c == BK_CURSOR_NONE) { /* an empty 1x1 bitmap */
       static char zero = 0;
@@ -330,16 +377,21 @@ static void host_set_cursor(void *data, int c)
       XFreePixmap(g_dpy, p);
     }
     else {
-      static const unsigned shapes[12] = {XC_left_ptr,     XC_sb_h_double_arrow,
+      static const unsigned shapes[16] = {XC_left_ptr,     XC_sb_h_double_arrow,
                                           XC_sb_v_double_arrow, XC_xterm,
                                           XC_crosshair,    XC_hand2,
                                           XC_fleur,        XC_left_ptr,
                                           XC_bottom_left_corner, XC_bottom_right_corner,
-                                          XC_X_cursor,     XC_watch};
+                                          XC_X_cursor,     XC_watch,
+                                          XC_watch,        XC_plus,
+                                          XC_fleur,        XC_X_cursor};
       win->cursors[c] = XCreateFontCursor(g_dpy, shapes[c]);
     }
   }
   XDefineCursor(g_dpy, win->xid, win->cursors[c]);
+  for (int i = 0; win->pops && i < BK_POPUP_SLOTS; i++) { /* BUI-Awra: its popups too */
+    x11_pop_cursor(win, i, win->cursors[c]);
+  }
   XFlush(g_dpy);
 }
 
@@ -486,6 +538,7 @@ static void render_window(BKWindow *win)
   }
   win->render_pending = 0;
   do_render(win);
+  x11_popups_render(win); /* BUI-Awra */
   if (win->want_frame) {
     bk_frame_ms = now_ms() - win->frame_start;
     bk_frame_budget_ms = win->frame_vsync ? refresh_ms() : 0.0;
@@ -546,6 +599,7 @@ static void close_window(BKWindow *win)
   if (!win->xid) {
     return;
   }
+  x11_popups_free(win); /* BUI-Awra: before their parent */
   XDestroyWindow(g_dpy, win->xid);
   XFlush(g_dpy);
   win->xid = 0;
@@ -555,6 +609,9 @@ static void close_window(BKWindow *win)
 static void handle_event(XEvent *ev)
 {
   if (x11_transfer_event(ev)) { /* BUI-Awra: clipboard, drags in and out */
+    return;
+  }
+  if (x11_popup_event(ev)) { /* BUI-Awra: a popup's own window */
     return;
   }
   BKWindow *win = find_window(ev->xany.window);
@@ -575,13 +632,22 @@ static void handle_event(XEvent *ev)
         win->h = ev->xconfigure.height;
         win->render_pending = 1;
       }
+      x11_popups_follow(win); /* BUI-Awra: popups move with their window */
+      break;
+    case UnmapNotify:
+      BK_close_popups(ctx); /* BUI-Awra: minimized: popups close, as GTK's */
       break;
     case MotionNotify:
+      win->leave_pending = 0;
       BK_motion(ctx, ev->xmotion.x, ev->xmotion.y, mods_of(ev->xmotion.state));
       break;
     case LeaveNotify:
-      if (!(ev->xcrossing.state & (Button1Mask | Button2Mask | Button3Mask))) {
-        BK_motion(ctx, -100000, -100000, 0);
+      /* BUI-Awra: a leave into one of its popups is no leave (decided once
+       * the events that came with it are read); grab crossings neither */
+      if (ev->xcrossing.mode == NotifyNormal &&
+          !(ev->xcrossing.state & (Button1Mask | Button2Mask | Button3Mask)))
+      {
+        win->leave_pending = 1;
       }
       break;
     case ButtonPress: {
@@ -701,6 +767,7 @@ BKWindow *BK_window_new_ex(BKContext *ctx, const char *title, int width, int hei
     visual = vi.visual;
     win->visual = vi.visual;
     win->depth = 32;
+    win->cmap = attr.colormap;
     ctx->transparent = true;
   }
   win->xid = XCreateWindow(g_dpy, RootWindow(g_dpy, screen), 0, 0, (unsigned)win->w,
@@ -729,6 +796,7 @@ BKWindow *BK_window_new_ex(BKContext *ctx, const char *title, int width, int hei
   BKHost host = {win,           host_request,       host_set_cursor, host_warp,
                  host_clipboard_get, host_clipboard_set, host_schedule, host_emit};
   BK_context_set_host(ctx, &host);
+  x11_popups_init(win); /* BUI-Awra */
   return win;
 }
 
@@ -753,8 +821,12 @@ void BK_window_free(BKWindow *win)
   }
   if (win->ctx) {
     BK_context_set_host(win->ctx, &win->prev);
+    if (win->ctx->popup_host == &win->pophost) {
+      bk_popup_host_set(win->ctx, NULL);
+    }
   }
   BUI_raster_free(win->raster);
+  free(win->pops);
   free(win);
 }
 
@@ -1068,6 +1140,14 @@ static void turn(double block_ms)
     XNextEvent(g_dpy, &ev);
     handle_event(&ev);
   }
+  for (BKWindow *win = g_windows; win; win = win->next) {
+    if (win->leave_pending) { /* BUI-Awra: it left the window and its popups */
+      win->leave_pending = 0;
+      if (win->xid) {
+        BK_motion(win->ctx, -100000, -100000, 0);
+      }
+    }
+  }
   run_timers();
   int rendered = 0;
   for (BKWindow *win = g_windows; win; win = win->next) {
@@ -1293,6 +1373,7 @@ float BK_window_scale(BKWindow *win)
 void BK_window_hide(BKWindow *win)
 {
   if (win->xid) {
+    BK_close_popups(win->ctx); /* BUI-Awra: hidden with their window */
     XUnmapWindow(g_dpy, win->xid);
     XFlush(g_dpy);
     win->states |= BK_WSTATE_HIDDEN;
@@ -2344,4 +2425,5 @@ void BK_window_activate(BKWindow *win, const char *startup_id)
   XFlush(g_dpy);
   free(own);
 }
+#  include "kit_popup_x11.inc.c"
 #endif /* BUI_WINDOW_X11 */

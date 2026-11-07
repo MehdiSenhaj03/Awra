@@ -460,6 +460,16 @@ static void update_hover(AwraWidget *win, int x, int y, bool leave)
   }
 }
 
+/* dnd.c: a drag starts (the hover chain goes) or ends (it comes back
+ * where the pointer is) */
+void awra_window_hover_reset(AwraWidget *win, bool leave)
+{
+  if (awra_widget_is(win, "AwraWindow") && WEXT(win)->ctx) {
+    BKContext *ctx = WEXT(win)->ctx;
+    update_hover(win, ctx->pointer_x, ctx->pointer_y, leave);
+  }
+}
+
 static void pointer_hook(BKContext *ctx, int kind, int x, int y, int mods)
 {
   AwraWidget *win = window_of_ctx(ctx);
@@ -468,6 +478,9 @@ static void pointer_hook(BKContext *ctx, int kind, int x, int y, int mods)
   }
   if (kind == BK_EV_MOTION || kind == BK_EV_LEAVE) {
     awra_drag_icon_pointer(win, x, y, kind == BK_EV_LEAVE); /* transfer.c */
+    if (awra_window_dragging(win)) {
+      return; /* GTK: under a drag nothing lights up (dnd.c) */
+    }
     update_hover(win, x, y, kind == BK_EV_LEAVE);
     return;
   }

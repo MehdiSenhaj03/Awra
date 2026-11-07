@@ -405,11 +405,15 @@ void bk_invalidate(BKNode *n)
   int m = BK_MAX(3, n->overdraw);
   for (const BKNode *p = n; p; p = p->parent) {
     if (p->cls->flags & CLS_POPUP) {
-      m = BK_MAX(m, BK_MAX((int)(bk_theme.menu_shadow_width * bk_scale_fac) + 6, p->overdraw));
+      /* the kit's menus spill their shadow over what they hold (BUI-Awra:
+       * popups that place themselves draw their own: no spill) */
+      if (!p->cls->place) {
+        m = BK_MAX(m, BK_MAX((int)(bk_theme.menu_shadow_width * bk_scale_fac) + 6, p->overdraw));
+      }
       break;
     }
   }
-  bk_ctx_dirty_rect(ctx, bk_rect(n->x - m, n->y - m, n->w + 2 * m, n->h + 2 * m));
+  bk_node_dirty(n, bk_rect(n->x - m, n->y - m, n->w + 2 * m, n->h + 2 * m));
 }
 
 void bk_relayout(BKNode *n)
@@ -1444,6 +1448,7 @@ void BK_context_free(BKContext *ctx)
       break;
     }
   }
+  free(ctx->pops);
   free(ctx);
 }
 
@@ -1801,6 +1806,7 @@ void bk_close_popups_after(BKContext *ctx, BKNode *after)
       body->parent = p->parent;
     }
     BKNode *owner = p->parent;
+    bk_popup_slot_reset(ctx, ctx->npopups); /* BUI-Awra: its surface goes */
     free_popup(p);
     if (owner) {
       bk_invalidate(owner);
@@ -1813,6 +1819,17 @@ void bk_close_popups_after(BKContext *ctx, BKNode *after)
 void BK_close_popups(BKContext *ctx)
 {
   bk_close_popups_after(ctx, NULL);
+}
+
+bool bk_close_autohide_popups(BKContext *ctx)
+{
+  for (int i = 0; i < ctx->npopups; i++) {
+    if (!(ctx->popups[i]->flags & NF_NO_AUTOHIDE)) {
+      bk_close_popups_after(ctx, i > 0 ? ctx->popups[i - 1] : NULL);
+      return true;
+    }
+  }
+  return false;
 }
 
 void bk_open_popup(BKContext *ctx, BKNode *popup, BKNode *owner, BKNode *parent_popup)
@@ -1836,10 +1853,16 @@ void bk_open_popup(BKContext *ctx, BKNode *popup, BKNode *owner, BKNode *parent_
   }
   popup->parent = owner ? owner : ctx->root;
   ctx->popups[ctx->npopups++] = popup;
+  bk_popup_slot_reset(ctx, ctx->npopups - 1);
   ctx->tip_serial++;
   if (ctx->tip_shown) {
     ctx->tip_shown = 0;
-    bk_ctx_dirty_rect(ctx, ctx->tip_rect);
+    if (bk_popup_surfaced(ctx, BK_POPUP_TIP)) {
+      bk_popup_slot_reset(ctx, BK_POPUP_TIP);
+    }
+    else {
+      bk_ctx_dirty_rect(ctx, ctx->tip_rect);
+    }
   }
   if (ctx->win_w > 0) {
     bk_popup_place(popup, ctx->win_w, ctx->win_h);
@@ -2153,21 +2176,50 @@ const char *BK_key_label(int evdev)
   return bk_key_label_fn ? bk_key_label_fn(evdev) : NULL;
 }
 
+/* BUI-Awra: GTK's tooltip placement (gtk_tooltip_position): under the
+ * widget's bounds padded by 4 px (SOUTH to NORTH, flipped above it, slid
+ * along the work area), no further than 32 px sideways from the pointer;
+ * a widget taller than 56 px anchors it to the pointer's cursor instead. */
+void bk_tooltip_layout(BKContext *ctx, BKPopupLayout *l)
+{
+  memset(l, 0, sizeof(*l));
+  const float s = bk_scale_fac;
+  static int cursor_size = -1;
+  if (cursor_size < 0) {
+    const char *e = getenv("XCURSOR_SIZE");
+    cursor_size = e && atoi(e) > 0 ? atoi(e) : 16; /* gtk-cursor-theme-size, else 16 */
+  }
+  const int pad = (int)(BK_MAX(4, cursor_size - 32) * s + 0.5f);
+  BKRect a = bk_node_rect(ctx->tip_node);
+  a.xmin -= pad;
+  a.ymin -= pad;
+  a.xmax += pad;
+  a.ymax += pad;
+  const int px = ctx->pointer_x, py = ctx->pointer_y;
+  if (bk_rh(&a) > (int)((48 + 8) * s + 0.5f)) {
+    const int c = (int)(cursor_size * s + 0.5f), four = (int)(4 * s + 0.5f);
+    a = bk_rect(px - four, py - four, c, c);
+  }
+  else {
+    const int max_dx = (int)(32 * s + 0.5f);
+    const int dist = px - (a.xmin + bk_rw(&a) / 2);
+    l->dx = dist > max_dx ? dist - max_dx : dist < -max_dx ? dist + max_dx : 0;
+  }
+  l->anchor = a;
+  l->rect_anchor = BK_GRAVITY_SOUTH;
+  l->surface_anchor = BK_GRAVITY_NORTH;
+  l->hints = BK_ANCHOR_FLIP_Y | BK_ANCHOR_SLIDE_X;
+  l->kind = BK_POPUP_KIND_TOOLTIP;
+}
+
 static void tooltip_rect(BKContext *ctx, BKRect *r_rect)
 {
-  if (bk_tooltip_hooks.measure) { /* BUI-Awra: centered under the node, kept on screen */
+  if (bk_tooltip_hooks.measure) { /* BUI-Awra: GTK's placement, in its own surface */
     int tw = 0, th = 0;
     bk_tooltip_hooks.measure(ctx, ctx->tip_node->desc, &tw, &th);
-    const BKRect br = bk_node_rect(ctx->tip_node);
-    const int gap = (int)(6.0f * bk_scale_fac + 0.5f), edge = (int)(4.0f * bk_scale_fac);
-    int tx = (br.xmin + br.xmax) / 2 - tw / 2;
-    int ty = br.ymax + gap;
-    if (ty + th > ctx->win_h - edge) {
-      ty = br.ymin - gap - th;
-    }
-    tx = BK_MAX(edge, BK_MIN(tx, ctx->win_w - edge - tw));
-    ty = BK_MAX(edge, ty);
-    *r_rect = bk_rect(tx, ty, tw, th);
+    BKPopupLayout l;
+    bk_tooltip_layout(ctx, &l);
+    bk_tooltip_place(ctx, &l, tw, th, r_rect);
     return;
   }
   float fontw;
@@ -2188,6 +2240,12 @@ static void tooltip_rect(BKContext *ctx, BKRect *r_rect)
     ty -= (int)(3.0f * h);
   }
   *r_rect = bk_rect(tx, ty, tw, th);
+}
+
+static void draw_tooltip(BKContext *ctx);
+void bk_draw_tooltip_at(BKContext *ctx)
+{
+  draw_tooltip(ctx);
 }
 
 static void draw_tooltip(BKContext *ctx)
@@ -2296,9 +2354,13 @@ static void draw_region(BKContext *ctx, const BKRect *rect)
     bk_scroller_draw(&track, &thumb, ctx->scroll_alpha, false);
   }
   for (int i = 0; i < ctx->npopups; i++) {
-    bk_draw_tree(ctx->popups[i]);
+    if (!bk_popup_surfaced(ctx, i)) { /* BUI-Awra: the others have surfaces */
+      bk_draw_tree(ctx->popups[i]);
+    }
   }
-  draw_tooltip(ctx);
+  if (!bk_popup_surfaced(ctx, BK_POPUP_TIP)) {
+    draw_tooltip(ctx);
+  }
   if (ctx->overlay_hook) { /* BUI-Awra: above everything (a drag's image) */
     ctx->overlay_hook(ctx);
   }
@@ -2312,6 +2374,17 @@ int BK_needs_render(BKContext *ctx)
 }
 
 static void anim_step(BKContext *ctx);
+
+/* BUI-Awra: a popup's surface renders with the window's layout */
+void bk_ctx_prepare(BKContext *ctx)
+{
+  if (ctx->layout_dirty && ctx->win_w > 0) {
+    if (!ctx->root_fills) {
+      ctx->full_dirty = true;
+    }
+    layout(ctx);
+  }
+}
 
 int BK_render(BKContext *ctx, BuiRaster *r, int w, int h, int full)
 {
@@ -2342,6 +2415,14 @@ int BK_render(BKContext *ctx, BuiRaster *r, int w, int h, int full)
   if (ctx->layout_dirty) {
     ctx->full_dirty = !ctx->root_fills;
     layout(ctx);
+  }
+  if (ctx->full_dirty && ctx->pops) { /* BUI-Awra: everything redraws, popups too */
+    for (int i = 0; i < BK_POPUP_SLOTS; i++) {
+      if (ctx->pops[i].surfaced) {
+        ctx->pops[i].full = true;
+        bk_ctx_request(ctx);
+      }
+    }
   }
   if (!ctx->full_dirty && ctx->ndirty == 0) {
     return 0;
@@ -2427,11 +2508,20 @@ static int hide_tooltip(BKContext *ctx)
   ctx->tip_serial++;
   if (ctx->tip_shown) {
     ctx->tip_shown = 0;
+    if (bk_popup_surfaced(ctx, BK_POPUP_TIP)) { /* BUI-Awra: its surface goes */
+      bk_popup_slot_reset(ctx, BK_POPUP_TIP);
+      return 1;
+    }
     bk_ctx_dirty_rect(ctx, bk_rect(ctx->tip_rect.xmin - 12, ctx->tip_rect.ymin - 12,
                                    bk_rw(&ctx->tip_rect) + 24, bk_rh(&ctx->tip_rect) + 24));
     return 1;
   }
   return 0;
+}
+
+void bk_tooltip_hide(BKContext *ctx)
+{
+  hide_tooltip(ctx);
 }
 
 static void arm_tooltip(BKContext *ctx, BKNode *target, int x, int y)
@@ -2457,8 +2547,10 @@ void BK_timer(BKContext *ctx, int timer)
   {
     ctx->tip_shown = 1;
     tooltip_rect(ctx, &ctx->tip_rect);
-    bk_ctx_dirty_rect(ctx, bk_rect(ctx->tip_rect.xmin - 12, ctx->tip_rect.ymin - 12,
-                                   bk_rw(&ctx->tip_rect) + 24, bk_rh(&ctx->tip_rect) + 24));
+    if (!bk_popup_surfaced(ctx, BK_POPUP_TIP)) {
+      bk_ctx_dirty_rect(ctx, bk_rect(ctx->tip_rect.xmin - 12, ctx->tip_rect.ymin - 12,
+                                     bk_rw(&ctx->tip_rect) + 24, bk_rh(&ctx->tip_rect) + 24));
+    }
   }
 }
 
@@ -2485,7 +2577,10 @@ static void set_hover(BKContext *ctx, BKNode *n)
 static void update_cursor(BKContext *ctx)
 {
   int name;
-  if (ctx->modal) {
+  if (ctx->drag_cursor) { /* BUI-Awra */
+    name = ctx->drag_cursor - 1;
+  }
+  else if (ctx->modal) {
     name = ctx->modal->cls->cursor ? ctx->modal->cls->cursor : BK_CURSOR_CROSSHAIR;
   }
   else if (ctx->grab && ctx->dragging && ctx->grab->cls->drag_cursor && !BK_HTML(ctx->grab)) {
@@ -2512,6 +2607,12 @@ static void update_cursor(BKContext *ctx)
 
 void bk_update_cursor(BKContext *ctx)
 {
+  update_cursor(ctx);
+}
+
+void bk_set_drag_cursor(BKContext *ctx, int cursor)
+{
+  ctx->drag_cursor = cursor >= 0 ? cursor + 1 : 0;
   update_cursor(ctx);
 }
 
@@ -2679,8 +2780,9 @@ static int in_BK_press(BKContext *ctx, int x, int y, int mods)
     for (int i = 0; i < ctx->npopups; i++) {
       inside |= bk_contains(ctx->popups[i], x, y);
     }
-    if (!inside) {
-      BK_close_popups(ctx); /* Blender: an outside click only closes menus */
+    /* Blender: an outside click only closes menus (BUI-Awra: the autohide
+     * ones; a click outside popups that stay open goes on to the window) */
+    if (!inside && bk_close_autohide_popups(ctx)) {
       ctx->hover = NULL;
       update_cursor(ctx);
       return 1;
@@ -2836,7 +2938,7 @@ static int in_BK_context_menu(BKContext *ctx, int x, int y, int mods)
   }
   BKNode *target = hit_all(ctx, x, y);
   if (!in_popup) {
-    BK_close_popups(ctx);
+    bk_close_autohide_popups(ctx);
   }
   for (BKNode *n = target; n; n = n->parent) {
     if (!NODE_ENABLED(n) || bk_popup_index(ctx, n) >= 0) {
@@ -2909,7 +3011,7 @@ static int in_BK_key(BKContext *ctx, const char *text, const char *keysym, int m
     }
     return undo_key(ctx, e.keysym, mods);
   }
-  if (ctx->npopups) {
+  if (ctx->npopups && !(ctx->popups[ctx->npopups - 1]->flags & NF_NO_AUTOHIDE)) {
     BKNode *top = ctx->popups[ctx->npopups - 1];
     if (top->cls->key && top->cls->key(top, &e)) {
       return 1;
@@ -3580,11 +3682,13 @@ int BK_scroll(BKContext *ctx, int x, int y, float dx, float dy, int mods)
 int BK_context_menu(BKContext *ctx, int x, int y, int mods)
 {
   if (ctx->pointer_hook) {
-    /* BUI-Awra: a menu the hook opened (a right-press handler popping up
-     * a popover) is the answer: the kit doesn't close it again or add its own */
-    const int before = ctx->npopups;
+    /* BUI-Awra: a menu the extension opened for this press (a context
+     * menu) is not an outside popup the press closes */
+    const int n = ctx->npopups;
+    const BKNode *top = n ? ctx->popups[n - 1] : NULL;
     ctx->pointer_hook(ctx, BK_EV_PRESS, x, y, mods | BK_BUTTON3);
-    if (ctx->npopups > before) {
+    if (ctx->npopups && (ctx->npopups != n || ctx->popups[ctx->npopups - 1] != top)) {
+      bk_views_check(ctx);
       return 1;
     }
   }

@@ -1806,7 +1806,7 @@ static void damage_node_area(AwraWidget *w)
     return;
   }
   const int m = 3 + w->overdraw_tree;
-  bk_ctx_dirty_rect(ctx, bk_rect(w->x - m, w->y - m, w->w + 2 * m, w->h + 2 * m));
+  bk_node_dirty(w, bk_rect(w->x - m, w->y - m, w->w + 2 * m, w->h + 2 * m));
 }
 
 static void update_overdraw(AwraWidget *w)

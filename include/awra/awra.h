@@ -932,6 +932,18 @@ void awra_popover_point_to(AwraWidget *popover, AwraWidget *relative_to, double 
 void awra_popover_popdown(AwraWidget *popover);
 bool awra_popover_visible(AwraWidget *popover);
 void awra_popover_set_position(AwraWidget *popover, int side); /* 0 bottom 1 top 2 start 3 end */
+/* GtkPopover's pointing-to: the rectangle (logical px, in the anchor's
+ * coordinates) it points at instead of the anchor's bounds; width or
+ * height < 0 unsets it. */
+void awra_popover_set_pointing_to(AwraWidget *popover, double x, double y, double width,
+                                  double height);
+/* GtkPopover's offset (logical px) from where it would go. */
+void awra_popover_set_offset(AwraWidget *popover, int x, int y);
+/* GtkPopover's autohide (default true): it takes the keyboard and closes on
+ * a click elsewhere or Escape (menus); false, it stays until closed (no
+ * grab: completion lists that leave the keyboard to a text field). */
+void awra_popover_set_autohide(AwraWidget *popover, bool autohide);
+bool awra_popover_autohide(AwraWidget *popover);
 /* A popover menu of items, at a point of `relative_to` (context menus). */
 AwraWidget *awra_menu_popover_new(const AwraMenuItem *items, int n);
 void awra_context_menu_attach(AwraWidget *widget, const AwraMenuItem *items, int n);
@@ -1844,12 +1856,6 @@ AwraTexture *awra_texture_new_for_data(const void *data, int width, int height,
                                        void (*release)(void *user_data), void *user_data);
 
 /* ----------------------------------------------------------------------- */
-/* Popovers pointing at part of their anchor (gtk_popover_set_pointing_to):
- * a rect in the anchor's logical coordinates the popover is placed by,
- * beside it on its side (set_position), centred on it; unset: the anchor. */
-void awra_popover_set_pointing_to(AwraWidget *popover, bool set, int x, int y, int width, int height);
-
-/* ----------------------------------------------------------------------- */
 /* Debugging: how many widgets exist (made and not yet freed), to check that
  * closing a window or dropping a row lets every widget of it go. */
 int awra_widgets_alive(void);
@@ -2130,6 +2136,13 @@ AwraTexture *awra_drag_preview_texture(AwraWidget *preview);
 /* GTK's :drop(active): the widget is the destination a drag hovers (drawn
  * as GTK's default theme does, a 1 px ring of the drop colour). */
 void awra_widget_set_drop_active(AwraWidget *widget, bool active);
+/* A drag within the application is under way in `window` (GtkDragSource):
+ * the pointer shows what a drop under it does — AWRA_DRAG_ACTION_COPY,
+ * _MOVE, or _NONE when nothing there takes it (GDK's copy / dnd-move /
+ * no-drop cursors) — and widgets under it get no hover until it ends
+ * (action < 0: the drag is over). */
+enum { AWRA_DRAG_ACTION_NONE = 0, AWRA_DRAG_ACTION_COPY = 1, AWRA_DRAG_ACTION_MOVE = 2 };
+void awra_window_set_drag_action(AwraWidget *window, int action);
 bool awra_widget_drop_active(AwraWidget *widget);
 
 

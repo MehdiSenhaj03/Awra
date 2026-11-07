@@ -6,6 +6,23 @@
 
 Awra 2: the same look, without GTK.
 
+- Popups as GTK 4's: popovers, menus and submenus, dropdown lists,
+  context menus, the completion list, the command palette and tooltips are
+  surfaces of their own that extend past their window — xdg_popups on
+  Wayland (GDK's positioner, grabbed, nested, `popup_done`), override-
+  redirect ARGB windows on X11 (pointer and keyboard grabbed, KWin blur)
+  and owned, never-activated tool windows on Windows (DWM's small corners,
+  shadow and Acrylic). They are placed by GDK's popup layout (GtkPopover's
+  position, alignment, pointing-to and offset; `gtk_tooltip_position` for
+  tooltips) and flip, slide and shrink against the monitor's work area,
+  move with their window, draw only their own damage into one buffer each
+  (freed on close) and route their input back in window coordinates.
+  Offscreen windows keep them inside the window. New API:
+  `awra_popover_set_pointing_to`, `awra_popover_set_offset`,
+  `awra_popover_set_autohide` / `awra_popover_autohide`,
+  `awra_window_set_drag_action` (an in-app drag's copy / move / no-drop
+  cursor, no hover under it); BUI: `BUI_raster_set_origin`, the kit's popup
+  layer (`kit_popup.c`), `BK_CURSOR_COPY` / `_DND_MOVE` / `_NO_DROP`.
 - Media applications (VLC Awra, second pass): in-app drags show the
   destination's `:drop(active)` ring (`awra_widget_set_drop_active`), the
   no-drop pointer, and cancel with Escape; `awra_slider_set_draw_value`
