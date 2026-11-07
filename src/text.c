@@ -1176,6 +1176,17 @@ static bool has_non_ascii(const char *s, int len)
   return false;
 }
 
+static bool has_letters(const char *s, int len)
+{
+  for (int i = 0; i < len; i++) {
+    const int c = (unsigned char)s[i] | 0x20;
+    if (c >= 'a' && c <= 'z') {
+      return true;
+    }
+  }
+  return false;
+}
+
 static void line_metrics(AwraTextLayout *l, Line *ln, bool para_start)
 {
   /* Pango's logical extents of a line: the union of its runs' fonts (a run
@@ -1190,7 +1201,11 @@ static void line_metrics(AwraTextLayout *l, Line *ln, bool para_start)
     }
     AwraFont f = span_font(l, r->span);
     float ra, rd;
-    if (r->start < 0 || r->end <= r->start || !has_non_ascii(l->text + r->start, r->end - r->start)) {
+    if (r->start < 0 || r->end <= r->start ||
+        (!has_non_ascii(l->text + r->start, r->end - r->start) &&
+         (BUI_text_latin_own_font() || !has_letters(l->text + r->start, r->end - r->start))))
+    {
+      /* ASCII drawn with the font itself: its metrics */
       ra = awra_font_ascent(&f);
       rd = awra_font_line_height(&f) - ra;
     }

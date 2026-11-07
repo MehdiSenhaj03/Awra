@@ -1070,6 +1070,39 @@ static void stack_measure(AwraWidget *s, int o, int for_size, int *r_min, int *r
   *r_nat = nt;
 }
 
+/* GtkStack's adjust_child_allocation: a page is given at least its minimum
+ * size, centred (fill, center) or at its end where the stack is smaller. */
+static void stack_adjust(AwraWidget *s, AwraWidget *c, int *x, int *y, int *w, int *h)
+{
+  int mn, nt;
+  awra_measure(c, AWRA_ORIENTATION_HORIZONTAL, -1, &mn, &nt);
+  const int width = BK_MAX(*w, mn);
+  awra_measure(c, AWRA_ORIENTATION_VERTICAL, width, &mn, &nt);
+  const int height = BK_MAX(*h, mn);
+  const AwraAux *a = awra_aux(c);
+  if (width > *w) {
+    /* in the left-to-right frame: awra_allocate mirrors it right to left,
+     * where a start-aligned page moves as GTK moves it (and half of an odd
+     * excess rounds the other way) */
+    if (a->halign == AWRA_ALIGN_CENTER || a->halign == AWRA_ALIGN_FILL) {
+      *x -= awra_widget_rtl(s) ? (width - *w + 1) / 2 : (width - *w) / 2;
+    }
+    else if (a->halign == AWRA_ALIGN_END) {
+      *x -= width - *w;
+    }
+    *w = width;
+  }
+  if (height > *h) {
+    if (a->valign == AWRA_ALIGN_CENTER || a->valign == AWRA_ALIGN_FILL) {
+      *y -= (height - *h) / 2;
+    }
+    else if (a->valign == AWRA_ALIGN_END) {
+      *y -= height - *h;
+    }
+    *h = height;
+  }
+}
+
 static void stack_allocate(AwraWidget *s)
 {
   StackExt *x = AWRA_EXT(s, StackExt);
@@ -1081,7 +1114,11 @@ static void stack_allocate(AwraWidget *s)
         const int dir = awra_child_index(s, x->visible) > awra_child_index(s, x->previous) ? 1 : -1;
         ox = c == x->visible ? (int)(dir * s->w * (1.0f - x->t)) : (int)(-dir * s->w * x->t);
       }
-      awra_allocate(c, s->x + ox, s->y, s->w, s->h);
+      int cx = s->x + ox, cy = s->y, cw = s->w, ch = s->h;
+      if (awra_is_widget(c)) {
+        stack_adjust(s, c, &cx, &cy, &cw, &ch);
+      }
+      awra_allocate(c, cx, cy, cw, ch);
     }
   }
 }
@@ -1092,7 +1129,7 @@ static void stack_remove(AwraWidget *s, AwraWidget *child);
 static AwraClass stack_class = {
     .bk = AWRA_BK("AwraStack", 0),
     .type = "AwraStack",
-    .flags = AWRA_CLASS_CONTAINER | AWRA_CLASS_CLIP,
+    .flags = AWRA_CLASS_CONTAINER | AWRA_CLASS_CLIP | AWRA_CLASS_TAKES_UNDERSIZE,
     .ext_size = sizeof(StackExt),
     .measure = stack_measure,
     .allocate = stack_allocate,
@@ -1326,6 +1363,11 @@ static void overlay_remove(AwraWidget *w, AwraWidget *child)
   awra_child_remove(w, child);
 }
 
+static AwraWidget *overlay_bin_child(AwraWidget *w)
+{
+  return AWRA_EXT(w, OverlayExt)->child;
+}
+
 static AwraClass overlay_class = {
     .bk = AWRA_BK("AwraOverlay", 0),
     .type = "AwraOverlay",
@@ -1335,6 +1377,7 @@ static AwraClass overlay_class = {
     .allocate = overlay_allocate,
     .remove = overlay_remove,
     .finalize = overlay_finalize,
+    .bin_child = overlay_bin_child,
 };
 
 AwraWidget *awra_overlay_new(void)

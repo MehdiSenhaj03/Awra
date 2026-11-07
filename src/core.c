@@ -1920,6 +1920,18 @@ bool awra_compute_expand(AwraWidget *w, int orientation)
   return orientation == AWRA_ORIENTATION_HORIZONTAL ? a->computed_hexpand : a->computed_vexpand;
 }
 
+bool awra_takes_undersize(AwraWidget *w)
+{
+  while (w && awra_is_widget(w) && (w->flags & NF_VISIBLE)) {
+    const AwraClass *c = AWRA_CLASS_OF(w);
+    if (c->flags & AWRA_CLASS_TAKES_UNDERSIZE) {
+      return true;
+    }
+    w = c->bin_child ? c->bin_child(w) : NULL;
+  }
+  return false;
+}
+
 void awra_measure(AwraWidget *w, int o, int for_size, int *r_min, int *r_nat)
 {
   int mn = 0, nt = 0;

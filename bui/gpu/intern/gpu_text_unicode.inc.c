@@ -436,6 +436,21 @@ static const char *text_script_lang_find(hb_script_t s)
   return sample ? sample : "xx";
 }
 
+static const char *text_script_lang(hb_script_t s);
+
+/* Latin letters take a family's own first font (fontconfig's match for the
+ * user's language) unless that language doesn't write Latin: then Pango
+ * derives English for them and fontconfig sorts the fonts for it (where
+ * fonts are sorted by language: fontconfig). */
+static int text_latin_own_font(void)
+{
+#  if defined(_WIN32) || defined(__APPLE__) || defined(__EMSCRIPTEN__)
+  return 1;
+#  else
+  return text_script_lang(HB_SCRIPT_LATIN) == g_lang_default;
+#  endif
+}
+
 static const char *text_script_lang(hb_script_t s)
 {
   /* the answers, by script (a handful of scripts in any process) */

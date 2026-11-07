@@ -1279,7 +1279,11 @@ static void text_itemize(int slot, const char *utf8, int len, int dir, int pre, 
     }
     const int c0 = (int)(cp[0] | 0x20);
     const int ctx_ok = (npre == 0 || (c0 >= 'a' && c0 <= 'z')) && (letters || (npre == 0 && npost == 0));
-    if (i == n && ctx_ok) {
+    /* letters in a language that doesn't write Latin (Arabic, Hebrew...)
+     * take the fonts sorted for the language Pango derives (English), not
+     * the user's language's first font: the full path finds them */
+    const int lang_ok = !letters || text_latin_own_font();
+    if (i == n && ctx_ok && lang_ok) {
       WItem *it = wrun_item(w);
       if (it) {
         const hb_script_t script = letters ? HB_SCRIPT_LATIN : HB_SCRIPT_COMMON;

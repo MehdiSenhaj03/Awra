@@ -2173,7 +2173,10 @@ static void split_measure(AwraWidget *w, int o, int f, int *mn, int *nt)
     awra_measure(x->end, o, -1, &em, &en);
   }
   if (o == AWRA_ORIENTATION_HORIZONTAL) {
-    *mn = cm + em;
+    /* GtkPaned's: the shown sidebar's minimum (it doesn't shrink), the
+     * handle and the content's */
+    const bool sb = x->sidebar && x->show_sidebar && (x->sidebar->flags & NF_VISIBLE);
+    *mn = (sb ? sm + awra_px(1) : 0) + cm + em;
     *nt = sn + awra_px(1) + cn + en;
   }
   else {
@@ -2210,7 +2213,11 @@ static void split_allocate(AwraWidget *w)
     x->placed_mode = 0;
   }
   if (x->content) {
-    awra_allocate(x->content, cx, w->y, BK_MAX(0, w->x + w->w - ew - cx), w->h);
+    /* GtkPaned gives a child at least its minimum, past the window's end
+     * (right to left, mirrored: past its start) */
+    int cmn = 0, cnt;
+    awra_measure(x->content, AWRA_ORIENTATION_HORIZONTAL, w->h, &cmn, &cnt);
+    awra_allocate(x->content, cx, w->y, BK_MAX(cmn, w->x + w->w - ew - cx), w->h);
   }
 }
 

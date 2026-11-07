@@ -35,6 +35,7 @@ typedef struct WinExt {
   char *title;
   AwraWidget *titlebar, *child;
   bool hide_on_close, keep_rounded, resizable, presented, closed;
+  bool floating; /* a dialog's root surface: the Floating material */
   int default_w, default_h, min_w, min_h;
   int content_min_w, content_min_h; /* logical, sent as minimum size hints */
   int state;
@@ -267,7 +268,10 @@ static void window_allocate(AwraWidget *w)
   }
   follow_contents(w, mw, nw);
   if (x->child) {
-    const int cw = BK_MAX(w->w, mw), ch = BK_MAX(w->h, mh);
+    /* (a stack takes the window's size as GtkWindow gives it, and places
+     * its page itself) */
+    const bool own = awra_takes_undersize(x->child);
+    const int cw = own ? w->w : BK_MAX(w->w, mw), ch = own ? w->h : BK_MAX(w->h, mh);
     awra_allocate(x->child, w->x, w->y + th, cw, BK_MAX(0, ch - th));
   }
   for (int i = 0; i < x->noverlays; i++) {
@@ -293,8 +297,11 @@ static void window_allocate(AwraWidget *w)
 static void window_draw(AwraWidget *w, AwraDraw *d)
 {
   AwraResolvedMaterial m;
-  awra_material_resolve(AWRA_MATERIAL_CANVAS, AWRA_ROLE_WINDOW, AWRA_ELEVATION_FLAT,
-                        blur_active(w), &m);
+  /* Awra 1's AwraDialog gives its root surface the Floating material at the
+   * modal elevation; other windows' are the canvas */
+  const bool floating = WEXT(w)->floating;
+  awra_material_resolve(floating ? AWRA_MATERIAL_FLOATING : AWRA_MATERIAL_CANVAS, AWRA_ROLE_WINDOW,
+                        floating ? AWRA_ELEVATION_MODAL : AWRA_ELEVATION_FLAT, blur_active(w), &m);
   const bool sq = squared(w);
   awra_paint_material(d, awra_box_of(w), &m, sq ? 0.0f : awra_pxf(m.radius), 15,
                       sq ? 0 : AWRA_EDGE_ALL, AWRA_ELEVATION_FLAT);
@@ -2045,6 +2052,12 @@ void awra_window_set_hide_on_close(AwraWidget *w, bool hide)
 void awra_window_set_keep_rounded_corners(AwraWidget *w, bool keep)
 {
   WEXT(w)->keep_rounded = keep;
+  awra_invalidate(w);
+}
+
+void awra_window_set_floating_internal(AwraWidget *w, bool floating)
+{
+  WEXT(w)->floating = floating;
   awra_invalidate(w);
 }
 

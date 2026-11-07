@@ -271,18 +271,21 @@ void awra_paint_material(AwraDraw *d, AwraBox b, const AwraResolvedMaterial *m, 
   if (m->grain_opacity > 0.0f) {
     paint_grain(d, b, radii, m->grain_opacity);
   }
-  /* outline, then the rim highlight on its edges */
+  /* outline, then the rim highlight on its edges (start and end: right and
+   * left in a right-to-left widget, as AwraSurface draws them) */
   const int be = m->border_edges & edge_mask, he = m->highlight_edges & edge_mask;
+  const int right = d->rtl ? AWRA_EDGE_START : AWRA_EDGE_END;
+  const int left = d->rtl ? AWRA_EDGE_END : AWRA_EDGE_START;
   if (be) {
     const float bw = awra_pxf(m->border_width);
-    const float w4[4] = {(be & AWRA_EDGE_TOP) ? bw : 0, (be & AWRA_EDGE_END) ? bw : 0,
-                         (be & AWRA_EDGE_BOTTOM) ? bw : 0, (be & AWRA_EDGE_START) ? bw : 0};
+    const float w4[4] = {(be & AWRA_EDGE_TOP) ? bw : 0, (be & right) ? bw : 0,
+                         (be & AWRA_EDGE_BOTTOM) ? bw : 0, (be & left) ? bw : 0};
     awra_paint_rbox4(d, b, radii, NULL, w4, &m->border);
   }
   if (he && m->highlight.a > 0.0f) {
     const float hw = awra_pxf(m->highlight_width);
-    const float w4[4] = {(he & AWRA_EDGE_TOP) ? hw : 0, (he & AWRA_EDGE_END) ? hw : 0,
-                         (he & AWRA_EDGE_BOTTOM) ? hw : 0, (he & AWRA_EDGE_START) ? hw : 0};
+    const float w4[4] = {(he & AWRA_EDGE_TOP) ? hw : 0, (he & right) ? hw : 0,
+                         (he & AWRA_EDGE_BOTTOM) ? hw : 0, (he & left) ? hw : 0};
     awra_paint_rbox4(d, b, radii, NULL, w4, &m->highlight);
   }
 }

@@ -1874,6 +1874,11 @@ static void toast_overlay_finalize(AwraWidget *w)
   }
 }
 
+static AwraWidget *toast_bin_child(AwraWidget *w)
+{
+  return TX(w)->child;
+}
+
 static AwraClass toast_overlay_class = {
     .bk = AWRA_BK("AwraToastOverlay", 0),
     .type = "AwraToastOverlay",
@@ -1882,6 +1887,7 @@ static AwraClass toast_overlay_class = {
     .finalize = toast_overlay_finalize,
     .measure = toast_measure,
     .allocate = toast_allocate,
+    .bin_child = toast_bin_child,
 };
 
 /* the toast's surface: opaque Floating, radius 17 */
@@ -2381,6 +2387,7 @@ AwraWidget *awra_dialog_new(const char *title)
   awra_window_set_resizable(win, false);
   awra_window_set_modal(win, true); /* Awra 1's AwraDialog is modal */
   awra_window_set_keep_rounded_corners(win, true);
+  awra_window_set_floating_internal(win, true);
   AwraWidget *h = awra_window_titlebar(win);
   awra_header_set_dialog(h, true);
   d->body = awra_box_new(AWRA_ORIENTATION_VERTICAL, 0);

@@ -6321,6 +6321,11 @@ int BUI_text_extents(const char *family, int flags, float size, const char *utf8
   return 1;
 }
 
+int BUI_text_latin_own_font(void)
+{
+  return text_latin_own_font();
+}
+
 int BUI_text_index_to_x(const char *family, int flags, float size, const char *utf8, int len,
                         int index, int trailing, float *r_x)
 {

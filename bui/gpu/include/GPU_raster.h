@@ -577,6 +577,11 @@ int BUI_text_metrics(const char *family, int flags, float size, float *r_ascent,
  * fonts' when none of its characters takes the font itself). */
 int BUI_text_extents(const char *family, int flags, float size, const char *utf8, int len,
                      float *r_ascent, float *r_descent);
+/* BUI-Awra: 1 when Latin letters are drawn with a family's own first font
+ * (its match for the user's language, which writes Latin), so ASCII text
+ * has that font's metrics; 0 when the user's language doesn't write Latin
+ * (Arabic, Hebrew...) and Pango's derived language sorts their fonts. */
+int BUI_text_latin_own_font(void);
 /* An 8-bit coverage mask (w x h, `stride` bytes per row) at whole pixel
  * x, y, colored `rgba`: symbolic icons tinted at draw time. */
 void BUI_raster_mask(BuiRaster *r,

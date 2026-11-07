@@ -102,6 +102,23 @@ Awra 2: the same look, without GTK.
 - GPU renderers: inset box shadows (entries, switches, checks) draw on the
   GPU as in the software raster, and a Direct3D 11 window takes its device
   as soon as it is ready instead of at its next change.
+- A window smaller than its contents need lays them out as GTK does: it
+  gives its child its own size (GtkWindow), through overlays, to a stack,
+  which gives its page at least the page's minimum, centred (GtkStack); a
+  split view's minimum is GtkPaned's (the shown sidebar's, the handle and
+  the content's) and its content gets at least its own. Dawra's workspace
+  with the profile open sits 8 px left in a 1240 px window, as on GTK.
+- Under a language that doesn't write Latin (Arabic, Hebrew...), Latin
+  text takes the fonts fontconfig sorts for English, as Pango derives that
+  language for it, and its lines take those fonts' metrics: ASCII no longer
+  goes to the user's language's first font. BUI: `BUI_text_latin_own_font`.
+- Right to left, materials draw their start and end edges mirrored (the
+  window's lit start edge on the right, a sidebar's line at its end), as
+  AwraSurface does.
+- Dialogs have Awra 1's AwraDialog surface: the Floating material at the
+  modal elevation (lighter, with its radius), not the window canvas.
+- An entry's placeholder is centred as GtkText's placeholder label is: its
+  own layout, the half pixel rounded down.
 - GPU text from the glyph images of the software raster, as GSK draws from
   its glyph cache: the same pixels on the GPU as on the CPU (BUI's default,
   Slug, is off in Awra's build; `-DBUI_SLUG=ON` turns it back on). Slug

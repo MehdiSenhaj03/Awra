@@ -444,14 +444,18 @@ static void edit_draw(AwraWidget *w, AwraDraw *d)
         pc = sens ? t->muted : t->disabled;
       }
       float px = a.x;
+      int pw, ph;
+      awra_text_layout_size(pl, (int)a.w, &pw, &ph);
       if (awra_widget_rtl(w)) { /* the placeholder label's xalign flips too */
-        int pw;
-        awra_text_layout_size(pl, (int)a.w, &pw, NULL);
         float lx0 = 0.0f, lw0 = (float)pw;
         awra_text_layout_logical(pl, (int)a.w, &lx0, &lw0);
         px = a.x + a.w - fminf(ceilf(lw0), a.w) - lx0;
       }
-      awra_text_layout_draw(pl, d, px, ty, (int)a.w, &pc);
+      /* GtkText's placeholder is a GtkLabel over the text area: its own
+       * layout, centred with the half pixel rounded down
+       * (gtk_label_get_layout_location) */
+      const float py = x->multiline ? ty : a.y + floorf((a.h - (float)ph) * 0.5f);
+      awra_text_layout_draw(pl, d, px, py, (int)a.w, &pc);
       awra_text_layout_free(pl);
     }
   }

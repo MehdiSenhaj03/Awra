@@ -40,7 +40,16 @@ enum {
   /* right to left, its children are not mirrored (it places them itself:
    * scrolled content) */
   AWRA_CLASS_NO_MIRROR = 1 << 8,
+  /* given less than its children need, it places them itself, as GtkStack
+   * does: a window gives it its own size, as GtkWindow does, not more */
+  AWRA_CLASS_TAKES_UNDERSIZE = 1 << 9,
 };
+
+/* Whether `w` (through bins: bin_child) places its children itself when
+ * given less than its minimum (AWRA_CLASS_TAKES_UNDERSIZE). */
+/* A dialog's root surface (Awra 1's AwraDialog): the Floating material. */
+void awra_window_set_floating_internal(AwraWidget *w, bool floating);
+bool awra_takes_undersize(AwraWidget *w);
 
 typedef struct AwraClass AwraClass;
 typedef struct AwraDraw AwraDraw;
@@ -106,6 +115,10 @@ struct AwraClass {
    * character boxes and hit-testing; false: none (the box split evenly) */
   bool (*a11y_layout)(AwraWidget *w, struct AwraTextLayout **r_layout, float *r_x, float *r_y,
                       int *r_width);
+  /* a bin (GtkBinLayout, GtkOverlay): the child it gives its own allocation
+   * as is, so whether that child takes less than it needs is the child's
+   * (awra_takes_undersize) */
+  AwraWidget *(*bin_child)(AwraWidget *w);
 };
 
 /* Declares the kit side of an Awra class: every hook goes to Awra's
