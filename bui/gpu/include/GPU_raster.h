@@ -418,6 +418,14 @@ void BUI_raster_rbox_gradient(BuiRaster *r,
                               const float to[4],
                               int horizontal);
 
+/* BUI-Awra: a fade, as GTK's alpha mask: BUI_raster_read copies the frame's
+ * pixels in (x, y, w, h), within the clip, to `dst` (w per row) before a
+ * widget draws there; BUI_raster_fade then blends what it drew back
+ * towards them, keeping alpha a0 at the top of the box down to a1 at its
+ * bottom. Software rendering only: BUI_raster_read returns 0 on a GPU. */
+int BUI_raster_read(BuiRaster *r, int x, int y, int w, int h, uint32_t *dst);
+void BUI_raster_fade(BuiRaster *r, int x, int y, int w, int h, const uint32_t *saved, float a0, float a1);
+
 /* A font's ascent and descent (positive, unrounded px) at `size`. */
 int BUI_text_metrics(const char *family, int flags, float size, float *r_ascent, float *r_descent);
 /* An 8-bit coverage mask (w x h, `stride` bytes per row) at whole pixel

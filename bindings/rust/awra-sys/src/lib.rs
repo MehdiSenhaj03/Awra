@@ -404,6 +404,7 @@ extern "C" {
     pub fn awra_scrolled_set_hvalue(scrolled: *mut AwraWidget, value: f64);
     pub fn awra_scrolled_scroll_to(scrolled: *mut AwraWidget, child: *mut AwraWidget);
     pub fn awra_scrolled_get_vadjustment(scrolled: *mut AwraWidget, value: *mut f64, upper: *mut f64, page: *mut f64);
+    pub fn awra_scrolled_set_edge_fades(scrolled: *mut AwraWidget, top: c_int, bottom: c_int);
     pub fn awra_separator_new(orientation: c_int) -> *mut AwraWidget;
     pub fn awra_spacer_new() -> *mut AwraWidget;
     pub fn awra_label_new(text: *const c_char) -> *mut AwraWidget;

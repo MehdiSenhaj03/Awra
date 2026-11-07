@@ -24,6 +24,7 @@ typedef struct ItemExt {
   AwraWidget *list;
   unsigned position; /* INVALID_POSITION: in the pool */
   bool activatable, selectable, focusable;
+  int dy; /* drawn this far below its place (raster px): arrivals rise in */
 } ItemExt;
 
 #define ITX(w) AWRA_EXT(w, ItemExt)
@@ -318,6 +319,11 @@ static void drop_item(AwraWidget *list, AwraWidget *it)
     x->unbind(list, it, x->data);
   }
   ix->position = INVALID_POSITION;
+  /* a row reused for another item starts as rows do */
+  ix->dy = 0;
+  if (awra_aux(it)->opacity != 1.0f) {
+    awra_widget_set_opacity(it, 1.0);
+  }
   if (x->n_pool < POOL_MAX) {
     awra_widget_set_child_visible(it, false);
     x->pool[x->n_pool++] = it;
@@ -359,6 +365,20 @@ static AwraWidget *bind_at(AwraWidget *list, unsigned pos)
     x->bind(list, it, x->data);
   }
   return it;
+}
+
+/* A bound row drawn `dy` raster px below its place (0: in place); the
+ * conversation view raises arrivals into place so. */
+void awra_list_view_item_set_offset_internal(AwraWidget *item, int dy);
+void awra_list_view_item_set_offset_internal(AwraWidget *item, int dy)
+{
+  if (ITX(item)->dy != dy) {
+    ITX(item)->dy = dy;
+    if (ITX(item)->list) {
+      awra_queue_allocate(ITX(item)->list);
+      awra_invalidate(ITX(item)->list);
+    }
+  }
 }
 
 static void unbind_index(AwraWidget *list, unsigned bi)
@@ -497,7 +517,7 @@ static void list_allocate(AwraWidget *w)
     AwraWidget *it = x->bound[bi];
     const unsigned p = ITX(it)->position;
     const int h = height_of(x, p);
-    awra_allocate(it, w->x, w->y + (int)py, width, h);
+    awra_allocate(it, w->x, w->y + (int)py + ITX(it)->dy, width, h);
     py += h + g;
   }
   /* the anchor: the first item whose bottom shows */

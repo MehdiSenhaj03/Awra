@@ -451,3 +451,62 @@ void BUI_raster_mask(BuiRaster *r,
 }
 
 /** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Fades (an alpha mask over what a widget draws)
+ * \{ */
+
+/* The clip-limited part of (x, y, w, h); 0 when empty or rendering on a GPU. */
+static int fade_box(BuiRaster *r, int x, int y, int w, int h, int *x0, int *y0, int *x1, int *y1)
+{
+  if (r->gpu) {
+    return 0;
+  }
+  *x0 = clampi(x, r->cx0, r->cx1);
+  *y0 = clampi(y, r->cy0, r->cy1);
+  *x1 = clampi(x + w, r->cx0, r->cx1);
+  *y1 = clampi(y + h, r->cy0, r->cy1);
+  return *x1 > *x0 && *y1 > *y0;
+}
+
+int BUI_raster_read(BuiRaster *r, int x, int y, int w, int h, uint32_t *dst)
+{
+  int x0, y0, x1, y1;
+  if (!fade_box(r, x, y, w, h, &x0, &y0, &x1, &y1)) {
+    return 0;
+  }
+  for (int py = y0; py < y1; py++) {
+    memcpy(dst + (size_t)(py - y) * w + (x0 - x), r->pix + (size_t)py * r->w + x0,
+           sizeof(uint32_t) * (size_t)(x1 - x0));
+  }
+  return 1;
+}
+
+void BUI_raster_fade(BuiRaster *r, int x, int y, int w, int h, const uint32_t *saved, float a0, float a1)
+{
+  int x0, y0, x1, y1;
+  if (h <= 0 || !fade_box(r, x, y, w, h, &x0, &y0, &x1, &y1)) {
+    return;
+  }
+  for (int py = y0; py < y1; py++) {
+    /* the mask at the row's centre, as a linear gradient samples it */
+    const float t = ((float)(py - y) + 0.5f) / (float)h;
+    const uint32_t a = (uint32_t)(clampf(a0 + (a1 - a0) * t, 0.0f, 1.0f) * 256.0f + 0.5f);
+    if (a >= 256) {
+      continue;
+    }
+    uint32_t *row = r->pix + (size_t)py * r->w;
+    const uint32_t *under = saved + (size_t)(py - y) * w - x;
+    for (int px = x0; px < x1; px++) {
+      /* under + (content - under) * a, per channel */
+      const uint32_t u = under[px], c = row[px];
+      const uint32_t urb = u & 0xFF00FFu, uag = (u >> 8) & 0xFF00FFu;
+      const uint32_t crb = c & 0xFF00FFu, cag = (c >> 8) & 0xFF00FFu;
+      const uint32_t rb = ((urb * (256 - a) + crb * a) >> 8) & 0xFF00FFu;
+      const uint32_t ag = ((uag * (256 - a) + cag * a) >> 8) & 0xFF00FFu;
+      row[px] = rb | ag << 8;
+    }
+  }
+}
+
+/** \} */

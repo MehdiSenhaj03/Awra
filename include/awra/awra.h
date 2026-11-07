@@ -543,6 +543,10 @@ void awra_scrolled_scroll_to(AwraWidget *scrolled, AwraWidget *child);
 /* The vertical range (GtkAdjustment's value, upper and page size), logical
  * px; value-changed is emitted when the value changes. */
 void awra_scrolled_get_vadjustment(AwraWidget *scrolled, double *value, double *upper, double *page);
+/* Content scrolled past the top or bottom edge fades out over `top` /
+ * `bottom` logical px into what is behind, instead of being cut (Awra 1's
+ * conversation view; software rendering). 0 for none (the default). */
+void awra_scrolled_set_edge_fades(AwraWidget *scrolled, int top, int bottom);
 
 AwraWidget *awra_separator_new(AwraOrientation orientation);
 AwraWidget *awra_spacer_new(void); /* an empty expanding widget */
