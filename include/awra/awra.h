@@ -1768,6 +1768,158 @@ void awra_tag_entry_clear(AwraWidget *tags);
 int awra_tag_entry_n_tags(AwraWidget *tags);
 const char *awra_tag_entry_tag(AwraWidget *tags, int index);
 
+/* ----------------------------------------------------------------------- */
+/* Accessibility (GtkAccessible): every widget has a role from its class, a
+ * name and a description (GTK's naming rules: an explicit label, the
+ * labelled-by relation, its text or its children's for roles named from
+ * content, its tooltip), states and values that follow the widget.
+ * Assistive technologies see the tree through AT-SPI2 on Linux and UI
+ * Automation on Windows; nothing is built or kept while none listens.
+ * The enums are GTK's, value for value. */
+
+typedef enum {
+  AWRA_ACCESSIBLE_ROLE_ALERT, AWRA_ACCESSIBLE_ROLE_ALERT_DIALOG, AWRA_ACCESSIBLE_ROLE_BANNER,
+  AWRA_ACCESSIBLE_ROLE_BUTTON, AWRA_ACCESSIBLE_ROLE_CAPTION, AWRA_ACCESSIBLE_ROLE_CELL,
+  AWRA_ACCESSIBLE_ROLE_CHECKBOX, AWRA_ACCESSIBLE_ROLE_COLUMN_HEADER,
+  AWRA_ACCESSIBLE_ROLE_COMBO_BOX, AWRA_ACCESSIBLE_ROLE_COMMAND, AWRA_ACCESSIBLE_ROLE_COMPOSITE,
+  AWRA_ACCESSIBLE_ROLE_DIALOG, AWRA_ACCESSIBLE_ROLE_DOCUMENT, AWRA_ACCESSIBLE_ROLE_FEED,
+  AWRA_ACCESSIBLE_ROLE_FORM, AWRA_ACCESSIBLE_ROLE_GENERIC, AWRA_ACCESSIBLE_ROLE_GRID,
+  AWRA_ACCESSIBLE_ROLE_GRID_CELL, AWRA_ACCESSIBLE_ROLE_GROUP, AWRA_ACCESSIBLE_ROLE_HEADING,
+  AWRA_ACCESSIBLE_ROLE_IMG, AWRA_ACCESSIBLE_ROLE_INPUT, AWRA_ACCESSIBLE_ROLE_LABEL,
+  AWRA_ACCESSIBLE_ROLE_LANDMARK, AWRA_ACCESSIBLE_ROLE_LEGEND, AWRA_ACCESSIBLE_ROLE_LINK,
+  AWRA_ACCESSIBLE_ROLE_LIST, AWRA_ACCESSIBLE_ROLE_LIST_BOX, AWRA_ACCESSIBLE_ROLE_LIST_ITEM,
+  AWRA_ACCESSIBLE_ROLE_LOG, AWRA_ACCESSIBLE_ROLE_MAIN, AWRA_ACCESSIBLE_ROLE_MARQUEE,
+  AWRA_ACCESSIBLE_ROLE_MATH, AWRA_ACCESSIBLE_ROLE_METER, AWRA_ACCESSIBLE_ROLE_MENU,
+  AWRA_ACCESSIBLE_ROLE_MENU_BAR, AWRA_ACCESSIBLE_ROLE_MENU_ITEM,
+  AWRA_ACCESSIBLE_ROLE_MENU_ITEM_CHECKBOX, AWRA_ACCESSIBLE_ROLE_MENU_ITEM_RADIO,
+  AWRA_ACCESSIBLE_ROLE_NAVIGATION, AWRA_ACCESSIBLE_ROLE_NONE, AWRA_ACCESSIBLE_ROLE_NOTE,
+  AWRA_ACCESSIBLE_ROLE_OPTION, AWRA_ACCESSIBLE_ROLE_PRESENTATION,
+  AWRA_ACCESSIBLE_ROLE_PROGRESS_BAR, AWRA_ACCESSIBLE_ROLE_RADIO,
+  AWRA_ACCESSIBLE_ROLE_RADIO_GROUP, AWRA_ACCESSIBLE_ROLE_RANGE, AWRA_ACCESSIBLE_ROLE_REGION,
+  AWRA_ACCESSIBLE_ROLE_ROW, AWRA_ACCESSIBLE_ROLE_ROW_GROUP, AWRA_ACCESSIBLE_ROLE_ROW_HEADER,
+  AWRA_ACCESSIBLE_ROLE_SCROLLBAR, AWRA_ACCESSIBLE_ROLE_SEARCH, AWRA_ACCESSIBLE_ROLE_SEARCH_BOX,
+  AWRA_ACCESSIBLE_ROLE_SECTION, AWRA_ACCESSIBLE_ROLE_SECTION_HEAD, AWRA_ACCESSIBLE_ROLE_SELECT,
+  AWRA_ACCESSIBLE_ROLE_SEPARATOR, AWRA_ACCESSIBLE_ROLE_SLIDER, AWRA_ACCESSIBLE_ROLE_SPIN_BUTTON,
+  AWRA_ACCESSIBLE_ROLE_STATUS, AWRA_ACCESSIBLE_ROLE_STRUCTURE, AWRA_ACCESSIBLE_ROLE_SWITCH,
+  AWRA_ACCESSIBLE_ROLE_TAB, AWRA_ACCESSIBLE_ROLE_TABLE, AWRA_ACCESSIBLE_ROLE_TAB_LIST,
+  AWRA_ACCESSIBLE_ROLE_TAB_PANEL, AWRA_ACCESSIBLE_ROLE_TEXT_BOX, AWRA_ACCESSIBLE_ROLE_TIME,
+  AWRA_ACCESSIBLE_ROLE_TIMER, AWRA_ACCESSIBLE_ROLE_TOOLBAR, AWRA_ACCESSIBLE_ROLE_TOOLTIP,
+  AWRA_ACCESSIBLE_ROLE_TREE, AWRA_ACCESSIBLE_ROLE_TREE_GRID, AWRA_ACCESSIBLE_ROLE_TREE_ITEM,
+  AWRA_ACCESSIBLE_ROLE_WIDGET, AWRA_ACCESSIBLE_ROLE_WINDOW, AWRA_ACCESSIBLE_ROLE_TOGGLE_BUTTON,
+  AWRA_ACCESSIBLE_ROLE_APPLICATION, AWRA_ACCESSIBLE_ROLE_PARAGRAPH,
+  AWRA_ACCESSIBLE_ROLE_BLOCK_QUOTE, AWRA_ACCESSIBLE_ROLE_ARTICLE, AWRA_ACCESSIBLE_ROLE_COMMENT,
+  AWRA_ACCESSIBLE_ROLE_TERMINAL
+} AwraAccessibleRole;
+
+typedef enum {
+  AWRA_ACCESSIBLE_STATE_BUSY,     /* boolean */
+  AWRA_ACCESSIBLE_STATE_CHECKED,  /* AwraAccessibleTristate */
+  AWRA_ACCESSIBLE_STATE_DISABLED, /* boolean */
+  AWRA_ACCESSIBLE_STATE_EXPANDED, /* boolean (undefined: not expandable) */
+  AWRA_ACCESSIBLE_STATE_HIDDEN,   /* boolean */
+  AWRA_ACCESSIBLE_STATE_INVALID,  /* AwraAccessibleInvalidState */
+  AWRA_ACCESSIBLE_STATE_PRESSED,  /* AwraAccessibleTristate */
+  AWRA_ACCESSIBLE_STATE_SELECTED, /* boolean (undefined: not selectable) */
+  AWRA_ACCESSIBLE_STATE_VISITED   /* boolean */
+} AwraAccessibleState;
+
+typedef enum {
+  AWRA_ACCESSIBLE_PROPERTY_AUTOCOMPLETE,     /* number: none 0, inline, list, both */
+  AWRA_ACCESSIBLE_PROPERTY_DESCRIPTION,      /* string */
+  AWRA_ACCESSIBLE_PROPERTY_HAS_POPUP,        /* boolean */
+  AWRA_ACCESSIBLE_PROPERTY_KEY_SHORTCUTS,    /* string */
+  AWRA_ACCESSIBLE_PROPERTY_LABEL,            /* string */
+  AWRA_ACCESSIBLE_PROPERTY_LEVEL,            /* number */
+  AWRA_ACCESSIBLE_PROPERTY_MODAL,            /* boolean */
+  AWRA_ACCESSIBLE_PROPERTY_MULTI_LINE,       /* boolean */
+  AWRA_ACCESSIBLE_PROPERTY_MULTI_SELECTABLE, /* boolean */
+  AWRA_ACCESSIBLE_PROPERTY_ORIENTATION,      /* AwraOrientation */
+  AWRA_ACCESSIBLE_PROPERTY_PLACEHOLDER,      /* string */
+  AWRA_ACCESSIBLE_PROPERTY_READ_ONLY,        /* boolean */
+  AWRA_ACCESSIBLE_PROPERTY_REQUIRED,         /* boolean */
+  AWRA_ACCESSIBLE_PROPERTY_ROLE_DESCRIPTION, /* string */
+  AWRA_ACCESSIBLE_PROPERTY_SORT,             /* number: none 0, ascending, descending, other */
+  AWRA_ACCESSIBLE_PROPERTY_VALUE_MAX,        /* number */
+  AWRA_ACCESSIBLE_PROPERTY_VALUE_MIN,        /* number */
+  AWRA_ACCESSIBLE_PROPERTY_VALUE_NOW,        /* number */
+  AWRA_ACCESSIBLE_PROPERTY_VALUE_TEXT,       /* string */
+  AWRA_ACCESSIBLE_PROPERTY_HELP_TEXT         /* string */
+} AwraAccessibleProperty;
+
+typedef enum {
+  AWRA_ACCESSIBLE_RELATION_ACTIVE_DESCENDANT, /* widget */
+  AWRA_ACCESSIBLE_RELATION_COL_COUNT,         /* number */
+  AWRA_ACCESSIBLE_RELATION_COL_INDEX,         /* number */
+  AWRA_ACCESSIBLE_RELATION_COL_INDEX_TEXT,    /* string */
+  AWRA_ACCESSIBLE_RELATION_COL_SPAN,          /* number */
+  AWRA_ACCESSIBLE_RELATION_CONTROLS,          /* widgets */
+  AWRA_ACCESSIBLE_RELATION_DESCRIBED_BY,      /* widgets */
+  AWRA_ACCESSIBLE_RELATION_DETAILS,           /* widgets */
+  AWRA_ACCESSIBLE_RELATION_ERROR_MESSAGE,     /* widgets */
+  AWRA_ACCESSIBLE_RELATION_FLOW_TO,           /* widgets */
+  AWRA_ACCESSIBLE_RELATION_LABELLED_BY,       /* widgets */
+  AWRA_ACCESSIBLE_RELATION_OWNS,              /* widgets */
+  AWRA_ACCESSIBLE_RELATION_POS_IN_SET,        /* number */
+  AWRA_ACCESSIBLE_RELATION_ROW_COUNT,         /* number */
+  AWRA_ACCESSIBLE_RELATION_ROW_INDEX,         /* number */
+  AWRA_ACCESSIBLE_RELATION_ROW_INDEX_TEXT,    /* string */
+  AWRA_ACCESSIBLE_RELATION_ROW_SPAN,          /* number */
+  AWRA_ACCESSIBLE_RELATION_SET_SIZE,          /* number */
+  AWRA_ACCESSIBLE_RELATION_LABEL_FOR,         /* widgets */
+  AWRA_ACCESSIBLE_RELATION_DESCRIPTION_FOR,   /* widgets */
+  AWRA_ACCESSIBLE_RELATION_CONTROLLED_BY,     /* widgets */
+  AWRA_ACCESSIBLE_RELATION_DETAILS_FOR,       /* widgets */
+  AWRA_ACCESSIBLE_RELATION_ERROR_MESSAGE_FOR, /* widgets */
+  AWRA_ACCESSIBLE_RELATION_FLOW_FROM          /* widgets */
+} AwraAccessibleRelation;
+
+typedef enum {
+  AWRA_ACCESSIBLE_TRISTATE_FALSE, AWRA_ACCESSIBLE_TRISTATE_TRUE, AWRA_ACCESSIBLE_TRISTATE_MIXED
+} AwraAccessibleTristate;
+typedef enum {
+  AWRA_ACCESSIBLE_INVALID_FALSE, AWRA_ACCESSIBLE_INVALID_TRUE, AWRA_ACCESSIBLE_INVALID_GRAMMAR,
+  AWRA_ACCESSIBLE_INVALID_SPELLING
+} AwraAccessibleInvalidState;
+typedef enum {
+  AWRA_ACCESSIBLE_ANNOUNCEMENT_PRIORITY_LOW, AWRA_ACCESSIBLE_ANNOUNCEMENT_PRIORITY_MEDIUM,
+  AWRA_ACCESSIBLE_ANNOUNCEMENT_PRIORITY_HIGH
+} AwraAccessibleAnnouncementPriority;
+
+/* gtk_widget_class_set_accessible_role / the accessible-role property;
+ * the role in use (explicit, else the class's). */
+void awra_accessible_set_role(AwraWidget *widget, AwraAccessibleRole role);
+AwraAccessibleRole awra_accessible_get_role(AwraWidget *widget);
+/* gtk_accessible_update_property: strings, and numbers for numeric,
+ * boolean (0 / 1) and enumerated properties; reset: back to the widget's
+ * own value. */
+void awra_accessible_update_property_string(AwraWidget *widget, AwraAccessibleProperty property,
+                                            const char *value);
+void awra_accessible_update_property_number(AwraWidget *widget, AwraAccessibleProperty property,
+                                            double value);
+void awra_accessible_reset_property(AwraWidget *widget, AwraAccessibleProperty property);
+/* gtk_accessible_update_state: a boolean (0 / 1), an AwraAccessibleTristate
+ * or an AwraAccessibleInvalidState; it replaces what the widget says. */
+void awra_accessible_update_state(AwraWidget *widget, AwraAccessibleState state, int value);
+void awra_accessible_reset_state(AwraWidget *widget, AwraAccessibleState state);
+/* gtk_accessible_update_relation: widgets (weak: a target that goes is
+ * dropped from the relation), numbers or strings. */
+void awra_accessible_update_relation(AwraWidget *widget, AwraAccessibleRelation relation,
+                                     AwraWidget *const *targets, int n);
+void awra_accessible_update_relation_number(AwraWidget *widget, AwraAccessibleRelation relation,
+                                            int value);
+void awra_accessible_update_relation_string(AwraWidget *widget, AwraAccessibleRelation relation,
+                                            const char *value);
+void awra_accessible_reset_relation(AwraWidget *widget, AwraAccessibleRelation relation);
+/* What assistive technologies get: the name and description (malloc'd,
+ * awra_free), a state (-1 undefined, else its value). */
+char *awra_accessible_get_name(AwraWidget *widget);
+char *awra_accessible_get_description(AwraWidget *widget);
+int awra_accessible_get_state(AwraWidget *widget, AwraAccessibleState state);
+/* gtk_accessible_announce: a screen reader reads the message. */
+void awra_accessible_announce(AwraWidget *widget, const char *message,
+                              AwraAccessibleAnnouncementPriority priority);
+/* An assistive technology is connected (the tree is exposed). */
+bool awra_accessible_active(void);
 
 #ifdef __cplusplus
 }

@@ -11,6 +11,7 @@
  * SPDX-License-Identifier: GPL-3.0-or-later */
 
 #include "awra-private.h"
+#include "a11y.h"
 
 #include <stdio.h>
 
@@ -164,6 +165,10 @@ static void tabs_draw(AwraWidget *w, AwraDraw *d)
                         &cc);
       }
     }
+  }
+  /* keyboard focus: the ring around the selected tab (GTK's :focus-visible) */
+  if (awra_focus_visible(w) && x->selected >= 0 && x->selected < x->n) {
+    awra_paint_focus_ring(d, pill_box(w, x->selected, tab_left(w, x->selected)), awra_pxf(6));
   }
   if (x->insertion >= 0) {
     AwraBox pb = pill_box(w, x->insertion, w->x + x->insertion * x->tab_w);
@@ -355,10 +360,97 @@ static void tabs_finalize(AwraWidget *w)
   free(x->tabs);
 }
 
+/* the keyboard: Left / Right / Home / End choose a tab (GtkNotebook) */
+static int tabs_key(AwraWidget *w, BKEvent *e)
+{
+  TabExt *x = TX(w);
+  if (x->n <= 0) {
+    return 0;
+  }
+  int i = x->selected;
+  if (bk_keysym_is(e->keysym, "Left") || bk_keysym_is(e->keysym, "KP_Left")) {
+    i = i <= 0 ? 0 : i - 1;
+  }
+  else if (bk_keysym_is(e->keysym, "Right") || bk_keysym_is(e->keysym, "KP_Right")) {
+    i = i < 0 ? 0 : BK_MIN(x->n - 1, i + 1);
+  }
+  else if (bk_keysym_is(e->keysym, "Home")) {
+    i = 0;
+  }
+  else if (bk_keysym_is(e->keysym, "End")) {
+    i = x->n - 1;
+  }
+  else {
+    return 0;
+  }
+  select_tab(w, i, true);
+  return 1;
+}
+
+/* GtkNotebook's tabs: a tab list of tabs (drawn: virtual children) */
+static void tabs_a11y(AwraWidget *w, AwraA11yInfo *info)
+{
+  info->selection = true;
+  info->flags |= AWRA_A11Y_HORIZONTAL;
+}
+
+static int tabs_a11y_items(AwraWidget *w)
+{
+  return TX(w)->n;
+}
+
+static void tabs_a11y_item(AwraWidget *w, int i, AwraA11yInfo *info, double rect[4])
+{
+  TabExt *x = TX(w);
+  if (i < 0 || i >= x->n) {
+    return;
+  }
+  info->role = AWRA_ACCESSIBLE_ROLE_TAB;
+  info->label = x->tabs[i].title;
+  info->description = x->tabs[i].tooltip;
+  info->action = "click";
+  awra_a11y_set_state(info, AWRA_ACCESSIBLE_STATE_SELECTED, i == x->selected);
+  info->flags |= AWRA_A11Y_FOCUSABLE;
+  AwraWidget *win = awra_window_of(w);
+  if (i == x->selected && win && awra_window_focus(win) == w) {
+    info->flags |= AWRA_A11Y_FOCUSED;
+  }
+  const AwraBox b = pill_box(w, i, tab_left(w, i));
+  const double sc = awra_scale();
+  rect[0] = b.x / sc;
+  rect[1] = b.y / sc;
+  rect[2] = b.w / sc;
+  rect[3] = b.h / sc;
+}
+
+static bool tabs_a11y_do(AwraWidget *w, int i, int verb, double value)
+{
+  TabExt *x = TX(w);
+  if (i < 0 || i >= x->n || !awra_sensitive(w)) {
+    return false;
+  }
+  if (verb == AWRA_A11Y_DO_ACTIVATE || verb == AWRA_A11Y_DO_SELECT) {
+    select_tab(w, i, true);
+    return true;
+  }
+  if (verb == AWRA_A11Y_DO_FOCUS) {
+    select_tab(w, i, true);
+    awra_widget_grab_focus(w);
+    return true;
+  }
+  return verb == AWRA_A11Y_DO_SCROLL_TO;
+}
+
 static AwraClass tabs_class = {
+    .a11y = tabs_a11y,
+    .a11y_items = tabs_a11y_items,
+    .a11y_item = tabs_a11y_item,
+    .a11y_do = tabs_a11y_do,
+    .key = tabs_key,
+    .overdraw = 4,
     .bk = AWRA_BK("AwraTabBar", CLS_INTERACTIVE),
     .type = "AwraTabBar",
-    .flags = AWRA_CLASS_HOVER | AWRA_CLASS_EXPAND_ISOLATED,
+    .flags = AWRA_CLASS_HOVER | AWRA_CLASS_FOCUSABLE | AWRA_CLASS_EXPAND_ISOLATED,
     .ext_size = sizeof(TabExt),
     .finalize = tabs_finalize,
     .measure = tabs_measure,

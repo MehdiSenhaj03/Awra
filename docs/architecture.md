@@ -67,3 +67,34 @@ reference counted (`Clone` refs, `Drop` unrefs), weak references follow the
 widget's life, closures connect to signals, `win.*` actions are activated by
 buttons, menus, the command palette and accelerators, and futures run on the
 UI thread (`glib::spawn_future_local`).
+
+## Accessibility
+
+GTK gave Awra 1 applications an accessibility tree; Awra 2 has its own,
+built the same way (`src/a11y.c`, `include/awra/awra.h`, Rust
+`awra::accessible`):
+
+- every widget has a role from its class (GTK's and Awra 1's assignments),
+  a name and a description computed with GTK's rules (an explicit label,
+  labelled-by, the widget's own text, its children's for roles named from
+  content, its tooltip), states (focused, checked, pressed, selected,
+  expanded, disabled, busy…) and values; components describe themselves
+  with `AwraClass.a11y`, containers their children with `a11y_child`, and
+  widgets that draw items (tabs, crumbs, emoji) expose them as virtual
+  children (`a11y_items`, `a11y_item`, `a11y_do`);
+- applications refine it as with GtkAccessible:
+  `awra_accessible_update_property / _state / _relation`, `set_role`,
+  `announce` (`update_property(&[Property::Label(..)])` in Rust);
+- Linux: AT-SPI2 over a small D-Bus client of Awra's own (no libdbus, no
+  GLib), its socket watched by the window loop. Awra asks the session bus,
+  without starting anything, whether an assistive technology runs
+  (`org.a11y.Status`), and only then joins the accessibility bus;
+- Windows: UI Automation providers answered from `WM_GETOBJECT`, with
+  `UIAutomationCore.dll` loaded at the first request;
+- while nothing listens, the hooks return at once and no widget holds
+  accessibility data; when a client listens, widgets it has seen keep a
+  snapshot and an idle pass tells it only what changed.
+
+Focus rings follow GTK's focus-visible: they show after keyboard use, hide
+on a pointer press and 3 s after the last key.
+
