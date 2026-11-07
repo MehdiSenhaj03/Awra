@@ -140,6 +140,9 @@ static int text_is_mark(uint32_t c)
 
 static int text_cluster_extender(uint32_t c)
 {
+  if (c < 128) {
+    return 0;
+  }
   return text_is_mark(c) || (c >= 0x200C && c <= 0x200D) || (c >= 0xFF9E && c <= 0xFF9F) ||
          (c >= 0x1F3FB && c <= 0x1F3FF) || (c >= 0xE0020 && c <= 0xE007F);
 }
@@ -190,7 +193,8 @@ static void text_scripts(const uint32_t *cp, int n, hb_script_t *out)
     const int start = i;
     for (; i < n; i++) {
       const uint32_t ch = cp[i];
-      hb_script_t sc = hb_unicode_script(text_uf(), ch);
+      hb_script_t sc = ch < 128 ? (((ch | 0x20) >= 'a' && (ch | 0x20) <= 'z') ? HB_SCRIPT_LATIN : HB_SCRIPT_COMMON) :
+                                  hb_unicode_script(text_uf(), ch);
       const int pi = sc == HB_SCRIPT_COMMON ? text_pair_index(ch) : -1;
       if (pi >= 0) {
         if ((pi & 1) == 0) {
@@ -624,34 +628,53 @@ typedef unsigned char *emoji_text_iter_t;
 #    define TEXT_FALLTHROUGH ((void)0)
 #  endif
 
-/* Pango's PangoLogAttr */
+/* Pango's PangoLogAttr (bytes, not bits: the rules write every field of
+ * every character, and a byte is written in one go) */
 typedef struct BuiLogAttr {
-  unsigned is_line_break : 1;
-  unsigned is_mandatory_break : 1;
-  unsigned is_char_break : 1;
-  unsigned is_white : 1;
-  unsigned is_cursor_position : 1;
-  unsigned is_word_start : 1;
-  unsigned is_word_end : 1;
-  unsigned backspace_deletes_character : 1;
-  unsigned is_expandable_space : 1;
-  unsigned is_word_boundary : 1;
-  unsigned break_inserts_hyphen : 1;
-  unsigned break_removes_preceding : 1;
+  uint8_t is_line_break;
+  uint8_t is_mandatory_break;
+  uint8_t is_char_break;
+  uint8_t is_white;
+  uint8_t is_cursor_position;
+  uint8_t is_word_start;
+  uint8_t is_word_end;
+  uint8_t backspace_deletes_character;
+  uint8_t is_expandable_space;
+  uint8_t is_word_boundary;
+  uint8_t break_inserts_hyphen;
+  uint8_t break_removes_preceding;
 } BuiLogAttr;
+
+/* ASCII's general categories, looked up once (the common case of the
+ * per-character properties below) */
+static uint8_t g_ascii_gc[128];
+static int g_ascii_gc_done;
 
 static hb_unicode_general_category_t text_gc(uint32_t c)
 {
+  if (c < 128) {
+    if (!g_ascii_gc_done) {
+      for (uint32_t k = 0; k < 128; k++) {
+        g_ascii_gc[k] = (uint8_t)hb_unicode_general_category(text_uf(), k);
+      }
+      g_ascii_gc_done = 1;
+    }
+    return (hb_unicode_general_category_t)g_ascii_gc[c];
+  }
   return hb_unicode_general_category(text_uf(), c);
 }
 
 static hb_script_t text_script_of(uint32_t c)
 {
+  if (c < 128) {
+    return ((c | 0x20) >= 'a' && (c | 0x20) <= 'z') ? HB_SCRIPT_LATIN : HB_SCRIPT_COMMON;
+  }
   return hb_unicode_script(text_uf(), c);
 }
 
 #  define text_is_emoji(c) EMOJI_IS(emoji, (c))
-#  define text_is_ext_pict(c) EMOJI_IS(extended_pictographic, (c))
+/* nothing below U+00A9 is Extended_Pictographic */
+#  define text_is_ext_pict(c) ((c) >= 0xA9 && EMOJI_IS(extended_pictographic, (c)))
 #  define text_tolower(c) ((c) >= 'A' && (c) <= 'Z' ? (c) + ('a' - 'A') : (c))
 
 static int text_thai_breaks(const uint32_t *cp, int n, int *brk, int cap);
@@ -796,6 +819,9 @@ static void text_log_attrs(const uint32_t *cp, int n, BuiLogAttr *attrs, const u
   unsigned char tyl[64];
   hb_script_t *sc = NULL;
   unsigned char *ty = NULL;
+  if (!istart && !text_needs_tailoring(cp, n)) {
+    return; /* no script here has tailored breaks */
+  }
   if (!istart) {
     sc = n <= 64 ? scl : (hb_script_t *)malloc(sizeof(hb_script_t) * (size_t)n);
     ty = n <= 64 ? tyl : (unsigned char *)malloc((size_t)n);

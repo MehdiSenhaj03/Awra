@@ -94,6 +94,7 @@ pub const AWRA_POLICY_EXTERNAL: c_int = 3;
 pub const AWRA_WRAP_NONE: c_int = 0;
 pub const AWRA_WRAP_WORD: c_int = 1;
 pub const AWRA_WRAP_CHAR: c_int = 2;
+pub const AWRA_WRAP_WORD_CHAR: c_int = 3;
 pub const AWRA_ELLIPSIZE_NONE: c_int = 0;
 pub const AWRA_ELLIPSIZE_START: c_int = 1;
 pub const AWRA_ELLIPSIZE_MIDDLE: c_int = 2;

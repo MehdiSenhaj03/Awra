@@ -86,8 +86,28 @@ float awra_font_line_height(const AwraFont *f)
   return a + d;
 }
 
+/* Letter spacing in Pango units, as GTK gives Pango the CSS value
+ * (pango_attr_letter_spacing_new (px * PANGO_SCALE)). */
+static int ls_units(const AwraFont *f)
+{
+  return (int)(f->letter_spacing * 1024.0f);
+}
+
+/* distribute_letter_spacing: the half before a grapheme (px) and the half
+ * after it */
+static void ls_halves(int ls, float *r_left, float *r_right)
+{
+  int left = ls / 2;
+  if ((ls & 1023) == 0) {
+    left = (left + 512) & ~1023; /* hinting: PANGO_UNITS_ROUND */
+  }
+  *r_left = (float)left / 1024.0f;
+  *r_right = (float)(ls - left) / 1024.0f;
+}
+
 /* `xflags`: BUI_TEXT_LTR / BUI_TEXT_RTL for a run of one bidi level of a
- * paragraph laid out here, 0 for text that is a paragraph of its own. */
+ * paragraph laid out here, 0 for text that is a paragraph of its own. The
+ * width as shaped in the context set (BUI_text_set_context). */
 static float plain_width_x(const AwraFont *f, int xflags, const char *s, int len)
 {
   float w = 0.0f;
@@ -112,23 +132,28 @@ static int utf8_count(const char *s, int len)
   return n;
 }
 
-static float text_width_x(const AwraFont *f, int xflags, const char *s, int len)
-{
-  float w = plain_width_x(f, xflags, s, len);
-  if (f->letter_spacing != 0.0f) {
-    w += f->letter_spacing * utf8_count(s, len);
-  }
-  return w;
-}
-
+/* A line of its own (a PangoLayout of one line): letter spacing between
+ * its graphemes, not before the first or after the last
+ * (adjust_line_letter_spacing). */
 float awra_text_width(const AwraFont *f, const char *s, int len)
 {
   if (len < 0) {
     len = (int)strlen(s);
   }
-  return text_width_x(f, 0, s, len);
+  const int ls = ls_units(f);
+  if (!ls || len <= 0) {
+    return plain_width_x(f, 0, s, len);
+  }
+  const BuiTextContext c = {NULL, 0, NULL, 0, ls, 0};
+  BUI_text_set_context(&c);
+  const float w = plain_width_x(f, 0, s, len);
+  BUI_text_set_context(NULL);
+  float left, right;
+  ls_halves(ls, &left, &right);
+  return w - left - right;
 }
 
+/* draws `s` shaped in the context set, its origin at x */
 static void draw_text_x(AwraDraw *d, const AwraFont *f, int xflags, float x, float baseline,
                         const char *s, int len, const AwraRGBA *color)
 {
@@ -142,42 +167,14 @@ static void draw_text_x(AwraDraw *d, const AwraFont *f, int xflags, float x, flo
     return;
   }
   BUI_raster_set_font(d->r, f->family, font_flags(f) | xflags);
-  if (f->letter_spacing == 0.0f) {
-    BUI_raster_text(d->r, x, baseline, s, len, f->size, c);
-    return;
-  }
-  /* letter spacing: character by character, right to left in a
-   * right-to-left run */
-  const bool rtl = (xflags & BUI_TEXT_RTL) != 0;
-  if (rtl) {
-    x += text_width_x(f, xflags, s, len);
-  }
-  for (int i = 0; i < len;) {
-    const int n = utf8_len((unsigned char)s[i]);
-    const float cw = plain_width_x(f, xflags, s + i, n) + f->letter_spacing;
-    if (rtl) {
-      x -= cw;
-    }
-    BUI_raster_text(d->r, x, baseline, s + i, n, f->size, c);
-    if (!rtl) {
-      x += cw;
-    }
-    i += n;
-  }
+  BUI_raster_text(d->r, x, baseline, s, len, f->size, c);
 }
 
-/* the glyphs of bytes [from, to) of the run `s` shaped whole, drawn where
- * they are in it (the run's origin at x) */
+/* the glyphs of bytes [from, to) of the run `s` shaped whole (in the
+ * context set), drawn where they are in it (the run's origin at x) */
 static void draw_text_part_x(AwraDraw *d, const AwraFont *f, int xflags, float x, float baseline,
                              const char *s, int len, int from, int to, const AwraRGBA *color)
 {
-  if (f->letter_spacing != 0.0f) {
-    /* letter-spaced text is drawn character by character anyway */
-    const float skip = (xflags & BUI_TEXT_RTL) ? text_width_x(f, xflags, s + to, len - to) :
-                                                 text_width_x(f, xflags, s, from);
-    draw_text_x(d, f, xflags, x + skip, baseline, s + from, to - from, color);
-    return;
-  }
   float c[4];
   awra_rgba_f(color, c);
   c[3] *= d->opacity;
@@ -194,7 +191,17 @@ void awra_draw_text(AwraDraw *d, const AwraFont *f, float x, float baseline, con
   if (len < 0) {
     len = (int)strlen(s);
   }
-  draw_text_x(d, f, 0, x, baseline, s, len, color);
+  const int ls = ls_units(f);
+  if (!ls) {
+    draw_text_x(d, f, 0, x, baseline, s, len, color);
+    return;
+  }
+  const BuiTextContext c = {NULL, 0, NULL, 0, ls, 0};
+  BUI_text_set_context(&c);
+  float left, right;
+  ls_halves(ls, &left, &right);
+  draw_text_x(d, f, 0, x - left, baseline, s, len, color);
+  BUI_text_set_context(NULL);
 }
 
 /* ----------------------------------------------------------------------- */
@@ -220,8 +227,10 @@ typedef struct Run {
   float x, w;     /* x: visual, from the line's left edge */
   float sx;       /* a part kept by ellipsizing: where it starts in its whole run (visual) */
   int shp_start, shp_end; /* the run it was shaped as (a part: the whole one) */
+  float lsl;      /* letter spacing trimmed off its left (the line's first run) */
   uint8_t level;  /* bidi embedding level */
-  bool zero;      /* the spaces a wrapped line ends with: no width, not drawn */
+  uint8_t hyph;   /* the line breaks after it with a hyphen (BuiTextContext.hyphen) */
+  bool zero;      /* the space a wrapped line ends with: no width, not drawn */
 } Run;
 
 typedef struct Line {
@@ -722,6 +731,10 @@ void awra_text_layout_set_font(AwraTextLayout *l, const AwraFont *f)
   {
     return;
   }
+  if (l->font.family != f->family) {
+    free(l->breaks); /* items, and so tailored breaks, follow the font */
+    l->breaks = NULL;
+  }
   l->font = *f;
   dirty(l);
 }
@@ -910,7 +923,9 @@ static const uint16_t *ensure_breaks(AwraTextLayout *l)
   if (!l->breaks) {
     l->breaks = (uint16_t *)malloc(sizeof(uint16_t) * ((size_t)l->len + 1));
     if (l->breaks) {
-      BUI_text_breaks(l->text, l->len, l->breaks);
+      /* as PangoLayout has them for this font (items end where it falls back) */
+      BUI_text_breaks_font(l->font.family, font_flags(&l->font), l->font.size, l->text, l->len,
+                           l->breaks);
     }
   }
   return l->breaks;
@@ -981,23 +996,47 @@ static int segment_end(const AwraTextLayout *l, int i, int limit)
   return end;
 }
 
+/* Shapes what follows as Pango shapes the item [a, b) of a paragraph:
+ * with the paragraph's text around it as context, the span's letter
+ * spacing and a hyphen when the line breaks after it with one (`hyph`,
+ * BuiTextContext.hyphen). Cleared with BUI_text_set_context(NULL). */
+static void run_context(const AwraTextLayout *l, const AwraFont *f, int a, int b, int hyph)
+{
+  int ps = a, pe = b;
+  while (ps > 0 && a - ps < 24 && l->text[ps - 1] != '\n') {
+    ps--;
+  }
+  while (pe < l->len && pe - b < 24 && l->text[pe] != '\n') {
+    pe++;
+  }
+  const BuiTextContext c = {l->text + ps, a - ps, l->text + b, pe - b, ls_units(f), hyph};
+  BUI_text_set_context(&c);
+}
+
 /* width of a uniform segment [a, b): text, or inline objects */
-static float seg_width(const AwraTextLayout *l, const AwraFont *f, int a, int b)
+static float seg_width(const AwraTextLayout *l, const AwraFont *f, int a, int b, int hyph)
 {
   if (b > a && is_object(l, a)) {
     return l->object_size * (float)((b - a + 2) / 3);
   }
-  return text_width_x(f, b > a ? level_flags(l, level_at(l, a)) : 0, l->text + a, b - a);
+  if (b <= a) {
+    return 0.0f;
+  }
+  run_context(l, f, a, b, hyph);
+  const float w = plain_width_x(f, level_flags(l, level_at(l, a)), l->text + a, b - a);
+  BUI_text_set_context(NULL);
+  return w;
 }
 
-static float range_width(const AwraTextLayout *l, int a, int b)
+/* the width of [a, b) shaped as runs; `hyph`: the last one ends with a hyphen */
+static float range_width(const AwraTextLayout *l, int a, int b, int hyph)
 {
   float w = 0.0f;
   while (a < b) {
     const int e = segment_end(l, a, b);
     const int sp = span_at(l, a);
     AwraFont f = span_font(l, sp);
-    w += seg_width(l, &f, a, e);
+    w += seg_width(l, &f, a, e, e == b ? hyph : 0);
     a = e;
   }
   return w;
@@ -1014,9 +1053,10 @@ static Run *push_run(AwraTextLayout *l)
   return r;
 }
 
-static void add_run(AwraTextLayout *l, int a, int b, float x)
+/* the runs of [a, b) (lines place them in visual order: finish_line);
+ * `hyph`: the last one ends with a hyphen */
+static void add_run(AwraTextLayout *l, int a, int b, int hyph)
 {
-  (void)x; /* lines place their runs in visual order (finish_line) */
   while (a < b) {
     const int e = segment_end(l, a, b);
     Run *r = push_run(l);
@@ -1026,8 +1066,9 @@ static void add_run(AwraTextLayout *l, int a, int b, float x)
     r->level = (uint8_t)level_at(l, a);
     r->shp_start = a;
     r->shp_end = e;
+    r->hyph = (uint8_t)(e == b && !is_object(l, a) ? hyph : 0);
     AwraFont f = span_font(l, r->span);
-    r->w = seg_width(l, &f, a, e);
+    r->w = seg_width(l, &f, a, e, r->hyph);
     a = e;
   }
 }
@@ -1079,6 +1120,25 @@ static void finish_line(AwraTextLayout *l, Line *ln)
       i = j;
     }
   }
+  /* letter spacing: none before the line's visually first grapheme or
+   * after its last (adjust_line_letter_spacing, after reordering) */
+  int first = -1, last = -1;
+  for (int v = 0; v < n; v++) {
+    const Run *q = &r[order[v]];
+    if (!q->zero && q->start >= 0 && !is_object(l, q->start)) {
+      first = first < 0 ? order[v] : first;
+      last = order[v];
+    }
+  }
+  if (first >= 0) {
+    AwraFont f0 = span_font(l, r[first].span), f1 = span_font(l, r[last].span);
+    float left, right, unused;
+    ls_halves(ls_units(&f0), &left, &unused);
+    ls_halves(ls_units(&f1), &unused, &right);
+    r[first].lsl = left;
+    r[first].w -= left;
+    r[last].w -= right;
+  }
   float x = 0.0f;
   for (int v = 0; v < n; v++) {
     r[order[v]].x = x;
@@ -1119,7 +1179,11 @@ static void line_metrics(AwraTextLayout *l, Line *ln, bool para_start)
       rd = awra_font_line_height(&f) - ra;
     }
     else {
-      awra_font_extents(&f, l->text + r->start, r->end - r->start, &ra, &rd);
+      /* the run as shaped (its context), so the engine's run is shared */
+      run_context(l, &f, r->shp_start, r->shp_end, r->hyph);
+      BUI_text_extents(f.family, font_flags(&f) | level_flags(l, r->level), f.size,
+                       l->text + r->shp_start, r->shp_end - r->shp_start, &ra, &rd);
+      BUI_text_set_context(NULL);
     }
     asc = counted ? fmaxf(asc, ra) : ra;
     desc = counted ? fmaxf(desc, rd) : rd;
@@ -1294,16 +1358,14 @@ static void ellipsize_line(AwraTextLayout *l, Line *ln, int a, int b, float widt
     else {
       AwraFont f = span_font(l, e->r.span);
       const int xf = font_flags(&f) | level_flags(l, e->r.level);
+      run_context(l, &f, e->r.start, e->r.end, 0);
       const int count = BUI_text_clusters(f.family, xf, f.size, l->text + e->r.start, n, NULL, 0);
       e->cl = count > 0 ? (BuiTextCluster *)malloc(sizeof(BuiTextCluster) * (size_t)count) : NULL;
       e->ncl = e->cl ? BUI_text_clusters(f.family, xf, f.size, l->text + e->r.start, n, e->cl, count) : 0;
+      BUI_text_set_context(NULL);
       for (int c = 0; c < e->ncl; c++) {
         e->cl[c].start += e->r.start;
         e->cl[c].end += e->r.start;
-        if (f.letter_spacing != 0.0f) {
-          e->cl[c].width += f.letter_spacing * utf8_count(l->text + e->cl[c].start,
-                                                          e->cl[c].end - e->cl[c].start);
-        }
       }
     }
     ok = ok && e->ncl > 0;
@@ -1425,6 +1487,140 @@ static void ellipsize_line(AwraTextLayout *l, Line *ln, int a, int b, float widt
   finish_line(l, ln);
 }
 
+/* The hyphen a line broken at `k` ends with (BuiTextContext.hyphen) */
+static int break_hyphen(AwraTextLayout *l, int k, int para_end)
+{
+  const uint16_t *br = ensure_breaks(l);
+  if (!br || k >= para_end) {
+    return 0;
+  }
+  return (br[k] & BUI_TEXT_REMOVES_PRECEDING) ? 2 : (br[k] & BUI_TEXT_INSERTS_HYPHEN) ? 1 : 0;
+}
+
+/* A paragraph being broken into lines: its characters' logical widths
+ * (Pango's log widths: each cluster's width shared by its characters, at
+ * their first byte), from shaping it whole as Pango shapes an item once,
+ * to find the breaks worth measuring. */
+typedef struct Para {
+  int start, end;
+  float *lw;         /* indexed from `start`; NULL until needed */
+  float safe;        /* Pango's safe distance: three average characters */
+  float hyphen_w;    /* a hyphen's width (find_hyphen_width) */
+  int ls_from, ls;   /* the first line separator at or after ls_from (-1: none) */
+} Para;
+
+static void para_widths(AwraTextLayout *l, Para *P)
+{
+  if (P->lw) {
+    return;
+  }
+  const int n = P->end - P->start;
+  P->lw = (float *)calloc((size_t)(n > 0 ? n : 1), sizeof(float));
+  if (!P->lw) {
+    return;
+  }
+  for (int a = P->start; a < P->end;) {
+    const int e = segment_end(l, a, P->end);
+    if (is_object(l, a)) {
+      for (int k = a; k < e; k += 3) {
+        P->lw[k - P->start] = l->object_size;
+      }
+      a = e;
+      continue;
+    }
+    AwraFont f = span_font(l, span_at(l, a));
+    const int xf = font_flags(&f) | level_flags(l, level_at(l, a));
+    BuiTextCluster local[64];
+    run_context(l, &f, a, e, 0);
+    int nc = BUI_text_clusters(f.family, xf, f.size, l->text + a, e - a, NULL, 0);
+    BuiTextCluster *cl = nc <= 64 ? local : (BuiTextCluster *)malloc(sizeof(BuiTextCluster) * (size_t)nc);
+    nc = cl ? BUI_text_clusters(f.family, xf, f.size, l->text + a, e - a, cl, nc) : 0;
+    BUI_text_set_context(NULL);
+    for (int c = 0; c < nc; c++) {
+      const int cs = a + cl[c].start, ce = a + cl[c].end;
+      const int chars = utf8_count(l->text + cs, ce - cs);
+      for (int k = cs; k < ce; k += utf8_len((unsigned char)l->text[k])) {
+        P->lw[k - P->start] = chars > 0 ? cl[c].width / (float)chars : 0.0f;
+      }
+    }
+    if (cl != local) {
+      free(cl);
+    }
+    a = e;
+  }
+}
+
+/* the end of the line starting at `a`: after the first line separator
+ * (U+2028), else the paragraph's end */
+static int para_line_limit(const AwraTextLayout *l, Para *P, int a)
+{
+  if (P->ls_from < 0 || a < P->ls_from || (P->ls >= 0 && a > P->ls)) {
+    P->ls = -1;
+    for (int q = a; q + 2 < P->end; q++) {
+      if ((unsigned char)l->text[q] == 0xE2 && (unsigned char)l->text[q + 1] == 0x80 &&
+          (unsigned char)l->text[q + 2] == 0xA8)
+      {
+        P->ls = q;
+        break;
+      }
+    }
+    P->ls_from = a;
+  }
+  return P->ls >= 0 ? P->ls + 3 : P->end;
+}
+
+/* Where the line starting at `a` breaks to fit `W`, as Pango's
+ * process_item chooses: the last break opportunity whose line fits (its
+ * last character not counted when it is white, a hyphen counted where
+ * one is shown), else the narrowest; at least one character. Breaks far
+ * from the width are judged by the log widths, the others measured whole
+ * (kerning, whole pixels), as Pango measures them; a narrower line further
+ * on is taken (joined Arabic letters). `lim`: the line's end anyway. */
+static int line_break(AwraTextLayout *l, Para *P, int a, int lim, float W)
+{
+  const uint16_t *br = ensure_breaks(l);
+  para_widths(l, P);
+  const float *lw = P->lw;
+  int mode = l->wrap == AWRA_WRAP_CHAR ? BUI_TEXT_CHAR_BREAK : BUI_TEXT_LINE_BREAK;
+  int best = -1;
+  float best_w = 0.0f;
+  for (;;) {
+    float acc = 0.0f; /* the log widths of [a, k) */
+    for (int k = a, prev = a; k <= lim; prev = k, k += k < lim ? utf8_len((unsigned char)l->text[k]) : 1) {
+      if (k > a) {
+        acc += lw ? lw[prev - P->start] : 0.0f;
+      }
+      if (k == a || !(k == lim || !br || (br[k] & mode))) {
+        continue;
+      }
+      const bool white = k < P->end && br && (br[prev] & BUI_TEXT_WHITE);
+      const int hyph = white ? 0 : break_hyphen(l, k, P->end);
+      const float extra = white ? -(lw ? lw[prev - P->start] : 0.0f) : hyph ? P->hyphen_w : 0.0f;
+      if (lw && best >= 0 && fminf(acc + extra, acc) > W + P->safe) {
+        break; /* nothing further can fit or be narrower */
+      }
+      float w;
+      if (lw && acc + extra < W - P->safe) {
+        w = acc + extra; /* clearly fits */
+      }
+      else {
+        w = range_width(l, a, white ? prev : k, hyph);
+      }
+      if (best < 0 || w <= W + 0.01f || w < best_w) {
+        best = k;
+        best_w = w;
+      }
+    }
+    if (best_w > W + 0.01f && l->wrap == AWRA_WRAP_WORD_CHAR && mode == BUI_TEXT_LINE_BREAK) {
+      mode = BUI_TEXT_CHAR_BREAK; /* PANGO_WRAP_WORD_CHAR: try again inside words */
+      best = -1;
+      continue;
+    }
+    break;
+  }
+  return best > a ? best : lim;
+}
+
 static void layout(AwraTextLayout *l, int width)
 {
   if (l->laid_width == width) {
@@ -1437,6 +1633,14 @@ static void layout(AwraTextLayout *l, int width)
   const float W = width < 0 ? 1e9f : (float)width;
   const bool wrap = l->wrap != AWRA_WRAP_NONE && width >= 0;
   const int max_lines = l->max_lines > 0 ? l->max_lines : (1 << 30);
+  /* process_item looks at breaks up to three average characters past the
+   * width (pango_font_metrics_get_approximate_char_width: the sample
+   * text's width per character) */
+  static const char sample[] = "The quick brown fox jumps over the lazy dog.";
+  const float safe = wrap ? 3.0f * awra_text_width(&l->font, sample, (int)sizeof(sample) - 1) /
+                                (float)(sizeof(sample) - 1) :
+                            0.0f;
+  const float hyphen_w = wrap ? awra_text_width(&l->font, "\xE2\x80\x90", 3) : 0.0f;
   int pos = 0;
   while (pos <= l->len) {
     int para_end = pos;
@@ -1445,86 +1649,64 @@ static void layout(AwraTextLayout *l, int width)
     }
     const bool rtl = para_rtl(l, pos);
     int a = pos;
+    Para P = {pos, para_end, NULL, safe, hyphen_w, -1, -1};
     do {
       const bool para_start = a == pos;
       Line *ln = push_line(l);
       ln->start = a;
       ln->rtl = rtl;
       const bool last_allowed = l->n_lines >= max_lines;
-      const float full = range_width(l, a, para_end);
-      if (full <= W + 0.01f) {
-        add_run(l, a, para_end, 0);
+      const bool ellipsize_here = l->ellipsize != AWRA_ELLIPSIZE_NONE && (!wrap || last_allowed);
+      /* a line separator (U+2028) ends the line, unless it is ellipsized
+       * (Pango's BREAK_LINE_SEPARATOR) */
+      const int lim = ellipsize_here ? para_end : para_line_limit(l, &P, a);
+      /* the rest of the line as one: by its log widths when far too wide */
+      bool fits = true;
+      if (wrap || ellipsize_here) {
+        if (wrap && P.lw) {
+          float acc = 0.0f;
+          for (int k = a; k < lim && acc <= W + P.safe; k++) {
+            acc += P.lw[k - P.start];
+          }
+          fits = acc <= W + P.safe;
+        }
+        fits = fits && range_width(l, a, lim, 0) <= W + 0.01f;
+      }
+      if (fits || (!wrap && !ellipsize_here) || (lim < para_end && !wrap)) {
+        add_run(l, a, lim, 0);
         ln->n_runs = l->n_runs - ln->first_run;
         finish_line(l, ln);
-        a = para_end;
+        a = lim;
       }
-      else if (!wrap || last_allowed) {
-        if (l->ellipsize != AWRA_ELLIPSIZE_NONE) {
-          ellipsize_line(l, ln, a, para_end, W);
-        }
-        else {
-          add_run(l, a, para_end, 0);
-          ln->n_runs = l->n_runs - ln->first_run;
-          finish_line(l, ln);
-        }
+      else if (ellipsize_here) {
+        ellipsize_line(l, ln, a, para_end, W);
         a = para_end;
       }
       else {
-        /* the last break opportunity whose line fits, lines measured whole
-         * (kerning, whole-pixel positions) as Pango measures them */
-        int brk = -1, j = a;
-        while (j < para_end) {
-          int k = j;
-          while (k < para_end) {
-            k += utf8_len((unsigned char)l->text[k]);
-            const char c = l->text[k - 1];
-            if (c == ' ' || c == '-' || c == '/') {
-              break;
-            }
+        const int brk = line_break(l, &P, a, lim, W);
+        /* the line keeps the white space it breaks after; its last
+         * character, white, takes no width (zero_line_final_trailing_whitespace) */
+        int vis = brk;
+        const uint16_t *br = ensure_breaks(l);
+        if (brk < para_end && brk > a && br) {
+          int c = brk - 1;
+          while (c > a && ((unsigned char)l->text[c] & 0xC0) == 0x80) {
+            c--;
           }
-          int ve = k;
-          while (ve > a && l->text[ve - 1] == ' ') {
-            ve--;
+          if (br[c] & BUI_TEXT_WHITE) {
+            vis = c;
           }
-          if (range_width(l, a, ve) > W + 0.01f) {
-            break;
-          }
-          brk = k;
-          j = k;
         }
-        if (brk <= a || l->wrap == AWRA_WRAP_CHAR) {
-          /* break inside the word: as many graphemes as fit, at least one */
-          int i = BK_MIN(para_end, next_cursor(l, a));
-          while (i < para_end) {
-            const int n = BK_MIN(para_end, next_cursor(l, i));
-            if (range_width(l, a, n) > W + 0.01f) {
-              break;
-            }
-            i = n;
+        add_run(l, a, vis, brk == vis ? break_hyphen(l, brk, para_end) : 0);
+        if (vis < brk) {
+          const int first_space = l->n_runs;
+          add_run(l, vis, brk, 0);
+          for (int k = first_space; k < l->n_runs; k++) {
+            l->runs[k].w = 0.0f;
+            l->runs[k].zero = true;
           }
-          if (l->wrap == AWRA_WRAP_CHAR && brk > a && brk >= i) {
-            i = brk;
-          }
-          brk = i;
         }
-        int vis_end = brk;
-        while (vis_end > a && l->text[vis_end - 1] == ' ') {
-          vis_end--;
-        }
-        add_run(l, a, vis_end, 0);
         a = brk;
-        while (a < para_end && l->text[a] == ' ') {
-          a++;
-        }
-        /* the spaces the line ends with: Pango keeps them in the line,
-         * zero-width (zero_line_final_trailing_whitespace), each at its
-         * bidi level */
-        const int first_space = l->n_runs;
-        add_run(l, vis_end, a, 0);
-        for (int k = first_space; k < l->n_runs; k++) {
-          l->runs[k].w = 0.0f;
-          l->runs[k].zero = true;
-        }
         ln->n_runs = l->n_runs - ln->first_run;
         finish_line(l, ln);
       }
@@ -1536,6 +1718,7 @@ static void layout(AwraTextLayout *l, int width)
         break;
       }
     } while (a < para_end);
+    free(P.lw);
     if (pos > l->len) {
       break;
     }
@@ -1566,23 +1749,26 @@ void awra_text_layout_size(AwraTextLayout *l, int width, int *r_w, int *r_h)
   }
 }
 
+/* the widest line's width laid out at `width` (the layout is left laid
+ * out there) */
+static int width_at(AwraTextLayout *l, int width)
+{
+  layout(l, width);
+  return l->w;
+}
+
 int awra_text_layout_natural_width(AwraTextLayout *l)
 {
   if (l->nat_w < 0) {
-    float w = 0.0f;
-    for (int a = 0; a <= l->len;) {
-      int e = a;
-      while (e < l->len && l->text[e] != '\n') {
-        e++;
-      }
-      w = fmaxf(w, range_width(l, a, e));
-      a = e + 1;
-    }
-    l->nat_w = (int)ceilf(w);
+    l->nat_w = width_at(l, -1);
   }
   return l->nat_w;
 }
 
+/* GtkLabel's minimum width: a wrapping layout laid out at width 0 (a line
+ * per unbreakable stretch: the longest word, or with PANGO_WRAP_CHAR /
+ * WORD_CHAR the widest grapheme); an ellipsizing one, its ellipsis but no
+ * wider than its natural width */
 int awra_text_layout_min_width(AwraTextLayout *l)
 {
   if (l->min_w < 0) {
@@ -1597,15 +1783,7 @@ int awra_text_layout_min_width(AwraTextLayout *l)
       }
     }
     else {
-      float w = 0.0f;
-      int a = 0;
-      for (int i = 0; i <= l->len; i++) {
-        if (i == l->len || l->text[i] == ' ' || l->text[i] == '\n') {
-          w = fmaxf(w, range_width(l, a, i));
-          a = i + 1;
-        }
-      }
-      l->min_w = (int)ceilf(w);
+      l->min_w = width_at(l, 0);
     }
   }
   return l->min_w;
@@ -1696,16 +1874,18 @@ void awra_text_layout_draw(AwraTextLayout *l, AwraDraw *d, float x, float y, int
         draw_text_x(d, &f, 0, lx + r->x, base, ELLIPSIS, 3, &c);
       }
       else {
+        run_context(l, &f, r->shp_start, r->shp_end, r->hyph);
         if (r->shp_start != r->start || r->shp_end != r->end) {
           /* a part kept by ellipsizing: from the whole run's shaping */
-          draw_text_part_x(d, &f, level_flags(l, r->level), lx + r->x - r->sx, base,
+          draw_text_part_x(d, &f, level_flags(l, r->level), lx + r->x - r->sx - r->lsl, base,
                            l->text + r->shp_start, r->shp_end - r->shp_start,
                            r->start - r->shp_start, r->end - r->shp_start, &c);
         }
         else {
-          draw_text_x(d, &f, level_flags(l, r->level), lx + r->x, base, l->text + r->start,
-                      r->end - r->start, &c);
+          draw_text_x(d, &f, level_flags(l, r->level), lx + r->x - r->lsl, base,
+                      l->text + r->start, r->end - r->start, &c);
         }
+        BUI_text_set_context(NULL);
       }
       if (r->span >= 0 && (l->spans[r->span].underline || l->spans[r->span].strike)) {
         const float t = fmaxf(1.0f, f.size / 14.0f);
@@ -1742,10 +1922,12 @@ static float run_index_x(AwraTextLayout *l, const Run *r, int index, bool traili
   }
   AwraFont f = span_font(l, r->span);
   float x = 0.0f;
+  run_context(l, &f, r->shp_start, r->shp_end, r->hyph);
   BUI_text_index_to_x(f.family, font_flags(&f) | level_flags(l, r->level), f.size,
                       l->text + r->shp_start, r->shp_end - r->shp_start, index - r->shp_start,
                       trailing, &x);
-  return r->x + x - r->sx;
+  BUI_text_set_context(NULL);
+  return r->x + x - r->sx - r->lsl;
 }
 
 /* the line holding byte `index` (a boundary between two lines is the
@@ -1891,8 +2073,11 @@ static int line_x_to_index(AwraTextLayout *l, int li, float x, int *r_trailing)
     }
     AwraFont f = span_font(l, r->span);
     int idx = 0, tr = 0;
+    run_context(l, &f, r->shp_start, r->shp_end, r->hyph);
     BUI_text_x_to_index(f.family, font_flags(&f) | level_flags(l, r->level), f.size,
-                        l->text + r->shp_start, r->shp_end - r->shp_start, rel + r->sx, &idx, &tr);
+                        l->text + r->shp_start, r->shp_end - r->shp_start, rel + r->sx + r->lsl, &idx,
+                        &tr);
+    BUI_text_set_context(NULL);
     int index = BK_CLAMP(r->shp_start + idx, r->start, r->end);
     if (tr && suppress) {
       int e = index;

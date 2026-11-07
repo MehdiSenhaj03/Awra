@@ -162,8 +162,10 @@ typedef enum {
 typedef enum { AWRA_POLICY_AUTOMATIC = 0, AWRA_POLICY_ALWAYS, AWRA_POLICY_NEVER, AWRA_POLICY_EXTERNAL } AwraPolicy;
 typedef enum {
   AWRA_WRAP_NONE = 0,
-  AWRA_WRAP_WORD,
-  AWRA_WRAP_CHAR
+  AWRA_WRAP_WORD,     /* at line break opportunities (PANGO_WRAP_WORD); a longer word overflows */
+  AWRA_WRAP_CHAR,     /* between any graphemes (PANGO_WRAP_CHAR) */
+  AWRA_WRAP_WORD_CHAR /* at line break opportunities, inside a word too long for a line
+                       * (PANGO_WRAP_WORD_CHAR) */
 } AwraWrap;
 typedef enum {
   AWRA_ELLIPSIZE_NONE = 0,

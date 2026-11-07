@@ -494,7 +494,7 @@ fn wrap_c(mode: WrapMode) -> i32 {
     match mode {
         WrapMode::Word => 1,
         WrapMode::Char => 2,
-        WrapMode::WordChar => 1,
+        WrapMode::WordChar => 3,
     }
 }
 
