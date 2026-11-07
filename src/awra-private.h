@@ -446,6 +446,10 @@ void awra_invalidate(AwraWidget *w);
 /* Keyboard focus */
 void awra_set_focus(AwraWidget *window, AwraWidget *w, bool keyboard);
 AwraWidget *awra_focus_of(AwraWidget *window);
+/* The native window behind a window (NULL offscreen) */
+BKWindow *awra_window_bkw(AwraWidget *window);
+/* transfer.c: a drag's image follows the pointer (window raster px) */
+void awra_drag_icon_pointer(AwraWidget *window, int x, int y, bool left);
 /* Style classes: interned bits */
 int awra_class_bit(const char *name);
 bool awra_has_xclass(const AwraWidget *w, int bit); /* classes past the 64 bits */

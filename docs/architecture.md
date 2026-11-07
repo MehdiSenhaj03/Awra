@@ -70,6 +70,22 @@ corners and draws the shadow; resizing goes through a native border band.
 Physical keys come from scan codes (as evdev codes, the names KeyToMusic
 binds), key labels from the layout, file drops through OLE (hover and drop).
 
+## Data transfer
+
+The clipboard carries any type (BK_window_clipboard_*): text under every
+name applications ask for it, images as PNG (encoded by Awra; on Windows
+also CF_DIBV5 / CF_DIB), files as text/uri-list (GNOME's copied-files list
+on Linux, CF_HDROP on Windows). Wayland serves the data source from memory
+and reads offers through pipes; X11 owns the selections with a hidden window
+(large data through INCR both ways); Windows uses the clipboard formats
+directly. Drags out of the application are the system's: Wayland's
+wl_data_source + start_drag with an icon surface, X11's XDND (source and
+target, with an override-redirect image window), OLE's DoDragDrop with an
+IDataObject and the shell's drag image helper. Inside the window a drag's
+image (a widget snapshot, as GtkWidgetPaintable) is drawn above everything
+and follows the pointer; the Rust DragSource hands a drag of text or files
+to the system when the pointer leaves the window.
+
 ## Rust
 
 `awra-sys` is generated from `include/awra/awra.h` by

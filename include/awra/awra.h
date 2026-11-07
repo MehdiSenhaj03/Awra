@@ -1092,6 +1092,7 @@ char *awra_clipboard_get_text(AwraWidget *widget);
 void awra_clipboard_set_text(AwraWidget *widget, const char *text);
 void awra_free(void *p);
 
+
 /* Opens a URI or file with the desktop's default handler. */
 bool awra_show_uri(const char *uri);
 
@@ -1778,6 +1779,68 @@ void awra_tag_entry_clear(AwraWidget *tags);
 int awra_tag_entry_n_tags(AwraWidget *tags);
 const char *awra_tag_entry_tag(AwraWidget *tags, int index);
 
+
+/* ----------------------------------------------------------------------- */
+/* Data transfer: the clipboard with images, files and any type
+ * (GdkClipboard), PNG encoding, widget snapshots, drags out to other
+ * applications. MIME types name the data ("image/png", "text/uri-list",
+ * "text/plain;charset=utf-8"...); every function takes any widget of the
+ * window (or NULL for the application's first window). */
+
+/* Puts n items (each type with its bytes, copied) on the clipboard. */
+bool awra_clipboard_set_data(AwraWidget *widget, const char *const *mimes,
+                             const void *const *data, const size_t *lengths, int n);
+/* An image, as PNG (Windows: also CF_DIBV5 / CF_DIB). */
+bool awra_clipboard_set_texture(AwraWidget *widget, const AwraTexture *texture);
+/* Files: text/uri-list, GNOME's copied-files list and the paths as text
+ * (Windows: CF_HDROP). */
+bool awra_clipboard_set_files(AwraWidget *widget, const char *const *paths, int n);
+/* The types on the clipboard: '\n'-separated (free with awra_free), NULL
+ * when it is empty. */
+char *awra_clipboard_formats(AwraWidget *widget);
+/* Whether the clipboard holds `mime` ("image/*": any image type). */
+bool awra_clipboard_has(AwraWidget *widget, const char *mime);
+/* The clipboard's data of a type (free with awra_free; a NUL past
+ * *length), NULL when it has none. */
+void *awra_clipboard_get_data(AwraWidget *widget, const char *mime, size_t *length);
+/* The clipboard's image (PNG, WebP, JPEG, GIF, SVG or a DIB), NULL none. */
+AwraTexture *awra_clipboard_get_texture(AwraWidget *widget);
+/* The clipboard's local files: '\n'-separated paths (awra_free), NULL none. */
+char *awra_clipboard_get_files(AwraWidget *widget);
+
+/* A texture as a PNG file / in memory (awra_free), straight RGBA. */
+bool awra_texture_save_png(const AwraTexture *texture, const char *path);
+void *awra_texture_save_png_bytes(const AwraTexture *texture, size_t *length);
+
+/* The widget as it is drawn now (GtkWidgetPaintable's current image), at
+ * the window's scale; NULL when it isn't shown. */
+AwraTexture *awra_widget_snapshot(AwraWidget *widget);
+/* The image a drag inside the window shows under the pointer (its point
+ * hot_x, hot_y under the pointer, texture pixels); NULL takes it away. */
+void awra_window_set_drag_icon(AwraWidget *window, AwraTexture *icon, int hot_x, int hot_y);
+
+/* Drags out of the application: the system's drag (Wayland, X11's XDND,
+ * Windows' OLE) carrying the items, started from the button press the
+ * pointer holds (call it while the button is down, e.g. when an
+ * in-application drag leaves the window). `icon` follows the pointer.
+ * done(source, args) gets args->index = the action the target took
+ * (AWRA_DRAG_NONE when cancelled or refused). False when no drag can start. */
+typedef enum {
+  AWRA_DRAG_NONE = 0,
+  AWRA_DRAG_COPY = 1,
+  AWRA_DRAG_MOVE = 2,
+} AwraDragAction;
+bool awra_drag_start(AwraWidget *source, const char *const *mimes, const void *const *data,
+                     const size_t *lengths, int n, AwraTexture *icon, int hot_x, int hot_y,
+                     int actions, AwraHandler done, void *user_data);
+/* GtkDragSource's images when it has none: a label of the text a drag
+ * carries, or an icon (size: logical px), at the window scale. */
+AwraTexture *awra_texture_new_for_text(const char *text);
+AwraTexture *awra_texture_new_for_icon(const char *icon_name, int size);
+/* Files: text/uri-list and the paths as text (Windows: CF_HDROP). */
+bool awra_drag_start_files(AwraWidget *source, const char *const *paths, int n,
+                           AwraTexture *icon, int hot_x, int hot_y, int actions,
+                           AwraHandler done, void *user_data);
 
 #ifdef __cplusplus
 }

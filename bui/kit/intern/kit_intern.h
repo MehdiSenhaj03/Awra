@@ -587,6 +587,8 @@ struct BKContext {
   int (*key_hook)(BKContext *ctx, int press, const char *text, const char *keysym, int mods);
   /* BUI-Awra: file drags over the window (BK_drop) */
   int (*drop_hook)(BKContext *ctx, int kind, int x, int y, const char *uris);
+  /* BUI-Awra: draws above the popups and the tooltip (a drag's image) */
+  void (*overlay_hook)(BKContext *ctx);
 };
 
 /* BUI-Awra: tooltips drawn by an extension (Awra's look). Both NULL: the

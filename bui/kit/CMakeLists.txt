@@ -6,6 +6,7 @@
 
 add_library(bui_kit STATIC
   intern/kit_core.c
+  intern/kit_transfer.c
   intern/kit_draw.c
   intern/kit_theme_presets.c
   intern/kit_icons_data.c

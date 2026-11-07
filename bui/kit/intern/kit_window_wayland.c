@@ -29,6 +29,7 @@
 #endif
 #include "kit_intern.h"
 #include "kit_loop.h"
+#include "kit_transfer.h"
 
 #ifdef BUI_WINDOW_WAYLAND
 
@@ -183,9 +184,8 @@ static int g_mods;
 
 /* clipboard */
 static struct wl_data_offer *g_sel_offer; /* the current selection, someone else's */
-static int g_sel_offer_text;
 static struct wl_data_source *g_source;
-static char *g_clip_text;
+static BKClipSet *g_clip; /* BUI-Awra: what we put there, by type */
 static uint32_t g_key_serial;
 
 static double now_ms(void)
@@ -401,26 +401,60 @@ static void host_warp(void *data, int x, int y)
    * yet): continuous drags keep working from the relative motion */
 }
 
-static char *host_clipboard_get(void *data)
+static const struct wl_data_source_listener g_source_listener;
+
+/* BUI-Awra: an offer's types (the wl_data_offer's user data) */
+typedef struct OfferInfo {
+  char **mimes;
+  int n, cap;
+} OfferInfo;
+
+static OfferInfo *offer_info(struct wl_data_offer *o)
 {
-  if (g_source && g_clip_text) {
-    return strdup(g_clip_text); /* our own selection */
+  return o ? (OfferInfo *)wl_data_offer_get_user_data(o) : NULL;
+}
+
+static int offer_has(struct wl_data_offer *o, const char *mime)
+{
+  const OfferInfo *i = offer_info(o);
+  for (int k = 0; i && k < i->n; k++) {
+    if (!strcmp(i->mimes[k], mime)) {
+      return 1;
+    }
   }
-  if (!g_sel_offer || !g_sel_offer_text) {
-    return NULL;
+  return 0;
+}
+
+static void offer_destroy(struct wl_data_offer *o)
+{
+  if (!o) {
+    return;
   }
+  OfferInfo *i = offer_info(o);
+  if (i) {
+    for (int k = 0; k < i->n; k++) {
+      free(i->mimes[k]);
+    }
+    free(i->mimes);
+    free(i);
+  }
+  wl_data_offer_destroy(o);
+}
+
+/* The data of `mime` from another client, through a pipe (up to `ms`). */
+static void *read_offer_bytes(struct wl_data_offer *o, const char *mime, size_t *r_len, int ms)
+{
+  *r_len = 0;
   int fds[2];
   if (pipe2(fds, O_CLOEXEC) != 0) {
     return NULL;
   }
-  wl_data_offer_receive(g_sel_offer, g_sel_offer_text == 2 ? "text/plain;charset=utf-8" :
-                                                              "text/plain",
-                        fds[1]);
+  wl_data_offer_receive(o, mime, fds[1]);
   close(fds[1]);
   wl_display_flush(g_dpy);
   size_t len = 0, cap = 4096;
   char *buf = (char *)malloc(cap + 1);
-  const double until = now_ms() + 1000.0;
+  const double until = now_ms() + ms;
   while (buf) {
     struct pollfd p = {fds[0], POLLIN, 0};
     const int left = (int)(until - now_ms());
@@ -430,12 +464,17 @@ static char *host_clipboard_get(void *data)
     if (len == cap) {
       char *grown = (char *)realloc(buf, cap * 2 + 1);
       if (!grown) {
+        free(buf);
+        buf = NULL;
         break;
       }
       buf = grown;
       cap *= 2;
     }
     const ssize_t n = read(fds[0], buf + len, cap - len);
+    if (n < 0 && errno == EINTR) {
+      continue;
+    }
     if (n <= 0) {
       break;
     }
@@ -444,60 +483,261 @@ static char *host_clipboard_get(void *data)
   close(fds[0]);
   if (buf) {
     buf[len] = 0;
+    *r_len = len;
   }
   return buf;
+}
+
+/* The type of `o` to read for `mime`: itself, or plain text by another name. */
+static const char *offer_pick(struct wl_data_offer *o, const char *mime)
+{
+  if (offer_has(o, mime)) {
+    return mime;
+  }
+  if (bk_mime_is_text(mime)) {
+    for (int i = 0; bk_text_name(i); i++) {
+      if (offer_has(o, bk_text_name(i))) {
+        return bk_text_name(i);
+      }
+    }
+  }
+  return NULL;
+}
+
+int BK_window_clipboard_set(BKWindow *win, const BKClipItem *items, int n)
+{
+  (void)win;
+  BKClipSet *set = bk_clipset_new(items, n);
+  if (!set) {
+    return 0;
+  }
+  bk_clipset_free(g_clip);
+  g_clip = set;
+  if (!g_ddm || !g_data_device) {
+    return 1; /* kept for this process */
+  }
+  struct wl_data_source *src = wl_data_device_manager_create_data_source(g_ddm);
+  wl_data_source_add_listener(src, &g_source_listener, NULL);
+  const char *offers[64];
+  const int k = bk_clipset_offers(set, offers, 64);
+  for (int i = 0; i < k; i++) {
+    wl_data_source_offer(src, offers[i]);
+  }
+  wl_data_device_set_selection(g_data_device, src, g_key_serial > g_last_press_serial ?
+                                                         g_key_serial :
+                                                         g_last_press_serial);
+  if (g_source) {
+    wl_data_source_destroy(g_source);
+  }
+  g_source = src;
+  wl_display_flush(g_dpy);
+  return 1;
+}
+
+char *BK_window_clipboard_formats(BKWindow *win)
+{
+  (void)win;
+  if (g_source && g_clip) {
+    return bk_clipset_mimes(g_clip);
+  }
+  const OfferInfo *i = offer_info(g_sel_offer);
+  return i ? bk_mimes_join((const char *const *)i->mimes, i->n) : NULL;
+}
+
+void *BK_window_clipboard_read(BKWindow *win, const char *mime, size_t *r_len)
+{
+  (void)win;
+  *r_len = 0;
+  if (g_source && g_clip) { /* our own selection */
+    const BKClipEntry *e = bk_clipset_get(g_clip, mime);
+    return e ? bk_bytes_dup(e->data, e->len, r_len) : NULL;
+  }
+  const char *pick = g_sel_offer ? offer_pick(g_sel_offer, mime) : NULL;
+  return pick ? read_offer_bytes(g_sel_offer, pick, r_len, 2000) : NULL;
+}
+
+static char *host_clipboard_get(void *data)
+{
+  size_t len;
+  return (char *)BK_window_clipboard_read((BKWindow *)data, "text/plain;charset=utf-8", &len);
+}
+
+static void host_clipboard_set(void *data, const char *text)
+{
+  const BKClipItem it = {"text/plain;charset=utf-8", text ? text : "", text ? strlen(text) : 0};
+  BK_window_clipboard_set((BKWindow *)data, &it, 1);
+}
+
+static void write_all(int fd, const unsigned char *p, size_t left)
+{
+  while (left > 0) {
+    const ssize_t n = write(fd, p, left);
+    if (n < 0 && errno == EINTR) {
+      continue;
+    }
+    if (n <= 0) {
+      break;
+    }
+    p += n;
+    left -= (size_t)n;
+  }
+}
+
+/* BUI-Awra: a drag out (wl_data_source + start_drag) */
+typedef struct DragOut {
+  BKClipSet *set;
+  BKDragDoneFn done;
+  void *user;
+  int action, dropped;
+  struct wl_surface *icon;
+  struct wl_buffer *icon_buf;
+  void *icon_px;
+  size_t icon_size;
+} DragOut;
+
+static DragOut *g_drag_out; /* ours in progress: its offer to ourselves is read here */
+
+static void drag_out_end(struct wl_data_source *s, DragOut *d, int action)
+{
+  if (g_drag_out == d) {
+    g_drag_out = NULL;
+  }
+  if (d->done) {
+    d->done(d->user, action);
+  }
+  if (d->icon) {
+    wl_surface_destroy(d->icon);
+  }
+  if (d->icon_buf) {
+    wl_buffer_destroy(d->icon_buf);
+  }
+  if (d->icon_px) {
+    munmap(d->icon_px, d->icon_size);
+  }
+  bk_clipset_free(d->set);
+  free(d);
+  wl_data_source_destroy(s);
 }
 
 static void source_target(void *data, struct wl_data_source *s, const char *mime) {}
 static void source_send(void *data, struct wl_data_source *s, const char *mime, int32_t fd)
 {
-  if (g_clip_text) {
-    const char *p = g_clip_text;
-    size_t left = strlen(p);
-    while (left > 0) {
-      const ssize_t n = write(fd, p, left);
-      if (n <= 0) {
-        break;
-      }
-      p += n;
-      left -= (size_t)n;
-    }
+  const BKClipSet *set = data ? ((DragOut *)data)->set : g_clip;
+  const BKClipEntry *e = bk_clipset_get(set, mime);
+  if (e) {
+    write_all(fd, e->data, e->len);
   }
   close(fd);
 }
 static void source_cancelled(void *data, struct wl_data_source *s)
 {
+  if (data) { /* a drag: refused, or nowhere to go */
+    drag_out_end(s, (DragOut *)data, BK_DRAG_NONE);
+    return;
+  }
   if (s == g_source) {
     g_source = NULL;
   }
   wl_data_source_destroy(s);
 }
-static void source_dnd_drop_performed(void *data, struct wl_data_source *s) {}
-static void source_dnd_finished(void *data, struct wl_data_source *s) {}
-static void source_action(void *data, struct wl_data_source *s, uint32_t a) {}
+static void source_dnd_drop_performed(void *data, struct wl_data_source *s)
+{
+  if (data) {
+    ((DragOut *)data)->dropped = 1;
+  }
+}
+static void source_dnd_finished(void *data, struct wl_data_source *s)
+{
+  if (data) {
+    DragOut *d = (DragOut *)data;
+    drag_out_end(s, d, d->action ? d->action : BK_DRAG_COPY);
+  }
+}
+static void source_action(void *data, struct wl_data_source *s, uint32_t a)
+{
+  if (data) {
+    ((DragOut *)data)->action = (a & WL_DATA_DEVICE_MANAGER_DND_ACTION_MOVE) ? BK_DRAG_MOVE :
+                                (a & WL_DATA_DEVICE_MANAGER_DND_ACTION_COPY) ? BK_DRAG_COPY :
+                                                                               BK_DRAG_NONE;
+  }
+}
 static const struct wl_data_source_listener g_source_listener = {
     source_target,          source_send,         source_cancelled,
     source_dnd_drop_performed, source_dnd_finished, source_action};
 
-static void host_clipboard_set(void *data, const char *text)
+int BK_window_drag_start(BKWindow *win, const BKClipItem *items, int n, const uint32_t *icon,
+                         int icon_w, int icon_h, int hot_x, int hot_y, int actions,
+                         BKDragDoneFn done, void *user)
 {
-  free(g_clip_text);
-  g_clip_text = strdup(text ? text : "");
-  if (!g_ddm || !g_data_device) {
-    return;
+  if (!win || !win->surface || !g_ddm || !g_data_device || !g_buttons) {
+    return 0;
   }
-  struct wl_data_source *s = wl_data_device_manager_create_data_source(g_ddm);
-  wl_data_source_add_listener(s, &g_source_listener, NULL);
-  wl_data_source_offer(s, "text/plain;charset=utf-8");
-  wl_data_source_offer(s, "text/plain");
-  wl_data_source_offer(s, "UTF8_STRING");
-  wl_data_device_set_selection(g_data_device, s, g_key_serial);
-  if (g_source) {
-    wl_data_source_destroy(g_source);
+  DragOut *d = (DragOut *)calloc(1, sizeof(DragOut));
+  if (!d) {
+    return 0;
   }
-  g_source = s;
+  d->set = bk_clipset_new(items, n);
+  if (!d->set) {
+    free(d);
+    return 0;
+  }
+  d->done = done;
+  d->user = user;
+  struct wl_data_source *src = wl_data_device_manager_create_data_source(g_ddm);
+  wl_data_source_add_listener(src, &g_source_listener, d);
+  const char *offers[64];
+  const int k = bk_clipset_offers(d->set, offers, 64);
+  for (int i = 0; i < k; i++) {
+    wl_data_source_offer(src, offers[i]);
+  }
+  if (wl_data_source_get_version(src) >= 3) {
+    uint32_t a = 0;
+    a |= (actions & BK_DRAG_COPY) ? WL_DATA_DEVICE_MANAGER_DND_ACTION_COPY : 0;
+    a |= (actions & BK_DRAG_MOVE) ? WL_DATA_DEVICE_MANAGER_DND_ACTION_MOVE : 0;
+    wl_data_source_set_actions(src, a ? a : WL_DATA_DEVICE_MANAGER_DND_ACTION_COPY);
+  }
+  /* the image: a surface the compositor moves with the pointer */
+  if (icon && icon_w > 0 && icon_h > 0 && g_shm && g_compositor) {
+    const int scale = win->int_scale > 0 ? win->int_scale : 1;
+    const size_t size = (size_t)icon_w * icon_h * 4;
+    const int fd = memfd_create("bui-drag-icon", MFD_CLOEXEC);
+    if (fd >= 0 && ftruncate(fd, (off_t)size) == 0) {
+      void *px = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+      if (px != MAP_FAILED) {
+        memcpy(px, icon, size);
+        struct wl_shm_pool *pool = wl_shm_create_pool(g_shm, fd, (int32_t)size);
+        d->icon_buf = wl_shm_pool_create_buffer(pool, 0, icon_w, icon_h, icon_w * 4,
+                                                WL_SHM_FORMAT_ARGB8888);
+        wl_shm_pool_destroy(pool);
+        d->icon_px = px;
+        d->icon_size = size;
+        d->icon = wl_compositor_create_surface(g_compositor);
+        if (scale > 1 && g_compositor_version >= 3) {
+          wl_surface_set_buffer_scale(d->icon, scale);
+        }
+      }
+    }
+    if (fd >= 0) {
+      close(fd);
+    }
+  }
+  g_drag_out = d;
+  wl_data_device_start_drag(g_data_device, src, win->surface, d->icon, g_last_press_serial);
+  if (d->icon) {
+    /* the icon's top-left starts at the pointer: the first attach moves it
+     * by the hot spot (wl_data_device.start_drag) */
+    const int scale = win->int_scale > 0 ? win->int_scale : 1;
+    wl_surface_attach(d->icon, d->icon_buf, -hot_x / scale, -hot_y / scale);
+    wl_surface_damage(d->icon, 0, 0, icon_w, icon_h);
+    wl_surface_commit(d->icon);
+  }
   wl_display_flush(g_dpy);
+  /* the compositor has the pointer now: its release never comes to us */
+  g_buttons = 0;
+  BK_pointer_cancel(win->ctx);
+  return 1;
 }
+
 
 static Timer *timer_slot(BKWindow *win, int id)
 {
@@ -1201,38 +1441,41 @@ static const struct wl_keyboard_listener g_keyboard_listener = {
 /* ----------------------------------------------------------------------- */
 /* Seat and data device */
 
-static int g_new_offer_uris;
-
 static void offer_offer(void *data, struct wl_data_offer *o, const char *mime)
 {
-  int *text = (int *)data;
-  if (!strcmp(mime, "text/plain;charset=utf-8")) {
-    *text = 2;
+  OfferInfo *i = (OfferInfo *)data;
+  if (!i || i->n >= 256) {
+    return;
   }
-  else if (!*text && (!strcmp(mime, "text/plain") || !strcmp(mime, "UTF8_STRING"))) {
-    *text = 1;
+  if (i->n == i->cap) {
+    const int cap = i->cap ? i->cap * 2 : 8;
+    char **m = (char **)realloc(i->mimes, sizeof(char *) * (size_t)cap);
+    if (!m) {
+      return;
+    }
+    i->mimes = m;
+    i->cap = cap;
   }
-  if (!strcmp(mime, "text/uri-list")) {
-    g_new_offer_uris = 1;
+  char *copy = strdup(mime);
+  if (copy) {
+    i->mimes[i->n++] = copy;
   }
 }
 static void offer_source_actions(void *data, struct wl_data_offer *o, uint32_t a) {}
 static void offer_action(void *data, struct wl_data_offer *o, uint32_t a) {}
 static const struct wl_data_offer_listener g_offer_listener = {offer_offer, offer_source_actions,
                                                                offer_action};
-static int g_new_offer_text;
 static struct wl_data_offer *g_new_offer;
 
 static void dd_data_offer(void *data, struct wl_data_device *d, struct wl_data_offer *o)
 {
   g_new_offer = o;
-  g_new_offer_text = 0;
-  g_new_offer_uris = 0;
-  wl_data_offer_add_listener(o, &g_offer_listener, &g_new_offer_text);
+  wl_data_offer_add_listener(o, &g_offer_listener, calloc(1, sizeof(OfferInfo)));
 }
 /* BUI-Awra: file drags (text/uri-list) from other applications */
 static BKWindow *g_dnd_win;
-static struct wl_data_offer *g_dnd_offer;
+static struct wl_data_offer *g_dnd_offer; /* the drag's offer when it carries files */
+static struct wl_data_offer *g_dnd_any;   /* the drag's offer (destroyed when it leaves) */
 static uint32_t g_dnd_serial;
 static int g_dnd_x, g_dnd_y;
 
@@ -1253,8 +1496,15 @@ static void dnd_answer(int accepts)
 static void dd_enter(void *data, struct wl_data_device *d, uint32_t serial, struct wl_surface *s,
                      wl_fixed_t x, wl_fixed_t y, struct wl_data_offer *o)
 {
+  if (g_dnd_any && g_dnd_any != o) {
+    offer_destroy(g_dnd_any);
+  }
+  g_dnd_any = o;
+  if (o == g_new_offer) {
+    g_new_offer = NULL;
+  }
   g_dnd_win = window_of_surface(s);
-  g_dnd_offer = (o && g_new_offer_uris) ? o : NULL;
+  g_dnd_offer = (o && offer_has(o, "text/uri-list")) ? o : NULL;
   g_dnd_serial = serial;
   if (!g_dnd_win || !g_dnd_offer) {
     if (o) {
@@ -1272,10 +1522,10 @@ static void dd_leave(void *data, struct wl_data_device *d)
   if (g_dnd_win && g_dnd_offer) {
     BK_drop(g_dnd_win->ctx, BK_DROP_LEAVE, g_dnd_x, g_dnd_y, NULL);
   }
-  if (g_new_offer && g_new_offer != g_sel_offer) {
-    wl_data_offer_destroy(g_new_offer);
+  if (g_dnd_any && g_dnd_any != g_sel_offer) {
+    offer_destroy(g_dnd_any);
   }
-  g_new_offer = NULL;
+  g_dnd_any = NULL;
   g_dnd_offer = NULL;
   g_dnd_win = NULL;
 }
@@ -1290,50 +1540,21 @@ static void dd_motion(void *data, struct wl_data_device *d, uint32_t t, wl_fixed
   g_dnd_y = (int)(wl_fixed_to_double(y) * sc);
   dnd_answer(BK_drop(g_dnd_win->ctx, BK_DROP_MOTION, g_dnd_x, g_dnd_y, NULL));
 }
-static char *read_offer(struct wl_data_offer *o, const char *mime)
-{
-  int fds[2];
-  if (pipe2(fds, O_CLOEXEC) != 0) {
-    return NULL;
-  }
-  wl_data_offer_receive(o, mime, fds[1]);
-  close(fds[1]);
-  wl_display_flush(g_dpy);
-  size_t len = 0, cap = 4096;
-  char *buf = (char *)malloc(cap + 1);
-  const double until = now_ms() + 3000.0;
-  while (buf) {
-    struct pollfd p = {fds[0], POLLIN, 0};
-    const int left = (int)(until - now_ms());
-    if (left <= 0 || poll(&p, 1, left) <= 0) {
-      break;
-    }
-    if (len == cap) {
-      char *grown = (char *)realloc(buf, cap * 2 + 1);
-      if (!grown) {
-        break;
-      }
-      buf = grown;
-      cap *= 2;
-    }
-    const ssize_t n = read(fds[0], buf + len, cap - len);
-    if (n <= 0) {
-      break;
-    }
-    len += (size_t)n;
-  }
-  close(fds[0]);
-  if (buf) {
-    buf[len] = 0;
-  }
-  return buf;
-}
 static void dd_drop(void *data, struct wl_data_device *d)
 {
   if (!g_dnd_win || !g_dnd_offer) {
     return;
   }
-  char *uris = read_offer(g_dnd_offer, "text/uri-list");
+  size_t len;
+  char *uris;
+  if (g_drag_out) { /* our own drag: its data is here (reading it through the
+                     * compositor would wait on ourselves) */
+    const BKClipEntry *e = bk_clipset_get(g_drag_out->set, "text/uri-list");
+    uris = e ? (char *)bk_bytes_dup(e->data, e->len, &len) : NULL;
+  }
+  else {
+    uris = (char *)read_offer_bytes(g_dnd_offer, "text/uri-list", &len, 3000);
+  }
   if (wl_data_offer_get_version(g_dnd_offer) >= 3) {
     wl_data_offer_finish(g_dnd_offer);
   }
@@ -1346,11 +1567,12 @@ static void dd_drop(void *data, struct wl_data_device *d)
 static void dd_selection(void *data, struct wl_data_device *d, struct wl_data_offer *o)
 {
   if (g_sel_offer && g_sel_offer != o) {
-    wl_data_offer_destroy(g_sel_offer);
+    offer_destroy(g_sel_offer);
   }
   g_sel_offer = o;
-  g_sel_offer_text = (o && o == g_new_offer) ? g_new_offer_text : 0;
-  g_new_offer = NULL;
+  if (o == g_new_offer) {
+    g_new_offer = NULL;
+  }
 }
 static const struct wl_data_device_listener g_dd_listener = {dd_data_offer, dd_enter,  dd_leave,
                                                              dd_motion,     dd_drop,   dd_selection};

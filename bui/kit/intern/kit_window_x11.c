@@ -21,6 +21,7 @@
 #endif
 #include "kit_intern.h"
 #include "kit_loop.h"
+#include "kit_transfer.h"
 
 #ifdef BUI_WINDOW_X11
 
@@ -99,7 +100,15 @@
   F(XUngrabPointer) \
   F(XIconifyWindow) \
   F(XUnmapWindow) \
-  F(XDeleteProperty)
+  F(XDeleteProperty) \
+  F(XGetAtomName) \
+  F(XGrabPointer) \
+  F(XTranslateCoordinates) \
+  F(XSelectInput) \
+  F(XExtendedMaxRequestSize) \
+  F(XMaxRequestSize) \
+  F(XQueryTree) \
+  F(XGetWindowAttributes)
 
 #  define BK_X11_DECL(f) static __typeof__(&f) p_##f;
 BK_X11_FUNCS(BK_X11_DECL)
@@ -179,6 +188,14 @@ static int x11_load(void)
 #  define XIconifyWindow (*p_XIconifyWindow)
 #  define XUnmapWindow (*p_XUnmapWindow)
 #  define XDeleteProperty (*p_XDeleteProperty)
+#  define XGetAtomName (*p_XGetAtomName)
+#  define XGrabPointer (*p_XGrabPointer)
+#  define XTranslateCoordinates (*p_XTranslateCoordinates)
+#  define XSelectInput (*p_XSelectInput)
+#  define XExtendedMaxRequestSize (*p_XExtendedMaxRequestSize)
+#  define XMaxRequestSize (*p_XMaxRequestSize)
+#  define XQueryTree (*p_XQueryTree)
+#  define XGetWindowAttributes (*p_XGetWindowAttributes)
 
 #  define MAX_TIMERS 64
 
@@ -214,7 +231,9 @@ static int g_open = 0, g_quit = 0, g_keep_alive = 0;
 static int (*g_stop)(void) = NULL;
 static void (*g_wake_cb)(void) = NULL;
 static int g_wake_pipe[2] = {-1, -1};
-static char *g_clip_text = NULL; /* what we own on CLIPBOARD */
+static BKClipSet *g_clip = NULL; /* BUI-Awra: what we own on CLIPBOARD, by type */
+static int x11_transfer_event(XEvent *ev); /* data transfer (below) */
+static void x11_xdnd_aware(Window xid);
 
 static double now_ms(void)
 {
@@ -336,46 +355,17 @@ static void host_warp(void *data, int x, int y)
 static void handle_event(XEvent *ev);
 static void x11_set_state(BKWindow *win, int state);
 
-/* GHOST_SystemX11::getClipboard: ask the owner, wait for its answer. */
+/* BUI-Awra: plain text through the typed clipboard (below) */
 static char *host_clipboard_get(void *data)
 {
-  BKWindow *win = (BKWindow *)data;
-  if (XGetSelectionOwner(g_dpy, a_clipboard) == win->xid && g_clip_text) {
-    return strdup(g_clip_text);
-  }
-  XConvertSelection(g_dpy, a_clipboard, a_utf8, a_bui_sel, win->xid, CurrentTime);
-  XFlush(g_dpy);
-  const double until = now_ms() + 300.0;
-  while (now_ms() < until) {
-    XEvent ev;
-    if (XCheckTypedWindowEvent(g_dpy, win->xid, SelectionNotify, &ev)) {
-      if (ev.xselection.property == None) {
-        return NULL;
-      }
-      Atom type;
-      int format;
-      unsigned long n, after;
-      unsigned char *prop = NULL;
-      XGetWindowProperty(g_dpy, win->xid, a_bui_sel, 0, 1 << 24, True, AnyPropertyType, &type,
-                         &format, &n, &after, &prop);
-      char *out = prop ? strndup((const char *)prop, n) : NULL;
-      if (prop) {
-        XFree(prop);
-      }
-      return out;
-    }
-    usleep(2000);
-  }
-  return NULL;
+  size_t len;
+  return (char *)BK_window_clipboard_read((BKWindow *)data, "text/plain;charset=utf-8", &len);
 }
 
 static void host_clipboard_set(void *data, const char *text)
 {
-  BKWindow *win = (BKWindow *)data;
-  free(g_clip_text);
-  g_clip_text = strdup(text ? text : "");
-  XSetSelectionOwner(g_dpy, a_clipboard, win->xid, CurrentTime);
-  XFlush(g_dpy);
+  const BKClipItem it = {"text/plain;charset=utf-8", text ? text : "", text ? strlen(text) : 0};
+  BK_window_clipboard_set((BKWindow *)data, &it, 1);
 }
 
 static Timer *timer_slot(BKWindow *win, int id)
@@ -564,22 +554,7 @@ static void close_window(BKWindow *win)
 
 static void handle_event(XEvent *ev)
 {
-  if (ev->type == SelectionRequest) { /* someone pastes what we copied */
-    XSelectionRequestEvent *rq = &ev->xselectionrequest;
-    XSelectionEvent sn = {SelectionNotify, 0, True, rq->display, rq->requestor, rq->selection,
-                          rq->target, None, rq->time};
-    if (rq->target == a_targets) {
-      Atom targets[] = {a_targets, a_utf8, XA_STRING};
-      XChangeProperty(g_dpy, rq->requestor, rq->property, XA_ATOM, 32, PropModeReplace,
-                      (unsigned char *)targets, 3);
-      sn.property = rq->property;
-    }
-    else if ((rq->target == a_utf8 || rq->target == XA_STRING) && g_clip_text) {
-      XChangeProperty(g_dpy, rq->requestor, rq->property, rq->target, 8, PropModeReplace,
-                      (unsigned char *)g_clip_text, (int)strlen(g_clip_text));
-      sn.property = rq->property;
-    }
-    XSendEvent(g_dpy, rq->requestor, False, 0, (XEvent *)&sn);
+  if (x11_transfer_event(ev)) { /* BUI-Awra: clipboard, drags in and out */
     return;
   }
   BKWindow *win = find_window(ev->xany.window);
@@ -709,7 +684,7 @@ BKWindow *BK_window_new_ex(BKContext *ctx, const char *title, int width, int hei
   attr.background_pixel = BlackPixel(g_dpy, screen);
   attr.event_mask = ExposureMask | StructureNotifyMask | PointerMotionMask | ButtonPressMask |
                     ButtonReleaseMask | KeyPressMask | KeyReleaseMask | LeaveWindowMask |
-                    FocusChangeMask;
+                    FocusChangeMask | PropertyChangeMask; /* PropertyNotify: INCR transfers */
   win->flags = flags;
   XVisualInfo vi;
   unsigned long mask = CWBackPixel | CWEventMask;
@@ -736,6 +711,7 @@ BKWindow *BK_window_new_ex(BKContext *ctx, const char *title, int width, int hei
     return NULL;
   }
   XSetWMProtocols(g_dpy, win->xid, &a_delete, 1);
+  x11_xdnd_aware(win->xid); /* BUI-Awra: file drops (XDND) */
   if (flags & BK_WINDOW_UNDECORATED) { /* _MOTIF_WM_HINTS: no decorations */
     const long hints[5] = {2, 0, 0, 0, 0};
     const Atom motif = XInternAtom(g_dpy, "_MOTIF_WM_HINTS", False);
@@ -1336,6 +1312,875 @@ static void x11_set_state(BKWindow *win, int state)
   }
   if (win->cb.on_state) {
     win->cb.on_state(win->cb.data, win, win->states);
+  }
+}
+
+
+/* =========================================================================
+ * BUI-Awra: data transfer. The clipboard by type (large data through INCR
+ * both ways), XDND drags out of the application (the source side, with a
+ * drag image window) and file drops into it (the target side).
+ * ========================================================================= */
+
+static Atom a_incr, a_xdnd_aware, a_xdnd_enter, a_xdnd_position, a_xdnd_status, a_xdnd_leave,
+    a_xdnd_drop, a_xdnd_finished, a_xdnd_selection, a_xdnd_type_list, a_xdnd_copy, a_xdnd_move,
+    a_uri_list;
+
+static void transfer_atoms(void)
+{
+  static int done = 0;
+  if (done || !g_dpy) {
+    return;
+  }
+  done = 1;
+  a_incr = XInternAtom(g_dpy, "INCR", False);
+  a_xdnd_aware = XInternAtom(g_dpy, "XdndAware", False);
+  a_xdnd_enter = XInternAtom(g_dpy, "XdndEnter", False);
+  a_xdnd_position = XInternAtom(g_dpy, "XdndPosition", False);
+  a_xdnd_status = XInternAtom(g_dpy, "XdndStatus", False);
+  a_xdnd_leave = XInternAtom(g_dpy, "XdndLeave", False);
+  a_xdnd_drop = XInternAtom(g_dpy, "XdndDrop", False);
+  a_xdnd_finished = XInternAtom(g_dpy, "XdndFinished", False);
+  a_xdnd_selection = XInternAtom(g_dpy, "XdndSelection", False);
+  a_xdnd_type_list = XInternAtom(g_dpy, "XdndTypeList", False);
+  a_xdnd_copy = XInternAtom(g_dpy, "XdndActionCopy", False);
+  a_xdnd_move = XInternAtom(g_dpy, "XdndActionMove", False);
+  a_uri_list = XInternAtom(g_dpy, "text/uri-list", False);
+}
+
+static void x11_xdnd_aware(Window xid)
+{
+  transfer_atoms();
+  const long version = 5;
+  XChangeProperty(g_dpy, xid, a_xdnd_aware, XA_ATOM, 32, PropModeReplace,
+                  (const unsigned char *)&version, 1);
+}
+
+/* the most a property takes at once (bigger data goes by INCR) */
+static size_t chunk_max(void)
+{
+  long n = XExtendedMaxRequestSize(g_dpy);
+  if (n <= 0) {
+    n = XMaxRequestSize(g_dpy);
+  }
+  size_t bytes = n > 64 ? (size_t)n * 4 - 256 : 65536;
+  return bytes > 262144 ? 262144 : bytes;
+}
+
+/* -- the source side of selections ---------------------------------------- */
+
+/* a drag out in progress */
+static struct {
+  int active;
+  BKWindow *win;
+  BKClipSet *set;
+  BKDragDoneFn done;
+  void *user;
+  int actions;
+  Window target; /* the XdndAware window under the pointer, 0 none */
+  int version, accepted, waiting, pending, dropped;
+  Atom action;
+  int rx, ry; /* the pointer, root coordinates */
+  Time time;
+  double drop_at;
+  Window icon;
+  int hot_x, hot_y;
+} g_dout;
+
+/* the selections' window: hidden, ours as long as the display is open (the
+ * clipboard works before any window and after the last one closes) */
+static Window g_sel_win;
+
+static Window sel_window(void)
+{
+  if (!g_sel_win && open_display()) {
+    XSetWindowAttributes attr;
+    memset(&attr, 0, sizeof(attr));
+    attr.event_mask = PropertyChangeMask;
+    g_sel_win = XCreateWindow(g_dpy, DefaultRootWindow(g_dpy), -10, -10, 1, 1, 0, 0, InputOnly,
+                              CopyFromParent, CWEventMask, &attr);
+  }
+  return g_sel_win;
+}
+
+static int owned_by_us(Atom selection)
+{
+  const Window o = XGetSelectionOwner(g_dpy, selection);
+  return o && (o == g_sel_win || find_window(o) != NULL);
+}
+
+static const BKClipSet *owned_set(Atom selection)
+{
+  if (selection == a_clipboard) {
+    return g_clip;
+  }
+  if (selection == a_xdnd_selection && g_dout.set) {
+    return g_dout.set;
+  }
+  return NULL;
+}
+
+typedef struct IncrOut {
+  Window req;
+  Atom prop, type;
+  unsigned char *data;
+  size_t len, off;
+  struct IncrOut *next;
+} IncrOut;
+static IncrOut *g_incr;
+
+static void incr_free(IncrOut *o)
+{
+  for (IncrOut **p = &g_incr; *p; p = &(*p)->next) {
+    if (*p == o) {
+      *p = o->next;
+      break;
+    }
+  }
+  free(o->data);
+  free(o);
+}
+
+static void answer_request(XSelectionRequestEvent *rq)
+{
+  XSelectionEvent sn = {SelectionNotify, 0, True, rq->display, rq->requestor, rq->selection,
+                        rq->target, None, rq->time};
+  const BKClipSet *set = owned_set(rq->selection);
+  const Atom prop = rq->property != None ? rq->property : rq->target; /* ICCCM: old clients */
+  if (set && rq->target == a_targets) {
+    const char *names[64];
+    const int n = bk_clipset_offers(set, names, 63);
+    long atoms[64];
+    atoms[0] = (long)a_targets;
+    for (int i = 0; i < n; i++) {
+      atoms[i + 1] = (long)XInternAtom(g_dpy, names[i], False);
+    }
+    XChangeProperty(g_dpy, rq->requestor, prop, XA_ATOM, 32, PropModeReplace,
+                    (const unsigned char *)atoms, n + 1);
+    sn.property = prop;
+  }
+  else if (set) {
+    char *name = XGetAtomName(g_dpy, rq->target);
+    const BKClipEntry *e = name ? bk_clipset_get(set, name) : NULL;
+    if (name) {
+      XFree(name);
+    }
+    if (e && e->len > chunk_max()) { /* INCR: in chunks, each when the last is taken */
+      IncrOut *o = (IncrOut *)calloc(1, sizeof(IncrOut));
+      if (o && (o->data = (unsigned char *)bk_bytes_dup(e->data, e->len, &o->len))) {
+        o->req = rq->requestor;
+        o->prop = prop;
+        o->type = rq->target;
+        o->next = g_incr;
+        g_incr = o;
+        XSelectInput(g_dpy, rq->requestor, PropertyChangeMask);
+        const long size = (long)e->len;
+        XChangeProperty(g_dpy, rq->requestor, prop, a_incr, 32, PropModeReplace,
+                        (const unsigned char *)&size, 1);
+        sn.property = prop;
+      }
+      else {
+        free(o);
+      }
+    }
+    else if (e) {
+      XChangeProperty(g_dpy, rq->requestor, prop, rq->target, 8, PropModeReplace, e->data,
+                      (int)e->len);
+      sn.property = prop;
+    }
+  }
+  XSendEvent(g_dpy, rq->requestor, False, 0, (XEvent *)&sn);
+  XFlush(g_dpy);
+}
+
+static int incr_property(XPropertyEvent *pe)
+{
+  if (pe->state != PropertyDelete) {
+    return 0;
+  }
+  for (IncrOut *o = g_incr; o; o = o->next) {
+    if (o->req == pe->window && o->prop == pe->atom) {
+      const size_t left = o->len - o->off, cm = chunk_max();
+      const size_t n = left < cm ? left : cm;
+      XChangeProperty(g_dpy, o->req, o->prop, o->type, 8, PropModeReplace, o->data + o->off,
+                      (int)n);
+      o->off += n;
+      if (n == 0) { /* the empty chunk ends it */
+        XSelectInput(g_dpy, o->req, NoEventMask);
+        incr_free(o);
+      }
+      XFlush(g_dpy);
+      return 1;
+    }
+  }
+  return 0;
+}
+
+/* -- the reading side ------------------------------------------------------ */
+
+static int wait_event(Window w, int type, XEvent *ev, int ms)
+{
+  const double until = now_ms() + ms;
+  while (now_ms() < until) {
+    if (XCheckTypedWindowEvent(g_dpy, w, type, ev)) {
+      return 1;
+    }
+    usleep(1000);
+  }
+  return 0;
+}
+
+/* Converts `selection` to `target` on our window and reads the answer (INCR
+ * too): malloc'd bytes (format 32 items as longs), NULL when refused. */
+static void *convert_read(Window xid, Atom selection, Atom target, Time t, size_t *r_len,
+                          int *r_format)
+{
+  *r_len = 0;
+  *r_format = 8;
+  XDeleteProperty(g_dpy, xid, a_bui_sel);
+  XConvertSelection(g_dpy, selection, target, a_bui_sel, xid, t);
+  XFlush(g_dpy);
+  XEvent ev;
+  if (!wait_event(xid, SelectionNotify, &ev, 1500) || ev.xselection.property == None) {
+    return NULL;
+  }
+  Atom type;
+  int format;
+  unsigned long n, after;
+  unsigned char *prop = NULL;
+  if (XGetWindowProperty(g_dpy, xid, a_bui_sel, 0, 0x1FFFFFFF, True, AnyPropertyType, &type,
+                         &format, &n, &after, &prop) != Success)
+  {
+    return NULL;
+  }
+  if (type != a_incr) {
+    const size_t unit = format == 32 ? sizeof(long) : format == 16 ? sizeof(short) : 1;
+    void *out = bk_bytes_dup(prop ? prop : (unsigned char *)"", n * unit, r_len);
+    *r_format = format;
+    if (prop) {
+      XFree(prop);
+    }
+    return out;
+  }
+  if (prop) {
+    XFree(prop);
+  }
+  /* INCR: chunks until an empty one */
+  size_t len = 0, cap = 65536;
+  unsigned char *buf = (unsigned char *)malloc(cap + 1);
+  while (buf) {
+    if (!wait_event(xid, PropertyNotify, &ev, 2000)) {
+      free(buf);
+      return NULL;
+    }
+    if (ev.xproperty.atom != a_bui_sel || ev.xproperty.state != PropertyNewValue) {
+      continue;
+    }
+    prop = NULL;
+    if (XGetWindowProperty(g_dpy, xid, a_bui_sel, 0, 0x1FFFFFFF, True, AnyPropertyType,
+                           &type, &format, &n, &after, &prop) != Success)
+    {
+      free(buf);
+      return NULL;
+    }
+    if (n == 0) {
+      if (prop) {
+        XFree(prop);
+      }
+      break;
+    }
+    if (len + n > cap) {
+      while (len + n > cap) {
+        cap *= 2;
+      }
+      unsigned char *g = (unsigned char *)realloc(buf, cap + 1);
+      if (!g) {
+        free(buf);
+        XFree(prop);
+        return NULL;
+      }
+      buf = g;
+    }
+    memcpy(buf + len, prop, n);
+    len += n;
+    XFree(prop);
+  }
+  if (buf) {
+    buf[len] = 0;
+    *r_len = len;
+  }
+  return buf;
+}
+
+static void *convert_bytes(Window xid, Atom selection, const char *mime, Time t, size_t *r_len)
+{
+  int format;
+  return convert_read(xid, selection, XInternAtom(g_dpy, mime, False), t, r_len, &format);
+}
+
+int BK_window_clipboard_set(BKWindow *win, const BKClipItem *items, int n)
+{
+  (void)win;
+  BKClipSet *set = bk_clipset_new(items, n);
+  const Window owner = set ? sel_window() : 0;
+  if (!owner) {
+    bk_clipset_free(set);
+    return 0;
+  }
+  transfer_atoms();
+  bk_clipset_free(g_clip);
+  g_clip = set;
+  XSetSelectionOwner(g_dpy, a_clipboard, owner, CurrentTime);
+  XFlush(g_dpy);
+  return 1;
+}
+
+char *BK_window_clipboard_formats(BKWindow *win)
+{
+  (void)win;
+  const Window xid = sel_window();
+  if (!xid) {
+    return NULL;
+  }
+  transfer_atoms();
+  if (owned_by_us(a_clipboard)) {
+    return g_clip ? bk_clipset_mimes(g_clip) : NULL;
+  }
+  size_t len;
+  int format;
+  long *atoms = (long *)convert_read(xid, a_clipboard, a_targets, CurrentTime, &len, &format);
+  if (!atoms || format != 32) {
+    free(atoms);
+    return NULL;
+  }
+  const int n = (int)(len / sizeof(long));
+  char *names[256];
+  int k = 0;
+  for (int i = 0; i < n && k < 256; i++) {
+    char *nm = atoms[i] ? XGetAtomName(g_dpy, (Atom)atoms[i]) : NULL;
+    if (nm) {
+      if (strcmp(nm, "TARGETS") && strcmp(nm, "MULTIPLE") && strcmp(nm, "TIMESTAMP") &&
+          strcmp(nm, "SAVE_TARGETS"))
+      {
+        names[k++] = nm;
+      }
+      else {
+        XFree(nm);
+      }
+    }
+  }
+  free(atoms);
+  char *out = bk_mimes_join((const char *const *)names, k);
+  for (int i = 0; i < k; i++) {
+    XFree(names[i]);
+  }
+  return out;
+}
+
+void *BK_window_clipboard_read(BKWindow *win, const char *mime, size_t *r_len)
+{
+  *r_len = 0;
+  (void)win;
+  const Window xid = sel_window();
+  if (!xid || !mime) {
+    return NULL;
+  }
+  transfer_atoms();
+  if (owned_by_us(a_clipboard)) { /* ours: no round trip (and no waiting on ourselves) */
+    const BKClipEntry *e = bk_clipset_get(g_clip, mime);
+    return e ? bk_bytes_dup(e->data, e->len, r_len) : NULL;
+  }
+  void *out = convert_bytes(xid, a_clipboard, mime, CurrentTime, r_len);
+  if (!out && bk_mime_is_text(mime)) {
+    for (int i = 0; !out && bk_text_name(i); i++) {
+      if (strcmp(bk_text_name(i), mime) != 0) {
+        out = convert_bytes(xid, a_clipboard, bk_text_name(i), CurrentTime, r_len);
+      }
+    }
+  }
+  return out;
+}
+
+/* -- XDND: drags out ------------------------------------------------------- */
+
+static void xdnd_send(Window to, Atom type, long l1, long l2, long l3, long l4)
+{
+  XEvent ev;
+  memset(&ev, 0, sizeof(ev));
+  ev.xclient.type = ClientMessage;
+  ev.xclient.window = to;
+  ev.xclient.message_type = type;
+  ev.xclient.format = 32;
+  ev.xclient.data.l[0] = (long)g_dout.win->xid;
+  ev.xclient.data.l[1] = l1;
+  ev.xclient.data.l[2] = l2;
+  ev.xclient.data.l[3] = l3;
+  ev.xclient.data.l[4] = l4;
+  XSendEvent(g_dpy, to, False, NoEventMask, &ev);
+}
+
+/* the XdndAware version of `w` (0: not aware) */
+static int xdnd_version(Window w)
+{
+  Atom type;
+  int format;
+  unsigned long n, after;
+  unsigned char *prop = NULL;
+  int v = 0;
+  if (XGetWindowProperty(g_dpy, w, a_xdnd_aware, 0, 1, False, AnyPropertyType, &type, &format, &n,
+                         &after, &prop) == Success &&
+      prop && n == 1)
+  {
+    v = (int)*(long *)prop;
+  }
+  if (prop) {
+    XFree(prop);
+  }
+  return v;
+}
+
+/* The XdndAware window under root point rx, ry (our image window left out). */
+static Window xdnd_find(int rx, int ry, int *r_version)
+{
+  const Window root = DefaultRootWindow(g_dpy);
+  Window r, parent, *kids = NULL, top = 0;
+  unsigned nk = 0;
+  *r_version = 0;
+  if (!XQueryTree(g_dpy, root, &r, &parent, &kids, &nk)) {
+    return 0;
+  }
+  for (int i = (int)nk - 1; i >= 0 && !top; i--) { /* top-most first */
+    if (kids[i] == g_dout.icon) {
+      continue;
+    }
+    XWindowAttributes wa;
+    if (XGetWindowAttributes(g_dpy, kids[i], &wa) && wa.map_state == IsViewable &&
+        rx >= wa.x && ry >= wa.y && rx < wa.x + wa.width + 2 * wa.border_width &&
+        ry < wa.y + wa.height + 2 * wa.border_width)
+    {
+      top = kids[i];
+    }
+  }
+  if (kids) {
+    XFree(kids);
+  }
+  /* down from the top-level (a window manager's frame) to the aware window */
+  for (Window w = top; w;) {
+    const int v = xdnd_version(w);
+    if (v >= 3) {
+      *r_version = v > 5 ? 5 : v;
+      return w;
+    }
+    int x, y;
+    Window child = 0;
+    if (!XTranslateCoordinates(g_dpy, root, w, rx, ry, &x, &y, &child)) {
+      break;
+    }
+    w = child;
+  }
+  return 0;
+}
+
+static void xdnd_position(void)
+{
+  const Atom action = (g_dout.actions & BK_DRAG_MOVE) && !(g_dout.actions & BK_DRAG_COPY) ?
+                          a_xdnd_move :
+                          a_xdnd_copy;
+  xdnd_send(g_dout.target, a_xdnd_position, 0, ((long)g_dout.rx << 16) | (g_dout.ry & 0xFFFF),
+            (long)g_dout.time, (long)action);
+  g_dout.waiting = 1;
+  g_dout.pending = 0;
+}
+
+static void xdnd_enter(Window to, int version)
+{
+  const char *names[64];
+  const int n = bk_clipset_offers(g_dout.set, names, 64);
+  long types[3] = {0, 0, 0};
+  for (int i = 0; i < n && i < 3; i++) {
+    types[i] = (long)XInternAtom(g_dpy, names[i], False);
+  }
+  if (n > 3) { /* the whole list as a property of our window */
+    long atoms[64];
+    for (int i = 0; i < n; i++) {
+      atoms[i] = (long)XInternAtom(g_dpy, names[i], False);
+    }
+    XChangeProperty(g_dpy, g_dout.win->xid, a_xdnd_type_list, XA_ATOM, 32, PropModeReplace,
+                    (const unsigned char *)atoms, n);
+  }
+  xdnd_send(to, a_xdnd_enter, ((long)version << 24) | (n > 3 ? 1 : 0), types[0], types[1],
+            types[2]);
+}
+
+static void xdnd_end(int action)
+{
+  if (!g_dout.active) {
+    return;
+  }
+  g_dout.active = 0;
+  if (g_dout.icon) {
+    XDestroyWindow(g_dpy, g_dout.icon);
+    g_dout.icon = 0;
+  }
+  XUngrabPointer(g_dpy, CurrentTime);
+  XFlush(g_dpy);
+  BKDragDoneFn done = g_dout.done;
+  void *user = g_dout.user;
+  g_dout.done = NULL;
+  /* the set stays until someone else owns XdndSelection (late requests) */
+  if (done) {
+    done(user, action);
+  }
+}
+
+static void xdnd_motion(int rx, int ry, Time t)
+{
+  g_dout.rx = rx;
+  g_dout.ry = ry;
+  g_dout.time = t;
+  if (g_dout.icon) {
+    XMoveWindow(g_dpy, g_dout.icon, rx - g_dout.hot_x, ry - g_dout.hot_y);
+  }
+  int version;
+  const Window to = xdnd_find(rx, ry, &version);
+  if (to != g_dout.target) {
+    if (g_dout.target) {
+      xdnd_send(g_dout.target, a_xdnd_leave, 0, 0, 0, 0);
+    }
+    g_dout.target = to;
+    g_dout.version = version;
+    g_dout.accepted = 0;
+    g_dout.waiting = 0;
+    if (to) {
+      xdnd_enter(to, version);
+    }
+  }
+  if (g_dout.target) {
+    if (g_dout.waiting) {
+      g_dout.pending = 1; /* sent when the last one is answered */
+    }
+    else {
+      xdnd_position();
+    }
+  }
+  XFlush(g_dpy);
+}
+
+static void xdnd_release(Time t)
+{
+  XUngrabPointer(g_dpy, CurrentTime);
+  if (g_dout.icon) {
+    XDestroyWindow(g_dpy, g_dout.icon);
+    g_dout.icon = 0;
+  }
+  if (g_dout.target && g_dout.accepted) {
+    xdnd_send(g_dout.target, a_xdnd_drop, 0, (long)t, 0, 0);
+    g_dout.dropped = 1;
+    g_dout.drop_at = now_ms();
+    XFlush(g_dpy);
+    return; /* XdndFinished ends it */
+  }
+  if (g_dout.target) {
+    xdnd_send(g_dout.target, a_xdnd_leave, 0, 0, 0, 0);
+  }
+  xdnd_end(BK_DRAG_NONE);
+}
+
+/* An image window following the pointer (override-redirect, with alpha
+ * where the screen has an ARGB visual). */
+static Window drag_icon_window(const uint32_t *px, int w, int h, int x, int y)
+{
+  const int screen = DefaultScreen(g_dpy);
+  XVisualInfo vi;
+  XSetWindowAttributes attr;
+  memset(&attr, 0, sizeof(attr));
+  attr.override_redirect = True;
+  unsigned long mask = CWOverrideRedirect | CWBackPixel | CWBorderPixel;
+  int depth = DefaultDepth(g_dpy, screen);
+  Visual *visual = DefaultVisual(g_dpy, screen);
+  if (XMatchVisualInfo(g_dpy, screen, 32, TrueColor, &vi)) {
+    attr.colormap = XCreateColormap(g_dpy, RootWindow(g_dpy, screen), vi.visual, AllocNone);
+    mask |= CWColormap;
+    depth = 32;
+    visual = vi.visual;
+  }
+  const Window win = XCreateWindow(g_dpy, RootWindow(g_dpy, screen), x, y, (unsigned)w,
+                                   (unsigned)h, 0, depth, InputOutput, visual, mask, &attr);
+  if (!win) {
+    return 0;
+  }
+  uint32_t *copy = (uint32_t *)malloc((size_t)w * h * 4);
+  if (copy) {
+    memcpy(copy, px, (size_t)w * h * 4);
+    if (depth != 32) { /* no alpha: over a neutral grey */
+      for (int i = 0; i < w * h; i++) {
+        const uint32_t c = copy[i], ia = 255 - (c >> 24);
+        uint32_t o = 0;
+        for (int k = 0; k < 24; k += 8) {
+          o |= ((((c >> k) & 255) + 0xEE * ia / 255) & 255) << k;
+        }
+        copy[i] = o;
+      }
+    }
+    XImage *img = XCreateImage(g_dpy, visual, (unsigned)depth, ZPixmap, 0, (char *)copy,
+                               (unsigned)w, (unsigned)h, 32, w * 4);
+    XMapWindow(g_dpy, win);
+    XRaiseWindow(g_dpy, win);
+    if (img) {
+      GC gc = XCreateGC(g_dpy, win, 0, NULL);
+      XPutImage(g_dpy, win, gc, img, 0, 0, 0, 0, (unsigned)w, (unsigned)h);
+      XFreeGC(g_dpy, gc);
+      img->data = NULL;
+      XFree(img);
+    }
+    free(copy);
+  }
+  return win;
+}
+
+int BK_window_drag_start(BKWindow *win, const BKClipItem *items, int n, const uint32_t *icon,
+                         int icon_w, int icon_h, int hot_x, int hot_y, int actions,
+                         BKDragDoneFn done, void *user)
+{
+  if (!win || !win->xid || g_dout.active) {
+    return 0;
+  }
+  transfer_atoms();
+  Window root, child;
+  int rx, ry, wx, wy;
+  unsigned mask = 0;
+  XQueryPointer(g_dpy, win->xid, &root, &child, &rx, &ry, &wx, &wy, &mask);
+  if (!(mask & (Button1Mask | Button2Mask | Button3Mask))) {
+    return 0; /* no press to drag from */
+  }
+  BKClipSet *set = bk_clipset_new(items, n);
+  if (!set) {
+    return 0;
+  }
+  if (XGrabPointer(g_dpy, win->xid, False, ButtonReleaseMask | PointerMotionMask, GrabModeAsync,
+                   GrabModeAsync, None, None, CurrentTime) != GrabSuccess)
+  {
+    bk_clipset_free(set);
+    return 0;
+  }
+  bk_clipset_free(g_dout.set);
+  memset(&g_dout, 0, sizeof(g_dout));
+  g_dout.active = 1;
+  g_dout.win = win;
+  g_dout.set = set;
+  g_dout.done = done;
+  g_dout.user = user;
+  g_dout.actions = actions ? actions : BK_DRAG_COPY;
+  g_dout.hot_x = hot_x;
+  g_dout.hot_y = hot_y;
+  XSetSelectionOwner(g_dpy, a_xdnd_selection, win->xid, CurrentTime);
+  if (icon && icon_w > 0 && icon_h > 0) {
+    g_dout.icon = drag_icon_window(icon, icon_w, icon_h, rx - hot_x, ry - hot_y);
+  }
+  BK_pointer_cancel(win->ctx);
+  xdnd_motion(rx, ry, CurrentTime);
+  return 1;
+}
+
+/* -- XDND: drops in -------------------------------------------------------- */
+
+static struct {
+  Window source;
+  BKWindow *win;
+  int version, uris, entered;
+  int x, y;
+} g_din;
+
+static int xdnd_has_uris(const XClientMessageEvent *cm)
+{
+  if (cm->data.l[1] & 1) { /* more than three types: the list */
+    Atom type;
+    int format;
+    unsigned long n, after;
+    unsigned char *prop = NULL;
+    int has = 0;
+    if (XGetWindowProperty(g_dpy, (Window)cm->data.l[0], a_xdnd_type_list, 0, 256, False,
+                           XA_ATOM, &type, &format, &n, &after, &prop) == Success &&
+        prop)
+    {
+      for (unsigned long i = 0; i < n; i++) {
+        has |= ((long *)prop)[i] == (long)a_uri_list;
+      }
+    }
+    if (prop) {
+      XFree(prop);
+    }
+    return has;
+  }
+  return cm->data.l[2] == (long)a_uri_list || cm->data.l[3] == (long)a_uri_list ||
+         cm->data.l[4] == (long)a_uri_list;
+}
+
+static void xdnd_status(int accept)
+{
+  XEvent ev;
+  memset(&ev, 0, sizeof(ev));
+  ev.xclient.type = ClientMessage;
+  ev.xclient.window = g_din.source;
+  ev.xclient.message_type = a_xdnd_status;
+  ev.xclient.format = 32;
+  ev.xclient.data.l[0] = (long)g_din.win->xid;
+  ev.xclient.data.l[1] = accept ? 1 : 0;
+  ev.xclient.data.l[4] = accept ? (long)a_xdnd_copy : 0;
+  XSendEvent(g_dpy, g_din.source, False, NoEventMask, &ev);
+  XFlush(g_dpy);
+}
+
+static int xdnd_client_message(XClientMessageEvent *cm)
+{
+  const Atom t = cm->message_type;
+  /* the target side: messages to one of our windows */
+  if (t == a_xdnd_enter || t == a_xdnd_position || t == a_xdnd_leave || t == a_xdnd_drop) {
+    BKWindow *win = find_window(cm->window);
+    if (!win) {
+      return 1;
+    }
+    if (t == a_xdnd_enter) {
+      g_din.source = (Window)cm->data.l[0];
+      g_din.win = win;
+      g_din.version = (int)((unsigned long)cm->data.l[1] >> 24);
+      g_din.uris = xdnd_has_uris(cm);
+      g_din.entered = 0;
+      return 1;
+    }
+    if (g_din.win != win || g_din.source != (Window)cm->data.l[0]) {
+      return 1;
+    }
+    if (t == a_xdnd_position) {
+      const int rx = (int)((unsigned long)cm->data.l[2] >> 16), ry = (int)(cm->data.l[2] & 0xFFFF);
+      Window child;
+      XTranslateCoordinates(g_dpy, DefaultRootWindow(g_dpy), win->xid, rx, ry, &g_din.x,
+                            &g_din.y, &child);
+      int accept = 0;
+      if (g_din.uris) {
+        accept = BK_drop(win->ctx, g_din.entered ? BK_DROP_MOTION : BK_DROP_ENTER, g_din.x,
+                         g_din.y, NULL);
+        g_din.entered = 1;
+      }
+      xdnd_status(accept);
+      return 1;
+    }
+    if (t == a_xdnd_leave) {
+      if (g_din.entered) {
+        BK_drop(win->ctx, BK_DROP_LEAVE, g_din.x, g_din.y, NULL);
+      }
+      memset(&g_din, 0, sizeof(g_din));
+      return 1;
+    }
+    /* XdndDrop: the files, then XdndFinished */
+    int ok = 0;
+    if (g_din.uris) {
+      size_t len = 0;
+      char *uris = NULL;
+      if (owned_by_us(a_xdnd_selection) && g_dout.set) { /* from ourselves */
+        const BKClipEntry *e = bk_clipset_get(g_dout.set, "text/uri-list");
+        uris = e ? (char *)bk_bytes_dup(e->data, e->len, &len) : NULL;
+      }
+      else {
+        int format;
+        uris = (char *)convert_read(win->xid, a_xdnd_selection, a_uri_list, (Time)cm->data.l[2],
+                                    &len, &format);
+      }
+      if (uris) {
+        ok = BK_drop(win->ctx, BK_DROP_DROP, g_din.x, g_din.y, uris);
+        free(uris);
+      }
+      if (g_din.entered) {
+        BK_drop(win->ctx, BK_DROP_LEAVE, g_din.x, g_din.y, NULL);
+      }
+    }
+    XEvent ev;
+    memset(&ev, 0, sizeof(ev));
+    ev.xclient.type = ClientMessage;
+    ev.xclient.window = g_din.source;
+    ev.xclient.message_type = a_xdnd_finished;
+    ev.xclient.format = 32;
+    ev.xclient.data.l[0] = (long)win->xid;
+    ev.xclient.data.l[1] = ok ? 1 : 0;
+    ev.xclient.data.l[2] = ok ? (long)a_xdnd_copy : 0;
+    XSendEvent(g_dpy, g_din.source, False, NoEventMask, &ev);
+    XFlush(g_dpy);
+    win->render_pending = 1;
+    memset(&g_din, 0, sizeof(g_din));
+    return 1;
+  }
+  /* the source side: answers to our drag */
+  if (t == a_xdnd_status && g_dout.active && (Window)cm->data.l[0] == g_dout.target) {
+    g_dout.accepted = (cm->data.l[1] & 1) != 0;
+    g_dout.action = (Atom)cm->data.l[4];
+    g_dout.waiting = 0;
+    if (g_dout.pending && !g_dout.dropped) {
+      xdnd_position();
+      XFlush(g_dpy);
+    }
+    return 1;
+  }
+  if (t == a_xdnd_finished && g_dout.active && (Window)cm->data.l[0] == g_dout.target) {
+    const int ok = g_dout.version < 5 || (cm->data.l[1] & 1);
+    const Atom a = g_dout.version >= 5 ? (Atom)cm->data.l[2] : g_dout.action;
+    xdnd_end(!ok ? BK_DRAG_NONE : a == a_xdnd_move ? BK_DRAG_MOVE : BK_DRAG_COPY);
+    return 1;
+  }
+  return 0;
+}
+
+/* Events of the transfers; 1 when handled. */
+static int x11_transfer_event(XEvent *ev)
+{
+  transfer_atoms();
+  switch (ev->type) {
+    case SelectionRequest:
+      answer_request(&ev->xselectionrequest);
+      return 1;
+    case SelectionClear:
+      if (ev->xselectionclear.selection == a_xdnd_selection && !g_dout.active) {
+        bk_clipset_free(g_dout.set);
+        g_dout.set = NULL;
+      }
+      return 1;
+    case PropertyNotify:
+      return incr_property(&ev->xproperty);
+    case ClientMessage:
+      return xdnd_client_message(&ev->xclient);
+    case MotionNotify:
+      if (g_dout.active && !g_dout.dropped) {
+        xdnd_motion(ev->xmotion.x_root, ev->xmotion.y_root, ev->xmotion.time);
+        return 1;
+      }
+      return 0;
+    case ButtonPress:
+      return g_dout.active && !g_dout.dropped;
+    case ButtonRelease:
+      if (g_dout.active && !g_dout.dropped) {
+        xdnd_release(ev->xbutton.time);
+        return 1;
+      }
+      return 0;
+    case KeyPress:
+      if (g_dout.active && !g_dout.dropped) {
+        char text[8];
+        KeySym sym = 0;
+        XLookupString(&ev->xkey, text, sizeof(text), &sym, NULL);
+        if (sym == XK_Escape) {
+          if (g_dout.target) {
+            xdnd_send(g_dout.target, a_xdnd_leave, 0, 0, 0, 0);
+          }
+          xdnd_end(BK_DRAG_NONE);
+        }
+        return 1;
+      }
+      return 0;
+    default:
+      /* a target that never finishes doesn't hold the drag forever */
+      if (g_dout.active && g_dout.dropped && now_ms() - g_dout.drop_at > 5000) {
+        xdnd_end(BK_DRAG_NONE);
+      }
+      return 0;
   }
 }
 

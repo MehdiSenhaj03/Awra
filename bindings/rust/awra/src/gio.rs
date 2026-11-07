@@ -549,8 +549,10 @@ impl Application {
         self.0.installed.borrow_mut().insert(key, ids);
     }
     /// Runs the main loop until the last window closes or `quit`.
+    /// Activates (connect_activate's handlers, as GApplication::run does),
+    /// then runs the loop.
     pub fn run(&self) {
-        crate::run();
+        self.run_with_args::<&str>(&[]);
     }
     pub fn quit(&self) {
         crate::quit();

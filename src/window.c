@@ -438,6 +438,7 @@ static void pointer_hook(BKContext *ctx, int kind, int x, int y, int mods)
   }
   WinExt *wx = WEXT(win);
   if (kind == BK_EV_MOTION || kind == BK_EV_LEAVE) {
+    awra_drag_icon_pointer(win, x, y, kind == BK_EV_LEAVE); /* transfer.c */
     update_hover(win, x, y, kind == BK_EV_LEAVE);
     return;
   }
@@ -994,6 +995,11 @@ static AwraWidget *window_create(const char *title, int width, int height, bool 
   awra_window_set_titlebar(w, header);
   awra_widget_unref(header); /* the window's slot holds it */
   return w;
+}
+
+BKWindow *awra_window_bkw(AwraWidget *w)
+{
+  return awra_widget_is(w, "AwraWindow") ? WEXT(w)->bkw : NULL;
 }
 
 AwraWidget *awra_window_new(const char *title, int width, int height)
