@@ -908,6 +908,11 @@ AwraTexture *awra_texture_new_for_text(const char *text)
 AwraTexture *awra_texture_new_for_icon(const char *icon_name, int size)
 {
   const int px = awra_px(size > 0 ? size : 32);
+  /* a full-colour icon as it is */
+  const BuiPixmap *pm = icon_name && !strstr(icon_name, "-symbolic") ? awra_icon_pixmap(icon_name, px) : NULL;
+  if (pm && pm->px && pm->format == BUI_PIXMAP_ARGB) {
+    return awra_texture_new_argb(pm->px, pm->w, pm->h);
+  }
   const AwraIconMask *m = icon_name ? awra_icon_mask(icon_name, px) : NULL;
   if (!m || !m->a) {
     return NULL;

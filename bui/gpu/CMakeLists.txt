@@ -63,6 +63,38 @@ if(BUI_TEXT_FREETYPE AND NOT BUI_TEXT_GDI)
     "FT_CONFIG_MODULES_H=<bui_ftmodule.h>"
   )
 endif()
+# BUI-Awra: bidi and shaping as Pango does them, the same on every platform:
+# HarfBuzz (extern/harfbuzz, 14.6.0 as GTK 4.22 uses it: one translation
+# unit, HB_LEAN plus what text needs, see src/hb-bui-config.h) and FriBidi
+# (extern/fribidi, 1.0.16, its bidi algorithm only). Both are compiled into
+# bui_gpu with hidden symbols, so a process that also loads the system's
+# libraries keeps them apart.
+set(HB ${CMAKE_CURRENT_SOURCE_DIR}/extern/harfbuzz/src)
+set(FRIBIDI ${CMAKE_CURRENT_SOURCE_DIR}/extern/fribidi)
+set(FRIBIDI_SRC
+  ${FRIBIDI}/fribidi-bidi.c ${FRIBIDI}/fribidi-bidi-types.c ${FRIBIDI}/fribidi-brackets.c
+  ${FRIBIDI}/fribidi-mirroring.c ${FRIBIDI}/fribidi-run.c
+)
+target_sources(bui_gpu PRIVATE ${HB}/hb-bui.cc ${FRIBIDI_SRC})
+target_include_directories(bui_gpu PRIVATE ${HB} ${FRIBIDI})
+target_compile_definitions(bui_gpu PRIVATE FRIBIDI_LIB_STATIC)
+set_source_files_properties(${HB}/hb-bui.cc PROPERTIES COMPILE_DEFINITIONS
+  "HB_LEAN;HB_CONFIG_OVERRIDE_H=\"hb-bui-config.h\"")
+set_source_files_properties(${FRIBIDI_SRC} PROPERTIES COMPILE_DEFINITIONS
+  "FRIBIDI_BUILD;HAVE_STRINGIZE=1;HAVE_STDLIB_H=1;HAVE_STRING_H=1;HAVE_MEMORY_H=1")
+if(MSVC)
+  set_source_files_properties(${HB}/hb-bui.cc PROPERTIES COMPILE_OPTIONS "/w;/GR-")
+  set_source_files_properties(${FRIBIDI_SRC} PROPERTIES COMPILE_OPTIONS "/w")
+else()
+  set_source_files_properties(${HB}/hb-bui.cc PROPERTIES COMPILE_OPTIONS
+    "-w;-std=c++11;-fno-exceptions;-fno-rtti;-fvisibility=hidden;-fvisibility-inlines-hidden")
+  set_source_files_properties(${FRIBIDI_SRC} PROPERTIES COMPILE_OPTIONS "-w;-fvisibility=hidden")
+endif()
+if(NOT WIN32)
+  find_package(Threads REQUIRED)
+  target_link_libraries(bui_gpu PRIVATE Threads::Threads)
+endif()
+
 if(WIN32)
   # gpu_raster.c: GDI glyph-run text engine + native window present.
   target_link_libraries(bui_gpu PUBLIC gdi32 user32 advapi32)

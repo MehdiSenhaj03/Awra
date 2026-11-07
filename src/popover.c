@@ -28,6 +28,8 @@ typedef struct PopExt {
   bool anchor_weak;        /* the anchor owns it (a menu button): not referenced */
   AwraWidget *relative;    /* popup_at: a point of this widget */
   double at_x, at_y;
+  bool pointing;           /* point_to: centred under the point, as GtkPopover's pointing-to */
+  AwraWidget *return_focus; /* where the keyboard was before it took it (held while open) */
   int side;                /* 0 bottom 1 top 2 start 3 end */
   bool open, centered, modal_scrim;
   float unfold;            /* 0..1 */
@@ -180,9 +182,17 @@ static void pop_layout(AwraWidget *w, int nw, int nh, int win_w, int win_h, BKPo
     return;
   }
   const float s = awra_scale();
-  if (x->relative) { /* popup_at: the point */
+  if (x->relative) { /* popup_at / point_to: the point */
     l->anchor = bk_rect(parent->x + (int)floor(x->at_x * s), parent->y + (int)floor(x->at_y * s), 1,
                         1);
+    if (!x->pointing) {
+      /* popup_at: its corner at the point (below it, or above it for side
+       * 1, a caret), flipped and slid to stay on the work area */
+      l->rect_anchor = BK_GRAVITY_NORTH_WEST;
+      l->surface_anchor = x->side == 1 ? BK_GRAVITY_SOUTH_WEST : BK_GRAVITY_NORTH_WEST;
+      l->hints = BK_ANCHOR_FLIP | BK_ANCHOR_SLIDE | BK_ANCHOR_RESIZE;
+      return;
+    }
   }
   else if (x->pt_w >= 0 && x->pt_h >= 0 && !x->submenu_row) {
     const int ax = parent->x + (int)floor(x->pt_x * s), ay = parent->y + (int)floor(x->pt_y * s);
@@ -324,9 +334,21 @@ static void pop_closed(BKNode *n)
     }
     awra_invalidate(x->submenu_row);
   }
+  /* the keyboard was inside: it goes back where it was before (GTK) */
+  AwraWidget *back = x->return_focus;
+  x->return_focus = NULL;
+  AwraWidget *bwin = back ? awra_window_of(back) : NULL;
+  AwraWidget *now = bwin ? awra_focus_of(bwin) : NULL;
+  const bool inside = !now || within(now, w);
   x->open = false;
   awra_map_tree(w, false);
   w->parent = NULL;
+  if (back) {
+    if (inside && bwin && awra_widget_mapped(back)) {
+      awra_set_focus(bwin, back, now ? awra_aux(now)->focus_visible : false);
+    }
+    awra_widget_unref(back);
+  }
   awra_emit_simple(w, AWRA_SIGNAL_HIDE);
   if (x->anchor) {
     awra_invalidate(x->anchor);
@@ -462,6 +484,13 @@ static void popup_with(AwraWidget *w, AwraWidget *owner)
    * ring shown, as GTK's popovers take the focus) */
   AwraWidget *win = awra_window_of(owner);
   if (win) {
+    /* where the keyboard is now: it goes back there if it is inside the
+     * popover when it closes, as with GTK's */
+    AwraWidget *before = awra_focus_of(win);
+    if (before && !within(before, w) && !x->return_focus) {
+      x->return_focus = before;
+      awra_widget_ref(before);
+    }
     AwraWidget *f = awra_first_focusable(w);
     const bool keyboard = awra_focus_visible(owner);
     if (f && ((AWRA_CLASS_OF(f)->flags & AWRA_CLASS_TEXT_INPUT) || keyboard)) {
@@ -474,6 +503,7 @@ void awra_popover_popup(AwraWidget *w)
 {
   PopExt *x = POPX(w);
   x->relative = NULL;
+  x->pointing = false;
   popup_with(w, x->anchor);
 }
 
@@ -483,6 +513,17 @@ void awra_popover_popup_at(AwraWidget *w, AwraWidget *relative, double px, doubl
   x->relative = relative;
   x->at_x = px;
   x->at_y = py;
+  x->pointing = false;
+  popup_with(w, relative);
+}
+
+void awra_popover_point_to(AwraWidget *w, AwraWidget *relative, double px, double py)
+{
+  PopExt *x = POPX(w);
+  x->relative = relative;
+  x->at_x = px;
+  x->at_y = py;
+  x->pointing = true;
   popup_with(w, relative);
 }
 
@@ -1464,7 +1505,7 @@ static void ctx_pressed(AwraWidget *w, const AwraArgs *a, void *data)
     return;
   }
   AwraWidget *pop = awra_menu_popover_new(c->items, c->n);
-  awra_popover_popup_at(pop, w, a->x, a->y);
+  awra_popover_point_to(pop, w, a->x, a->y); /* Awra 1: pointing at the click, below it */
   awra_widget_unref(pop);
   *a->handled = true;
 }
@@ -2008,6 +2049,13 @@ static void palette_enter(AwraWidget *e, const AwraArgs *a, void *data)
   }
 }
 
+static void palette_escape(AwraWidget *e, const AwraArgs *a, void *data)
+{
+  (void)e;
+  (void)a;
+  awra_command_palette_close((AwraWidget *)data);
+}
+
 static void palette_free(void *v)
 {
   PaletteData *p = (PaletteData *)v;
@@ -2034,6 +2082,9 @@ AwraWidget *awra_command_palette_new(void)
   awra_search_entry_set_delay(p->entry, 0);
   awra_signal_connect(p->entry, AWRA_SIGNAL_CHANGED, palette_search, w, NULL);
   awra_signal_connect(p->entry, AWRA_SIGNAL_ACTIVATE, palette_enter, w, NULL);
+  /* Escape closes it, whatever was typed (Awra 1's palette) */
+  awra_search_entry_set_escape_stops(p->entry, true);
+  awra_signal_connect(p->entry, AWRA_SIGNAL_STOP_SEARCH, palette_escape, w, NULL);
   awra_box_append(w, p->entry);
   awra_widget_unref(p->entry); /* its parent holds it */
   AwraWidget *scroll = awra_scrolled_new();

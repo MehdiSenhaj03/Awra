@@ -56,6 +56,7 @@
 #  include "wayland/viewporter-client.h"
 #  include "wayland/xdg-decoration-unstable-v1-client.h"
 #  include "wayland/xdg-activation-v1-client.h"
+#  include "wayland/xdg-foreign-unstable-v2-client.h"
 #  include "wayland/xdg-shell-client.h"
 #  include "wayland/xdg-toplevel-icon-v1-client.h"
 
@@ -91,6 +92,8 @@ struct BKWindow {
   struct xdg_surface *xdg_surface;
   struct xdg_toplevel *toplevel;
   struct zxdg_toplevel_decoration_v1 *deco;
+  char *parent_handle;                  /* BUI-Awra: xdg-foreign, another client's window above which it stays */
+  struct zxdg_imported_v2 *imported;
   struct wp_viewport *viewport;
   struct wp_fractional_scale_v1 *fscale;
   struct ext_background_effect_surface_v1 *effect;
@@ -153,6 +156,7 @@ static int g_effect_caps = -1; /* -1 not announced yet */
 static struct org_kde_kwin_blur_manager *g_kblur_mgr;
 static struct zxdg_decoration_manager_v1 *g_deco_mgr;
 static struct xdg_activation_v1 *g_activation;           /* BUI-Awra */
+static struct zxdg_importer_v2 *g_importer;               /* BUI-Awra */
 static struct xdg_toplevel_icon_manager_v1 *g_icon_mgr; /* BUI-Awra */
 static char *g_startup_token; /* XDG_ACTIVATION_TOKEN the application started with */
 
@@ -1728,6 +1732,9 @@ static void registry_global(void *data, struct wl_registry *r, uint32_t name, co
   else if (!strcmp(iface, xdg_activation_v1_interface.name)) {
     BIND(g_activation, xdg_activation_v1_interface, 1);
   }
+  else if (!strcmp(iface, zxdg_importer_v2_interface.name)) {
+    BIND(g_importer, zxdg_importer_v2_interface, 1);
+  }
   else if (!strcmp(iface, xdg_toplevel_icon_manager_v1_interface.name)) {
     BIND(g_icon_mgr, xdg_toplevel_icon_manager_v1_interface, 1);
   }
@@ -1799,6 +1806,7 @@ int BK_window_supported(void)
 }
 
 static void win_icon_apply(BKWindow *win);
+static void transient_apply(BKWindow *win);
 static void win_icon_free(BKWindow *win);
 
 static void map_window(BKWindow *win)
@@ -1815,6 +1823,7 @@ static void map_window(BKWindow *win)
     xdg_toplevel_set_app_id(win->toplevel, win->app_id);
   }
   win_icon_apply(win);
+  transient_apply(win);
   if (win->min_w > 0 || win->min_h > 0) {
     xdg_toplevel_set_min_size(win->toplevel, win->min_w, win->min_h);
   }
@@ -1850,6 +1859,10 @@ static void unmap_window(BKWindow *win)
   if (win->deco) {
     zxdg_toplevel_decoration_v1_destroy(win->deco);
     win->deco = NULL;
+  }
+  if (win->imported) {
+    zxdg_imported_v2_destroy(win->imported);
+    win->imported = NULL;
   }
   xdg_toplevel_destroy(win->toplevel);
   xdg_surface_destroy(win->xdg_surface);
@@ -1997,6 +2010,7 @@ void BK_window_free(BKWindow *win)
   BUI_raster_free(win->raster);
   free(win->title);
   free(win->app_id);
+  free(win->parent_handle);
   win_icon_free(win);
   free(win);
 }
@@ -2635,6 +2649,45 @@ static void token_done(void *data, struct xdg_activation_token_v1 *t, const char
   xdg_activation_token_v1_destroy(t);
 }
 static const struct xdg_activation_token_v1_listener g_token_listener = {token_done};
+
+/* BUI-Awra: the window stays above another client's (xdg-foreign v2: the
+ * handle that client exported, e.g. passed by the desktop portal). */
+static void imported_destroyed(void *data, struct zxdg_imported_v2 *imported)
+{
+  BKWindow *win = (BKWindow *)data;
+  if (win->imported == imported) {
+    win->imported = NULL;
+  }
+  zxdg_imported_v2_destroy(imported);
+}
+static const struct zxdg_imported_v2_listener g_imported_listener = {imported_destroyed};
+
+static void transient_apply(BKWindow *win)
+{
+  if (win->imported) {
+    zxdg_imported_v2_destroy(win->imported);
+    win->imported = NULL;
+  }
+  if (!g_importer || !win->toplevel || !win->parent_handle || !win->parent_handle[0]) {
+    return;
+  }
+  win->imported = zxdg_importer_v2_import_toplevel(g_importer, win->parent_handle);
+  zxdg_imported_v2_add_listener(win->imported, &g_imported_listener, win);
+  zxdg_imported_v2_set_parent_of(win->imported, win->surface);
+}
+
+void BK_window_set_transient_for_exported(BKWindow *win, const char *handle)
+{
+  if (!win) {
+    return;
+  }
+  free(win->parent_handle);
+  win->parent_handle = handle && handle[0] ? strdup(handle) : NULL;
+  if (win->toplevel) {
+    transient_apply(win);
+    wl_display_flush(g_dpy);
+  }
+}
 
 void BK_window_activate(BKWindow *win, const char *startup_id)
 {

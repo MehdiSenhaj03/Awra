@@ -12,6 +12,7 @@
 
 #include "awra-private.h"
 
+#include <stdarg.h>
 #include <stdio.h>
 #ifdef _WIN32
 #  ifndef WIN32_LEAN_AND_MEAN
@@ -28,6 +29,20 @@ static char *g_default_icon;
 static const int k_sizes[] = {16, 24, 32, 48, 64, 128};
 #define N_SIZES (int)(sizeof(k_sizes) / sizeof(k_sizes[0]))
 
+/* Formats a path into `out`: false when it doesn't fit (the lookup is then
+ * skipped, never made with a truncated path). */
+#if defined(__GNUC__)
+__attribute__((format(printf, 3, 4)))
+#endif
+static bool path_fmt(char *out, size_t cap, const char *fmt, ...)
+{
+  va_list ap;
+  va_start(ap, fmt);
+  const int n = vsnprintf(out, cap, fmt, ap);
+  va_end(ap);
+  return n >= 0 && (size_t)n < cap;
+}
+
 /* The icon theme folders, most specific first (XDG on Linux; beside the
  * executable on Windows, as GTK ships them there). */
 static int icon_dirs(char dirs[][512], int max)
@@ -40,9 +55,9 @@ static int icon_dirs(char dirs[][512], int max)
     char *slash = strrchr(exe, '\\');
     if (slash) {
       *slash = 0;
-      snprintf(dirs[n++], 512, "%s/share/icons", exe);
+      n += path_fmt(dirs[n], 512, "%s/share/icons", exe);
       if (n < max) {
-        snprintf(dirs[n++], 512, "%s/../share/icons", exe);
+        n += path_fmt(dirs[n], 512, "%s/../share/icons", exe);
       }
     }
   }
@@ -50,13 +65,13 @@ static int icon_dirs(char dirs[][512], int max)
   const char *home = getenv("XDG_DATA_HOME");
   const char *h = getenv("HOME");
   if (home && home[0]) {
-    snprintf(dirs[n++], 512, "%s/icons", home);
+    n += path_fmt(dirs[n], 512, "%s/icons", home);
   }
   else if (h) {
-    snprintf(dirs[n++], 512, "%s/.local/share/icons", h);
+    n += path_fmt(dirs[n], 512, "%s/.local/share/icons", h);
   }
   if (h && n < max) {
-    snprintf(dirs[n++], 512, "%s/.icons", h);
+    n += path_fmt(dirs[n], 512, "%s/.icons", h);
   }
   const char *data = getenv("XDG_DATA_DIRS");
   if (!data || !data[0]) {
@@ -66,7 +81,7 @@ static int icon_dirs(char dirs[][512], int max)
     const char *e = strchr(p, ':');
     const int len = e ? (int)(e - p) : (int)strlen(p);
     if (len > 0) {
-      snprintf(dirs[n++], 512, "%.*s/icons", len, p);
+      n += path_fmt(dirs[n], 512, "%.*s/icons", len, p);
     }
     p += len + (e ? 1 : 0);
   }
@@ -120,18 +135,19 @@ static int icon_images(const char *name, uint32_t **px, int *sizes, bool *r_them
     BKImBuf *ib = NULL;
     for (int d = 0; d < nd && !ib; d++) {
       char path[1100];
-      snprintf(path, sizeof(path), "%s/hicolor/%dx%d/apps/%s.png", dirs[d], k_sizes[s], k_sizes[s],
-               name);
-      if (readable(path)) {
+      if (path_fmt(path, sizeof(path), "%s/hicolor/%dx%d/apps/%s.png", dirs[d], k_sizes[s],
+                   k_sizes[s], name) &&
+          readable(path))
+      {
         ib = BK_imbuf_load(path, k_sizes[s], k_sizes[s]);
         *r_themed = *r_themed || ib;
       }
-      if (!scalable[0]) {
-        snprintf(path, sizeof(path), "%s/hicolor/scalable/apps/%s.svg", dirs[d], name);
-        if (readable(path)) {
-          snprintf(scalable, sizeof(scalable), "%s", path);
-          *r_themed = true;
-        }
+      if (!scalable[0] &&
+          path_fmt(path, sizeof(path), "%s/hicolor/scalable/apps/%s.svg", dirs[d], name) &&
+          readable(path))
+      {
+        memcpy(scalable, path, sizeof(scalable));
+        *r_themed = true;
       }
     }
     if (!ib && scalable[0]) {
@@ -142,8 +158,7 @@ static int icon_images(const char *name, uint32_t **px, int *sizes, bool *r_them
     }
     if (!ib && nd && s == N_SIZES - 1 && n == 0) { /* last: /usr/share/pixmaps */
       char path[1100];
-      snprintf(path, sizeof(path), "/usr/share/pixmaps/%s.png", name);
-      if (readable(path)) {
+      if (path_fmt(path, sizeof(path), "/usr/share/pixmaps/%s.png", name) && readable(path)) {
         ib = BK_imbuf_load(path, 128, 128);
       }
     }
@@ -186,12 +201,12 @@ static void apply_icon(AwraWidget *win)
     const int nd = icon_dirs(dirs, 16);
     for (int d = 0; d < nd && !themed; d++) {
       char path[1100];
-      snprintf(path, sizeof(path), "%s/hicolor/scalable/apps/%s.svg", dirs[d], name);
-      themed = readable(path);
+      themed = path_fmt(path, sizeof(path), "%s/hicolor/scalable/apps/%s.svg", dirs[d], name) &&
+               readable(path);
       for (int s = 0; s < N_SIZES && !themed; s++) {
-        snprintf(path, sizeof(path), "%s/hicolor/%dx%d/apps/%s.png", dirs[d], k_sizes[s],
-                 k_sizes[s], name);
-        themed = readable(path);
+        themed = path_fmt(path, sizeof(path), "%s/hicolor/%dx%d/apps/%s.png", dirs[d],
+                          k_sizes[s], k_sizes[s], name) &&
+                 readable(path);
       }
     }
   }
@@ -251,11 +266,45 @@ void awra_window_set_startup_id(AwraWidget *win, const char *startup_id)
   awra_widget_set_data(win, "awra-startup-id", startup_id ? awra_strdup(startup_id) : NULL, free);
 }
 
+/* "wayland:<handle>" or "x11:<hex window id>", as the desktop portal names
+ * the window of the application that asks */
+static void transient_apply(AwraWidget *win, BKWindow *bkw)
+{
+  const char *parent = (const char *)awra_widget_get_data(win, "awra-transient-for");
+  const char *colon = parent ? strchr(parent, ':') : NULL;
+  if (!parent) {
+    BK_window_set_transient_for_exported(bkw, NULL);
+    return;
+  }
+  const bool wayland = !strncmp(parent, "wayland:", 8);
+  const bool x11 = !strncmp(parent, "x11:", 4);
+  const char *backend = BK_window_backend();
+  /* a handle for the other windowing system means nothing here */
+  if (colon && ((wayland && backend && !strcmp(backend, "wayland")) || (x11 && backend && !strcmp(backend, "x11")))) {
+    BK_window_set_transient_for_exported(bkw, colon + 1);
+  }
+}
+
+void awra_window_set_transient_for_exported(AwraWidget *win, const char *parent)
+{
+  if (!awra_widget_is(win, "AwraWindow")) {
+    return;
+  }
+  awra_widget_set_data(win, "awra-transient-for", parent && parent[0] ? awra_strdup(parent) : NULL, free);
+  BKWindow *bkw = awra_window_bkw(win);
+  if (bkw) {
+    transient_apply(win, bkw);
+  }
+}
+
 void awra_window_identity_present(AwraWidget *win)
 {
   BKWindow *bkw = awra_window_bkw(win);
   if (!bkw) {
     return;
+  }
+  if (awra_widget_get_data(win, "awra-transient-for")) {
+    transient_apply(win, bkw);
   }
   const char *id = (const char *)awra_widget_get_data(win, "awra-startup-id");
   BK_window_activate(bkw, id);

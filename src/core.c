@@ -1349,6 +1349,11 @@ AwraTypography awra_widget_typography(const AwraWidget *w)
   return AWRA_TYPOGRAPHY_BODY;
 }
 
+double awra_widget_opacity(AwraWidget *w)
+{
+  return w && awra_is_widget(w) ? awra_aux(w)->opacity : 1.0;
+}
+
 void awra_widget_set_opacity(AwraWidget *w, double opacity)
 {
   AUX_OR_RETURN(w);
@@ -1995,6 +2000,26 @@ void awra_bk_draw_tree(BKNode *n)
       const AwraRGBA tint = awra_with_alpha(awra_tokens()->foreground, 0.035f);
       awra_paint_rect(&g_draw, awra_box_of(n), &tint);
     }
+    /* any widget can show it takes a drop ("drop-target", awra.css's
+     * .awra-role-drop-zone:drop(active)) or opens under a held drag
+     * ("about-to-open": the accent pulses .10 → .32 every 300 ms; the
+     * application redraws it while it waits) */
+    static int drop_bit = -2, open_bit = -2;
+    if (drop_bit == -2) {
+      drop_bit = awra_class_bit("drop-target");
+      open_bit = awra_class_bit("about-to-open");
+    }
+    const bool opening = awra_has_class_bit(n, open_bit);
+    const bool dropping = !opening && awra_has_class_bit(n, drop_bit);
+    if (opening) {
+      const double ph = awra_style_reduced_motion() ? 0.5 : fmod(awra_now_ms(), 300.0) / 300.0;
+      const float k = (float)(1.0 - fabs(ph * 2.0 - 1.0));
+      const AwraRGBA pulse = awra_with_alpha(awra_tokens()->accent, 0.10f + 0.22f * k);
+      awra_paint_rbox(&g_draw, awra_box_of(n), awra_pxf(8), &pulse, 0, NULL);
+    }
+    else if (dropping) {
+      awra_paint_rbox(&g_draw, awra_box_of(n), awra_pxf(8), &awra_tokens()->selection, 0, NULL);
+    }
     if (c->draw) {
       c->draw(n, &g_draw);
     }
@@ -2013,6 +2038,10 @@ void awra_bk_draw_tree(BKNode *n)
     }
     if (c->draw_over) {
       c->draw_over(n, &g_draw);
+    }
+    if (dropping) {
+      const AwraBox b = awra_box_inset(awra_box_of(n), awra_pxf(1));
+      awra_paint_rbox(&g_draw, b, awra_pxf(7), NULL, awra_pxf(2), &awra_tokens()->focus_ring);
     }
   }
   g_draw.opacity = saved_opacity > 0.0f ? saved_opacity : 1.0f;

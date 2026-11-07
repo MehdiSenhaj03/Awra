@@ -2608,6 +2608,12 @@ void BK_window_set_icon(BKWindow *win, const char *name, const uint32_t *const *
   win->icon_small = small;
 }
 
+void BK_window_set_transient_for_exported(BKWindow *win, const char *handle)
+{
+  (void)win;
+  (void)handle; /* no portal on Windows */
+}
+
 void BK_window_activate(BKWindow *win, const char *startup_id)
 {
   (void)startup_id;
