@@ -1101,6 +1101,7 @@ static void stack_anim(AwraWidget *s, double t, void *data)
   if (t >= 1.0) {
     if (x->previous) {
       awra_widget_set_opacity(x->previous, 1.0);
+      awra_widget_remove_class(x->previous, "stack-leaving");
     }
     awra_widget_set_opacity(x->visible, 1.0);
     x->previous = NULL;
@@ -1119,8 +1120,14 @@ void awra_stack_set_visible_child(AwraWidget *s, AwraWidget *child)
   awra_anim_stop_for(s);
   if (x->previous) {
     awra_widget_set_opacity(x->previous, 1.0);
+    awra_widget_remove_class(x->previous, "stack-leaving");
   }
   x->previous = x->transition != AWRA_TRANSITION_NONE && awra_widget_mapped(s) ? x->visible : NULL;
+  if (x->previous) {
+    /* GtkStack unmaps the page it leaves and draws a snapshot of it: it
+     * takes no focus while it fades out */
+    awra_widget_add_class(x->previous, "stack-leaving");
+  }
   x->visible = child;
   stack_sync_visibility(s);
   awra_widget_queue_resize(s);

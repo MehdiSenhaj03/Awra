@@ -25,6 +25,7 @@ void awra_header_set_compact(AwraWidget *w, bool compact);
 typedef struct PopExt {
   AwraWidget *child;
   AwraWidget *anchor;      /* the widget it points at */
+  bool anchor_weak;        /* the anchor owns it (a menu button): not referenced */
   AwraWidget *relative;    /* popup_at: a point of this widget */
   double at_x, at_y;
   int side;                /* 0 bottom 1 top 2 start 3 end */
@@ -242,7 +243,7 @@ static void pop_finalize(AwraWidget *w)
 {
   PopExt *x = POPX(w);
   menu_hover_cancel(w);
-  if (x->anchor && !x->submenu_row) {
+  if (x->anchor && !x->submenu_row && !x->anchor_weak) {
     awra_widget_unref(x->anchor);
   }
 }
@@ -304,10 +305,26 @@ void awra_popover_set_anchor(AwraWidget *w, AwraWidget *anchor)
   if (anchor) {
     awra_widget_ref(anchor);
   }
-  if (x->anchor) {
+  if (x->anchor && !x->anchor_weak) {
     awra_widget_unref(x->anchor);
   }
   x->anchor = anchor;
+  x->anchor_weak = false;
+}
+
+/* The anchor owns the popover (a menu button holds it): a reference back
+ * would keep both alive forever. The owner clears it when it goes. */
+static void popover_set_owner(AwraWidget *w, AwraWidget *owner)
+{
+  PopExt *x = POPX(w);
+  if (x->anchor == owner && x->anchor_weak) {
+    return;
+  }
+  if (x->anchor && !x->anchor_weak) {
+    awra_widget_unref(x->anchor);
+  }
+  x->anchor = owner;
+  x->anchor_weak = true;
 }
 
 static void unfold_anim(AwraWidget *w, double t, void *data)
@@ -1185,7 +1202,7 @@ static void mb_clicked(AwraWidget *b, const AwraArgs *a, void *data)
     awra_popover_popdown(m->popover);
     return;
   }
-  awra_popover_set_anchor(m->popover, b);
+  popover_set_owner(m->popover, b);
   awra_popover_popup(m->popover);
 }
 
@@ -1193,6 +1210,9 @@ static void mb_free(void *p)
 {
   MenuBtnData *m = (MenuBtnData *)p;
   if (m->popover) {
+    if (POPX(m->popover)->anchor_weak) {
+      POPX(m->popover)->anchor = NULL; /* the button goes */
+    }
     awra_widget_unref(m->popover);
   }
   free(m);
@@ -1228,9 +1248,12 @@ void awra_menu_button_set_label(AwraWidget *b, const char *label)
     awra_widget_set_hexpand(m->label, true);
     m->chevron = awra_widget_new(&chev_class);
     awra_box_append(box, m->label);
+    awra_widget_unref(m->label); /* its parent holds it */
     awra_box_append(box, m->chevron);
+    awra_widget_unref(m->chevron); /* its parent holds it */
     awra_button_set_icon_name(b, NULL);
     awra_button_set_child(b, box);
+    awra_widget_unref(box); /* its parent holds it */
   }
   else {
     awra_label_set_text(m->label, label);
@@ -1245,9 +1268,12 @@ void awra_menu_button_set_popover(AwraWidget *b, AwraWidget *popover)
   }
   if (popover) {
     awra_widget_ref(popover);
-    awra_popover_set_anchor(popover, b);
+    popover_set_owner(popover, b);
   }
   if (m->popover) {
+    if (POPX(m->popover)->anchor == b && POPX(m->popover)->anchor_weak && m->popover != popover) {
+      POPX(m->popover)->anchor = NULL;
+    }
     awra_widget_unref(m->popover);
   }
   m->popover = popover;
@@ -1353,6 +1379,9 @@ static void drop_free(void *p)
   }
   free(d->items);
   if (d->popover) {
+    if (POPX(d->popover)->anchor_weak) {
+      POPX(d->popover)->anchor = NULL; /* the dropdown goes */
+    }
     awra_widget_unref(d->popover);
   }
   free(d);
@@ -1385,15 +1414,18 @@ static void drop_open(AwraWidget *w, const AwraArgs *a, void *data)
     RX(r)->handler = drop_row_activated;
     RX(r)->data = w;
     awra_box_append(box, r);
+    awra_widget_unref(r); /* its parent holds it */
   }
   AwraWidget *scroll = awra_scrolled_new();
   awra_scrolled_set_policy(scroll, AWRA_POLICY_NEVER, AWRA_POLICY_AUTOMATIC);
   awra_scrolled_set_propagate_natural(scroll, false, true);
   awra_scrolled_set_max_content_height(scroll, 280);
   awra_scrolled_set_child(scroll, box);
+  awra_widget_unref(box); /* its parent holds it */
   awra_widget_set_size_request(scroll, BK_MAX(160, awra_widget_width(w)), -1);
   awra_popover_set_child(pop, scroll);
-  awra_popover_set_anchor(pop, w);
+  awra_widget_unref(scroll); /* its parent holds it */
+  popover_set_owner(pop, w); /* the dropdown holds it */
   d->popover = pop;
   awra_popover_popup(pop);
 }
@@ -1410,9 +1442,14 @@ AwraWidget *awra_dropdown_new(const char *const *items, int n)
   awra_label_set_ellipsize(d->label, AWRA_ELLIPSIZE_END);
   awra_widget_set_hexpand(d->label, true);
   awra_box_append(box, d->label);
-  awra_box_append(box, awra_widget_new(&chev_class));
+  awra_widget_unref(d->label); /* its parent holds it */
+  AwraWidget *chevron = awra_widget_new(&chev_class);
+  awra_box_append(box, chevron);
+  awra_widget_unref(chevron); /* its parent holds it */
   awra_button_set_child(w, box);
-  awra_button_set_padding_internal(w, 11, 5, 96);
+  awra_widget_unref(box); /* its parent holds it */
+  /* awra.css: padding 5px 11px inside a 1 px transparent border: 34 px */
+  awra_button_set_padding_internal(w, 12, 6, 96);
   awra_signal_connect(w, AWRA_SIGNAL_CLICKED, drop_open, NULL, NULL);
   awra_dropdown_set_items(w, items, n);
   if (n > 0) {
@@ -1688,6 +1725,7 @@ unsigned awra_toast_overlay_show_with_action(AwraWidget *w, const char *title, c
   awra_label_set_weight(label, 600);
   awra_widget_set_margins(label, 8, 16, 8, 16);
   awra_box_append(box, label);
+  awra_widget_unref(label); /* its parent holds it */
   if (action) {
     AwraWidget *b = awra_button_new_with_label(action);
     awra_button_set_appearance(b, AWRA_BUTTON_GHOST);
@@ -1696,13 +1734,16 @@ unsigned awra_toast_overlay_show_with_action(AwraWidget *w, const char *title, c
     awra_widget_set_data(b, "awra-toast-id", (void *)(uintptr_t)t->id, NULL);
     awra_signal_connect(b, AWRA_SIGNAL_CLICKED, toast_action, w, NULL);
     awra_box_append(box, b);
+    awra_widget_unref(b); /* its parent holds it */
   }
   AWRA_EXT(t->surface, ToastSurfExt)->box = box;
   awra_child_insert(t->surface, box, -1);
+  awra_widget_unref(box); /* its parent holds it */
   /* newest first */
   t->next = x->toasts;
   x->toasts = t;
   awra_child_insert(w, t->surface, -1);
+  awra_widget_unref(t->surface); /* its parent holds it */
   awra_accessible_announce(t->surface, title, AWRA_ACCESSIBLE_ANNOUNCEMENT_PRIORITY_MEDIUM);
   if (timeout > 0) {
     ToastTimer *tt = (ToastTimer *)malloc(sizeof(ToastTimer));
@@ -1797,6 +1838,7 @@ static void palette_fill(AwraWidget *w)
       awra_label_set_xalign(h, 0.0f);
       awra_widget_set_margins(h, 12, 8, 4, 8);
       awra_box_append(p->list, h);
+      awra_widget_unref(h); /* its parent holds it */
     }
     AwraWidget *r = row_new(2, c->title, c->icon_name, c->accel, -1);
     RX(r)->index = i;
@@ -1807,6 +1849,7 @@ static void palette_fill(AwraWidget *w)
       RX(r)->selected = true;
     }
     awra_box_append(p->list, r);
+    awra_widget_unref(r); /* its parent holds it */
     shown++;
   }
   awra_widget_set_visible(p->empty, shown == 0);
@@ -1855,16 +1898,20 @@ AwraWidget *awra_command_palette_new(void)
   awra_signal_connect(p->entry, AWRA_SIGNAL_CHANGED, palette_search, w, NULL);
   awra_signal_connect(p->entry, AWRA_SIGNAL_ACTIVATE, palette_enter, w, NULL);
   awra_box_append(w, p->entry);
+  awra_widget_unref(p->entry); /* its parent holds it */
   AwraWidget *scroll = awra_scrolled_new();
   awra_scrolled_set_policy(scroll, AWRA_POLICY_NEVER, AWRA_POLICY_AUTOMATIC);
   awra_widget_set_vexpand(scroll, true);
   p->list = awra_box_new(AWRA_ORIENTATION_VERTICAL, 0);
   awra_scrolled_set_child(scroll, p->list);
+  awra_widget_unref(p->list); /* its parent holds it */
   awra_box_append(w, scroll);
+  awra_widget_unref(scroll); /* its parent holds it */
   p->empty = awra_label_new("No matching command");
   awra_widget_set_typography(p->empty, AWRA_TYPOGRAPHY_MUTED);
   awra_widget_set_visible(p->empty, false);
   awra_box_append(w, p->empty);
+  awra_widget_unref(p->empty); /* its parent holds it */
   return w;
 }
 
@@ -1981,7 +2028,9 @@ AwraWidget *awra_dialog_new(const char *title)
   awra_widget_set_halign(d->responses, AWRA_ALIGN_END);
   awra_widget_set_visible(d->responses, false);
   awra_box_append(d->body, d->responses);
+  awra_widget_unref(d->responses); /* its parent holds it */
   awra_window_set_child(win, d->body);
+  awra_widget_unref(d->body); /* its parent holds it */
   return win;
 }
 
@@ -2012,6 +2061,7 @@ void awra_dialog_set_body(AwraWidget *w, const char *text)
   awra_label_set_xalign(l, 0.0f);
   awra_widget_set_margins(l, 4, 16, 0, 16);
   awra_dialog_set_child(w, l);
+  awra_widget_unref(l); /* its parent holds it */
 }
 
 static void dialog_response(AwraWidget *b, const AwraArgs *a, void *data)
@@ -2033,6 +2083,7 @@ void awra_dialog_add_response(AwraWidget *w, int response, const char *label,
   awra_widget_set_data(b, "awra-response", (void *)(intptr_t)response, NULL);
   awra_signal_connect(b, AWRA_SIGNAL_CLICKED, dialog_response, w, NULL);
   awra_box_append(d->responses, b);
+  awra_widget_unref(b); /* its parent holds it */
   awra_widget_set_visible(d->responses, true);
 }
 

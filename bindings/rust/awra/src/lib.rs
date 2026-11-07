@@ -28,6 +28,7 @@ mod widgets;
 mod collection;
 mod window;
 mod video;
+mod dnd;
 mod transfer;
 pub mod gdk;
 pub mod gio;

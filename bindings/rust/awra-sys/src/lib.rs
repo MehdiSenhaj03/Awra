@@ -661,6 +661,7 @@ extern "C" {
     pub fn awra_slider_set_orientation(slider: *mut AwraWidget, orientation: c_int);
     pub fn awra_slider_add_mark(slider: *mut AwraWidget, value: f64);
     pub fn awra_slider_clear_marks(slider: *mut AwraWidget);
+    pub fn awra_slider_set_draw_value(slider: *mut AwraWidget, draw: bool, digits: c_int);
     pub fn awra_spin_button_new(min: f64, max: f64, step: f64) -> *mut AwraWidget;
     pub fn awra_spin_button_set_value(spin: *mut AwraWidget, value: f64);
     pub fn awra_spin_button_value(spin: *mut AwraWidget) -> f64;
@@ -1302,4 +1303,6 @@ extern "C" {
     pub fn awra_window_icon_name(window: *mut AwraWidget) -> *const c_char;
     pub fn awra_window_set_default_icon_name(name: *const c_char);
     pub fn awra_window_set_startup_id(window: *mut AwraWidget, startup_id: *const c_char);
+    pub fn awra_widget_set_drop_active(widget: *mut AwraWidget, active: bool);
+    pub fn awra_widget_drop_active(widget: *mut AwraWidget) -> bool;
 }

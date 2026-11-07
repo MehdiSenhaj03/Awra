@@ -205,6 +205,7 @@ void awra_check_button_set_label(AwraWidget *w, const char *label)
     x->label = awra_label_new(label);
     awra_label_set_xalign(x->label, 0.0f);
     awra_child_insert(w, x->label, -1);
+    awra_widget_unref(x->label); /* its parent holds it */
   }
   else {
     awra_label_set_text(x->label, label);
@@ -368,13 +369,53 @@ typedef struct SliderExt {
   bool dragging;
   double marks[8]; /* values ticked under (beside) the trough */
   int nmarks;
+  int digits; /* GtkScale:draw-value: the value above, with these decimals; -1 none */
 } SliderExt;
 
 #define SLX(w) AWRA_EXT(w, SliderExt)
 
+/* GtkScale's value text: "%.*f" of the value (C locale) */
+static int slider_value_text(const SliderExt *x, double v, char *buf, size_t size)
+{
+  int n = snprintf(buf, size, "%.*f", x->digits, v);
+  if (n > 1 && buf[0] == '-' && strspn(buf + 1, "0.") == (size_t)(n - 1)) {
+    memmove(buf, buf + 1, (size_t)n); /* weed_out_neg_zero */
+    n--;
+  }
+  return n;
+}
+
+/* Value text above a horizontal slider (GTK_POS_TOP): its line, then the
+ * range, whose trough sits at the bottom (GtkScale with draw-value under
+ * GTK's default theme and awra.css: a 17 px value line makes it 35 px). */
+static int slider_value_height(const AwraWidget *w)
+{
+  const SliderExt *x = SLX(w);
+  if (x->digits < 0 || x->orientation != AWRA_ORIENTATION_HORIZONTAL) {
+    return 0;
+  }
+  AwraFont f = awra_font_for(AWRA_TYPOGRAPHY_BODY);
+  return (int)ceilf(awra_font_line_height(&f));
+}
+
 static void slider_measure(AwraWidget *w, int o, int for_size, int *r_min, int *r_nat)
 {
   const bool along = o == SLX(w)->orientation;
+  const int vh = slider_value_height(w);
+  if (vh && along) {
+    /* as wide as the widest value it shows */
+    const SliderExt *x = SLX(w);
+    AwraFont f = awra_font_for(AWRA_TYPOGRAPHY_BODY);
+    char a[64], b[64];
+    const int na = slider_value_text(x, x->min, a, sizeof(a)), nb = slider_value_text(x, x->max, b, sizeof(b));
+    const int tw = (int)ceilf(fmaxf(awra_text_width(&f, a, na), awra_text_width(&f, b, nb)));
+    *r_min = *r_nat = BK_MAX(awra_px(15), tw);
+    return;
+  }
+  if (vh) {
+    *r_min = *r_nat = vh + awra_px(18);
+    return;
+  }
   *r_min = *r_nat = along ? awra_px(15) : awra_px(19) + (SLX(w)->nmarks ? awra_px(8) : 0);
 }
 
@@ -397,7 +438,8 @@ static void slider_draw(AwraWidget *w, AwraDraw *d)
   const float frac = (float)slider_frac(w);
   /* marks take a strip after the trough */
   const int mk = x->nmarks ? awra_px(8) : 0;
-  AwraBox trough = horiz ? (AwraBox){(float)w->x, (float)w->y + floorf((w->h - mk - th) * 0.5f), (float)w->w, th} :
+  const int vh = slider_value_height(w);
+  AwraBox trough = horiz ? (AwraBox){(float)w->x, vh ? (float)(w->y + w->h) - th : (float)w->y + floorf((w->h - mk - th) * 0.5f), (float)w->w, th} :
                            (AwraBox){(float)w->x + floorf((w->w - mk - th) * 0.5f), (float)w->y, th, (float)w->h};
   for (int i = 0; i < x->nmarks; i++) {
     const double f = x->max > x->min ? (x->marks[i] - x->min) / (x->max - x->min) : 0;
@@ -432,6 +474,17 @@ static void slider_draw(AwraWidget *w, AwraDraw *d)
   const AwraRGBA shadow = {0, 0, 0, 0.30f}, edge = {0, 0, 0, 0.12f};
   awra_paint_shadow(d, thumb, ts * 0.5f, 0, awra_pxf(2), 0, awra_pxf(6), &shadow, true);
   awra_paint_rbox(d, thumb, ts * 0.5f, &t->control_thumb, awra_pxf(1), &edge);
+  if (vh) {
+    /* scale > value { color: alpha(currentColor, .55) }, centered on the
+     * thumb and kept inside the slider */
+    char buf[64];
+    const int n = slider_value_text(x, x->value, buf, sizeof(buf));
+    AwraFont f = awra_font_for(AWRA_TYPOGRAPHY_BODY);
+    const float tw = ceilf(awra_text_width(&f, buf, n));
+    const float tx = fminf(fmaxf((float)w->x, floorf(cxy - tw * 0.5f)), (float)(w->x + w->w) - tw);
+    const AwraRGBA c = awra_with_alpha(t->foreground, 0.55f);
+    awra_draw_text(d, &f, tx, (float)w->y + floorf(awra_font_ascent(&f) + 0.5f), buf, n, &c);
+  }
   d->opacity = saved;
 }
 
@@ -585,7 +638,15 @@ AwraWidget *awra_slider_new(double min, double max, double step)
   x->max = max > min ? max : min + 1;
   x->step = step;
   x->value = min;
+  x->digits = -1;
   return w;
+}
+
+void awra_slider_set_draw_value(AwraWidget *w, bool draw, int digits)
+{
+  SLX(w)->digits = draw ? BK_CLAMP(digits, 0, 10) : -1;
+  awra_widget_queue_resize(w);
+  awra_invalidate(w);
 }
 
 void awra_slider_set_value(AwraWidget *w, double v)
@@ -681,7 +742,9 @@ AwraWidget *awra_volume_control_new(void)
   awra_widget_set_hexpand(x->slider, true);
   awra_widget_set_valign(x->slider, AWRA_ALIGN_CENTER);
   awra_box_append(w, x->button);
+  awra_widget_unref(x->button); /* its parent holds it */
   awra_box_append(w, x->slider);
+  awra_widget_unref(x->slider); /* its parent holds it */
   awra_signal_connect(x->slider, AWRA_SIGNAL_VALUE_CHANGED, volume_slider_changed, w, NULL);
   awra_signal_connect(x->button, AWRA_SIGNAL_CLICKED, volume_button_clicked, w, NULL);
   awra_slider_set_value(x->slider, 1.0);
@@ -765,6 +828,7 @@ AwraWidget *awra_segmented_control_new(void)
   x->box = awra_box_new(AWRA_ORIENTATION_HORIZONTAL, 0);
   x->selected = -1;
   awra_child_insert(w, x->box, -1);
+  awra_widget_unref(x->box); /* its parent holds it */
   awra_widget_set_halign(w, AWRA_ALIGN_START);
   return w;
 }
@@ -798,6 +862,7 @@ int awra_segmented_control_append(AwraWidget *w, const char *label, const char *
     awra_toggle_button_set_group(b, x->box->kids[0]);
   }
   awra_box_append(x->box, b);
+  awra_widget_unref(b); /* its parent holds it */
   awra_signal_connect(b, AWRA_SIGNAL_TOGGLED, seg_toggled, w, NULL);
   const int index = x->box->nkids - 1;
   if (index == 0) {

@@ -711,6 +711,9 @@ void awra_slider_set_orientation(AwraWidget *slider, AwraOrientation orientation
 /* A tick under the trough at a value (GtkScale's marks; up to 8). */
 void awra_slider_add_mark(AwraWidget *slider, double value);
 void awra_slider_clear_marks(AwraWidget *slider);
+/* GtkScale:draw-value: the value written above a horizontal slider with
+ * `digits` decimals (GTK's default: 1). */
+void awra_slider_set_draw_value(AwraWidget *slider, bool draw, int digits);
 
 AwraWidget *awra_spin_button_new(double min, double max, double step);
 void awra_spin_button_set_value(AwraWidget *spin, double value);
@@ -2011,6 +2014,15 @@ void awra_window_set_default_icon_name(const char *name);
  * a window shown already, it brings that window forward now. Without one,
  * the first window shown uses DESKTOP_STARTUP_ID / XDG_ACTIVATION_TOKEN. */
 void awra_window_set_startup_id(AwraWidget *window, const char *startup_id);
+
+/* ----------------------------------------------------------------------- */
+/* Drag and drop within the application */
+
+/* GTK's :drop(active): the widget is the destination a drag hovers (drawn
+ * as GTK's default theme does, a 1 px ring of the drop colour). */
+void awra_widget_set_drop_active(AwraWidget *widget, bool active);
+bool awra_widget_drop_active(AwraWidget *widget);
+
 
 #ifdef __cplusplus
 }

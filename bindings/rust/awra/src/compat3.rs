@@ -380,7 +380,11 @@ pub struct Drag;
 struct Dragging {
     value: Value,
     source: DragSource,
-    over: Option<(Widget, crate::DropTarget)>,
+    widget: Widget,
+    /// The destination under the pointer, and whether it takes the drag.
+    over: Option<(Widget, crate::DropTarget, bool)>,
+    /// Escape on the window cancels the drag (GTK).
+    escape: Option<(Widget, crate::SignalHandlerId)>,
     /// the image under the pointer (texture, hot spot in its pixels)
     icon: Option<(Texture, i32, i32)>,
     /// handed to the system's drag (the pointer left the window)
@@ -404,10 +408,14 @@ struct SourceInner {
     press: Cell<Option<(f64, f64)>>,
     icon: RefCell<Option<(Paintable, i32, i32)>>,
     actions: Cell<crate::DragAction>,
+    /// A drag cancelled with Escape: its release clicks nothing.
+    swallow_release: Cell<bool>,
 }
 
 /// GtkDragSource, within the application: a press and a move beyond a
-/// few pixels start a drag; drop targets under the pointer take it.
+/// few pixels start a drag; drop targets under the pointer take it. The
+/// destination under the pointer shows GTK's :drop(active) ring, the
+/// pointer says when nothing there takes the drag, and Escape cancels it.
 #[derive(Clone, Default)]
 pub struct DragSource(Rc<SourceInner>);
 
@@ -436,6 +444,28 @@ impl DragSource {
     }
     pub fn connect_drag_end<F: Fn(&DragSource, &Drag, bool) + 'static>(&self, f: F) {
         self.0.end.borrow_mut().push(Rc::new(f));
+    }
+    /// Whether a drag from this source is under way.
+    pub fn is_dragging(&self) -> bool {
+        DRAGGING.with(|d| d.borrow().as_ref().is_some_and(|d| Rc::ptr_eq(&d.source.0, &self.0)))
+    }
+}
+
+/// The drag left `over`'s destination.
+fn leave_target(over: Option<(Widget, crate::DropTarget, bool)>) {
+    if let Some((w, t, _)) = over {
+        w.set_drop_active(false);
+        t.leave();
+    }
+}
+
+/// What a drag leaves behind once it is over: the destination's state, the
+/// pointer, the Escape handler.
+fn release_state(d: &mut Dragging) {
+    leave_target(d.over.take());
+    d.widget.set_cursor_from_name(None);
+    if let Some((win, id)) = d.escape.take() {
+        win.disconnect(id);
     }
 }
 
@@ -495,8 +525,8 @@ fn hand_over(source: &Widget, wx: f64, wy: f64) -> bool {
         let src = src.clone();
         move |action: crate::DragAction| {
             let d = DRAGGING.with(|d| d.borrow_mut().take());
-            if let Some((_, t)) = d.as_ref().and_then(|d| d.over.as_ref()) {
-                t.leave();
+            if let Some(mut d) = d {
+                release_state(&mut d);
             }
             end_motion_controllers();
             let ends: Vec<EndFn> = src.0.end.borrow().clone();
@@ -516,9 +546,8 @@ fn hand_over(source: &Widget, wx: f64, wy: f64) -> bool {
         DRAGGING.with(|d| {
             if let Some(d) = d.borrow_mut().as_mut() {
                 d.native = true;
-                if let Some((_, t)) = d.over.take() {
-                    t.leave();
-                }
+                leave_target(d.over.take());
+                d.widget.set_cursor_from_name(None);
             }
         });
     }
@@ -533,41 +562,48 @@ fn drag_motion(source: &Widget, x: f64, y: f64) {
     }
     let found = target_at(source, wx, wy);
     let old = DRAGGING.with(|d| d.borrow_mut().as_mut().and_then(|d| d.over.take()));
-    if let Some((ow, ot)) = &old {
-        if found.as_ref().is_none_or(|(w, _)| w != ow) {
-            ot.leave();
-        }
+    if old.as_ref().is_some_and(|(ow, _, _)| found.as_ref().is_none_or(|(w, _)| w != ow)) {
+        leave_target(old);
     }
-    if let Some((w, t)) = &found {
+    let over = found.map(|(w, t)| {
         let (tx, ty) = w.window_position().unwrap_or((0.0, 0.0));
-        t.motion(wx - tx, wy - ty);
-    }
+        let accepted = t.motion(wx - tx, wy - ty);
+        w.set_drop_active(accepted);
+        (w, t, accepted)
+    });
+    // GTK's drag cursor without a destination ("no-drop")
+    let accepted = over.as_ref().is_some_and(|o| o.2);
+    source.set_cursor_from_name(if accepted { None } else { Some("not-allowed") });
     motion_controllers(source, wx, wy);
     DRAGGING.with(|d| {
         if let Some(d) = d.borrow_mut().as_mut() {
-            d.over = found;
+            d.over = over;
         }
     });
 }
 
-fn drag_finish(source: &Widget, x: f64, y: f64) {
-    if DRAGGING.with(|d| d.borrow().as_ref().is_some_and(|d| d.native)) {
+/// Ends the drag in progress: dropped at (x, y) of its source, or
+/// cancelled (None).
+fn drag_end(drop_at: Option<(f64, f64)>) {
+    if drop_at.is_some() && DRAGGING.with(|d| d.borrow().as_ref().is_some_and(|d| d.native)) {
         return; /* the system's drag ends it */
     }
-    let Some(d) = DRAGGING.with(|d| d.borrow_mut().take()) else { return };
-    if let Some(win) = source.root() {
+    let Some(mut d) = DRAGGING.with(|d| d.borrow_mut().take()) else { return };
+    if let Some(win) = d.widget.root() {
         win.set_drag_icon(None, 0, 0);
     }
     let mut dropped = false;
-    if let Some((sx, sy)) = source.window_position() {
-        if let Some((w, t)) = target_at(source, sx + x, sy + y) {
-            let (tx, ty) = w.window_position().unwrap_or((0.0, 0.0));
-            dropped = t.drop_value(&d.value, sx + x - tx, sy + y - ty);
-            t.leave();
-        } else if let Some((_, t)) = &d.over {
-            t.leave();
+    let over = d.over.take();
+    if let (Some((x, y)), Some((sx, sy))) = (drop_at, d.widget.window_position()) {
+        if let Some((w, t)) = target_at(&d.widget, sx + x, sy + y) {
+            if over.as_ref().is_none_or(|(ow, _, ok)| ow != &w || *ok) {
+                let (tx, ty) = w.window_position().unwrap_or((0.0, 0.0));
+                dropped = t.drop_value(&d.value, sx + x - tx, sy + y - ty);
+            }
         }
     }
+    d.over = over;
+    release_state(&mut d);
     end_motion_controllers();
     let ends: Vec<EndFn> = d.source.0.end.borrow().clone();
     for e in ends {
@@ -580,13 +616,13 @@ impl crate::widget::Controller for DragSource {
         *self.0.widget.borrow_mut() = Some(widget.downgrade());
         let me = self.clone();
         widget.connect_raw(sig::PRESSED, move |_, a| {
+            me.0.swallow_release.set(false);
             me.0.press.set((a.button() == 1).then(|| (a.x(), a.y())));
         });
         let me = self.clone();
         widget.connect_raw(sig::MOTION, move |w, a| {
             let Some((px, py)) = me.0.press.get() else { return };
-            let active = DRAGGING.with(|d| d.borrow().as_ref().is_some_and(|d| Rc::ptr_eq(&d.source.0, &me.0)));
-            if active {
+            if me.is_dragging() {
                 drag_motion(w, a.x(), a.y());
                 return;
             }
@@ -596,12 +632,36 @@ impl crate::widget::Controller for DragSource {
             me.0.press.set(None);
             let prepare = me.0.prepare.borrow().clone();
             let Some(content) = prepare.and_then(|p| p(&me, px, py)) else { return };
+            // a drag already under way (another source) ends first
+            drag_end(None);
             let icon = drag_icon(&me, w, &content.0);
             if let (Some(win), Some((t, hx, hy))) = (w.root(), icon.as_ref()) {
                 win.set_drag_icon(Some(t), *hx, *hy);
             }
+            let escape = w.root_widget().map(|win| {
+                let id = win.connect_raw(sig::KEY_CAPTURE, |_, a| {
+                    if a.keysym().as_deref() == Some("Escape") {
+                        let source = DRAGGING.with(|d| d.borrow().as_ref().filter(|d| !d.native).map(|d| d.source.clone()));
+                        if let Some(s) = source {
+                            s.0.swallow_release.set(true);
+                            s.0.press.set(None);
+                            drag_end(None);
+                            a.stop();
+                        }
+                    }
+                });
+                (win, id)
+            });
             DRAGGING.with(|d| {
-                *d.borrow_mut() = Some(Dragging { value: content.0, source: me.clone(), over: None, icon, native: false })
+                *d.borrow_mut() = Some(Dragging {
+                    value: content.0,
+                    source: me.clone(),
+                    widget: w.clone(),
+                    over: None,
+                    escape,
+                    icon,
+                    native: false,
+                })
             });
             me.0.press.set(Some((px, py)));
             let begins: Vec<BeginFn> = me.0.begin.borrow().clone();
@@ -611,11 +671,12 @@ impl crate::widget::Controller for DragSource {
             drag_motion(w, a.x(), a.y());
         });
         let me = self.clone();
-        widget.connect_raw(sig::RELEASED, move |w, a| {
+        widget.connect_raw(sig::RELEASED, move |_, a| {
             me.0.press.set(None);
-            let active = DRAGGING.with(|d| d.borrow().as_ref().is_some_and(|d| Rc::ptr_eq(&d.source.0, &me.0)));
-            if active {
-                drag_finish(w, a.x(), a.y());
+            if me.is_dragging() {
+                drag_end(Some((a.x(), a.y())));
+                a.stop();
+            } else if me.0.swallow_release.replace(false) {
                 a.stop();
             }
         });
