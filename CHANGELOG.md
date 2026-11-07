@@ -74,6 +74,10 @@ Awra 2: the same look, without GTK.
   `awra_entry_select_region`, `awra_header_set_expand_center`, suffixes on
   navigation items, drop-hover / files-dropped with the pointer position,
   GTK's chevrons for pan-* icons, place and device icons.
+- Window sizes as GtkWindow computes them: a dimension left unset takes the
+  contents' natural size when the window maps (on idle after present, so a
+  body filled right after present counts), and a window that is not
+  resizable, such as a dialog, follows its contents' size afterwards.
 - License: GPL-3.0-or-later (BUI derives from Blender, GPL-2.0-or-later).
   Awra 1 was LGPL-2.1-or-later.
 
