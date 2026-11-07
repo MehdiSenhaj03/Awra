@@ -313,7 +313,7 @@ int main(void)
 #endif
   }
   CHECK(g_freed - freed0 == exposed); /* every exposed widget was freed */
-#ifdef __linux__
+#if defined(__linux__) && !defined(__SANITIZE_ADDRESS__) /* ASan keeps freed memory */
   printf("a11y: RSS after 50 rounds %ld KB, after 400 %ld KB\n", rss_at[0], rss_at[1]);
   CHECK(rss_at[1] - rss_at[0] < 256);
 #endif
