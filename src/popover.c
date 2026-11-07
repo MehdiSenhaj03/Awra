@@ -27,6 +27,9 @@ typedef struct PopExt {
   AwraWidget *relative;    /* popup_at: a point of this widget */
   double at_x, at_y;
   int side;                /* 0 bottom 1 top 2 start 3 end */
+  /* GtkPopover's pointing-to: a rect of the anchor (logical) to place by */
+  bool has_point;
+  int point[4];
   bool open, centered, modal_scrim;
   float unfold;            /* 0..1 */
   int pad;                 /* logical padding around the child */
@@ -128,27 +131,41 @@ static void pop_place(BKNode *n, int win_w, int win_h)
     }
   }
   else if (a) {
+    /* the anchor, or the rect of it the popover points to */
+    int ax = a->x, ay = a->y, aw = a->w, ah = a->h;
+    if (x->has_point) {
+      ax += awra_px(x->point[0]);
+      ay += awra_px(x->point[1]);
+      aw = awra_px(x->point[2]);
+      ah = awra_px(x->point[3]);
+    }
     switch (x->side) {
       case 1: /* above */
-        x0 = a->x + (a->w - nw) / 2;
-        y0 = a->y - nh;
+        x0 = ax + (aw - nw) / 2;
+        y0 = ay - nh;
         if (y0 < 0) {
-          y0 = a->y + a->h;
+          y0 = ay + ah;
         }
         break;
-      case 2:
-        x0 = a->x - nw;
-        y0 = a->y;
+      case 2: /* before, centred on it as GtkPopover; after without room */
+        x0 = ax - nw;
+        y0 = ay + (ah - nh) / 2;
+        if (x0 < 0 && ax + aw + nw <= win_w) {
+          x0 = ax + aw;
+        }
         break;
-      case 3:
-        x0 = a->x + a->w;
-        y0 = a->y;
+      case 3: /* after, centred on it; before without room */
+        x0 = ax + aw;
+        y0 = ay + (ah - nh) / 2;
+        if (x0 + nw > win_w && ax - nw >= 0) {
+          x0 = ax - nw;
+        }
         break;
       default: /* below, flipped above without room */
-        x0 = a->x + (a->w - nw) / 2;
-        y0 = a->y + a->h;
-        if (y0 + nh > win_h && a->y - nh >= 0) {
-          y0 = a->y - nh;
+        x0 = ax + (aw - nw) / 2;
+        y0 = ay + ah;
+        if (y0 + nh > win_h && ay - nh >= 0) {
+          y0 = ay - nh;
         }
         break;
     }
@@ -337,6 +354,16 @@ void awra_popover_popdown(AwraWidget *w)
 bool awra_popover_visible(AwraWidget *w)
 {
   return POPX(w)->open;
+}
+
+void awra_popover_set_pointing_to(AwraWidget *w, bool set, int x, int y, int width, int height)
+{
+  PopExt *p = POPX(w);
+  p->has_point = set;
+  p->point[0] = x;
+  p->point[1] = y;
+  p->point[2] = width;
+  p->point[3] = height;
 }
 
 void awra_popover_set_position(AwraWidget *w, int side)

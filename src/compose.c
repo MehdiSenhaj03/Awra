@@ -579,7 +579,10 @@ void awra_section_set_header_suffix(AwraWidget *w, AwraWidget *suffix)
 
 AwraWidget *awra_form_new(void)
 {
-  return awra_box_new(AWRA_ORIENTATION_VERTICAL, 16);
+  AwraWidget *w = awra_box_new(AWRA_ORIENTATION_VERTICAL, 16);
+  /* its rows' labels are one column (Awra 1's horizontal size group) */
+  awra_widget_set_data(w, "awra-form", (void *)1, NULL);
+  return w;
 }
 
 void awra_form_append(AwraWidget *form, AwraWidget *row)
@@ -612,6 +615,32 @@ static bool row_compact(AwraWidget *w, int width)
                         width < BK_MAX(lm, awra_px(224)) + awra_px(16) + fm);
 }
 
+/* A row's label width request: in a form, the widest of the form's
+ * labels (Awra 1's AwraForm puts them in a horizontal GtkSizeGroup). */
+static void formrow_label_request(AwraWidget *w, int *r_min, int *r_nat)
+{
+  FormRowExt *x = FRX(w);
+  awra_measure(x->label, AWRA_ORIENTATION_HORIZONTAL, -1, r_min, r_nat);
+  AwraWidget *form = (AwraWidget *)w->parent;
+  if (!form || !awra_is_widget(form) || !awra_widget_get_data(form, "awra-form")) {
+    return;
+  }
+  for (int i = 0; i < form->nkids; i++) {
+    AwraWidget *row = form->kids[i];
+    if (row == w || !awra_widget_is(row, "AwraFormRow") || !awra_child_visible(row)) {
+      continue;
+    }
+    FormRowExt *rx = FRX(row);
+    if (!rx->label || !awra_child_visible(rx->label) || rx->vertical) {
+      continue;
+    }
+    int mn, nt;
+    awra_measure(rx->label, AWRA_ORIENTATION_HORIZONTAL, -1, &mn, &nt);
+    *r_min = BK_MAX(*r_min, mn);
+    *r_nat = BK_MAX(*r_nat, nt);
+  }
+}
+
 /* The label column beside the control for a row width: the row is a
  * GtkBox (label at least 224 wide, the field expanding), so the label gets
  * its natural width when there is room for it. */
@@ -619,7 +648,7 @@ static int formrow_label_width(AwraWidget *w, int width)
 {
   FormRowExt *x = FRX(w);
   int lm, ln, fm, fn;
-  awra_measure(x->label, AWRA_ORIENTATION_HORIZONTAL, -1, &lm, &ln);
+  formrow_label_request(w, &lm, &ln);
   awra_measure(x->field, AWRA_ORIENTATION_HORIZONTAL, -1, &fm, &fn);
   int sizes[2] = {BK_MAX(lm, awra_px(224)), fm};
   const int nats[2] = {BK_MAX(ln, awra_px(224)), BK_MAX(fn, fm)};
@@ -752,10 +781,14 @@ void awra_form_row_set_control(AwraWidget *w, AwraWidget *control)
      * (spin buttons, switches, segmented controls, captures...) keep their
      * natural width; an explicit hexpand wins (awra-form-row.c) */
     if (!awra_aux(control)->hexpand_set) {
+      const char *name = awra_widget_name(control);
       const bool fills = (awra_widget_is(control, "AwraEntry") &&
                           !awra_widget_is(control, "AwraSpinButton")) ||
                          awra_widget_is(control, "AwraDropdown") ||
-                         awra_widget_is(control, "AwraScrolledWindow");
+                         awra_widget_is(control, "AwraScrolledWindow") ||
+                         awra_widget_is(control, "AwraTextView") ||
+                         (name && (!strcmp(name, "AwraPasswordEntry") || !strcmp(name, "AwraTagEntry") ||
+                                   !strcmp(name, "AwraTextArea")));
       if (fills) {
         awra_widget_set_hexpand(control, true);
       }

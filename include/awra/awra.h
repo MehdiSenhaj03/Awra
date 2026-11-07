@@ -1801,6 +1801,12 @@ AwraTexture *awra_texture_new_for_data(const void *data, int width, int height,
                                        void (*release)(void *user_data), void *user_data);
 
 /* ----------------------------------------------------------------------- */
+/* Popovers pointing at part of their anchor (gtk_popover_set_pointing_to):
+ * a rect in the anchor's logical coordinates the popover is placed by,
+ * beside it on its side (set_position), centred on it; unset: the anchor. */
+void awra_popover_set_pointing_to(AwraWidget *popover, bool set, int x, int y, int width, int height);
+
+/* ----------------------------------------------------------------------- */
 /* Debugging: how many widgets exist (made and not yet freed), to check that
  * closing a window or dropping a row lets every widget of it go. */
 int awra_widgets_alive(void);

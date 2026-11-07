@@ -933,6 +933,18 @@ unsafe extern "C" fn dispatch_free(data: *mut c_void) {
     drop(std::boxed::Box::from_raw(data as *mut MenuDispatch));
 }
 
+/// Builds a menu's items again from its model (its actions' state now).
+fn refresh_menu(owner: &Widget) {
+    let d = unsafe { ffi::awra_widget_get_data(owner.as_ptr(), c"awra-rs-menu".as_ptr()) } as *mut MenuDispatch;
+    if d.is_null() {
+        return;
+    }
+    let watch = unsafe { (*d)._watch.borrow().clone() };
+    if let Some(rebuild) = watch {
+        rebuild();
+    }
+}
+
 /// Shows `menu` in a menu button / popover, following its changes.
 fn attach_menu(owner: &Widget, menu: Option<&Menu>, apply: fn(&Widget, &[ffi::AwraMenuItem])) {
     let key = c"awra-rs-menu";
@@ -1002,6 +1014,11 @@ impl MenuButton {
         attach_menu(&self.0, menu, |w, items| unsafe {
             ffi::awra_menu_button_set_menu(w.as_ptr(), items.as_ptr(), items.len() as i32)
         });
+        // the items' state as the menu opens
+        if self.0.rust_data::<bool>("menu-refresh").is_none() {
+            self.0.set_rust_data("menu-refresh", true);
+            self.0.connect_raw(sig::PRESSED, |w, _| refresh_menu(w));
+        }
     }
     pub fn popup(&self) {
         if let Some(p) = self.popover() {
@@ -1073,14 +1090,20 @@ impl Popover {
         self.set_parent(anchor)
     }
     pub fn popup(&self) {
+        // GTK tracks its menu's actions: what became available since the
+        // menu was set (its anchor's groups) shows sensitive now
+        refresh_menu(&self.0);
         unsafe { ffi::awra_popover_popup(ptr!(self)) }
     }
     /// Pops up at (x, y) of `relative_to`.
     pub fn popup_at(&self, relative_to: &impl IsWidget, x: f64, y: f64) {
+        refresh_menu(&self.0);
         unsafe { ffi::awra_popover_popup_at(ptr!(self), relative_to.widget_ptr(), x, y) }
     }
     pub fn set_pointing_to(&self, rect: Option<&crate::Rectangle>) {
         self.0.set_rust_data("pointing-to", rect.copied());
+        let r = rect.copied().unwrap_or(crate::Rectangle::new(0, 0, 0, 0));
+        unsafe { ffi::awra_popover_set_pointing_to(ptr!(self), rect.is_some(), r.x, r.y, r.width, r.height) }
     }
     /// Pops up at the point given by `set_pointing_to` (of the anchor).
     pub fn popup_pointing(&self, anchor: &impl IsWidget) {
