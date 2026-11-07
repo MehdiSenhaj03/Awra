@@ -2044,6 +2044,10 @@ void awra_window_set_default_icon_name(const char *name);
  * a window shown already, it brings that window forward now. Without one,
  * the first window shown uses DESKTOP_STARTUP_ID / XDG_ACTIVATION_TOKEN. */
 void awra_window_set_startup_id(AwraWidget *window, const char *startup_id);
+/* The window stays above another application's window, as the desktop portal
+ * names it: "wayland:<xdg-foreign handle>" or "x11:<window id in hex>" (GTK's
+ * gdk_toplevel_set_transient_for_exported). NULL or "" lets it go. */
+void awra_window_set_transient_for_exported(AwraWidget *window, const char *parent);
 
 /* ----------------------------------------------------------------------- */
 /* Transition bin (Awra 1's AwraTransitionBin): its child changes in place

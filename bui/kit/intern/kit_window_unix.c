@@ -62,6 +62,7 @@ int bkwl_window_drag_start(BKWindow *win, const BKClipItem *items, int n, const 
 void bkwl_window_set_icon(BKWindow *win, const char *name, const uint32_t *const *pixels,
                         const int *sizes, int n);
 void bkwl_window_activate(BKWindow *win, const char *startup_id);
+void bkwl_window_set_transient_for_exported(BKWindow *win, const char *handle);
 #  endif
 #  ifdef BUI_WINDOW_X11
 int bkx11_window_supported(void);
@@ -114,6 +115,7 @@ int bkx11_window_drag_start(BKWindow *win, const BKClipItem *items, int n, const
 void bkx11_window_set_icon(BKWindow *win, const char *name, const uint32_t *const *pixels,
                         const int *sizes, int n);
 void bkx11_window_activate(BKWindow *win, const char *startup_id);
+void bkx11_window_set_transient_for_exported(BKWindow *win, const char *handle);
 #  endif
 
 /* 1 Wayland, 2 X11, 0 not chosen yet */
@@ -385,6 +387,11 @@ void BK_window_set_icon(BKWindow *win, const char *name, const uint32_t *const *
 void BK_window_activate(BKWindow *win, const char *startup_id)
 {
   DISPATCH(window_activate)(win, startup_id);
+}
+
+void BK_window_set_transient_for_exported(BKWindow *win, const char *handle)
+{
+  DISPATCH(window_set_transient_for_exported)(win, handle);
 }
 
 #endif

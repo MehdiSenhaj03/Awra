@@ -1311,6 +1311,7 @@ extern "C" {
     pub fn awra_window_icon_name(window: *mut AwraWidget) -> *const c_char;
     pub fn awra_window_set_default_icon_name(name: *const c_char);
     pub fn awra_window_set_startup_id(window: *mut AwraWidget, startup_id: *const c_char);
+    pub fn awra_window_set_transient_for_exported(window: *mut AwraWidget, parent: *const c_char);
     pub fn awra_transition_bin_new() -> *mut AwraWidget;
     pub fn awra_transition_bin_set_child(bin: *mut AwraWidget, child: *mut AwraWidget);
     pub fn awra_transition_bin_child(bin: *mut AwraWidget) -> *mut AwraWidget;

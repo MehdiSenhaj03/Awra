@@ -55,3 +55,4 @@
 #define BK_window_drag_start BK_WIN_CAT(BK_WIN_PREFIX, _window_drag_start)
 #define BK_window_set_icon BK_WIN_CAT(BK_WIN_PREFIX, _window_set_icon)
 #define BK_window_activate BK_WIN_CAT(BK_WIN_PREFIX, _window_activate)
+#define BK_window_set_transient_for_exported BK_WIN_CAT(BK_WIN_PREFIX, _window_set_transient_for_exported)

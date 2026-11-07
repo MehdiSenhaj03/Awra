@@ -105,5 +105,6 @@ void BK_window_set_icon(BKWindow *win, const char *name, const uint32_t *const *
 {
 }
 void BK_window_activate(BKWindow *win, const char *startup_id) {}
+void BK_window_set_transient_for_exported(BKWindow *win, const char *handle) {}
 
 #endif

@@ -171,3 +171,12 @@ impl crate::Popover {
         unsafe { ffi::awra_popover_point_to(ptr!(self), relative_to.widget_ptr(), x, y) }
     }
 }
+
+impl crate::Window {
+    /// Stays above another application's window, as the desktop portal names
+    /// it ("wayland:<handle>", "x11:<hex id>"); "" lets it go.
+    pub fn set_transient_for_exported(&self, parent: &str) {
+        let p = crate::object::cstring(parent);
+        unsafe { ffi::awra_window_set_transient_for_exported(ptr!(self), p.as_ptr()) }
+    }
+}
