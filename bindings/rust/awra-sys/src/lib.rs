@@ -1003,6 +1003,7 @@ extern "C" {
     pub fn awra_collection_view_set_sort_column(view: *mut AwraWidget, column: c_int, descending: bool);
     pub fn awra_collection_view_set_show_header(view: *mut AwraWidget, show: bool);
     pub fn awra_collection_view_header_height(view: *mut AwraWidget) -> c_int;
+    pub fn awra_collection_view_set_band_style(view: *mut AwraWidget, accent: bool, fill_alpha: f64, border_alpha: f64, radius: c_int, fade: bool);
     pub fn awra_collection_view_column_at(view: *mut AwraWidget, x: f64, y: f64) -> c_int;
     pub fn awra_collection_view_index_at(view: *mut AwraWidget, x: f64, y: f64, r_on_content: *mut bool) -> c_int;
     pub fn awra_collection_view_item_bounds(view: *mut AwraWidget, index: c_int, r_x: *mut f64, r_y: *mut f64, r_w: *mut f64, r_h: *mut f64) -> bool;

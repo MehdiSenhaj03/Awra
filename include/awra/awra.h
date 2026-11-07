@@ -1277,6 +1277,11 @@ int awra_collection_view_column_width(AwraWidget *view, int column);
 void awra_collection_view_set_sort_column(AwraWidget *view, int column, bool descending);
 void awra_collection_view_set_show_header(AwraWidget *view, bool show);
 int awra_collection_view_header_height(AwraWidget *view);
+/* The rubberband's look: the accent (else the focus colour) at these
+ * alphas, corners of `radius` px; `fade`: it fades out when let go (Fast).
+ * By default Awra 1's rubberband (focus .15, its border, radius 6). */
+void awra_collection_view_set_band_style(AwraWidget *view, bool accent, double fill_alpha,
+                                         double border_alpha, int radius, bool fade);
 /* Hit tests in the view's logical coordinates: a header column, an item
  * (-1: the blank; on_content: on the tile, or the row's first cell content). */
 int awra_collection_view_column_at(AwraWidget *view, double x, double y);

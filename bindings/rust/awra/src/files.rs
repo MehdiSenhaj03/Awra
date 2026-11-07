@@ -21,6 +21,12 @@ impl crate::Sidebar {
 }
 
 impl crate::CollectionView {
+    /// The rubberband's look: the accent (else the focus colour) at these
+    /// alphas, corners of `radius` px; `fade`: it fades out when let go.
+    pub fn set_band_style(&self, accent: bool, fill_alpha: f64, border_alpha: f64, radius: i32, fade: bool) {
+        unsafe { ffi::awra_collection_view_set_band_style(ptr!(self), accent, fill_alpha, border_alpha, radius, fade) }
+    }
+
     /// List: a blank below each row (logical px; Awra 1's spaced-rows role),
     /// part of no item: a press there starts a rubberband.
     pub fn set_row_spacing(&self, spacing: i32) {
