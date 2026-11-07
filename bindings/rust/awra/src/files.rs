@@ -175,6 +175,10 @@ impl crate::Popover {
 impl crate::Window {
     /// Stays above another application's window, as the desktop portal names
     /// it ("wayland:<handle>", "x11:<hex id>"); "" lets it go.
+    /// Whether a popover or menu is open over the window.
+    pub fn has_popup(&self) -> bool {
+        unsafe { ffi::awra_window_has_popup(ptr!(self)) }
+    }
     pub fn set_transient_for_exported(&self, parent: &str) {
         let p = crate::object::cstring(parent);
         unsafe { ffi::awra_window_set_transient_for_exported(ptr!(self), p.as_ptr()) }

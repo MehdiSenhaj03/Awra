@@ -2048,6 +2048,9 @@ void awra_window_set_startup_id(AwraWidget *window, const char *startup_id);
  * names it: "wayland:<xdg-foreign handle>" or "x11:<window id in hex>" (GTK's
  * gdk_toplevel_set_transient_for_exported). NULL or "" lets it go. */
 void awra_window_set_transient_for_exported(AwraWidget *window, const char *parent);
+/* Whether a popover or menu is open over the window (its keys go there
+ * first: a window-wide key handler leaves them alone). */
+bool awra_window_has_popup(AwraWidget *window);
 
 /* ----------------------------------------------------------------------- */
 /* Transition bin (Awra 1's AwraTransitionBin): its child changes in place

@@ -1737,6 +1737,15 @@ int awra_window_render_offscreen(AwraWidget *w, bool full)
   return regions;
 }
 
+bool awra_window_has_popup(AwraWidget *w)
+{
+  if (!w || !awra_widget_is(w, "AwraWindow")) {
+    return false;
+  }
+  BKContext *ctx = awra_ctx(w);
+  return ctx && ctx->npopups > 0;
+}
+
 BuiRaster *awra_window_raster(AwraWidget *w)
 {
   if (!w || !awra_widget_is(w, "AwraWindow")) {

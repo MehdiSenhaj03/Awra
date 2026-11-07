@@ -548,6 +548,9 @@ struct AwraCanvas {
 void awra_paint_texture(AwraDraw *d, const AwraTexture *t, AwraBox b, float radius, int fit);
 /* A texture of the (x, y, w, h) part of premultiplied ARGB pixels
  * (width x height); what lies outside them is transparent. */
+/* Escape in a search entry stops the search (STOP_SEARCH) even with text
+ * in it, as GtkSearchEntry does, instead of clearing it first. */
+void awra_search_entry_set_escape_stops(AwraWidget *entry, bool stops);
 AwraTexture *awra_texture_new_argb_region(const uint32_t *px, int width, int height, int x, int y,
                                           int w, int h);
 /* The raster a window draws into (NULL: none yet); it keeps the last frame. */

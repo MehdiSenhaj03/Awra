@@ -218,6 +218,35 @@ static void stack_page_gone(void)
   frame();
 }
 
+/* Escape closes the palette whatever was typed, and the keyboard goes back
+ * where it was; the same after a menu opened from the keyboard */
+static void focus_comes_back(void)
+{
+  AwraWidget *box = awra_box_new(AWRA_ORIENTATION_VERTICAL, 0);
+  AwraWidget *button = awra_button_new_with_label("Here");
+  awra_box_append(box, button);
+  awra_widget_unref(button);
+  awra_window_set_child(g_win, box);
+  awra_widget_unref(box);
+  awra_window_render_offscreen(g_win, true);
+  awra_widget_grab_focus(button);
+  CHECK(awra_window_focus(g_win) == button, "no focus to start with");
+  AwraWidget *palette = awra_command_palette_new();
+  AwraCommand cmds[1] = {{"Zoom", NULL, NULL, NULL, NULL}};
+  awra_command_palette_set_commands(palette, cmds, 1);
+  awra_command_palette_present(palette, g_win);
+  frame();
+  CHECK(awra_window_focus(g_win) != button, "the palette didn't take the keyboard");
+  BK_key(awra_ctx(g_win), "z", "z", 0);
+  BK_key(awra_ctx(g_win), "", "Escape", 0);
+  frame();
+  CHECK(!awra_window_has_popup(g_win), "Escape with text left the palette open");
+  CHECK(awra_window_focus(g_win) == button, "the keyboard didn't come back");
+  awra_widget_unref(palette);
+  awra_window_set_child(g_win, NULL);
+  frame();
+}
+
 int main(void)
 {
   awra_init("org.awra.TestExplorerWidgets");
@@ -229,6 +258,7 @@ int main(void)
   shortcuts();
   band_and_opacity();
   stack_page_gone();
+  focus_comes_back();
   awra_widget_destroy(g_win);
   if (failures) {
     return 1;
