@@ -714,11 +714,8 @@ impl crate::Header {
 }
 
 impl crate::Window {
-    /// The desktop names the window's icon from the application id.
-    pub fn set_icon_name(&self, _name: Option<&str>) {}
     /// Awra shows focus rings for keyboard use only, by itself.
     pub fn set_focus_visible(&self, _v: bool) {}
-    pub fn set_startup_id(&self, _id: &str) {}
 }
 
 /// gtk-rs GtkWindowExt (for the calls that name it).

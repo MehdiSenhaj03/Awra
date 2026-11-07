@@ -450,6 +450,9 @@ AwraWidget *awra_focus_of(AwraWidget *window);
 BKWindow *awra_window_bkw(AwraWidget *window);
 /* transfer.c: a drag's image follows the pointer (window raster px) */
 void awra_drag_icon_pointer(AwraWidget *window, int x, int y, bool left);
+/* identity.c: the window's icon once it has a native window; activation */
+void awra_window_identity_native(AwraWidget *window);
+void awra_window_identity_present(AwraWidget *window);
 /* Style classes: interned bits */
 int awra_class_bit(const char *name);
 bool awra_has_xclass(const AwraWidget *w, int bit); /* classes past the 64 bits */

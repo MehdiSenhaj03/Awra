@@ -163,7 +163,9 @@ elseif(UNIX AND NOT APPLE)
       intern/wayland/cursor-shape-v1-protocol.c
       intern/wayland/tablet-v2-protocol.c
       intern/wayland/ext-background-effect-v1-protocol.c
-      intern/wayland/kde-blur-protocol.c)
+      intern/wayland/kde-blur-protocol.c
+      intern/wayland/xdg-activation-v1-protocol.c
+      intern/wayland/xdg-toplevel-icon-v1-protocol.c)
     target_link_libraries(bui_kit PUBLIC PkgConfig::BUI_WAYLAND)
   else()
     message(STATUS "BUI: no Wayland host (wayland-client / xkbcommon not found)")

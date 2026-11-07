@@ -1032,6 +1032,7 @@ static void ensure_native(AwraWidget *w)
   }
   BK_window_wm(x->bkw, "dark", awra_style_is_dark() ? 1.0 : 0.0, 0.0);
   x->scale = BK_window_scale(x->bkw);
+  awra_window_identity_native(w); /* identity.c: its icon */
   x->blur_state = BK_window_blur_available(x->bkw);
   if (x->blur_state == 1) {
     x->state |= AWRA_WINDOW_STATE_BLUR;
@@ -1082,6 +1083,7 @@ void awra_window_present(AwraWidget *w)
   if (x->bkw) {
     BK_window_show(x->bkw);
     BK_window_wm(x->bkw, "focus", 0, 0);
+    awra_window_identity_present(w); /* identity.c: activation (startup id) */
   }
 }
 

@@ -55,7 +55,9 @@
 #  include "wayland/kde-blur-client.h"
 #  include "wayland/viewporter-client.h"
 #  include "wayland/xdg-decoration-unstable-v1-client.h"
+#  include "wayland/xdg-activation-v1-client.h"
 #  include "wayland/xdg-shell-client.h"
+#  include "wayland/xdg-toplevel-icon-v1-client.h"
 
 
 #  define MAX_TIMERS 64
@@ -117,6 +119,7 @@ struct BKWindow {
 
   int blur[5]; /* x y w h radius (logical) */
   int blur_dirty;
+  struct WinIcon *icon; /* BUI-Awra: xdg-toplevel-icon (applied when mapped) */
 
   struct BKWindow *next;
 };
@@ -143,6 +146,9 @@ static struct ext_background_effect_manager_v1 *g_effect_mgr;
 static int g_effect_caps = -1; /* -1 not announced yet */
 static struct org_kde_kwin_blur_manager *g_kblur_mgr;
 static struct zxdg_decoration_manager_v1 *g_deco_mgr;
+static struct xdg_activation_v1 *g_activation;           /* BUI-Awra */
+static struct xdg_toplevel_icon_manager_v1 *g_icon_mgr; /* BUI-Awra */
+static char *g_startup_token; /* XDG_ACTIVATION_TOKEN the application started with */
 
 /* outputs: their integer scale, for surfaces without fractional scaling */
 typedef struct Output {
@@ -1666,6 +1672,12 @@ static void registry_global(void *data, struct wl_registry *r, uint32_t name, co
   else if (!strcmp(iface, zxdg_decoration_manager_v1_interface.name)) {
     BIND(g_deco_mgr, zxdg_decoration_manager_v1_interface, 1);
   }
+  else if (!strcmp(iface, xdg_activation_v1_interface.name)) {
+    BIND(g_activation, xdg_activation_v1_interface, 1);
+  }
+  else if (!strcmp(iface, xdg_toplevel_icon_manager_v1_interface.name)) {
+    BIND(g_icon_mgr, xdg_toplevel_icon_manager_v1_interface, 1);
+  }
   else if (!strcmp(iface, wl_output_interface.name)) {
     Output *o = (Output *)calloc(1, sizeof(Output));
     if (o) {
@@ -1733,6 +1745,9 @@ int BK_window_supported(void)
   return open_display();
 }
 
+static void win_icon_apply(BKWindow *win);
+static void win_icon_free(BKWindow *win);
+
 static void map_window(BKWindow *win)
 {
   if (win->mapped || !win->open) {
@@ -1746,6 +1761,7 @@ static void map_window(BKWindow *win)
   if (win->app_id) {
     xdg_toplevel_set_app_id(win->toplevel, win->app_id);
   }
+  win_icon_apply(win);
   if (win->min_w > 0 || win->min_h > 0) {
     xdg_toplevel_set_min_size(win->toplevel, win->min_w, win->min_h);
   }
@@ -1915,6 +1931,7 @@ void BK_window_free(BKWindow *win)
   BUI_raster_free(win->raster);
   free(win->title);
   free(win->app_id);
+  win_icon_free(win);
   free(win);
 }
 
@@ -2387,6 +2404,177 @@ int BK_window_pump(void)
 const char *BK_window_backend(void)
 {
   return "wayland";
+}
+
+
+/* =========================================================================
+ * BUI-Awra: window identity: the icon (xdg-toplevel-icon: its theme name
+ * and square images) and activation (xdg-activation: the token the
+ * application was started with or was given, else one asked for).
+ * ========================================================================= */
+
+#  define MAX_ICON_IMAGES 8
+typedef struct WinIcon {
+  char *name;
+  int n;
+  int size[MAX_ICON_IMAGES];
+  struct wl_buffer *buf[MAX_ICON_IMAGES];
+  void *px[MAX_ICON_IMAGES];
+  size_t bytes[MAX_ICON_IMAGES];
+} WinIcon;
+
+static void win_icon_free(BKWindow *win)
+{
+  WinIcon *ic = win->icon;
+  if (!ic) {
+    return;
+  }
+  for (int i = 0; i < ic->n; i++) {
+    if (ic->buf[i]) {
+      wl_buffer_destroy(ic->buf[i]);
+    }
+    if (ic->px[i]) {
+      munmap(ic->px[i], ic->bytes[i]);
+    }
+  }
+  free(ic->name);
+  free(ic);
+  win->icon = NULL;
+}
+
+static void win_icon_apply(BKWindow *win)
+{
+  WinIcon *ic = win->icon;
+  if (!g_icon_mgr || !win->toplevel) {
+    return;
+  }
+  if (!ic) {
+    xdg_toplevel_icon_manager_v1_set_icon(g_icon_mgr, win->toplevel, NULL);
+    return;
+  }
+  struct xdg_toplevel_icon_v1 *icon = xdg_toplevel_icon_manager_v1_create_icon(g_icon_mgr);
+  if (ic->name) {
+    xdg_toplevel_icon_v1_set_name(icon, ic->name);
+  }
+  for (int i = 0; i < ic->n; i++) {
+    if (ic->buf[i]) {
+      xdg_toplevel_icon_v1_add_buffer(icon, ic->buf[i], 1);
+    }
+  }
+  xdg_toplevel_icon_manager_v1_set_icon(g_icon_mgr, win->toplevel, icon);
+  xdg_toplevel_icon_v1_destroy(icon); /* the toplevel keeps what it was given */
+}
+
+void BK_window_set_icon(BKWindow *win, const char *name, const uint32_t *const *pixels,
+                        const int *sizes, int n)
+{
+  if (!win) {
+    return;
+  }
+  win_icon_free(win);
+  if ((!name || !name[0]) && n <= 0) {
+    win_icon_apply(win);
+    return;
+  }
+  WinIcon *ic = (WinIcon *)calloc(1, sizeof(WinIcon));
+  if (!ic) {
+    return;
+  }
+  ic->name = name && name[0] ? strdup(name) : NULL;
+  for (int i = 0; i < n && ic->n < MAX_ICON_IMAGES && g_shm; i++) {
+    const int sz = sizes[i];
+    if (sz <= 0 || !pixels[i]) {
+      continue;
+    }
+    const size_t bytes = (size_t)sz * sz * 4;
+    const int fd = memfd_create("bui-icon", MFD_CLOEXEC);
+    if (fd < 0) {
+      continue;
+    }
+    void *px = ftruncate(fd, (off_t)bytes) == 0 ?
+                   mmap(NULL, bytes, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0) :
+                   MAP_FAILED;
+    if (px != MAP_FAILED) {
+      memcpy(px, pixels[i], bytes);
+      struct wl_shm_pool *pool = wl_shm_create_pool(g_shm, fd, (int32_t)bytes);
+      const int k = ic->n++;
+      ic->buf[k] = wl_shm_pool_create_buffer(pool, 0, sz, sz, sz * 4, WL_SHM_FORMAT_ARGB8888);
+      wl_shm_pool_destroy(pool);
+      ic->px[k] = px;
+      ic->bytes[k] = bytes;
+      ic->size[k] = sz;
+    }
+    close(fd);
+  }
+  win->icon = ic;
+  win_icon_apply(win);
+  if (g_dpy) {
+    wl_display_flush(g_dpy);
+  }
+}
+
+static char *take_startup_token(void)
+{
+  static int read_env = 0;
+  if (!read_env) { /* once: the window shown first uses it, children don't inherit it */
+    read_env = 1;
+    const char *t = getenv("XDG_ACTIVATION_TOKEN");
+    if (t && t[0]) {
+      g_startup_token = strdup(t);
+    }
+    unsetenv("XDG_ACTIVATION_TOKEN");
+    unsetenv("DESKTOP_STARTUP_ID");
+  }
+  char *t = g_startup_token;
+  g_startup_token = NULL;
+  return t;
+}
+
+static void token_done(void *data, struct xdg_activation_token_v1 *t, const char *token)
+{
+  BKWindow *target = (BKWindow *)data;
+  for (BKWindow *w = g_windows; w; w = w->next) {
+    if (w == target && w->surface && g_activation) {
+      xdg_activation_v1_activate(g_activation, token, w->surface);
+      wl_display_flush(g_dpy);
+      break;
+    }
+  }
+  xdg_activation_token_v1_destroy(t);
+}
+static const struct xdg_activation_token_v1_listener g_token_listener = {token_done};
+
+void BK_window_activate(BKWindow *win, const char *startup_id)
+{
+  if (!win || !win->surface || !g_activation) {
+    return;
+  }
+  char *env = startup_id && startup_id[0] ? NULL : take_startup_token();
+  const char *token = env ? env : startup_id;
+  if (token && token[0]) {
+    xdg_activation_v1_activate(g_activation, token, win->surface);
+    free(env);
+    wl_display_flush(g_dpy);
+    return;
+  }
+  /* no token: one asked for with our last input (granted while we have the
+   * focus: raising a window of ours from another) */
+  const uint32_t serial = g_key_serial > g_last_press_serial ? g_key_serial : g_last_press_serial;
+  if (!serial) {
+    return;
+  }
+  struct xdg_activation_token_v1 *t = xdg_activation_v1_get_activation_token(g_activation);
+  xdg_activation_token_v1_add_listener(t, &g_token_listener, win);
+  xdg_activation_token_v1_set_serial(t, serial, g_seat);
+  BKWindow *focus = g_key_win ? g_key_win : win;
+  if (focus->surface) {
+    xdg_activation_token_v1_set_surface(t, focus->surface);
+  }
+  if (win->app_id) {
+    xdg_activation_token_v1_set_app_id(t, win->app_id);
+  }
+  xdg_activation_token_v1_commit(t);
+  wl_display_flush(g_dpy);
 }
 
 #endif /* BUI_WINDOW_WAYLAND */

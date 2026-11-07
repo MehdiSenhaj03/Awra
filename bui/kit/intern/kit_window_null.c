@@ -100,5 +100,10 @@ int BK_window_drag_start(BKWindow *win, const BKClipItem *items, int n, const ui
 {
   return 0;
 }
+void BK_window_set_icon(BKWindow *win, const char *name, const uint32_t *const *pixels,
+                        const int *sizes, int n)
+{
+}
+void BK_window_activate(BKWindow *win, const char *startup_id) {}
 
 #endif

@@ -492,7 +492,7 @@ bool awra_clipboard_has(AwraWidget *w, const char *mime)
   char *f = awra_clipboard_formats(w);
   bool has = false;
   const size_t ml = mime ? strlen(mime) : 0;
-  const bool prefix = ml > 1 && mime[ml - 1] == '*'; /* "image/*" */
+  const bool prefix = ml > 1 && mime[ml - 1] == '*'; /* a prefix: image/ and a star */
   for (char *p = f; p && *p && !has;) {
     char *e = strchr(p, '\n');
     const size_t l = e ? (size_t)(e - p) : strlen(p);

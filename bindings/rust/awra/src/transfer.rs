@@ -381,3 +381,35 @@ pub fn drag_out_data(
     }
     ok
 }
+
+// ---------------------------------------------------------------------------
+// Window identity
+
+impl crate::Window {
+    /// The window's icon by its theme name (an application ID installed in
+    /// hicolor, or a registered SVG); None: the default one.
+    pub fn set_icon_name(&self, name: Option<&str>) {
+        let n = name.map(cstring);
+        unsafe {
+            ffi::awra_window_set_icon_name(
+                IsWidget::upcast_ref::<Widget>(self).as_ptr(),
+                n.as_ref().map_or(std::ptr::null(), |c| c.as_ptr()),
+            )
+        }
+    }
+    pub fn icon_name(&self) -> Option<String> {
+        unsafe { crate::object::from_cstr_opt(ffi::awra_window_icon_name(IsWidget::upcast_ref::<Widget>(self).as_ptr())) }
+    }
+    /// The icon of windows that set none (gtk_window_set_default_icon_name).
+    pub fn set_default_icon_name(name: &str) {
+        let n = cstring(name);
+        unsafe { ffi::awra_window_set_default_icon_name(n.as_ptr()) }
+    }
+    /// The startup notification ID (X11) or activation token (Wayland) the
+    /// window is presented with; on a window shown already, it comes forward
+    /// with it now.
+    pub fn set_startup_id(&self, id: &str) {
+        let i = cstring(id);
+        unsafe { ffi::awra_window_set_startup_id(IsWidget::upcast_ref::<Widget>(self).as_ptr(), i.as_ptr()) }
+    }
+}

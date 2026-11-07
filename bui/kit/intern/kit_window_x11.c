@@ -2184,4 +2184,130 @@ static int x11_transfer_event(XEvent *ev)
   }
 }
 
+
+/* =========================================================================
+ * BUI-Awra: window identity: _NET_WM_ICON, and activation with a startup
+ * notification ID (_NET_STARTUP_ID, the "remove" message,
+ * _NET_ACTIVE_WINDOW with its timestamp).
+ * ========================================================================= */
+
+void BK_window_set_icon(BKWindow *win, const char *name, const uint32_t *const *pixels,
+                        const int *sizes, int n)
+{
+  (void)name; /* X11 has no icon names: the images */
+  if (!win || !win->xid) {
+    return;
+  }
+  const Atom a_icon = XInternAtom(g_dpy, "_NET_WM_ICON", False);
+  size_t total = 0;
+  for (int i = 0; i < n; i++) {
+    total += sizes[i] > 0 && pixels[i] ? 2 + (size_t)sizes[i] * sizes[i] : 0;
+  }
+  if (!total) {
+    XDeleteProperty(g_dpy, win->xid, a_icon);
+    XFlush(g_dpy);
+    return;
+  }
+  /* CARDINALs (longs in Xlib): width, height, then straight ARGB rows */
+  long *data = (long *)malloc(sizeof(long) * total);
+  if (!data) {
+    return;
+  }
+  size_t k = 0;
+  for (int i = 0; i < n; i++) {
+    const int sz = sizes[i];
+    if (sz <= 0 || !pixels[i]) {
+      continue;
+    }
+    data[k++] = sz;
+    data[k++] = sz;
+    for (int p = 0; p < sz * sz; p++) {
+      const uint32_t c = pixels[i][p], a = c >> 24;
+      uint32_t o = c;
+      if (a && a < 255) {
+        o = (a << 24) | (((c >> 16 & 255) * 255 / a) << 16) | (((c >> 8 & 255) * 255 / a) << 8) |
+            ((c & 255) * 255 / a);
+      }
+      data[k++] = (long)o;
+    }
+  }
+  XChangeProperty(g_dpy, win->xid, a_icon, XA_CARDINAL, 32, PropModeReplace,
+                  (const unsigned char *)data, (int)k);
+  free(data);
+  XFlush(g_dpy);
+}
+
+/* the startup-notification protocol's message, broadcast to the root
+ * window in 20-byte pieces */
+static void startup_message(Window from, const char *msg)
+{
+  const Atom begin = XInternAtom(g_dpy, "_NET_STARTUP_INFO_BEGIN", False);
+  const Atom more = XInternAtom(g_dpy, "_NET_STARTUP_INFO", False);
+  const size_t len = strlen(msg) + 1; /* the NUL ends it */
+  for (size_t off = 0; off < len; off += 20) {
+    XEvent ev;
+    memset(&ev, 0, sizeof(ev));
+    ev.xclient.type = ClientMessage;
+    ev.xclient.window = from;
+    ev.xclient.message_type = off == 0 ? begin : more;
+    ev.xclient.format = 8;
+    const size_t n = len - off < 20 ? len - off : 20;
+    memcpy(ev.xclient.data.b, msg + off, n);
+    XSendEvent(g_dpy, DefaultRootWindow(g_dpy), False, PropertyChangeMask, &ev);
+  }
+}
+
+void BK_window_activate(BKWindow *win, const char *startup_id)
+{
+  if (!win || !win->xid) {
+    return;
+  }
+  static int read_env = 0;
+  static char *env_id = NULL;
+  if (!read_env) { /* once: the window shown first uses it */
+    read_env = 1;
+    const char *e = getenv("DESKTOP_STARTUP_ID");
+    if (e && e[0]) {
+      env_id = strdup(e);
+    }
+    unsetenv("DESKTOP_STARTUP_ID");
+    unsetenv("XDG_ACTIVATION_TOKEN");
+  }
+  char *own = NULL;
+  const char *id = startup_id && startup_id[0] ? startup_id : (own = env_id);
+  env_id = own ? NULL : env_id;
+  long when = 0; /* CurrentTime */
+  if (id) {
+    const Atom a_id = XInternAtom(g_dpy, "_NET_STARTUP_ID", False);
+    XChangeProperty(g_dpy, win->xid, a_id, a_utf8, 8, PropModeReplace, (const unsigned char *)id,
+                    (int)strlen(id));
+    const char *t = strstr(id, "_TIME");
+    if (t) {
+      when = strtol(t + 5, NULL, 10);
+    }
+    /* "remove: ID=<id>" (quoted when it has spaces, quotes or backslashes) */
+    char msg[600];
+    size_t n = (size_t)snprintf(msg, sizeof(msg), "remove: ID=");
+    for (const char *c = id; *c && n + 3 < sizeof(msg); c++) {
+      if (*c == ' ' || *c == '"' || *c == '\\') {
+        msg[n++] = '\\';
+      }
+      msg[n++] = *c;
+    }
+    msg[n] = 0;
+    startup_message(win->xid, msg);
+  }
+  XEvent ev;
+  memset(&ev, 0, sizeof(ev));
+  ev.xclient.type = ClientMessage;
+  ev.xclient.window = win->xid;
+  ev.xclient.message_type = XInternAtom(g_dpy, "_NET_ACTIVE_WINDOW", False);
+  ev.xclient.format = 32;
+  ev.xclient.data.l[0] = 1; /* from an application */
+  ev.xclient.data.l[1] = when;
+  XSendEvent(g_dpy, DefaultRootWindow(g_dpy), False,
+             SubstructureRedirectMask | SubstructureNotifyMask, &ev);
+  XFlush(g_dpy);
+  free(own);
+}
 #endif /* BUI_WINDOW_X11 */

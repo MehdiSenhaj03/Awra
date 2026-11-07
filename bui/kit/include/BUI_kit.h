@@ -767,6 +767,18 @@ int BK_window_drag_start(BKWindow *win, const BKClipItem *items, int n, const ui
 /* The pointer's press is over (a system drag took it): no grab, no drag. */
 void BK_pointer_cancel(BKContext *ctx);
 
+/* -- BUI-Awra: window identity ------------------------------------------- */
+/* The window's icon: its icon theme name (Wayland's xdg-toplevel-icon) and
+ * square images of a few sizes (premultiplied 0xAARRGGBB, sizes[i] pixels a
+ * side; X11's _NET_WM_ICON, Windows' WM_SETICON). n = 0 and no name: none. */
+void BK_window_set_icon(BKWindow *win, const char *name, const uint32_t *const *pixels,
+                        const int *sizes, int n);
+/* Brings the window forward, with a startup notification ID (X11) or an
+ * activation token (Wayland's xdg-activation) when given, else the one the
+ * application was started with (DESKTOP_STARTUP_ID / XDG_ACTIVATION_TOKEN,
+ * used once), else a token asked for with the last input. */
+void BK_window_activate(BKWindow *win, const char *startup_id);
+
 /* One of Blender's widgets drawn straight into a raster, outside any BKContext: the same
  * drawing (interface_widgets.cc port, theme, Inter text) the kit's own nodes use. For
  * other toolkits drawing Blender's widgets (Dear ImGui's Blender widgets,

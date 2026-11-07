@@ -1798,7 +1798,8 @@ bool awra_clipboard_set_files(AwraWidget *widget, const char *const *paths, int 
 /* The types on the clipboard: '\n'-separated (free with awra_free), NULL
  * when it is empty. */
 char *awra_clipboard_formats(AwraWidget *widget);
-/* Whether the clipboard holds `mime` ("image/*": any image type). */
+/* Whether the clipboard holds `mime` (a type ending in a star: any of that
+ * kind, "image/" and a star for any image). */
 bool awra_clipboard_has(AwraWidget *widget, const char *mime);
 /* The clipboard's data of a type (free with awra_free; a NUL past
  * *length), NULL when it has none. */
@@ -1841,6 +1842,23 @@ AwraTexture *awra_texture_new_for_icon(const char *icon_name, int size);
 bool awra_drag_start_files(AwraWidget *source, const char *const *paths, int n,
                            AwraTexture *icon, int hot_x, int hot_y, int actions,
                            AwraHandler done, void *user_data);
+
+/* ----------------------------------------------------------------------- */
+/* Window identity (GtkWindow's icon and startup ID). */
+
+/* The window's icon by its theme name (an application ID as installed in
+ * hicolor, or an SVG registered with awra_icon_register_svg); NULL: the
+ * default one. X11 and Windows get its images, Wayland its name
+ * (xdg-toplevel-icon) or its images when no theme has it. */
+void awra_window_set_icon_name(AwraWidget *window, const char *name);
+const char *awra_window_icon_name(AwraWidget *window);
+/* The icon of windows that set none. */
+void awra_window_set_default_icon_name(const char *name);
+/* The startup notification ID (X11) or activation token (Wayland) the
+ * window is presented with, once (another instance hands it over): set on
+ * a window shown already, it brings that window forward now. Without one,
+ * the first window shown uses DESKTOP_STARTUP_ID / XDG_ACTIVATION_TOKEN. */
+void awra_window_set_startup_id(AwraWidget *window, const char *startup_id);
 
 #ifdef __cplusplus
 }

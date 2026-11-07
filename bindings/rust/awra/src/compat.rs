@@ -813,14 +813,16 @@ impl Texture {
         }
         unsafe { Texture::from_raw(ffi::awra_texture_new_nv12(data.as_ptr(), width, height, bt709)) }
     }
-    /// A PNG, JPEG, GIF, WebP or SVG.
-    pub fn from_bytes(bytes: &[u8]) -> Result<Texture, ()> {
+    /// A PNG, JPEG, GIF, WebP or SVG (gtk-rs takes `&glib::Bytes`, which
+    /// derefs to the bytes).
+    pub fn from_bytes(bytes: &[u8]) -> Result<Texture, crate::glib::Error> {
         unsafe { Texture::from_raw(ffi::awra_texture_new_from_bytes(bytes.as_ptr() as *const c_void, bytes.len())) }
-            .ok_or(())
+            .ok_or_else(|| crate::glib::Error::new("not an image Awra decodes"))
     }
-    pub fn from_filename(path: impl AsRef<std::path::Path>) -> Result<Texture, ()> {
+    pub fn from_filename(path: impl AsRef<std::path::Path>) -> Result<Texture, crate::glib::Error> {
         let p = cstring(&path.as_ref().to_string_lossy());
-        unsafe { Texture::from_raw(ffi::awra_texture_new_from_file(p.as_ptr())) }.ok_or(())
+        unsafe { Texture::from_raw(ffi::awra_texture_new_from_file(p.as_ptr())) }
+            .ok_or_else(|| crate::glib::Error::new(format!("could not read {}", path.as_ref().display())))
     }
     pub fn width(&self) -> i32 {
         unsafe { ffi::awra_texture_width(self.as_ptr()) }

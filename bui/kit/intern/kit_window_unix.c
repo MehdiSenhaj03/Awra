@@ -59,6 +59,9 @@ void * bkwl_window_clipboard_read(BKWindow *win, const char *mime, size_t *r_len
 int bkwl_window_drag_start(BKWindow *win, const BKClipItem *items, int n, const uint32_t *icon,
                          int icon_w, int icon_h, int hot_x, int hot_y, int actions,
                          BKDragDoneFn done, void *user);
+void bkwl_window_set_icon(BKWindow *win, const char *name, const uint32_t *const *pixels,
+                        const int *sizes, int n);
+void bkwl_window_activate(BKWindow *win, const char *startup_id);
 #  endif
 #  ifdef BUI_WINDOW_X11
 int bkx11_window_supported(void);
@@ -108,6 +111,9 @@ void * bkx11_window_clipboard_read(BKWindow *win, const char *mime, size_t *r_le
 int bkx11_window_drag_start(BKWindow *win, const BKClipItem *items, int n, const uint32_t *icon,
                          int icon_w, int icon_h, int hot_x, int hot_y, int actions,
                          BKDragDoneFn done, void *user);
+void bkx11_window_set_icon(BKWindow *win, const char *name, const uint32_t *const *pixels,
+                        const int *sizes, int n);
+void bkx11_window_activate(BKWindow *win, const char *startup_id);
 #  endif
 
 /* 1 Wayland, 2 X11, 0 not chosen yet */
@@ -368,6 +374,17 @@ int BK_window_drag_start(BKWindow *win, const BKClipItem *items, int n, const ui
 {
   return DISPATCH(window_drag_start)(win, items, n, icon, icon_w, icon_h, hot_x, hot_y, actions,
                                      done, user);
+}
+
+void BK_window_set_icon(BKWindow *win, const char *name, const uint32_t *const *pixels,
+                        const int *sizes, int n)
+{
+  DISPATCH(window_set_icon)(win, name, pixels, sizes, n);
+}
+
+void BK_window_activate(BKWindow *win, const char *startup_id)
+{
+  DISPATCH(window_activate)(win, startup_id);
 }
 
 #endif

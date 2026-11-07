@@ -1134,4 +1134,8 @@ extern "C" {
     pub fn awra_texture_new_for_text(text: *const c_char) -> *mut AwraTexture;
     pub fn awra_texture_new_for_icon(icon_name: *const c_char, size: c_int) -> *mut AwraTexture;
     pub fn awra_drag_start_files(source: *mut AwraWidget, paths: *const *const c_char, n: c_int, icon: *mut AwraTexture, hot_x: c_int, hot_y: c_int, actions: c_int, done: Option<unsafe extern "C" fn(*mut AwraWidget, *const AwraArgs, *mut c_void)>, user_data: *mut c_void) -> bool;
+    pub fn awra_window_set_icon_name(window: *mut AwraWidget, name: *const c_char);
+    pub fn awra_window_icon_name(window: *mut AwraWidget) -> *const c_char;
+    pub fn awra_window_set_default_icon_name(name: *const c_char);
+    pub fn awra_window_set_startup_id(window: *mut AwraWidget, startup_id: *const c_char);
 }

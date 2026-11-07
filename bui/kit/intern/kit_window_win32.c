@@ -58,6 +58,7 @@ struct BKWindow {
   WINDOWPLACEMENT restore;        /* before fullscreen */
   DWORD restore_style;
   struct DropTarget *drop;
+  HICON icon_big, icon_small; /* BUI-Awra: WM_SETICON's */
 };
 
 static int g_open = 0;
@@ -1499,6 +1500,12 @@ void BK_window_free(BKWindow *win)
   if (g_any_window == win) {
     g_any_window = NULL;
   }
+  if (win->icon_big) {
+    DestroyIcon(win->icon_big);
+  }
+  if (win->icon_small) {
+    DestroyIcon(win->icon_small);
+  }
   if (win->hwnd) {
     SetWindowLongPtrW(win->hwnd, GWLP_USERDATA, 0);
     DestroyWindow(win->hwnd);
@@ -2476,5 +2483,116 @@ int BK_window_drag_start(BKWindow *win, const BKClipItem *items, int n, const ui
     done(user, action);
   }
   return 1;
+}
+
+/* =========================================================================
+ * BUI-Awra: window identity: WM_SETICON from the images nearest the
+ * system's icon sizes; activation brings the window forward.
+ * ========================================================================= */
+
+static HICON make_icon(const uint32_t *px, int size, int want)
+{
+  BITMAPV5HEADER bh;
+  memset(&bh, 0, sizeof(bh));
+  bh.bV5Size = sizeof(bh);
+  bh.bV5Width = want;
+  bh.bV5Height = -want; /* top-down */
+  bh.bV5Planes = 1;
+  bh.bV5BitCount = 32;
+  bh.bV5Compression = BI_BITFIELDS;
+  bh.bV5RedMask = 0x00FF0000;
+  bh.bV5GreenMask = 0x0000FF00;
+  bh.bV5BlueMask = 0x000000FF;
+  bh.bV5AlphaMask = 0xFF000000;
+  void *bits = NULL;
+  HDC dc = GetDC(NULL);
+  HBITMAP color = CreateDIBSection(dc, (BITMAPINFO *)&bh, DIB_RGB_COLORS, &bits, NULL, 0);
+  ReleaseDC(NULL, dc);
+  HBITMAP mask = CreateBitmap(want, want, 1, 1, NULL);
+  HICON icon = NULL;
+  if (color && mask && bits) {
+    uint32_t *dst = (uint32_t *)bits;
+    for (int y = 0; y < want; y++) { /* nearest sample, straight alpha */
+      const uint32_t *row = px + (size_t)(y * size / want) * size;
+      for (int x = 0; x < want; x++) {
+        const uint32_t c = row[x * size / want], a = c >> 24;
+        uint32_t o = c;
+        if (a && a < 255) {
+          o = (a << 24) | (((c >> 16 & 255) * 255 / a) << 16) | (((c >> 8 & 255) * 255 / a) << 8) |
+              ((c & 255) * 255 / a);
+        }
+        dst[(size_t)y * want + x] = o;
+      }
+    }
+    ICONINFO ii;
+    memset(&ii, 0, sizeof(ii));
+    ii.fIcon = TRUE;
+    ii.hbmMask = mask;
+    ii.hbmColor = color;
+    icon = CreateIconIndirect(&ii);
+  }
+  if (color) {
+    DeleteObject(color);
+  }
+  if (mask) {
+    DeleteObject(mask);
+  }
+  return icon;
+}
+
+/* the image nearest `want` (the smallest at least as big, else the biggest) */
+static int icon_pick(const int *sizes, int n, int want)
+{
+  int best = -1;
+  for (int i = 0; i < n; i++) {
+    if (sizes[i] <= 0) {
+      continue;
+    }
+    if (best < 0 || (sizes[i] >= want && (sizes[best] < want || sizes[i] < sizes[best])) ||
+        (sizes[best] < want && sizes[i] > sizes[best]))
+    {
+      best = i;
+    }
+  }
+  return best;
+}
+
+void BK_window_set_icon(BKWindow *win, const char *name, const uint32_t *const *pixels,
+                        const int *sizes, int n)
+{
+  (void)name;
+  if (!win || !win->hwnd) {
+    return;
+  }
+  HICON big = NULL, small = NULL;
+  const int wb = GetSystemMetrics(SM_CXICON), ws = GetSystemMetrics(SM_CXSMICON);
+  const int ib = icon_pick(sizes, n, wb), is = icon_pick(sizes, n, ws);
+  if (ib >= 0 && pixels[ib]) {
+    big = make_icon(pixels[ib], sizes[ib], wb);
+  }
+  if (is >= 0 && pixels[is]) {
+    small = make_icon(pixels[is], sizes[is], ws);
+  }
+  SendMessageW(win->hwnd, WM_SETICON, ICON_BIG, (LPARAM)big);
+  SendMessageW(win->hwnd, WM_SETICON, ICON_SMALL, (LPARAM)small);
+  if (win->icon_big) {
+    DestroyIcon(win->icon_big);
+  }
+  if (win->icon_small) {
+    DestroyIcon(win->icon_small);
+  }
+  win->icon_big = big;
+  win->icon_small = small;
+}
+
+void BK_window_activate(BKWindow *win, const char *startup_id)
+{
+  (void)startup_id;
+  if (win && win->hwnd) {
+    if (IsIconic(win->hwnd)) {
+      ShowWindow(win->hwnd, SW_RESTORE);
+    }
+    SetForegroundWindow(win->hwnd);
+  }
 }
 #endif /* _WIN32 */
