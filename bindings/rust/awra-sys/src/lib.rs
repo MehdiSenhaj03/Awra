@@ -1113,4 +1113,6 @@ extern "C" {
     pub fn awra_tag_entry_clear(tags: *mut AwraWidget);
     pub fn awra_tag_entry_n_tags(tags: *mut AwraWidget) -> c_int;
     pub fn awra_tag_entry_tag(tags: *mut AwraWidget, index: c_int) -> *const c_char;
+    pub fn awra_widget_set_drop_active(widget: *mut AwraWidget, active: bool);
+    pub fn awra_widget_drop_active(widget: *mut AwraWidget) -> bool;
 }

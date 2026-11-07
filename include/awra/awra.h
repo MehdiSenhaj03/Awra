@@ -1769,6 +1769,15 @@ int awra_tag_entry_n_tags(AwraWidget *tags);
 const char *awra_tag_entry_tag(AwraWidget *tags, int index);
 
 
+/* ----------------------------------------------------------------------- */
+/* Drag and drop within the application */
+
+/* GTK's :drop(active): the widget is the destination a drag hovers (drawn
+ * as GTK's default theme does, a 1 px ring of the drop colour). */
+void awra_widget_set_drop_active(AwraWidget *widget, bool active);
+bool awra_widget_drop_active(AwraWidget *widget);
+
+
 #ifdef __cplusplus
 }
 #endif

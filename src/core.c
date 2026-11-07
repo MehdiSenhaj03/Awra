@@ -1792,6 +1792,7 @@ void awra_bk_arrange(BKNode *n)
 /* Drawing */
 
 static AwraDraw g_draw;
+void awra_paint_drop_active(AwraDraw *d, AwraWidget *w); /* dnd.c */
 
 void awra_bk_draw_tree(BKNode *n)
 {
@@ -1828,6 +1829,7 @@ void awra_bk_draw_tree(BKNode *n)
     if (c->draw) {
       c->draw(n, &g_draw);
     }
+    awra_paint_drop_active(&g_draw, n);
     if (n->nkids) {
       const bool clip = (c->flags & AWRA_CLASS_CLIP) != 0 || a->overflow_hidden;
       if (clip) {
