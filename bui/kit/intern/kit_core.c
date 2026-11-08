@@ -3749,6 +3749,19 @@ int BK_scroll(BKContext *ctx, int x, int y, float dx, float dy, int mods)
   if (ctx->blocked) {
     return 0;
   }
+  /* BUI-Awra: while a menu or popover that closes on a click outside is
+   * open, the wheel outside it scrolls nothing: the view under a context
+   * menu stays where the menu was opened (as the popover's grab keeps it) */
+  if (ctx->npopups > 0 && !BK_IS_CUSTOM(ctx->grab)) {
+    bool autohide = false, inside = false;
+    for (int i = 0; i < ctx->npopups; i++) {
+      autohide |= !(ctx->popups[i]->flags & NF_NO_AUTOHIDE);
+      inside |= bk_contains(ctx->popups[i], x, y);
+    }
+    if (autohide && !inside) {
+      return 1;
+    }
+  }
   BKNode *t = BK_IS_CUSTOM(ctx->grab) ? ctx->grab : (ctx->modal ? NULL : hit_all(ctx, x, y));
   if (BK_IS_CUSTOM(t) && NODE_ENABLED(t)) {
     if (dx == 0.0f && dy == 0.0f) {
