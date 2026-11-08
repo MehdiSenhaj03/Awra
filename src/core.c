@@ -1855,6 +1855,8 @@ const char *awra_widget_name(const AwraWidget *w)
   return awra_is_widget(w) ? awra_aux(w)->name : NULL;
 }
 
+static bool kids_reach(BKNode *n, int x, int y);
+
 static AwraWidget *pick(AwraWidget *n, int x, int y)
 {
   if (!(n->flags & NF_VISIBLE) || !bk_contains(n, x, y) ||
@@ -1862,7 +1864,7 @@ static AwraWidget *pick(AwraWidget *n, int x, int y)
   {
     return NULL;
   }
-  for (int i = n->nkids - 1; i >= 0; i--) {
+  for (int i = kids_reach(n, x, y) ? n->nkids - 1 : -1; i >= 0; i--) {
     AwraWidget *f = pick(n->kids[i], x, y);
     if (f) {
       return f;
@@ -2387,7 +2389,11 @@ void awra_bk_draw_tree(BKNode *n)
     if (n->nkids) {
       const bool clip = (c->flags & AWRA_CLASS_CLIP) != 0 || a->overflow_hidden;
       if (clip) {
-        bk_clip_push(n->x, n->y, n->w, n->h);
+        int cx = n->x, cy = n->y, cw = n->w, ch = n->h;
+        if (c->child_clip) {
+          c->child_clip(n, &cx, &cy, &cw, &ch);
+        }
+        bk_clip_push(cx, cy, cw, ch);
       }
       for (int i = 0; i < n->nkids; i++) {
         bk_draw_tree(n->kids[i]);
@@ -2426,12 +2432,39 @@ static bool targetable(const BKNode *n)
   return a->can_target && (n->flags & NF_ENABLED);
 }
 
+bool awra_child_clip(AwraWidget *w, int *r_x, int *r_y, int *r_w, int *r_h)
+{
+  *r_x = w->x;
+  *r_y = w->y;
+  *r_w = w->w;
+  *r_h = w->h;
+  if (!awra_is_widget(w)) {
+    return false;
+  }
+  const AwraClass *c = AWRA_CLASS_OF(w);
+  if (!(c->flags & AWRA_CLASS_CLIP) || !c->child_clip) {
+    return false;
+  }
+  c->child_clip(w, r_x, r_y, r_w, r_h);
+  return true;
+}
+
+/* whether children may take the pointer at x, y (inside the child clip) */
+static bool kids_reach(BKNode *n, int x, int y)
+{
+  int cx, cy, cw, ch;
+  if (!awra_child_clip(n, &cx, &cy, &cw, &ch)) {
+    return true;
+  }
+  return x >= cx && x < cx + cw && y >= cy && y < cy + ch;
+}
+
 BKNode *awra_bk_hit(BKNode *n, int x, int y)
 {
   if (awra_is_widget(n) && !awra_aux(n)->can_target) {
     return NULL;
   }
-  for (int i = n->nkids - 1; i >= 0; i--) {
+  for (int i = kids_reach(n, x, y) ? n->nkids - 1 : -1; i >= 0; i--) {
     BKNode *f = bk_hit(n->kids[i], x, y);
     if (f) {
       return f;

@@ -127,7 +127,13 @@ struct AwraClass {
    * as is, so whether that child takes less than it needs is the child's
    * (awra_takes_undersize) */
   AwraWidget *(*bin_child)(AwraWidget *w);
+  /* a clipping container (AWRA_CLASS_CLIP): where its children show and
+   * take the pointer, when that is less than its rect (a list's rows go
+   * under its column headers: GtkColumnView's list clips them below) */
+  void (*child_clip)(AwraWidget *w, int *r_x, int *r_y, int *r_w, int *r_h);
 };
+/* where `w`'s children show (its rect, or its class's child_clip) */
+bool awra_child_clip(AwraWidget *w, int *r_x, int *r_y, int *r_w, int *r_h);
 
 /* Declares the kit side of an Awra class: every hook goes to Awra's
  * generic dispatchers (core.c). */

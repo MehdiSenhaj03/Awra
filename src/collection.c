@@ -1352,6 +1352,23 @@ static bool coll_a11y_child_do(AwraWidget *w, AwraWidget *child, int verb, doubl
   }
 }
 
+/* the rows show and take the pointer below the column headers, as
+ * GtkColumnView's list view clips them: a row scrolled under a header is
+ * cut at its bottom edge, never drawn over the titles */
+static void coll_child_clip(AwraWidget *w, int *r_x, int *r_y, int *r_w, int *r_h)
+{
+  const CollExt *x = CX(w);
+  *r_x = w->x;
+  *r_y = w->y + x->header_h;
+  *r_w = w->w;
+  *r_h = BK_MAX(0, w->h - x->header_h);
+}
+
+static BKNode *coll_hit(BKNode *n, int x, int y)
+{
+  return awra_bk_hit(n, x, y);
+}
+
 static AwraClass coll_class = {
     .a11y = coll_a11y,
     .a11y_child = coll_a11y_child,
@@ -1372,6 +1389,7 @@ static AwraClass coll_class = {
     .key = coll_key,
     .scroll = coll_scroll,
     .cursor = coll_cursor,
+    .child_clip = coll_child_clip,
 };
 
 /* ----------------------------------------------------------------------- */
@@ -1379,6 +1397,7 @@ static AwraClass coll_class = {
 
 AwraWidget *awra_collection_view_new(AwraCollectionLayout layout)
 {
+  coll_class.bk.hit = coll_hit;
   AwraWidget *w = awra_widget_new(&coll_class);
   CollExt *x = CX(w);
   x->layout = layout;
