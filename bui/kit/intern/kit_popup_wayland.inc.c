@@ -50,6 +50,22 @@ static uint32_t latest_serial(void)
 static int wl_pop_place(void *data, int slot, const BKPopupLayout *l, int w, int h, int grab,
                         BKRect *r_rect);
 static void wl_pop_close(void *data, int slot);
+static int window_monitor(BKWindow *win, BKRect *r);
+
+/* BKPopupHost.monitor: the monitor the window is on (gdk_display_get_
+ * monitor_at_surface), in the window's buffer px as the others answer */
+static int wl_pop_monitor(void *data, BKRect *r_geometry)
+{
+  BKWindow *win = (BKWindow *)data;
+  BKRect m;
+  if (!window_monitor(win, &m)) {
+    return 0;
+  }
+  const double s = win_scale(win);
+  *r_geometry = bk_rect((int)floor(m.xmin * s), (int)floor(m.ymin * s), (int)floor(bk_rw(&m) * s),
+                        (int)floor(bk_rh(&m) * s));
+  return 1;
+}
 
 static void wl_popups_init(BKWindow *win)
 {
@@ -58,6 +74,7 @@ static void wl_popups_init(BKWindow *win)
   win->pophost.corner_radius = 0;
   win->pophost.place = wl_pop_place;
   win->pophost.close = wl_pop_close;
+  win->pophost.monitor = wl_pop_monitor;
   /* the size its cursor theme loads at (apply_cursor), as GTK's
    * cursor-size setting (24 by default) */
   const char *env = getenv("XCURSOR_SIZE");

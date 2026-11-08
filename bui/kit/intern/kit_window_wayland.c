@@ -59,6 +59,7 @@
 #  include "wayland/xdg-foreign-unstable-v2-client.h"
 #  include "wayland/xdg-shell-client.h"
 #  include "wayland/xdg-toplevel-icon-v1-client.h"
+#  include "wayland/xdg-output-unstable-v1-client.h"
 
 
 #  define MAX_TIMERS 64
@@ -124,6 +125,8 @@ struct BKWindow {
 
   int blur[5]; /* x y w h radius (logical) */
   int blur_dirty;
+  int restore_states; /* maximized / fullscreen when it was hidden (shown again so) */
+  struct Output *output; /* the output it last entered (its monitor) */
   struct WinIcon *icon; /* BUI-Awra: xdg-toplevel-icon (applied when mapped) */
 
   /* BUI-Awra: popups as xdg_popups (kit_popup_wayland.inc.c) */
@@ -164,12 +167,16 @@ static char *g_startup_token; /* XDG_ACTIVATION_TOKEN the application started wi
 /* outputs: their integer scale, for surfaces without fractional scaling */
 typedef struct Output {
   struct wl_output *wl;
+  struct zxdg_output_v1 *xo; /* its logical geometry (xdg-output), as GDK reads it */
   uint32_t name;
   int scale;
-  int w, h;
+  int w, h;                 /* the current mode (device px) */
+  int transform;            /* wl_output's: 90 and 270 swap the mode */
+  int lx, ly, lw, lh;       /* logical position and size; lw 0: not known */
   struct Output *next;
 } Output;
 static Output *g_outputs;
+static struct zxdg_output_manager_v1 *g_xoutput_mgr; /* BUI-Awra */
 
 static BKWindow *g_windows;
 static int g_open, g_quit, g_keep_alive;
@@ -238,6 +245,12 @@ static void output_geometry(void *data, struct wl_output *o, int32_t x, int32_t 
                             int32_t ph, int32_t sub, const char *make, const char *model,
                             int32_t transform)
 {
+  Output *out = (Output *)data;
+  out->transform = transform;
+  if (!out->xo) {
+    out->lx = x;
+    out->ly = y;
+  }
 }
 static void output_mode(void *data, struct wl_output *o, uint32_t flags, int32_t w, int32_t h,
                         int32_t refresh)
@@ -257,6 +270,49 @@ static void output_name(void *data, struct wl_output *o, const char *name) {}
 static void output_description(void *data, struct wl_output *o, const char *d) {}
 static const struct wl_output_listener g_output_listener = {
     output_geometry, output_mode, output_done, output_scale, output_name, output_description};
+
+/* xdg-output: the output's place and size in the compositor's logical
+ * space (fractional scaling included), what GdkMonitor's geometry is */
+static void xoutput_position(void *data, struct zxdg_output_v1 *xo, int32_t x, int32_t y)
+{
+  Output *out = (Output *)data;
+  out->lx = x;
+  out->ly = y;
+}
+static void xoutput_size(void *data, struct zxdg_output_v1 *xo, int32_t w, int32_t h)
+{
+  Output *out = (Output *)data;
+  out->lw = w;
+  out->lh = h;
+}
+static void xoutput_done(void *data, struct zxdg_output_v1 *xo) {}
+static void xoutput_name(void *data, struct zxdg_output_v1 *xo, const char *name) {}
+static void xoutput_description(void *data, struct zxdg_output_v1 *xo, const char *d) {}
+static const struct zxdg_output_v1_listener g_xoutput_listener = {
+    xoutput_position, xoutput_size, xoutput_done, xoutput_name, xoutput_description};
+
+static void output_watch_logical(Output *out)
+{
+  if (g_xoutput_mgr && out->wl && !out->xo) {
+    out->xo = zxdg_output_manager_v1_get_xdg_output(g_xoutput_mgr, out->wl);
+    zxdg_output_v1_add_listener(out->xo, &g_xoutput_listener, out);
+  }
+}
+
+/* An output's geometry in logical px: xdg-output's, else its mode over its
+ * scale (turned when the output is) */
+static BKRect output_logical(const Output *out)
+{
+  if (out->lw > 0 && out->lh > 0) {
+    return bk_rect(out->lx, out->ly, out->lw, out->lh);
+  }
+  const int sc = BK_MAX(1, out->scale);
+  const bool turned = out->transform == WL_OUTPUT_TRANSFORM_90 || out->transform == WL_OUTPUT_TRANSFORM_270 ||
+                      out->transform == WL_OUTPUT_TRANSFORM_FLIPPED_90 ||
+                      out->transform == WL_OUTPUT_TRANSFORM_FLIPPED_270;
+  const int w = (turned ? out->h : out->w) / sc, h = (turned ? out->w : out->h) / sc;
+  return bk_rect(out->lx, out->ly, BK_MAX(1, w), BK_MAX(1, h));
+}
 
 /* ----------------------------------------------------------------------- */
 /* Buffers */
@@ -1062,16 +1118,34 @@ static const struct wp_fractional_scale_v1_listener g_fscale_listener = {fscale_
 static void surface_enter(void *data, struct wl_surface *s, struct wl_output *o)
 {
   BKWindow *win = (BKWindow *)data;
-  if (win->fscale) {
-    return;
-  }
   for (Output *out = g_outputs; out; out = out->next) {
-    if (out->wl == o && g_compositor_version < 6) {
-      set_scale(win, 0, out->scale);
+    if (out->wl == o) {
+      win->output = out; /* gdk_display_get_monitor_at_surface: the one it entered */
+      if (!win->fscale && g_compositor_version < 6) {
+        set_scale(win, 0, out->scale);
+      }
     }
   }
 }
-static void surface_leave(void *data, struct wl_surface *s, struct wl_output *o) {}
+static void surface_leave(void *data, struct wl_surface *s, struct wl_output *o)
+{
+  BKWindow *win = (BKWindow *)data;
+  if (win->output && win->output->wl == o) {
+    win->output = NULL;
+  }
+}
+
+/* The monitor a window is on, in logical px: the output it entered, else
+ * the only (or first) one */
+static int window_monitor(BKWindow *win, BKRect *r)
+{
+  const Output *out = win && win->output ? win->output : g_outputs;
+  if (!out || (out->lw <= 0 && out->w <= 0)) {
+    return 0;
+  }
+  *r = output_logical(out);
+  return 1;
+}
 static void surface_preferred_buffer_scale(void *data, struct wl_surface *s, int32_t factor)
 {
   BKWindow *win = (BKWindow *)data;
@@ -1742,6 +1816,12 @@ static void registry_global(void *data, struct wl_registry *r, uint32_t name, co
   else if (!strcmp(iface, xdg_toplevel_icon_manager_v1_interface.name)) {
     BIND(g_icon_mgr, xdg_toplevel_icon_manager_v1_interface, 1);
   }
+  else if (!strcmp(iface, zxdg_output_manager_v1_interface.name)) {
+    BIND(g_xoutput_mgr, zxdg_output_manager_v1_interface, 3);
+    for (Output *o = g_outputs; o; o = o->next) {
+      output_watch_logical(o);
+    }
+  }
   else if (!strcmp(iface, wl_output_interface.name)) {
     Output *o = (Output *)calloc(1, sizeof(Output));
     if (o) {
@@ -1752,6 +1832,7 @@ static void registry_global(void *data, struct wl_registry *r, uint32_t name, co
       wl_output_add_listener(o->wl, &g_output_listener, o);
       o->next = g_outputs;
       g_outputs = o;
+      output_watch_logical(o);
     }
   }
 #  undef BIND
@@ -1762,6 +1843,14 @@ static void registry_remove(void *data, struct wl_registry *r, uint32_t name)
     if ((*p)->name == name) {
       Output *o = *p;
       *p = o->next;
+      for (BKWindow *w = g_windows; w; w = w->next) {
+        if (w->output == o) {
+          w->output = NULL;
+        }
+      }
+      if (o->xo) {
+        zxdg_output_v1_destroy(o->xo);
+      }
       wl_output_destroy(o->wl);
       free(o);
       return;
@@ -1844,6 +1933,15 @@ static void map_window(BKWindow *win)
         win->deco, (win->flags & BK_WINDOW_UNDECORATED) ? ZXDG_TOPLEVEL_DECORATION_V1_MODE_CLIENT_SIDE :
                                                           ZXDG_TOPLEVEL_DECORATION_V1_MODE_SERVER_SIDE);
   }
+  /* a window hidden maximized or fullscreen comes back so (GDK keeps the
+   * state it asked for a surface it maps again) */
+  if (win->restore_states & BK_WSTATE_FULLSCREEN) {
+    xdg_toplevel_set_fullscreen(win->toplevel, NULL);
+  }
+  else if (win->restore_states & BK_WSTATE_MAXIMIZED) {
+    xdg_toplevel_set_maximized(win->toplevel);
+  }
+  win->restore_states = 0;
   win->mapped = 1;
   win->configured = 0;
   win->states &= ~BK_WSTATE_HIDDEN;
@@ -1858,6 +1956,7 @@ static void unmap_window(BKWindow *win)
   }
   /* BUI-Awra: popups close with their window, before its role goes */
   BK_close_popups(win->ctx);
+  win->restore_states = win->states & (BK_WSTATE_MAXIMIZED | BK_WSTATE_FULLSCREEN);
   wl_popups_free(win);
   if (win->frame_cb) {
     wl_callback_destroy(win->frame_cb);
@@ -2287,12 +2386,13 @@ int BK_window_wm_get(BKWindow *win, const char *key, double *r_a, double *r_b)
     return 1;
   }
   if (!strcmp(key, "screen")) {
-    for (Output *o = g_outputs; o; o = o->next) {
-      *r_a = o->w / (double)BK_MAX(1, o->scale);
-      *r_b = o->h / (double)BK_MAX(1, o->scale);
-      return 1;
+    BKRect m;
+    if (!window_monitor(win, &m)) {
+      return 0;
     }
-    return 0;
+    *r_a = bk_rw(&m);
+    *r_b = bk_rh(&m);
+    return 1;
   }
   if (!strcmp(key, "state") && win) {
     const int st = win->states;

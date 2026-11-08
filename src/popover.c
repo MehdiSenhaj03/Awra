@@ -579,10 +579,13 @@ static void popup_with(AwraWidget *w, AwraWidget *owner)
   bk_open_popup(ctx, w, owner, NULL);
   if (x->menu && x->child && awra_widget_is(x->child, "AwraScrolledWindow")) {
     /* Awra 1's menus (rebuild_menu): at most the monitor's height less 64
-     * (120 at least), 600 when it is unknown */
+     * (120 at least), 600 when it is unknown. The monitor the window is on
+     * when the popup host knows it, else the screen asked above. */
     int mh = 0;
-    awra_scrolled_set_max_content_height(
-        x->child, awra_widget_get_monitor_geometry(owner, NULL, NULL, NULL, &mh) ? BK_MAX(120, mh - 64) : 600);
+    if (!awra_widget_get_monitor_geometry(owner, NULL, NULL, NULL, &mh) || mh <= 0) {
+      mh = monitor_height(awra_window_of(owner));
+    }
+    awra_scrolled_set_max_content_height(x->child, mh > 0 ? BK_MAX(120, mh - 64) : 600);
   }
   awra_map_tree(w, true);
   awra_widget_queue_resize(w);

@@ -52,6 +52,23 @@ static void *win32_pop_handle(void *data, int slot)
   return win->pops && slot >= 0 && slot < BK_POPUP_SLOTS ? (void *)win->pops[slot].hwnd : NULL;
 }
 
+/* BKPopupHost.monitor: the monitor the window is mostly on (GdkWin32's
+ * monitor at surface), its whole rect in device px */
+static int win32_pop_monitor(void *data, BKRect *r_geometry)
+{
+  BKWindow *win = (BKWindow *)data;
+  if (!win->hwnd) {
+    return 0;
+  }
+  MONITORINFO mi = {sizeof(mi)};
+  if (!GetMonitorInfoW(MonitorFromWindow(win->hwnd, MONITOR_DEFAULTTONEAREST), &mi)) {
+    return 0;
+  }
+  *r_geometry = bk_rect(mi.rcMonitor.left, mi.rcMonitor.top, mi.rcMonitor.right - mi.rcMonitor.left,
+                        mi.rcMonitor.bottom - mi.rcMonitor.top);
+  return 1;
+}
+
 static void win32_popups_init(BKWindow *win)
 {
   dwm_load();
@@ -63,6 +80,7 @@ static void win32_popups_init(BKWindow *win)
   win->pophost.close = win32_pop_close;
   win->pophost.cursor_size = win32_cursor_size(win);
   win->pophost.handle = win32_pop_handle;
+  win->pophost.monitor = win32_pop_monitor;
   if (win->flags & BK_WINDOW_TRANSPARENT) {
     bk_popup_host_set(win->ctx, &win->pophost);
   }
