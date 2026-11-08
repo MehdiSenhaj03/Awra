@@ -1755,6 +1755,7 @@ void awra_window_present(AwraWidget *w)
     return;
   }
   WinExt *x = WEXT(w);
+  awra_aux(w)->user_hidden = false; /* gtk_widget_get_visible: TRUE */
   ensure_native(w);
   if (!x->presented) {
     x->presented = true;
@@ -1802,6 +1803,7 @@ void awra_window_present(AwraWidget *w)
 void awra_window_hide(AwraWidget *w)
 {
   WinExt *x = WEXT(w);
+  awra_aux(w)->user_hidden = true; /* gtk_widget_get_visible: FALSE */
   if (x->bkw) {
     BK_window_hide(x->bkw);
   }
@@ -1813,6 +1815,14 @@ void awra_window_hide(AwraWidget *w)
   }
   awra_emit_index(w, AWRA_SIGNAL_STATE, x->state);
   update_blocked(x->transient_for);
+}
+
+/* gtk_window_destroy: closed for good, no close-request asked */
+void awra_window_destroy_internal(AwraWidget *w)
+{
+  if (awra_widget_is(w, "AwraWindow")) {
+    window_destroy(w);
+  }
 }
 
 void awra_window_close(AwraWidget *w)

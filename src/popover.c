@@ -2256,6 +2256,7 @@ typedef struct PaletteData {
   char **strings;
   AwraWidget *popover, *entry, *list, *empty, *window, *header; /* popover: its window */
   AwraWidget *column; /* (unused) */
+  unsigned long state_id, close_id; /* its handlers on the window */
   bool had_focus;
   char *title;
   int current; /* index in commands of the Enter target */
@@ -2366,7 +2367,11 @@ static void palette_free(void *v)
   free(p->commands);
   free(p->title);
   if (p->popover) {
-    awra_widget_unref(p->popover);
+    /* its window: the window list holds it until it is destroyed (as GTK
+     * keeps toplevels), and its handlers point at this palette */
+    awra_signal_disconnect(p->popover, p->state_id);
+    awra_signal_disconnect(p->popover, p->close_id);
+    awra_widget_destroy(p->popover);
   }
   free(p);
 }
@@ -2532,8 +2537,8 @@ void awra_command_palette_present(AwraWidget *w, AwraWidget *window)
     /* .awra-command-palette: the full header, with only its close button */
     p->header = awra_window_titlebar(p->popover);
     awra_header_set_close_only(p->header);
-    awra_signal_connect(p->popover, AWRA_SIGNAL_STATE, palette_state, w, NULL);
-    awra_signal_connect(p->popover, AWRA_SIGNAL_CLOSE_REQUEST, palette_close_request, w, NULL);
+    p->state_id = awra_signal_connect(p->popover, AWRA_SIGNAL_STATE, palette_state, w, NULL);
+    p->close_id = awra_signal_connect(p->popover, AWRA_SIGNAL_CLOSE_REQUEST, palette_close_request, w, NULL);
   }
   if (awra_window_child(p->popover) != w) {
     awra_window_set_child(p->popover, w);

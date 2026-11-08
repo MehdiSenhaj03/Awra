@@ -516,6 +516,8 @@ void awra_paint_icon(AwraDraw *d, const char *name, float x, float y, int size,
                      const AwraRGBA *color);
 /* The same at x, y as given, off the pixel grid included (where GSK draws
  * an icon a widget placed at a fraction, as GtkIconHelper centres them) */
+/* window.c: gtk_window_destroy (no close-request) */
+void awra_window_destroy_internal(AwraWidget *w);
 void awra_paint_icon_at(AwraDraw *d, const char *name, float x, float y, int size,
                         const AwraRGBA *color);
 /* Full-color icons (non-symbolic SVG / PNG) as a BuiPixmap; NULL: none. */

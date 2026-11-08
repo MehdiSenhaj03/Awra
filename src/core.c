@@ -816,7 +816,7 @@ void awra_widget_destroy(AwraWidget *w)
     return;
   }
   if (awra_widget_is(w, "AwraWindow")) {
-    awra_window_close(w);
+    awra_window_destroy_internal(w); /* gtk_window_destroy */
     return;
   }
   if (w->parent) {
@@ -1217,6 +1217,18 @@ void awra_widget_set_visible(AwraWidget *w, bool visible)
     return;
   }
   AwraAux *a = awra_aux(w);
+  if (awra_widget_is(w, "AwraWindow")) {
+    /* gtk_widget_set_visible on a window shows or hides the window itself
+     * (gtk_window_show / gtk_window_hide): hidden, its surface goes, with
+     * its blur and shape; its content keeps its own visibility */
+    if (visible) {
+      awra_window_present(w);
+    }
+    else {
+      awra_window_hide(w);
+    }
+    return;
+  }
   a->user_hidden = !visible;
   set_effective_visible(w, visible && !a->child_hidden);
 }

@@ -248,6 +248,24 @@ static void focus_comes_back(void)
   frame();
 }
 
+/* gtk_widget_set_visible on a window shows or hides the window itself: a
+ * window hidden to the tray must not leave its surface (and its blur) */
+static void window_visibility(void)
+{
+  AwraWidget *w = awra_window_new("hidden", 200, 100);
+  awra_window_present(w);
+  CHECK(awra_widget_visible(w), "a presented window isn't visible");
+  CHECK(!(awra_window_state(w) & AWRA_WINDOW_STATE_HIDDEN), "a presented window is hidden");
+  awra_widget_set_visible(w, false);
+  CHECK(!awra_widget_visible(w), "set_visible (false) left the window visible");
+  CHECK(awra_window_state(w) & AWRA_WINDOW_STATE_HIDDEN, "set_visible (false) didn't hide the window");
+  awra_widget_set_visible(w, true);
+  CHECK(awra_widget_visible(w), "set_visible (true) didn't show the window again");
+  CHECK(!(awra_window_state(w) & AWRA_WINDOW_STATE_HIDDEN), "set_visible (true) left the window hidden");
+  awra_widget_destroy(w);
+  frame();
+}
+
 int main(void)
 {
   awra_init("org.awra.TestExplorerWidgets");
@@ -260,6 +278,7 @@ int main(void)
   band_and_opacity();
   stack_page_gone();
   focus_comes_back();
+  window_visibility();
   awra_widget_destroy(g_win);
   if (failures) {
     return 1;
