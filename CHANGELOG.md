@@ -285,6 +285,8 @@ unchanged (checked against the frozen 1.0.0 contract).
 
 ### Desktop workspace composition
 
+- An `AwraButton` showing only an icon is named for screen readers by its
+  tooltip, and follows it when the tooltip or the icon changes.
 - `AwraFormRow` asks for its side-by-side width as natural width, so a container
   fitting it to a height can no longer report inconsistent sizes.
 - Scrolling menus and their shortcut labels resist hostile themes, and theme
@@ -305,6 +307,8 @@ unchanged (checked against the frozen 1.0.0 contract).
   a row, actions inside a row and capacity gauges.
 - Style role `spaced-rows` keeps a small gap between the rows of a table, so
   neighbours selected together still read as separate items.
+- Style role `suggested` makes the icon of what the person will probably want
+  next glow softly, apart from the selection.
 - Style roles `about-to-open` and `refused` announce a place opening under a
   held drag and an input that was turned down.
 - `AwraPopover` content unfolds like menus do, and follows reduced motion.
