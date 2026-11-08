@@ -254,6 +254,8 @@ typedef struct ButtonExt {
   int emoji_tab;      /* an emoji picker's tab: 1, 2 the current one */
   float font_px;      /* a CSS rule's font-size (px); 0: the typography's */
   float radius_px;    /* a CSS rule's border-radius (px); 0: the look's */
+  bool busy;          /* Awra 1's AwraButton:busy: a spinner over the hidden content */
+  AwraWidget *spinner;
 } ButtonExt;
 
 #define BX(w) AWRA_EXT(w, ButtonExt)
@@ -537,6 +539,13 @@ static void button_measure(AwraWidget *w, int o, int for_size, int *r_min, int *
 static void button_allocate(AwraWidget *w)
 {
   ButtonExt *x = BX(w);
+  if (x->spinner) {
+    /* GtkButton's bin layout centres it in the button's own allocation */
+    int mw, nw, mh, nh;
+    awra_measure(x->spinner, AWRA_ORIENTATION_HORIZONTAL, -1, &mw, &nw);
+    awra_measure(x->spinner, AWRA_ORIENTATION_VERTICAL, nw, &mh, &nh);
+    awra_allocate(x->spinner, w->x + (w->w - nw) / 2, w->y + (w->h - nh) / 2, nw, nh);
+  }
   if (!x->child) {
     return;
   }
@@ -672,8 +681,9 @@ static void button_draw(AwraWidget *w, AwraDraw *d)
                          awra_focus_visible(w));
   }
   x->colors = c;
-  if (x->child) {
-    return; /* the child draws, with this button's color (child_style) */
+  if (x->child || x->busy) {
+    return; /* the child draws, with this button's color (child_style); busy:
+             * the spinner shows instead, the content keeping its room */
   }
   if (x->style_gen != awra_style_generation()) {
     button_sync(w);
@@ -757,6 +767,9 @@ static void toggle_set(AwraWidget *w, bool active, bool notify);
 static void button_activate(AwraWidget *w)
 {
   ButtonExt *x = BX(w);
+  if (x->busy) {
+    return; /* a busy button swallows its clicks before anyone hears them */
+  }
   awra_widget_ref(w);
   if (x->toggle) {
     /* in a group, activating the active one keeps it active (radio) */
@@ -847,6 +860,9 @@ static void button_a11y(AwraWidget *w, AwraA11yInfo *info)
   }
   if (x->appearance == AWRA_BUTTON_PRIMARY) {
     info->flags |= AWRA_A11Y_DEFAULT;
+  }
+  if (x->busy) {
+    awra_a11y_set_state(info, AWRA_ACCESSIBLE_STATE_BUSY, true);
   }
   awra_popover_owner_a11y(w, info);
 }
@@ -940,6 +956,41 @@ void awra_button_set_child(AwraWidget *w, AwraWidget *child)
     return;
   }
   awra_set_slot(w, &BX(w)->child, child);
+}
+
+/* Awra 1's AwraButton:busy: a spinner over the content, which keeps its
+ * room (the button doesn't change size), and clicks swallowed */
+void awra_button_set_busy(AwraWidget *w, bool busy)
+{
+  if (!is_button(w)) {
+    return;
+  }
+  ButtonExt *x = BX(w);
+  if (x->busy == busy) {
+    return;
+  }
+  x->busy = busy;
+  if (busy && !x->spinner) {
+    AwraWidget *s = awra_spinner_new();
+    awra_widget_set_can_target(s, false);
+    awra_set_slot(w, &x->spinner, s);
+    awra_widget_unref(s);
+  }
+  if (x->spinner) {
+    awra_widget_set_visible(x->spinner, busy);
+    awra_spinner_set_spinning(x->spinner, busy);
+  }
+  if (x->child) {
+    awra_widget_set_opacity(x->child, busy ? 0.0 : 1.0);
+  }
+  awra_a11y_dirty(w);
+  awra_widget_queue_resize(w);
+  awra_invalidate(w);
+}
+
+bool awra_button_busy(AwraWidget *w)
+{
+  return is_button(w) && BX(w)->busy;
 }
 
 void awra_button_set_appearance(AwraWidget *w, AwraButtonAppearance a)

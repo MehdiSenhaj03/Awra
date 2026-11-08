@@ -662,6 +662,10 @@ AwraWidget *awra_button_new_from_icon_name(const char *icon_name);
 void awra_button_set_label(AwraWidget *button, const char *label);
 const char *awra_button_label(AwraWidget *button);
 void awra_button_set_icon_name(AwraWidget *button, const char *icon_name);
+/* Awra 1's AwraButton:busy: a spinner over the content (the button keeps
+ * its size) and clicks swallowed while busy */
+void awra_button_set_busy(AwraWidget *button, bool busy);
+bool awra_button_busy(AwraWidget *button);
 void awra_button_set_child(AwraWidget *button, AwraWidget *child);
 void awra_button_set_appearance(AwraWidget *button, AwraButtonAppearance appearance);
 AwraButtonAppearance awra_button_appearance(AwraWidget *button);

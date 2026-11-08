@@ -624,6 +624,8 @@ extern "C" {
     pub fn awra_button_set_label(button: *mut AwraWidget, label: *const c_char);
     pub fn awra_button_label(button: *mut AwraWidget) -> *const c_char;
     pub fn awra_button_set_icon_name(button: *mut AwraWidget, icon_name: *const c_char);
+    pub fn awra_button_set_busy(button: *mut AwraWidget, busy: bool);
+    pub fn awra_button_busy(button: *mut AwraWidget) -> bool;
     pub fn awra_button_set_child(button: *mut AwraWidget, child: *mut AwraWidget);
     pub fn awra_button_set_appearance(button: *mut AwraWidget, appearance: c_int);
     pub fn awra_button_appearance(button: *mut AwraWidget) -> c_int;

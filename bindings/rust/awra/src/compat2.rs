@@ -456,8 +456,19 @@ impl File {
     pub fn path(&self) -> Option<std::path::PathBuf> {
         Some(self.0.clone())
     }
+    /// Its file:// URI, escaped as g_file_get_uri escapes it (bytes
+    /// outside the unreserved set and the path's own '/' as %XX)
     pub fn uri(&self) -> String {
-        format!("file://{}", self.0.display())
+        let mut out = String::from("file://");
+        let path = self.0.to_string_lossy();
+        for b in path.as_bytes() {
+            match *b {
+                b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'.' | b'_' | b'~' | b'/' | b'!' | b'$' | b'&'
+                | b'\'' | b'(' | b')' | b'*' | b'+' | b',' | b';' | b'=' | b':' | b'@' => out.push(*b as char),
+                other => out.push_str(&format!("%{other:02X}")),
+            }
+        }
+        out
     }
 }
 

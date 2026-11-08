@@ -42,6 +42,8 @@ pub use transitions::widget_finish_transitions;
 pub use accel::accelerator_get_label;
 pub use metric::MetricRow;
 mod gtk_look;
+mod launcher;
+pub use launcher::{FileLauncher, UriLauncher};
 mod icontheme;
 pub use icontheme::{IconLookupFlags, IconPaintable, IconTheme, IconThemeDisplay, IconThemeHandlerId};
 pub mod gdk;

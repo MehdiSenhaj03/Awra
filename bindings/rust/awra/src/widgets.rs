@@ -633,6 +633,13 @@ impl Button {
         let n = OptC::new(name);
         unsafe { ffi::awra_button_set_icon_name(ptr!(self), n.ptr()) }
     }
+    /// AwraButton:busy: a spinner over the content, clicks swallowed.
+    pub fn set_busy(&self, busy: bool) {
+        unsafe { ffi::awra_button_set_busy(ptr!(self), busy) }
+    }
+    pub fn is_busy(&self) -> bool {
+        unsafe { ffi::awra_button_busy(ptr!(self)) }
+    }
     pub fn set_child(&self, child: impl IntoOptWidget) {
         unsafe { ffi::awra_button_set_child(ptr!(self), child.into_opt_ptr()) }
     }

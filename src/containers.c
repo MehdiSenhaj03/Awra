@@ -100,10 +100,12 @@ static void box_distribute(AwraWidget *w, int avail, int for_cross, int *sizes, 
   }
   int extra = avail - sp;
   if (b->homogeneous) {
+    /* gtk_box_layout_allocate: each child the same share, whatever its
+     * minimum (a box short of room clips them, as GTK does) */
     const int each = n > 0 ? BK_MAX(0, extra) / n : 0;
     int rem = n > 0 ? BK_MAX(0, extra) - each * n : 0;
     for (int i = 0; i < n; i++) {
-      sizes[i] = BK_MAX(mn[i], each + (i < rem ? 1 : 0));
+      sizes[i] = each + (i < rem ? 1 : 0);
     }
   }
   else {
