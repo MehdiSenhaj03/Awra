@@ -1241,14 +1241,15 @@ static bool printable_keysym(const char *k)
   return false;
 }
 
-/* A character typed into a text field goes to the field before the
- * window's shortcuts (GTK 3's gtk_window_key_press_event gave the focus
- * widget unmodified keys first): "r" is a letter in an entry, not "Record". */
+/* A key pressed in a text field goes to the field before the window's
+ * shortcuts, which get it only if the field doesn't use it (GTK 3's
+ * gtk_window_key_press_event gave the focus widget the key first): "r" is
+ * a letter in an entry, not "Record"; Delete, the arrows, Ctrl+C / X / V
+ * edit the text, not the document; Ctrl+S still saves. */
 static bool typed_into(AwraWidget *focus, const char *keysym, int mods)
 {
-  if (mods & (BK_CTRL | BK_ALT) || !printable_keysym(keysym)) {
-    return false;
-  }
+  (void)keysym;
+  (void)mods;
   for (AwraWidget *w = focus; w; w = w->parent) {
     if (awra_widget_is(w, "AwraEntry") || awra_widget_is(w, "AwraComposer") ||
         awra_widget_is(w, "AwraTagEntry"))
