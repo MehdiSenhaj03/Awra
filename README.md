@@ -25,6 +25,14 @@ runtime.
   closures on signals, `win.*` actions with accelerators, menus, timers and
   futures on the UI thread, native file dialogs).
 
+## Awra Studio
+
+[`studio/`](studio/README.md) is a music studio built on Awra (Rust): a
+multitrack timeline, built-in effects and real-time autotune, VST3/CLAP
+plugins, an agentic AI sound engineer, serverless peer-to-peer sessions,
+and a workspace the user (or the AI) rearranges. It also drives Awra's
+evolution: `awra::Dock`, `awra::LevelMeter` and canvas text came from it.
+
 ## Build
 
 ```sh
