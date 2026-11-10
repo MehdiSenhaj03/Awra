@@ -1241,6 +1241,24 @@ static bool printable_keysym(const char *k)
   return false;
 }
 
+/* A character typed into a text field goes to the field before the
+ * window's shortcuts (GTK 3's gtk_window_key_press_event gave the focus
+ * widget unmodified keys first): "r" is a letter in an entry, not "Record". */
+static bool typed_into(AwraWidget *focus, const char *keysym, int mods)
+{
+  if (mods & (BK_CTRL | BK_ALT) || !printable_keysym(keysym)) {
+    return false;
+  }
+  for (AwraWidget *w = focus; w; w = w->parent) {
+    if (awra_widget_is(w, "AwraEntry") || awra_widget_is(w, "AwraComposer") ||
+        awra_widget_is(w, "AwraTagEntry"))
+    {
+      return true;
+    }
+  }
+  return false;
+}
+
 bool awra_window_dispatch_shortcut(AwraWidget *win, const char *keysym, int mods)
 {
   const int m = mods & (BK_SHIFT | BK_CTRL | BK_ALT);
@@ -1269,7 +1287,8 @@ bool awra_window_dispatch_shortcut(AwraWidget *win, const char *keysym, int mods
   bool handled = true;
   a.handled = &handled;
   found->fn(win, &a, found->data);
-  return true;
+  /* a handler may let the key go on (*args->handled = false) */
+  return handled;
 }
 
 static int key_hook(BKContext *ctx, int press, const char *text, const char *keysym, int mods)
@@ -1322,7 +1341,7 @@ static int key_hook(BKContext *ctx, int press, const char *text, const char *key
    * own keys: GtkWindow runs them in the capture phase, as a global
    * shortcut controller added when the window got its application */
   bool accels_done = false;
-  if (press && !handled && !ctx->npopups) {
+  if (press && !handled && !ctx->npopups && !(start && typed_into(start, keysym, mods))) {
     accels_done = true;
     handled = awra_window_dispatch_shortcut(win, keysym, mods);
   }

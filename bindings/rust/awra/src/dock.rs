@@ -292,12 +292,14 @@ struct State {
 #[derive(Clone)]
 pub struct Dock {
     root: crate::Box,
+    /// Plays a short motion when the layout changes.
+    bin: crate::TransitionBin,
     state: Rc<RefCell<State>>,
 }
 
 impl AsRef<Widget> for Dock {
     fn as_ref(&self) -> &Widget {
-        self.root.as_ref()
+        self.bin.as_ref()
     }
 }
 
@@ -319,7 +321,16 @@ impl Dock {
         let root = crate::Box::new(Orientation::Vertical, 0);
         root.set_hexpand(true);
         root.set_vexpand(true);
-        Dock { root, state: Rc::new(RefCell::new(State { tree: None, panels: Vec::new(), editing: false, changed: Vec::new() })) }
+        let bin = crate::TransitionBin::new();
+        bin.set_motion(crate::MotionPreset::Fast);
+        bin.set_child(Some(&root));
+        bin.set_hexpand(true);
+        bin.set_vexpand(true);
+        Dock {
+            root,
+            bin,
+            state: Rc::new(RefCell::new(State { tree: None, panels: Vec::new(), editing: false, changed: Vec::new() })),
+        }
     }
 
     /// Registers a panel (not shown until a layout places it).
@@ -349,10 +360,11 @@ impl Dock {
             let b = icon_button(icon, tip);
             let weak = Rc::downgrade(&self.state);
             let root = self.root.clone();
+            let bin = self.bin.clone();
             let pid = id.to_string();
             b.connect_clicked(move |_| {
                 if let Some(state) = weak.upgrade() {
-                    let d = Dock { root: root.clone(), state };
+                    let d = Dock { root: root.clone(), bin: bin.clone(), state };
                     f(&d, &pid);
                 }
             });
@@ -471,6 +483,14 @@ impl Dock {
     }
 
     fn rebuild(&self) {
+        let animate = !self.root.children().is_empty();
+        self.rebuild_now();
+        if animate {
+            self.bin.play(0.0, 8.0);
+        }
+    }
+
+    fn rebuild_now(&self) {
         // take every panel out of the old containers while they are alive
         // (a stack hides the pages it doesn't show: they come out visible)
         let s = self.state.borrow();
@@ -518,12 +538,13 @@ impl Dock {
                 let weak = Rc::downgrade(&self.state);
                 let my_path = path.clone();
                 let root = self.root.clone();
+                let bin = self.bin.clone();
                 paned.connect_position_notify(move |p| {
                     if let Some(st) = weak.upgrade() {
                         if let Some(t) = st.borrow_mut().tree.as_mut() {
                             t.set_fraction(&my_path, p.fraction());
                         }
-                        let d = Dock { root: root.clone(), state: st };
+                        let d = Dock { root: root.clone(), bin: bin.clone(), state: st };
                         d.emit_changed();
                     }
                 });
@@ -536,6 +557,8 @@ impl Dock {
                 seg.set_margin_top(4);
                 let stack = crate::Stack::new();
                 stack.set_vexpand(true);
+                stack.set_transition_type(crate::StackTransitionType::Crossfade);
+                stack.set_transition_duration(crate::motion_duration(&crate::StyleManager::default(), crate::MotionPreset::Fast));
                 {
                     let s = self.state.borrow();
                     for id in panels {

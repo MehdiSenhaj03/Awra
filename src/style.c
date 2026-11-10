@@ -26,6 +26,8 @@ static struct {
   bool high_contrast, reduced_motion, reduced_transparency, native_blur;
   bool tint_set[AWRA_MATERIAL_COUNT];
   AwraRGBA tint[AWRA_MATERIAL_COUNT];
+  bool opacity_set[AWRA_MATERIAL_COUNT];
+  float opacity[AWRA_MATERIAL_COUNT];
   double grain_scale;
   /* desktop */
   bool system_dark;
@@ -540,6 +542,18 @@ static void build_tokens(void)
     if (S.tint_set[i]) {
       mt[i] = S.tint[i];
     }
+    if (S.opacity_set[i]) {
+      /* a tint made to be faint over the canvas (a light layer on a dark
+       * window) keeps the colour it shows there: what it looks like over
+       * the canvas, at the opacity asked */
+      if (i != AWRA_MATERIAL_CANVAS && mt[i].a < 1.0f) {
+        const float a0 = mt[i].a;
+        mt[i].r = canvas.r * (1.0f - a0) + mt[i].r * a0;
+        mt[i].g = canvas.g * (1.0f - a0) + mt[i].g * a0;
+        mt[i].b = canvas.b * (1.0f - a0) + mt[i].b * a0;
+      }
+      mt[i].a = S.opacity[i];
+    }
     t->material_radius[i] = t->radii[AWRA_RADIUS_LARGE];
     t->material_grain[i] = 0.0f;
     t->material_blur[i] = false;
@@ -736,6 +750,26 @@ void awra_style_set_material_tint(AwraMaterial m, const AwraRGBA *tint)
   style_changed();
 }
 
+void awra_style_set_material_opacity(AwraMaterial m, double opacity)
+{
+  if (m < 0 || m >= AWRA_MATERIAL_COUNT) {
+    return;
+  }
+  awra_style_init();
+  S.opacity_set[m] = opacity >= 0.0;
+  S.opacity[m] = opacity < 0.0 ? 0.0f : opacity > 1.0 ? 1.0f : (float)opacity;
+  style_changed();
+}
+
+double awra_style_material_opacity(AwraMaterial m)
+{
+  if (m < 0 || m >= AWRA_MATERIAL_COUNT) {
+    return 1.0;
+  }
+  awra_style_init();
+  return awra_tokens()->material_tint[m].a;
+}
+
 void awra_style_set_grain_scale(double scale)
 {
   awra_style_init();
@@ -747,6 +781,7 @@ void awra_style_reset(void)
 {
   awra_style_init();
   memset(S.tint_set, 0, sizeof(S.tint_set));
+  memset(S.opacity_set, 0, sizeof(S.opacity_set));
   S.grain_scale = 0;
   S.high_contrast = false;
   S.reduced_transparency = false;
