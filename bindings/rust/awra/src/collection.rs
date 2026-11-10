@@ -565,6 +565,17 @@ impl Canvas {
         let c = c.to_ffi();
         unsafe { ffi::awra_canvas_circle(self.0, cx, cy, r, &c) }
     }
+    /// Text whose top-left corner is at x, y, in a typography's font.
+    pub fn text(&self, x: f64, y: f64, text: &str, typography: crate::Typography, c: &crate::gdk::RGBA) {
+        let t = cstring(text);
+        let c = c.to_ffi();
+        unsafe { ffi::awra_canvas_text(self.0, x, y, t.as_ptr(), typography as _, &c) }
+    }
+    /// The width `text` takes (logical px).
+    pub fn text_width(&self, text: &str, typography: crate::Typography) -> f64 {
+        let t = cstring(text);
+        unsafe { ffi::awra_canvas_text_width(self.0, t.as_ptr(), typography as _) }
+    }
     pub fn icon(&self, name: &str, x: f64, y: f64, size: f64, c: &crate::gdk::RGBA) {
         let n = cstring(name);
         let c = c.to_ffi();

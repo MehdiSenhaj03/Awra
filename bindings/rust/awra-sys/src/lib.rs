@@ -952,6 +952,7 @@ extern "C" {
     pub fn awra_canvas_circle(c: *mut AwraCanvas, cx: f64, cy: f64, r: f64, rgba: *const AwraRGBA);
     pub fn awra_canvas_text(c: *mut AwraCanvas, x: f64, y: f64, text: *const c_char, type_: c_int, rgba: *const AwraRGBA);
     pub fn awra_canvas_icon(c: *mut AwraCanvas, icon: *const c_char, x: f64, y: f64, size: f64, rgba: *const AwraRGBA);
+    pub fn awra_canvas_text_width(c: *mut AwraCanvas, text: *const c_char, type_: c_int) -> f64;
     pub fn awra_file_dialog_open(parent: *mut AwraWidget, title: *const c_char, multiple: bool, folder: bool, filters: *const AwraFileFilter, n_filters: c_int, done: Option<unsafe extern "C" fn(*const c_char, *mut c_void)>, data: *mut c_void);
     pub fn awra_file_dialog_save(parent: *mut AwraWidget, title: *const c_char, initial_name: *const c_char, filters: *const AwraFileFilter, n_filters: c_int, done: Option<unsafe extern "C" fn(*const c_char, *mut c_void)>, data: *mut c_void);
     pub fn awra_key_code_label(code: *const c_char) -> *const c_char;
