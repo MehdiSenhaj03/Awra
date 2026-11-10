@@ -27,11 +27,12 @@ runtime.
 
 ## Awra Studio
 
-[`studio/`](studio/README.md) is a music studio built on Awra (Rust): a
-multitrack timeline, built-in effects and real-time autotune, VST3/CLAP
-plugins, an agentic AI sound engineer, serverless peer-to-peer sessions,
-and a workspace the user (or the AI) rearranges. It also drives Awra's
-evolution: `awra::Dock`, `awra::LevelMeter` and canvas text came from it.
+[Awra Studio](https://github.com/MehdiSenhajYnov/AwraStudio) is a music
+studio built on Awra (Rust): a multitrack timeline, built-in effects and
+real-time autotune, VST3/CLAP plugins, an agentic AI sound engineer,
+serverless peer-to-peer sessions, and a workspace the user (or the AI)
+rearranges. It drives Awra's evolution: `awra::Dock`, `awra::LevelMeter`
+and canvas text came from it.
 
 ## Build
 
