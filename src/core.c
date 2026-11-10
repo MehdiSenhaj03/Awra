@@ -737,6 +737,16 @@ void awra_child_remove(AwraWidget *parent, AwraWidget *child)
   awra_a11y_child_changed(parent, child, false);
   if (awra_is_widget(child)) {
     set_mapped_tree(child, false);
+    /* child-visible is the parent's business: gtk_widget_unparent sets it
+     * back, so that a page a stack hid shows wherever it goes next */
+    AwraAux *a = awra_aux(child);
+    if (a->child_hidden) {
+      a->child_hidden = 0;
+      if (!a->user_hidden) {
+        child->flags |= NF_VISIBLE;
+        a->needs_allocate = 1;
+      }
+    }
   }
   awra_widget_queue_resize(parent);
   BK_node_remove(parent, child); /* releases: may free it */

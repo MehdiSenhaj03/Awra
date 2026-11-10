@@ -237,8 +237,48 @@ struct Panel {
     id: String,
     title: String,
     content: Widget,
-    frame: crate::Box,
+    /// What the tree places: the frame inside a shrinkable bin.
+    outer: crate::Layout,
     bar: crate::Box,
+}
+
+/// The size a panel may shrink to: past it, its content is clipped
+/// rather than pushing the other panels out.
+const SHRINK_W: i32 = 120;
+const SHRINK_H: i32 = 80;
+
+/// A bin whose minimum size is small: the child gets at least its own
+/// minimum, clipped.
+fn shrinkable(child: &impl IsWidget) -> crate::Layout {
+    let l = crate::Layout::new(
+        |l, o, for_size| {
+            let Some(c) = l.first_child() else { return (0, 0) };
+            match o {
+                Orientation::Horizontal => {
+                    let (mn, nt, _, _) = c.measure(o, for_size);
+                    (mn.min(SHRINK_W), nt)
+                }
+                Orientation::Vertical => {
+                    let (min_w, _, _, _) = c.measure(Orientation::Horizontal, -1);
+                    let w = if for_size < 0 { -1 } else { for_size.max(min_w) };
+                    let (mn, nt, _, _) = c.measure(o, w);
+                    (mn.min(SHRINK_H), nt)
+                }
+            }
+        },
+        |l, w, h| {
+            let Some(c) = l.first_child() else { return };
+            let (min_w, _, _, _) = c.measure(Orientation::Horizontal, -1);
+            let aw = w.max(min_w);
+            let (min_h, _, _, _) = c.measure(Orientation::Vertical, aw);
+            c.allocate(0, 0, aw, h.max(min_h));
+        },
+    );
+    l.set_clip(true);
+    l.append(child);
+    l.set_hexpand(true);
+    l.set_vexpand(true);
+    l
 }
 
 struct State {
@@ -323,7 +363,8 @@ impl Dock {
         content.set_hexpand(true);
         content.set_vexpand(true);
         frame.append(&content);
-        self.state.borrow_mut().panels.push(Panel { id: id.to_string(), title: title.to_string(), content, frame, bar });
+        let outer = shrinkable(&frame);
+        self.state.borrow_mut().panels.push(Panel { id: id.to_string(), title: title.to_string(), content, outer, bar });
     }
 
     pub fn panel_ids(&self) -> Vec<(String, String)> {
@@ -430,15 +471,17 @@ impl Dock {
     }
 
     fn rebuild(&self) {
-        // take every panel out of the old containers
-        for c in self.root.children() {
-            self.root.remove(&c);
-        }
+        // take every panel out of the old containers while they are alive
+        // (a stack hides the pages it doesn't show: they come out visible)
         let s = self.state.borrow();
         for p in &s.panels {
-            if p.frame.parent().is_some() {
-                p.frame.unparent();
+            if p.outer.parent().is_some() {
+                p.outer.unparent();
             }
+            p.outer.set_child_visible(true);
+        }
+        for c in self.root.children() {
+            self.root.remove(&c);
         }
         let Some(tree) = s.tree.clone() else {
             let empty = crate::Label::new(Some("Espace vide : affiche un panneau depuis le menu Interface."));
@@ -459,7 +502,7 @@ impl Dock {
             DockNode::Panel(id) => {
                 let s = self.state.borrow();
                 let p = s.panels.iter().find(|p| p.id == *id).expect("known panel");
-                p.frame.clone().upcast::<Widget>()
+                p.outer.clone().upcast::<Widget>()
             }
             DockNode::Split { vertical, fraction, a, b } => {
                 let paned = crate::Paned::new(if *vertical { Orientation::Vertical } else { Orientation::Horizontal });
@@ -498,7 +541,7 @@ impl Dock {
                     for id in panels {
                         if let Some(p) = s.panels.iter().find(|p| p.id == *id) {
                             seg.append(&p.title);
-                            stack.add_named(&p.frame, Some(id.as_str()));
+                            stack.add_named(&p.outer, Some(id.as_str()));
                         }
                     }
                 }
