@@ -860,6 +860,20 @@ impl crate::Slider {
     pub fn clear_marks(&self) {
         unsafe { ffi::awra_slider_clear_marks(self.as_ptr()) }
     }
+    /// The highlight runs from `origin` to the thumb (a pan: 0.0).
+    pub fn set_origin(&self, origin: f64) {
+        unsafe { ffi::awra_slider_set_origin(self.as_ptr(), origin) }
+    }
+    /// GtkScale::set_has_origin: false draws no highlight.
+    pub fn set_has_origin(&self, has: bool) {
+        unsafe {
+            if has {
+                ffi::awra_slider_reset_origin(self.as_ptr())
+            } else {
+                ffi::awra_slider_set_origin(self.as_ptr(), f64::NAN)
+            }
+        }
+    }
     /// The step rounds values already.
     pub fn set_round_digits(&self, _digits: i32) {}
 }

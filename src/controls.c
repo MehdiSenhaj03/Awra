@@ -381,6 +381,8 @@ typedef struct SliderExt {
   double marks[8]; /* values ticked under (beside) the trough */
   int nmarks;
   int digits; /* GtkScale:draw-value: the value above, with these decimals; -1 none */
+  int origin_mode; /* 0 the minimum, 1 `origin`, 2 none (GtkScale:has-origin false) */
+  double origin;
 } SliderExt;
 
 #define SLX(w) AWRA_EXT(w, SliderExt)
@@ -474,7 +476,25 @@ static void slider_draw(AwraWidget *w, AwraDraw *d)
   const float len = horiz ? trough.w : trough.h;
   const float mpos = awra_floorpx((len - th) * frac); /* the slider's margin box (6 px) */
   const AwraRGBA hl = x->muted ? t->disabled : t->accent;
-  if (horiz) {
+  if (x->origin_mode == 1) {
+    /* from the origin to the thumb (a pan: from the centre) */
+    double fo = x->max > x->min ? (x->origin - x->min) / (x->max - x->min) : 0;
+    fo = fo < 0 ? 0 : fo > 1 ? 1 : fo;
+    const float a = awra_floorpx((len - th) * (float)fmin(fo, frac));
+    const float b = awra_floorpx((len - th) * (float)fmax(fo, frac)) + th;
+    if (b - a > th + awra_pxf(1)) {
+      if (horiz) {
+        awra_paint_rbox(d, awra_mirror_box(w, (AwraBox){trough.x + a, trough.y, b - a, th}), th * 0.5f, &hl, 0, NULL);
+      }
+      else {
+        awra_paint_rbox(d, (AwraBox){trough.x, trough.y + len - b, th, b - a}, th * 0.5f, &hl, 0, NULL);
+      }
+    }
+  }
+  else if (x->origin_mode == 2) {
+    /* no highlight */
+  }
+  else if (horiz) {
     /* right to left, a horizontal scale runs from the right (GtkRange's
      * should_invert): its highlight, thumb, marks and value mirror */
     awra_paint_rbox(d, awra_mirror_box(w, (AwraBox){trough.x, trough.y, fmaxf(th, frac * len), th}),
@@ -666,6 +686,20 @@ AwraWidget *awra_slider_new(double min, double max, double step)
   x->value = min;
   x->digits = -1;
   return w;
+}
+
+void awra_slider_set_origin(AwraWidget *w, double origin)
+{
+  SliderExt *x = SLX(w);
+  x->origin_mode = isnan(origin) ? 2 : 1;
+  x->origin = origin;
+  awra_invalidate(w);
+}
+
+void awra_slider_reset_origin(AwraWidget *w)
+{
+  SLX(w)->origin_mode = 0;
+  awra_invalidate(w);
 }
 
 void awra_slider_set_draw_value(AwraWidget *w, bool draw, int digits)
