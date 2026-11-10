@@ -15,6 +15,10 @@ Awra 2: the same look, without GTK.
   composer or tag entry (GTK 3's order); a shortcut handler can decline
   (`handled = false`) and let the key go on.
 - Dock: layout changes cross-fade, tabbed stacks cross-fade between tabs.
+- Keys pressed in a text field (entry, composer, tag entry) go to the
+  field first, whatever the key; a window shortcut runs only when the
+  field leaves the key unused (Delete, arrows, Ctrl+C / V edit the text;
+  Ctrl+S still saves).
 - Slider origin: `awra_slider_set_origin` fills from a value to the thumb
   (a pan slider fills from the centre), NAN fills nothing (GtkScale's
   has-origin false); Rust `Slider::set_origin`, `set_has_origin`.
