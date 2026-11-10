@@ -15,6 +15,9 @@ Awra 2: the same look, without GTK.
   composer or tag entry (GTK 3's order); a shortcut handler can decline
   (`handled = false`) and let the key go on.
 - Dock: layout changes cross-fade, tabbed stacks cross-fade between tabs.
+- Slider origin: `awra_slider_set_origin` fills from a value to the thumb
+  (a pan slider fills from the centre), NAN fills nothing (GtkScale's
+  has-origin false); Rust `Slider::set_origin`, `set_has_origin`.
 
 - Glyphs as GTK 4.22 draws them: FreeType's load flags as cairo-ft sets
   them from the face's fontconfig pattern and the desktop's font options
