@@ -477,6 +477,8 @@ extern "C" {
     pub fn awra_style_set_native_blur(on: bool);
     pub fn awra_style_blur_active() -> bool;
     pub fn awra_style_set_material_tint(material: c_int, tint: *const AwraRGBA);
+    pub fn awra_style_set_material_opacity(material: c_int, opacity: f64);
+    pub fn awra_style_material_opacity(material: c_int) -> f64;
     pub fn awra_style_set_grain_scale(scale: f64);
     pub fn awra_style_reset();
     pub fn awra_spacing(spacing: c_int) -> c_int;

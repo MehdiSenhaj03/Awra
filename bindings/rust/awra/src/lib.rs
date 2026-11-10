@@ -196,6 +196,19 @@ impl StyleManager {
     pub fn set_reduced_transparency(&self, on: bool) {
         unsafe { ffi::awra_style_set_reduced_transparency(on) }
     }
+    /// A material's opacity (0..1) whatever its tint and the appearance;
+    /// None: the default.
+    pub fn set_material_opacity(&self, m: Material, opacity: Option<f64>) {
+        unsafe { ffi::awra_style_set_material_opacity(m as _, opacity.unwrap_or(-1.0)) }
+    }
+    /// The opacity in effect for a material.
+    pub fn material_opacity(&self, m: Material) -> f64 {
+        unsafe { ffi::awra_style_material_opacity(m as _) }
+    }
+    /// The compositor's blur behind translucent materials.
+    pub fn set_native_blur(&self, on: bool) {
+        unsafe { ffi::awra_style_set_native_blur(on) }
+    }
     pub fn set_high_contrast(&self, on: bool) {
         unsafe { ffi::awra_style_set_high_contrast(on) }
     }

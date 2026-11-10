@@ -6,6 +6,16 @@
 
 Awra 2: the same look, without GTK.
 
+- Material opacity: `awra_style_set_material_opacity` sets how opaque a
+  material is (window, header, cards, menus) whatever its tint; a clear
+  tint is composed over the canvas first, so an opaque card keeps the
+  theme's colour. Rust: `StyleManager::set_material_opacity`,
+  `material_opacity`, `set_native_blur`.
+- Window shortcuts no longer steal printable keys typed into an entry,
+  composer or tag entry (GTK 3's order); a shortcut handler can decline
+  (`handled = false`) and let the key go on.
+- Dock: layout changes cross-fade, tabbed stacks cross-fade between tabs.
+
 - Glyphs as GTK 4.22 draws them: FreeType's load flags as cairo-ft sets
   them from the face's fontconfig pattern and the desktop's font options
   (XSETTINGS or Xft resources on X11, the settings portal on Wayland,

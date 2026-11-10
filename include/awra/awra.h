@@ -422,6 +422,12 @@ bool awra_style_blur_active(void); /* the compositor blurs the main window now *
 /* Material calibration (Awra 1's material lab): tint (NULL = default),
  * opacity in the tint's alpha, grain scale. */
 void awra_style_set_material_tint(AwraMaterial material, const AwraRGBA *tint);
+/* A material's opacity (0 clear .. 1 opaque) whatever its tint and the
+ * appearance (a user's "more opaque window" setting); < 0: the default.
+ * The getter gives the opacity in effect. Where the compositor doesn't
+ * blur, blurred materials (Canvas, Floating) stay opaque. */
+void awra_style_set_material_opacity(AwraMaterial material, double opacity);
+double awra_style_material_opacity(AwraMaterial material);
 void awra_style_set_grain_scale(double scale);
 void awra_style_reset(void);
 /* Token values: spacing and radius in logical pixels, colors by name
@@ -487,7 +493,9 @@ void awra_window_set_keep_rounded_corners(AwraWidget *window, bool keep);
 /* The widget with the keyboard focus (NULL: none); set NULL to drop it. */
 AwraWidget *awra_window_focus(AwraWidget *window);
 void awra_window_set_focus(AwraWidget *window, AwraWidget *widget);
-/* Keyboard shortcuts: "<Ctrl>k", "<Ctrl><Shift>z", "Escape", "F11". */
+/* Keyboard shortcuts: "<Ctrl>k", "<Ctrl><Shift>z", "Escape", "F11". A
+ * character typed into a text field reaches the field first; a handler
+ * may set *args->handled = false to let the key go on. */
 unsigned long awra_window_add_shortcut(AwraWidget *window, const char *accel, AwraHandler handler,
                                        void *data, AwraDestroyNotify destroy);
 void awra_window_remove_shortcut(AwraWidget *window, unsigned long id);
