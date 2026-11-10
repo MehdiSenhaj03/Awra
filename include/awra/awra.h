@@ -1171,6 +1171,9 @@ void awra_canvas_text(AwraCanvas *c, double x, double y, const char *text, AwraT
                       const AwraRGBA *rgba);
 void awra_canvas_icon(AwraCanvas *c, const char *icon, double x, double y, double size,
                       const AwraRGBA *rgba);
+/* The width (logical px) `text` takes in a typography, to centre or
+ * right-align canvas text. */
+double awra_canvas_text_width(AwraCanvas *c, const char *text, AwraTypography type);
 
 /* ----------------------------------------------------------------------- */
 /* Native dialogs (xdg-desktop-portal on Linux through the app, common

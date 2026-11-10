@@ -1923,6 +1923,13 @@ void awra_canvas_text(AwraCanvas *c, double x, double y, const char *text, AwraT
                  text, -1, rgba);
 }
 
+double awra_canvas_text_width(AwraCanvas *c, const char *text, AwraTypography t)
+{
+  AwraFont f = awra_font_for(t);
+  float w = awra_text_width(&f, text, -1);
+  return c && c->scale > 0 ? w / c->scale : w;
+}
+
 void awra_canvas_icon(AwraCanvas *c, const char *icon, double x, double y, double size,
                       const AwraRGBA *rgba)
 {
