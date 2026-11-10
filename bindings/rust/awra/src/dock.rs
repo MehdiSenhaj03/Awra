@@ -117,7 +117,8 @@ impl DockNode {
                     return false;
                 }
                 let share = if in_a { *fraction } else { 1.0 - *fraction };
-                let new = (share * factor).clamp(0.12, 0.88);
+                // the other side keeps a usable fifth
+                let new = (share * factor).clamp(0.2, 0.8);
                 *fraction = if in_a { new } else { 1.0 - new };
                 true
             }
