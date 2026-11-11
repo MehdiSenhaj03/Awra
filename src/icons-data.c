@@ -2226,12 +2226,24 @@ static const AwraBuiltinIcon awra_icons[] = {
     "=\"#000\" d=\"M2.75 2.5h3.4c.45 0 .87.2 1.15.55L8.4 4.5h4.85c.97 0 1.75.78 1.75 1.75v5.5c0 .97-.78 1."
     "75-1.75 1.75H2.75C1.78 13.5 1 12.72 1 11.75v-7.5C1 3.28 1.78 2.5 2.75 2.5z\"/></svg>",
     274},
+  {"awra-forward-symbolic.svg", (const unsigned char *)
+    "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"16\" height=\"16\" viewBox=\"0 0 16 16\"><path d=\""
+    "M9.72 3.22a.75.75 0 0 0 0 1.06l2.22 2.22H6.5a5.25 5.25 0 0 0-5.25 5.25v.75a.75.75 0 0 0 1.5 0v-.75A3."
+    "75 3.75 0 0 1 6.5 8h5.44l-2.22 2.22a.75.75 0 1 0 1.06 1.06l3.5-3.5a.75.75 0 0 0 0-1.06l-3.5-3.5a.75.7"
+    "5 0 0 0-1.06 0z\" fill=\"#000\"/></svg>",
+    330},
   {"awra-microphone-symbolic.svg", (const unsigned char *)
     "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"16\" height=\"16\" viewBox=\"0 0 16 16\"><path d=\""
     "M8 1a2.5 2.5 0 0 1 2.5 2.5v4a2.5 2.5 0 0 1-5 0v-4A2.5 2.5 0 0 1 8 1zM3.75 7a.75.75 0 0 1 .75.75 3.5 3"
     ".5 0 0 0 7 0 .75.75 0 0 1 1.5 0 5 5 0 0 1-4.25 4.94V14h1.5a.75.75 0 0 1 0 1.5h-4.5a.75.75 0 0 1 0-1.5"
     "h1.5v-1.31A5 5 0 0 1 3 7.75.75.75 0 0 1 3.75 7z\" fill=\"#000\"/></svg>",
     362},
+  {"awra-reply-symbolic.svg", (const unsigned char *)
+    "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"16\" height=\"16\" viewBox=\"0 0 16 16\"><path d=\""
+    "M6.28 3.22a.75.75 0 0 1 0 1.06L4.06 6.5H9.5a5.25 5.25 0 0 1 5.25 5.25v.75a.75.75 0 0 1-1.5 0v-.75A3.7"
+    "5 3.75 0 0 0 9.5 8H4.06l2.22 2.22a.75.75 0 1 1-1.06 1.06L1.72 7.78a.75.75 0 0 1 0-1.06l3.5-3.5a.75.75"
+    " 0 0 1 1.06 0z\" fill=\"#000\"/></svg>",
+    329},
   {"awra-send-symbolic.svg", (const unsigned char *)
     "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"16\" height=\"16\" viewBox=\"0 0 16 16\"><path d=\""
     "M8 2.2c.3 0 .6.1.8.3l4.4 4.4a1.1 1.1 0 0 1-1.6 1.6L9.1 6v7.3a1.1 1.1 0 0 1-2.2 0V6L4.4 8.5a1.1 1.1 0 "
@@ -2280,7 +2292,7 @@ static const AwraBuiltinIcon awra_icons[] = {
     "=\"8\" cy=\"8\" r=\"4\" fill=\"#000\"/></svg>",
     130},
 };
-const AwraBuiltinSet awra_builtin_awra = {"awra", awra_icons, 18};
+const AwraBuiltinSet awra_builtin_awra = {"awra", awra_icons, 20};
 
 static const AwraBuiltinIcon adwaita_icons[] = {
   {"symbolic/actions/action-unavailable-symbolic.svg", (const unsigned char *)

@@ -45,6 +45,7 @@ mod gtk_look;
 mod launcher;
 pub mod dock;
 pub mod meter;
+pub mod menu;
 pub use dock::{Dock, DockArea, DockNode};
 pub use meter::LevelMeter;
 pub use launcher::{FileLauncher, UriLauncher};
