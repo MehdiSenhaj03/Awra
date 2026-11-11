@@ -416,8 +416,11 @@ void bk_invalidate(BKNode *n)
   BKRect r = bk_rect(n->x - m, n->y - m, n->w + 2 * m, n->h + 2 * m);
   /* BUI-Awra: a list's cells kept beyond its edges (scrolled out, about to
    * come back) are drawn clipped to the list: what they change there is
-   * not seen, and must not make the header above be drawn again */
-  for (const BKNode *p = n->parent; p && !(p->cls->flags & CLS_POPUP); p = p->parent) {
+   * not seen, and must not make the header above be drawn again. A popup
+   * is not drawn in what it is attached to: a menu opened on a list's row
+   * reaches past the list, and all of it changes as it fades in */
+  const BKNode *clipper = (n->cls->flags & CLS_POPUP) ? NULL : n->parent;
+  for (const BKNode *p = clipper; p && !(p->cls->flags & CLS_POPUP); p = p->parent) {
     if (p->cls->flags & CLS_CLIPS) {
       r.xmin = BK_MAX(r.xmin, p->x);
       r.ymin = BK_MAX(r.ymin, p->y);
