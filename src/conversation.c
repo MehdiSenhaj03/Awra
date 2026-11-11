@@ -23,6 +23,7 @@
 #define MAX_ARRIVING 8
 
 void awra_scrolled_shift_internal(AwraWidget *scrolled, double delta);
+bool awra_scrolled_shifting_internal(AwraWidget *scrolled);
 void awra_scrolled_get_vadjustment(AwraWidget *scrolled, double *value, double *upper, double *page);
 long long awra_list_view_offset_internal(AwraWidget *w, unsigned position);
 int awra_list_view_height_internal(AwraWidget *w, unsigned position);
@@ -318,7 +319,9 @@ static void scrolled_changed(AwraWidget *scroller, const AwraArgs *args, void *d
   (void)args;
   AwraWidget *w = (AwraWidget *)data;
   ConvExt *x = CVX(w);
-  if (!x->setting_value) {
+  /* the list keeping its rows in place while they are measured is not the
+   * user scrolling: a view following the newest keeps following */
+  if (!x->setting_value && !awra_scrolled_shifting_internal(x->scroller)) {
     /* the user scrolled: following stops until the end shows again */
     if (x->gliding) {
       x->gliding = false; /* first: glide_done then knows it was stopped */
@@ -355,15 +358,20 @@ static void conv_allocate(AwraWidget *w)
   if (x->n_arriving && place_arrivals(x)) {
     awra_allocate(x->scroller, w->x, w->y, w->w, w->h);
   }
-  /* following: the newest stays at the bottom whatever came in */
-  if (x->follow && !x->gliding) {
+  /* following: the newest stays at the bottom whatever came in. The end
+   * moves as the rows there are measured, so it is reached within this
+   * frame, a few layouts at most: a chat opened at its end otherwise drew
+   * a frame of rows not yet laid out (an empty view) before settling. */
+  for (int pass = 0; pass < 4 && x->follow && !x->gliding; pass++) {
     const double end = end_value(w);
     double value, upper, page;
     awra_scrolled_get_vadjustment(x->scroller, &value, &upper, &page);
-    if (fabs(value - end) > 0.5) {
-      awra_list_view_drop_anchor_internal(x->list);
-      set_value(w, end);
+    if (fabs(value - end) <= 0.5) {
+      break;
     }
+    awra_list_view_drop_anchor_internal(x->list);
+    set_value(w, end);
+    awra_allocate(x->scroller, w->x, w->y, w->w, w->h);
   }
   int pmn, pnh = 0;
   awra_measure(x->pill, AWRA_ORIENTATION_VERTICAL, -1, &pmn, &pnh);

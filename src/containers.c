@@ -1508,6 +1508,7 @@ typedef struct ScrollExt {
   double vvalue, hvalue; /* raster px */
   int content_w, content_h;
   int view_w;       /* the width hvalue was kept for (right to left) */
+  bool shifting;    /* a list inside keeps its rows in place, not the user */
   AwraWidget *vbar; /* the overlay scrollbar (scrollbar.c), its last child */
   /* edge fades (logical px; 0 none) and, while a frame draws, what lies
    * under each faded band: top rows then bottom rows */
@@ -1951,7 +1952,17 @@ void awra_scrolled_shift_internal(AwraWidget *w, double delta)
   }
   awra_queue_allocate(w);
   awra_invalidate(w);
+  x->shifting = true;
   awra_emit_simple(w, AWRA_SIGNAL_VALUE_CHANGED);
+  x->shifting = false;
+}
+
+/* Whether the value is changing because a list inside keeps its rows where
+ * they were (rows measured, items added above), not because anyone scrolled. */
+bool awra_scrolled_shifting_internal(AwraWidget *w);
+bool awra_scrolled_shifting_internal(AwraWidget *w)
+{
+  return SX(w)->shifting;
 }
 
 /* The scrolled window's vertical range: value, upper (content height) and
