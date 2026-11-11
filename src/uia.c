@@ -26,6 +26,42 @@
 
 #include <stdio.h>
 
+#ifdef _MSC_VER
+/* The Windows SDK declares the UIA ids as `const long` variables in C,
+ * which are not constant expressions: give the ones `case` labels use
+ * their values (as MinGW's headers have them). WINBOOL is MinGW's BOOL. */
+typedef BOOL WINBOOL;
+#define UIA_AcceleratorKeyPropertyId 30006
+#define UIA_AutomationIdPropertyId 30011
+#define UIA_ClassNamePropertyId 30012
+#define UIA_ControlTypePropertyId 30003
+#define UIA_ExpandCollapsePatternId 10005
+#define UIA_FrameworkIdPropertyId 30024
+#define UIA_HasKeyboardFocusPropertyId 30008
+#define UIA_HeadingLevelPropertyId 30173
+#define UIA_HelpTextPropertyId 30013
+#define UIA_InvokePatternId 10000
+#define UIA_IsContentElementPropertyId 30017
+#define UIA_IsControlElementPropertyId 30016
+#define UIA_IsDialogPropertyId 30174
+#define UIA_IsEnabledPropertyId 30010
+#define UIA_IsKeyboardFocusablePropertyId 30009
+#define UIA_IsOffscreenPropertyId 30022
+#define UIA_IsPasswordPropertyId 30019
+#define UIA_IsRequiredForFormPropertyId 30025
+#define UIA_ItemStatusPropertyId 30026
+#define UIA_LocalizedControlTypePropertyId 30004
+#define UIA_NamePropertyId 30005
+#define UIA_NativeWindowHandlePropertyId 30020
+#define UIA_OrientationPropertyId 30023
+#define UIA_ProcessIdPropertyId 30002
+#define UIA_RangeValuePatternId 10003
+#define UIA_SelectionItemPatternId 10010
+#define UIA_SelectionPatternId 10001
+#define UIA_TogglePatternId 10015
+#define UIA_ValuePatternId 10002
+#endif
+
 /* ======================================================================= */
 /* Loaded at run time */
 

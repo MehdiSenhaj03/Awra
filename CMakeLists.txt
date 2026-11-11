@@ -51,6 +51,8 @@ target_include_directories(awra
 target_link_libraries(awra PUBLIC bui_kit)
 if(MSVC)
   target_compile_options(awra PRIVATE /W3)
+  # M_PI and friends, which MSVC's math.h hides without it
+  target_compile_definitions(awra PRIVATE _USE_MATH_DEFINES)
 else()
   target_compile_options(awra PRIVATE -Wall -Wno-unused-parameter -Wno-missing-field-initializers
                                       -ffunction-sections -fdata-sections)
