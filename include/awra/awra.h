@@ -737,7 +737,14 @@ void awra_menu_button_set_menu(AwraWidget *button, const AwraMenuItem *items, in
 typedef enum {
   AWRA_MENU_ITEM_SUBMENU_END = -5,
   AWRA_MENU_ITEM_SUBMENU = -4,
+  /* A check mark, off or on, that leaves the menu open when chosen (a
+   * choice among several); awra_menu_set_checked shows its new state. */
+  AWRA_MENU_ITEM_TOGGLE_OFF = 2,
+  AWRA_MENU_ITEM_TOGGLE_ON = 3,
 } AwraMenuItemKind;
+/* The check mark of item `index` (its index in the items given) of a menu
+ * popover or of its submenus, set without closing or rebuilding it. */
+void awra_menu_set_checked(AwraWidget *popover, int index, bool checked);
 
 /* ----------------------------------------------------------------------- */
 /* Inputs */

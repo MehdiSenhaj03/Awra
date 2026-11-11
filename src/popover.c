@@ -751,6 +751,7 @@ AwraWidget *awra_first_focusable(AwraWidget *root)
 typedef struct RowExt {
   char *label, *icon, *accel;
   int check; /* -1 none */
+  bool stays; /* a check that leaves its menu open (AWRA_MENU_ITEM_TOGGLE_*) */
   bool destructive;
   AwraHandler handler;
   void *data;
@@ -986,7 +987,7 @@ static void row_activate(AwraWidget *w)
   }
   awra_widget_ref(w);
   AwraWidget *pop = x->kind == 0 ? menu_root(w) : x->popover;
-  if (pop) {
+  if (pop && !x->stays) {
     awra_popover_popdown(pop);
   }
   if (x->handler) {
@@ -1079,7 +1080,8 @@ static AwraWidget *row_new(int kind, const char *label, const char *icon, const 
   x->label = awra_strdup(label);
   x->icon = awra_strdup(icon);
   x->accel = awra_strdup(accel);
-  x->check = check;
+  x->stays = check == AWRA_MENU_ITEM_TOGGLE_OFF || check == AWRA_MENU_ITEM_TOGGLE_ON;
+  x->check = x->stays ? check - AWRA_MENU_ITEM_TOGGLE_OFF : check;
   return w;
 }
 
@@ -1405,6 +1407,45 @@ static AwraWidget *menu_build(const AwraMenuItem *items, int from, int to)
 AwraWidget *awra_menu_popover_new(const AwraMenuItem *items, int n)
 {
   return menu_build(items, 0, n);
+}
+
+/* the check row of item `index` under n, its submenus' rows too */
+static AwraWidget *menu_row_at(AwraWidget *n, int index)
+{
+  for (int i = 0; i < n->nkids; i++) {
+    AwraWidget *c = n->kids[i];
+    if (!awra_is_widget(c)) {
+      continue;
+    }
+    if (AWRA_CLASS_OF(c) == &row_class) {
+      if (RX(c)->kind == 0 && RX(c)->index == index) {
+        return c;
+      }
+      if (RX(c)->kind == 3 && RX(c)->submenu) {
+        AwraWidget *r = menu_row_at(RX(c)->submenu, index);
+        if (r) {
+          return r;
+        }
+      }
+      continue;
+    }
+    AwraWidget *r = menu_row_at(c, index);
+    if (r) {
+      return r;
+    }
+  }
+  return NULL;
+}
+
+void awra_menu_set_checked(AwraWidget *popover, int index, bool checked)
+{
+  AwraWidget *r = popover ? menu_row_at(popover, index) : NULL;
+  if (!r || RX(r)->check < 0 || (RX(r)->check == 1) == checked) {
+    return;
+  }
+  RX(r)->check = checked ? 1 : 0;
+  awra_widget_queue_resize(r); /* the mark takes room only while on */
+  awra_widget_queue_draw(r);
 }
 
 AwraWidget *awra_choice_popover_new(const char *const *labels, int n, int width,

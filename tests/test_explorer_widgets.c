@@ -266,6 +266,64 @@ static void window_visibility(void)
   frame();
 }
 
+/* the n-th menu row under w (depth first), NULL past the last */
+static AwraWidget *nth_row(AwraWidget *w, int *n)
+{
+  for (int i = 0; i < w->nkids; i++) {
+    AwraWidget *c = w->kids[i];
+    if (!awra_is_widget(c)) {
+      continue;
+    }
+    if (awra_widget_is(c, "AwraMenuRow") && (*n)-- == 0) {
+      return c;
+    }
+    AwraWidget *r = nth_row(c, n);
+    if (r) {
+      return r;
+    }
+  }
+  return NULL;
+}
+
+/* a toggle leaves its menu open; a plain item closes it */
+static void menu_toggles(void)
+{
+  AwraWidget *area = awra_box_new(AWRA_ORIENTATION_VERTICAL, 0);
+  awra_window_set_child(g_win, area);
+  awra_widget_unref(area);
+  frame();
+  g_hits[0] = g_hits[1] = 0;
+  AwraMenuItem items[2] = {{"Kept", NULL, NULL, AWRA_MENU_ITEM_TOGGLE_OFF, true, false, hit, (void *)0},
+                           {"Plain", NULL, NULL, -1, true, false, hit, (void *)1}};
+  AwraWidget *menu = awra_menu_popover_new(items, 2);
+  awra_popover_point_to(menu, area, 100, 50);
+  wait_ms(100);
+  int n = 0;
+  AwraWidget *kept = nth_row(menu, &n);
+  CHECK(kept != NULL, "no toggle row");
+  if (kept) {
+    AWRA_CLASS_OF(kept)->activate(kept);
+    frame();
+    CHECK(g_hits[0] == 1, "the toggle didn't run");
+    CHECK(awra_popover_visible(menu), "a toggle closed its menu");
+    awra_menu_set_checked(menu, 0, true);
+    awra_menu_set_checked(menu, 7, true); /* no such item: nothing */
+    frame();
+  }
+  n = 1;
+  AwraWidget *plain = nth_row(menu, &n);
+  CHECK(plain != NULL, "no plain row");
+  if (plain) {
+    AWRA_CLASS_OF(plain)->activate(plain);
+    frame();
+    CHECK(g_hits[1] == 1, "the item didn't run");
+    CHECK(!awra_popover_visible(menu), "an item left its menu open");
+  }
+  awra_widget_unref(menu);
+  awra_window_set_child(g_win, NULL);
+  frame();
+}
+
 int main(void)
 {
   awra_init("org.awra.TestExplorerWidgets");
@@ -279,6 +337,7 @@ int main(void)
   stack_page_gone();
   focus_comes_back();
   window_visibility();
+  menu_toggles();
   awra_widget_destroy(g_win);
   if (failures) {
     return 1;

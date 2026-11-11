@@ -240,6 +240,8 @@ pub const AWRA_WINDOW_STATE_BLUR: c_int = 16;
 pub const AWRA_WINDOW_STATE_HIDDEN: c_int = 32;
 pub const AWRA_MENU_ITEM_SUBMENU_END: c_int = -5;
 pub const AWRA_MENU_ITEM_SUBMENU: c_int = -4;
+pub const AWRA_MENU_ITEM_TOGGLE_OFF: c_int = 2;
+pub const AWRA_MENU_ITEM_TOGGLE_ON: c_int = 3;
 pub const AWRA_VALIDATION_NONE: c_int = 0;
 pub const AWRA_VALIDATION_SUCCESS: c_int = 1;
 pub const AWRA_VALIDATION_WARNING: c_int = 2;
@@ -1149,6 +1151,7 @@ extern "C" {
     pub fn awra_popover_autohide(popover: *mut AwraWidget) -> bool;
     pub fn awra_menu_popover_new(items: *const AwraMenuItem, n: c_int) -> *mut AwraWidget;
     pub fn awra_popover_set_menu(popover: *mut AwraWidget, items: *const AwraMenuItem, n: c_int);
+    pub fn awra_menu_set_checked(popover: *mut AwraWidget, index: c_int, checked: bool);
     pub fn awra_context_menu_attach(widget: *mut AwraWidget, items: *const AwraMenuItem, n: c_int);
     pub fn awra_dialog_new(title: *const c_char) -> *mut AwraWidget;
     pub fn awra_dialog_set_child(dialog: *mut AwraWidget, child: *mut AwraWidget);
