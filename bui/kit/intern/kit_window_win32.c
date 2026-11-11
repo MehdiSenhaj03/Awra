@@ -1001,6 +1001,11 @@ static LRESULT CALLBACK wndproc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
     case WM_NCACTIVATE:
       if (borderless) {
         report_state(win);
+        if (!wp && win->blur_on && backdrop_mode() == 2) {
+          /* Keep the Acrylic treatment while the real input focus changes. */
+          DefWindowProcW(hwnd, msg, TRUE, 0);
+          return TRUE;
+        }
         return DefWindowProcW(hwnd, msg, wp, -1); /* no frame repaint */
       }
       break;
@@ -1332,7 +1337,9 @@ BKWindow *BK_window_new_ex(BKContext *ctx, const char *title, int width, int hei
   BK_set_scale(win->scale);
   /* borderless: the native frame's styles stay (snap, the minimize and
    * maximize animations, Win+arrows); WM_NCCALCSIZE takes the frame away */
-  const DWORD style = WS_OVERLAPPEDWINDOW | WS_CLIPCHILDREN;
+  const DWORD frame = (flags & BK_WINDOW_UNDECORATED) ?
+                          WS_OVERLAPPEDWINDOW & ~(WS_CAPTION | WS_SYSMENU) : WS_OVERLAPPEDWINDOW;
+  const DWORD style = frame | WS_CLIPCHILDREN;
   RECT r = {0, 0, (LONG)(width * win->scale), (LONG)(height * win->scale)};
   if (!(flags & BK_WINDOW_UNDECORATED)) {
     AdjustWindowRect(&r, WS_OVERLAPPEDWINDOW, FALSE);
@@ -1720,7 +1727,7 @@ void BK_window_wm(BKWindow *win, const char *key, double a, double b)
   }
   else if (!strcmp(key, "resizable")) {
     DWORD style = (DWORD)GetWindowLongPtrW(h, GWL_STYLE) & ~WS_VISIBLE;
-    if (style & WS_CAPTION) {
+    if (!(style & WS_POPUP)) {
       style = (a || b) ? (style | WS_THICKFRAME | WS_MAXIMIZEBOX) :
                          (style & ~(WS_THICKFRAME | WS_MAXIMIZEBOX));
       set_style(h, style);
@@ -2623,17 +2630,17 @@ void BK_window_set_icon(BKWindow *win, const char *name, const uint32_t *const *
   if (!win || !win->hwnd) {
     return;
   }
-  HICON big = NULL, small = NULL;
+  HICON big = NULL, small_icon = NULL;
   const int wb = GetSystemMetrics(SM_CXICON), ws = GetSystemMetrics(SM_CXSMICON);
   const int ib = icon_pick(sizes, n, wb), is = icon_pick(sizes, n, ws);
   if (ib >= 0 && pixels[ib]) {
     big = make_icon(pixels[ib], sizes[ib], wb);
   }
   if (is >= 0 && pixels[is]) {
-    small = make_icon(pixels[is], sizes[is], ws);
+    small_icon = make_icon(pixels[is], sizes[is], ws);
   }
   SendMessageW(win->hwnd, WM_SETICON, ICON_BIG, (LPARAM)big);
-  SendMessageW(win->hwnd, WM_SETICON, ICON_SMALL, (LPARAM)small);
+  SendMessageW(win->hwnd, WM_SETICON, ICON_SMALL, (LPARAM)small_icon);
   if (win->icon_big) {
     DestroyIcon(win->icon_big);
   }
@@ -2641,7 +2648,7 @@ void BK_window_set_icon(BKWindow *win, const char *name, const uint32_t *const *
     DestroyIcon(win->icon_small);
   }
   win->icon_big = big;
-  win->icon_small = small;
+  win->icon_small = small_icon;
 }
 
 void BK_window_set_transient_for_exported(BKWindow *win, const char *handle)
