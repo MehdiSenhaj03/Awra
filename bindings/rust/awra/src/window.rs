@@ -15,7 +15,11 @@ awra_wrapper!(
 );
 
 type ShortcutFn = Box<dyn Fn(&Widget)>;
-unsafe extern "C" fn shortcut_tramp(w: *mut ffi::AwraWidget, _a: *const ffi::AwraArgs, data: *mut c_void) {
+unsafe extern "C" fn shortcut_tramp(
+    w: *mut ffi::AwraWidget,
+    _a: *const ffi::AwraArgs,
+    data: *mut c_void,
+) {
     let f = &*(data as *const ShortcutFn);
     let w = std::mem::ManuallyDrop::new(Widget::from_full(w));
     f(&w)
@@ -26,7 +30,11 @@ unsafe extern "C" fn shortcut_free(data: *mut c_void) {
 
 /// A keyboard shortcut on a window ("<Ctrl>k", "<Primary>z", "F11").
 pub(crate) fn add_shortcut<F: Fn(&Widget) + 'static>(window: &Widget, accel: &str, f: F) -> u64 {
-    let a = cstring(&accel.replace("<Primary>", "<Ctrl>").replace("<Control>", "<Ctrl>"));
+    let a = cstring(
+        &accel
+            .replace("<Primary>", "<Ctrl>")
+            .replace("<Control>", "<Ctrl>"),
+    );
     let data: Box<ShortcutFn> = Box::new(Box::new(f));
     unsafe {
         ffi::awra_window_add_shortcut(
@@ -98,7 +106,14 @@ impl Window {
     /// A window rendered offscreen (tests, benchmarks).
     pub fn offscreen(title: &str, width: i32, height: i32, scale: f64) -> Window {
         let t = cstring(title);
-        unsafe { Window::from_none_ptr(ffi::awra_window_new_offscreen(t.as_ptr(), width, height, scale)) }
+        unsafe {
+            Window::from_none_ptr(ffi::awra_window_new_offscreen(
+                t.as_ptr(),
+                width,
+                height,
+                scale,
+            ))
+        }
     }
     pub fn render_offscreen(&self, full: bool) -> i32 {
         unsafe { ffi::awra_window_render_offscreen(self.0.as_ptr(), full) }
@@ -205,7 +220,12 @@ impl Window {
     /// GtkWindow's transient-for: kept above `w` (a dialog to the window
     /// manager).
     pub fn set_transient_for(&self, w: Option<&Window>) {
-        unsafe { ffi::awra_window_set_transient_for(self.0.as_ptr(), w.map_or(std::ptr::null_mut(), |w| w.0.as_ptr())) }
+        unsafe {
+            ffi::awra_window_set_transient_for(
+                self.0.as_ptr(),
+                w.map_or(std::ptr::null_mut(), |w| w.0.as_ptr()),
+            )
+        }
     }
     pub fn transient_for(&self) -> Option<Window> {
         let p = unsafe { ffi::awra_window_get_transient_for(self.0.as_ptr()) };
@@ -246,21 +266,28 @@ impl Window {
         (f, p)
     }
     /// Return `Propagation::Stop` to keep the window open.
-    pub fn connect_close_request<F: Fn(&Window) -> Propagation + 'static>(&self, f: F) -> SignalHandlerId {
-        self.0.connect_typed::<Window, _>(sig::CLOSE_REQUEST, move |w, a| {
-            if f(w) == Propagation::Stop {
-                a.stop()
-            }
-        })
+    pub fn connect_close_request<F: Fn(&Window) -> Propagation + 'static>(
+        &self,
+        f: F,
+    ) -> SignalHandlerId {
+        self.0
+            .connect_typed::<Window, _>(sig::CLOSE_REQUEST, move |w, a| {
+                if f(w) == Propagation::Stop {
+                    a.stop()
+                }
+            })
     }
     pub fn connect_is_active_notify<F: Fn(&Window) + 'static>(&self, f: F) -> SignalHandlerId {
-        self.0.connect_typed::<Window, _>(sig::STATE, move |w, _| f(w))
+        self.0
+            .connect_typed::<Window, _>(sig::STATE, move |w, _| f(w))
     }
     pub fn connect_state_changed<F: Fn(&Window, i32) + 'static>(&self, f: F) -> SignalHandlerId {
-        self.0.connect_typed::<Window, _>(sig::STATE, move |w, a| f(w, a.index()))
+        self.0
+            .connect_typed::<Window, _>(sig::STATE, move |w, a| f(w, a.index()))
     }
     pub fn connect_default_size_notify<F: Fn(&Window) + 'static>(&self, f: F) -> SignalHandlerId {
-        self.0.connect_typed::<Window, _>(sig::RESIZE, move |w, _| f(w))
+        self.0
+            .connect_typed::<Window, _>(sig::RESIZE, move |w, _| f(w))
     }
     /// Every open window.
     pub fn toplevels() -> Vec<Window> {

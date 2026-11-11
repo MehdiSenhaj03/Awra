@@ -49,10 +49,18 @@ impl LevelMeter {
         let area = DrawingArea::with_canvas(move |_, c, w, h| {
             let (w, h) = (w as f64, h as f64);
             let style = StyleManager::default();
-            let track = style.color("control-track").unwrap_or(RGBA::new(0.5, 0.5, 0.5, 0.25));
-            let ok = style.color("success").unwrap_or(RGBA::new(0.35, 0.8, 0.45, 1.0));
-            let warn = style.color("warning").unwrap_or(RGBA::new(0.95, 0.7, 0.2, 1.0));
-            let bad = style.color("danger").unwrap_or(RGBA::new(0.9, 0.3, 0.3, 1.0));
+            let track = style
+                .color("control-track")
+                .unwrap_or(RGBA::new(0.5, 0.5, 0.5, 0.25));
+            let ok = style
+                .color("success")
+                .unwrap_or(RGBA::new(0.35, 0.8, 0.45, 1.0));
+            let warn = style
+                .color("warning")
+                .unwrap_or(RGBA::new(0.95, 0.7, 0.2, 1.0));
+            let bad = style
+                .color("danger")
+                .unwrap_or(RGBA::new(0.9, 0.3, 0.3, 1.0));
             let bars = [(lv.l.get(), lv.hold_l.get()), (lv.r.get(), lv.hold_r.get())];
             let gap = 2.0;
             for (i, (level, hold)) in bars.iter().enumerate() {
@@ -65,7 +73,13 @@ impl LevelMeter {
                 };
                 c.round_rect(x, y, bw, bh, 1.5, Some(&track), 0.0, None);
                 let p = pos(*level);
-                let color = if *level >= 0.99 { bad } else if *level >= 0.5 { warn } else { ok };
+                let color = if *level >= 0.99 {
+                    bad
+                } else if *level >= 0.5 {
+                    warn
+                } else {
+                    ok
+                };
                 if vertical {
                     let len = bh * p;
                     c.round_rect(x, y + bh - len, bw, len, 1.5, Some(&color), 0.0, None);
@@ -102,8 +116,16 @@ impl LevelMeter {
         lv.r.set(r.max(lv.r.get() * 0.82));
         let now = crate::now_ms();
         if l >= lv.hold_l.get() || r >= lv.hold_r.get() || now - lv.hold_t.get() > 1500.0 {
-            lv.hold_l.set(l.max(if now - lv.hold_t.get() > 1500.0 { 0.0 } else { lv.hold_l.get() }));
-            lv.hold_r.set(r.max(if now - lv.hold_t.get() > 1500.0 { 0.0 } else { lv.hold_r.get() }));
+            lv.hold_l.set(l.max(if now - lv.hold_t.get() > 1500.0 {
+                0.0
+            } else {
+                lv.hold_l.get()
+            }));
+            lv.hold_r.set(r.max(if now - lv.hold_t.get() > 1500.0 {
+                0.0
+            } else {
+                lv.hold_r.get()
+            }));
             lv.hold_t.set(now);
         }
         self.area.queue_draw();

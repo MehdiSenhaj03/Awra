@@ -73,7 +73,12 @@ impl VideoView {
     }
     pub fn set_background(&self, color: Option<&RGBA>) {
         let v = color.map(|c| c.to_ffi());
-        unsafe { ffi::awra_video_view_set_background(ptr!(self), v.as_ref().map_or(std::ptr::null(), |c| c)) }
+        unsafe {
+            ffi::awra_video_view_set_background(
+                ptr!(self),
+                v.as_ref().map_or(std::ptr::null(), |c| c),
+            )
+        }
     }
     /// Writes the frame shown, at its display aspect, as a PNG.
     pub fn save_png(&self, path: impl AsRef<std::path::Path>) -> bool {
@@ -88,11 +93,12 @@ impl VideoView {
     }
     /// Called on the UI thread when a new frame is shown.
     pub fn connect_frame<F: Fn(&VideoView) + 'static>(&self, f: F) -> SignalHandlerId {
-        self.0.connect_typed::<VideoView, _>(sig::NOTIFY, move |w, a| {
-            if a.text().as_deref() == Some("frame") {
-                f(w)
-            }
-        })
+        self.0
+            .connect_typed::<VideoView, _>(sig::NOTIFY, move |w, a| {
+                if a.text().as_deref() == Some("frame") {
+                    f(w)
+                }
+            })
     }
 }
 impl Default for VideoView {
@@ -152,7 +158,10 @@ impl VideoSink {
     pub fn acquire(&self) -> Option<VideoFrame> {
         let mut planes = [std::ptr::null_mut::<c_void>(); 2];
         let h = unsafe { ffi::awra_video_view_acquire(self.p(), planes.as_mut_ptr()) };
-        (!h.is_null()).then(|| VideoFrame { handle: h, planes: [planes[0] as *mut u8, planes[1] as *mut u8] })
+        (!h.is_null()).then(|| VideoFrame {
+            handle: h,
+            planes: [planes[0] as *mut u8, planes[1] as *mut u8],
+        })
     }
     pub fn present(&self, frame: *mut c_void) {
         unsafe { ffi::awra_video_view_present(self.p(), frame) }
@@ -207,7 +216,12 @@ impl Timeline {
     pub fn add_interval(&self, start: f64, end: f64, label: Option<&str>) {
         let l = label.map(cstring);
         unsafe {
-            ffi::awra_timeline_add_interval(ptr!(self), start, end, l.as_ref().map_or(std::ptr::null(), |c| c.as_ptr()))
+            ffi::awra_timeline_add_interval(
+                ptr!(self),
+                start,
+                end,
+                l.as_ref().map_or(std::ptr::null(), |c| c.as_ptr()),
+            )
         }
     }
     pub fn clear_intervals(&self) {
@@ -221,27 +235,35 @@ impl Timeline {
         unsafe { ffi::awra_timeline_set_preview(ptr!(self), child.into_opt_ptr()) }
     }
     pub fn preview_surface(&self) -> Option<crate::Surface> {
-        unsafe { Widget::from_none_opt(ffi::awra_timeline_preview_surface(ptr!(self))) }.and_then(|w| w.downcast().ok())
+        unsafe { Widget::from_none_opt(ffi::awra_timeline_preview_surface(ptr!(self))) }
+            .and_then(|w| w.downcast().ok())
     }
     pub fn connect_seek_requested<F: Fn(&Timeline, f64) + 'static>(&self, f: F) -> SignalHandlerId {
-        self.0.connect_typed::<Timeline, _>(sig::SEEK, move |w, a| f(w, a.value()))
+        self.0
+            .connect_typed::<Timeline, _>(sig::SEEK, move |w, a| f(w, a.value()))
     }
     pub fn connect_hover_time_notify<F: Fn(&Timeline) + 'static>(&self, f: F) -> SignalHandlerId {
-        self.0.connect_typed::<Timeline, _>(sig::NOTIFY, move |w, a| {
-            if a.text().as_deref() == Some("hover-time") {
-                f(w)
-            }
-        })
+        self.0
+            .connect_typed::<Timeline, _>(sig::NOTIFY, move |w, a| {
+                if a.text().as_deref() == Some("hover-time") {
+                    f(w)
+                }
+            })
     }
     pub fn connect_offset_notify<F: Fn(&Timeline) + 'static>(&self, f: F) -> SignalHandlerId {
-        self.0.connect_typed::<Timeline, _>(sig::NOTIFY, move |w, a| {
-            if a.text().as_deref() == Some("offset") {
-                f(w)
-            }
-        })
+        self.0
+            .connect_typed::<Timeline, _>(sig::NOTIFY, move |w, a| {
+                if a.text().as_deref() == Some("offset") {
+                    f(w)
+                }
+            })
     }
-    pub fn connect_offset_committed<F: Fn(&Timeline, f64) + 'static>(&self, f: F) -> SignalHandlerId {
-        self.0.connect_typed::<Timeline, _>(sig::VALUE_CHANGED, move |w, a| f(w, a.value()))
+    pub fn connect_offset_committed<F: Fn(&Timeline, f64) + 'static>(
+        &self,
+        f: F,
+    ) -> SignalHandlerId {
+        self.0
+            .connect_typed::<Timeline, _>(sig::VALUE_CHANGED, move |w, a| f(w, a.value()))
     }
 }
 impl Default for Timeline {
@@ -254,13 +276,23 @@ impl crate::Surface {
     /// The blurred image of `source` (a [`VideoView`]) under the surface
     /// (Awra 1's backdrop-widget).
     pub fn set_backdrop_widget(&self, source: Option<&impl IsWidget>) {
-        unsafe { ffi::awra_surface_set_backdrop(AsRef::<Widget>::as_ref(self).as_ptr(), source.map_or(std::ptr::null_mut(), |s| s.widget_ptr())) }
+        unsafe {
+            ffi::awra_surface_set_backdrop(
+                AsRef::<Widget>::as_ref(self).as_ptr(),
+                source.map_or(std::ptr::null_mut(), |s| s.widget_ptr()),
+            )
+        }
     }
 }
 
 impl crate::Header {
     pub fn set_backdrop_widget(&self, source: Option<&impl IsWidget>) {
-        unsafe { ffi::awra_header_set_backdrop(AsRef::<Widget>::as_ref(self).as_ptr(), source.map_or(std::ptr::null_mut(), |s| s.widget_ptr())) }
+        unsafe {
+            ffi::awra_header_set_backdrop(
+                AsRef::<Widget>::as_ref(self).as_ptr(),
+                source.map_or(std::ptr::null_mut(), |s| s.widget_ptr()),
+            )
+        }
     }
     /// 0: none; otherwise the header spans this width, centered.
     pub fn set_max_width(&self, w: i32) {
@@ -271,19 +303,35 @@ impl crate::Header {
 impl crate::Window {
     /// The title bar floats over the content (Awra 1's overlay-chrome).
     pub fn set_overlay_chrome(&self, overlay: bool) {
-        unsafe { ffi::awra_window_set_overlay_titlebar(AsRef::<Widget>::as_ref(self).as_ptr(), overlay) }
+        unsafe {
+            ffi::awra_window_set_overlay_titlebar(AsRef::<Widget>::as_ref(self).as_ptr(), overlay)
+        }
     }
     pub fn overlay_chrome(&self) -> bool {
         unsafe { ffi::awra_window_overlay_titlebar(AsRef::<Widget>::as_ref(self).as_ptr()) }
     }
     pub fn add_overlay(&self, child: &impl IsWidget) {
-        unsafe { ffi::awra_window_add_overlay(AsRef::<Widget>::as_ref(self).as_ptr(), child.widget_ptr()) }
+        unsafe {
+            ffi::awra_window_add_overlay(AsRef::<Widget>::as_ref(self).as_ptr(), child.widget_ptr())
+        }
     }
     pub fn remove_overlay(&self, child: &impl IsWidget) {
-        unsafe { ffi::awra_window_remove_overlay(AsRef::<Widget>::as_ref(self).as_ptr(), child.widget_ptr()) }
+        unsafe {
+            ffi::awra_window_remove_overlay(
+                AsRef::<Widget>::as_ref(self).as_ptr(),
+                child.widget_ptr(),
+            )
+        }
     }
     pub fn place_overlay(&self, child: &impl IsWidget, x: f64, y: f64) {
-        unsafe { ffi::awra_window_place_overlay(AsRef::<Widget>::as_ref(self).as_ptr(), child.widget_ptr(), x, y) }
+        unsafe {
+            ffi::awra_window_place_overlay(
+                AsRef::<Widget>::as_ref(self).as_ptr(),
+                child.widget_ptr(),
+                x,
+                y,
+            )
+        }
     }
 }
 
@@ -305,7 +353,9 @@ impl OverlayBar {
         unsafe { ffi::awra_overlay_bar_set_bar(ptr!(self), child.into_opt_ptr()) }
     }
     pub fn surface(&self) -> crate::Surface {
-        unsafe { Widget::from_none(ffi::awra_overlay_bar_surface(ptr!(self))) }.downcast().unwrap()
+        unsafe { Widget::from_none(ffi::awra_overlay_bar_surface(ptr!(self))) }
+            .downcast()
+            .unwrap()
     }
     pub fn set_revealed(&self, r: bool) {
         unsafe { ffi::awra_overlay_bar_set_revealed(ptr!(self), r) }
@@ -347,11 +397,12 @@ impl OverlayBar {
         unsafe { ffi::awra_overlay_bar_inset_px(ptr!(self)) }
     }
     pub fn connect_revealed_notify<F: Fn(&OverlayBar) + 'static>(&self, f: F) -> SignalHandlerId {
-        self.0.connect_typed::<OverlayBar, _>(sig::NOTIFY, move |w, a| {
-            if a.text().as_deref() == Some("revealed") {
-                f(w)
-            }
-        })
+        self.0
+            .connect_typed::<OverlayBar, _>(sig::NOTIFY, move |w, a| {
+                if a.text().as_deref() == Some("revealed") {
+                    f(w)
+                }
+            })
     }
 }
 impl Default for OverlayBar {
@@ -383,7 +434,9 @@ impl EdgePanel {
         unsafe { ffi::awra_edge_panel_set_panel(ptr!(self), child.into_opt_ptr()) }
     }
     pub fn surface(&self) -> crate::Surface {
-        unsafe { Widget::from_none(ffi::awra_edge_panel_surface(ptr!(self))) }.downcast().unwrap()
+        unsafe { Widget::from_none(ffi::awra_edge_panel_surface(ptr!(self))) }
+            .downcast()
+            .unwrap()
     }
     pub fn set_edge(&self, e: PanelEdge) {
         unsafe { ffi::awra_edge_panel_set_edge(ptr!(self), e as i32) }
@@ -398,11 +451,12 @@ impl EdgePanel {
         unsafe { ffi::awra_edge_panel_revealed(ptr!(self)) }
     }
     pub fn connect_revealed_notify<F: Fn(&EdgePanel) + 'static>(&self, f: F) -> SignalHandlerId {
-        self.0.connect_typed::<EdgePanel, _>(sig::NOTIFY, move |w, a| {
-            if a.text().as_deref() == Some("revealed") {
-                f(w)
-            }
-        })
+        self.0
+            .connect_typed::<EdgePanel, _>(sig::NOTIFY, move |w, a| {
+                if a.text().as_deref() == Some("revealed") {
+                    f(w)
+                }
+            })
     }
 }
 impl Default for EdgePanel {
@@ -414,6 +468,8 @@ impl Default for EdgePanel {
 impl crate::ToastOverlay {
     /// Space kept under toasts (logical px; -1: the default 24).
     pub fn set_bottom_inset(&self, inset: i32) {
-        unsafe { ffi::awra_toast_overlay_set_bottom_inset(AsRef::<Widget>::as_ref(self).as_ptr(), inset) }
+        unsafe {
+            ffi::awra_toast_overlay_set_bottom_inset(AsRef::<Widget>::as_ref(self).as_ptr(), inset)
+        }
     }
 }

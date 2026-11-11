@@ -236,7 +236,11 @@ impl<T: StaticType + AsRef<Widget>> WeakRef<T> {
                 Rc::from_raw(rc)
             }
         };
-        WeakRef { ptr: widget.as_ptr(), alive, _t: std::marker::PhantomData }
+        WeakRef {
+            ptr: widget.as_ptr(),
+            alive,
+            _t: std::marker::PhantomData,
+        }
     }
 
     pub fn upgrade(&self) -> Option<T> {
@@ -250,13 +254,21 @@ impl<T: StaticType + AsRef<Widget>> WeakRef<T> {
 
 impl<T> Clone for WeakRef<T> {
     fn clone(&self) -> WeakRef<T> {
-        WeakRef { ptr: self.ptr, alive: self.alive.clone(), _t: std::marker::PhantomData }
+        WeakRef {
+            ptr: self.ptr,
+            alive: self.alive.clone(),
+            _t: std::marker::PhantomData,
+        }
     }
 }
 
 impl<T> Default for WeakRef<T> {
     fn default() -> WeakRef<T> {
-        WeakRef { ptr: std::ptr::null_mut(), alive: Rc::new(Cell::new(false)), _t: std::marker::PhantomData }
+        WeakRef {
+            ptr: std::ptr::null_mut(),
+            alive: Rc::new(Cell::new(false)),
+            _t: std::marker::PhantomData,
+        }
     }
 }
 

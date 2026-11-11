@@ -5,11 +5,11 @@
 use std::ffi::{c_char, c_int, c_void};
 
 use crate::awra_wrapper;
-use crate::DrawingArea;
 use crate::enums::Orientation;
 use crate::ffi;
 use crate::object::{cstring, from_cstr, IsWidget, Widget};
 use crate::signal::{sig, SignalHandlerId};
+use crate::DrawingArea;
 
 macro_rules! ptr {
     ($s:expr) => {
@@ -44,7 +44,11 @@ struct Factory {
     unbind: Box<dyn Fn(&Widget, i32, usize)>,
 }
 
-unsafe extern "C" fn factory_setup(_view: *mut ffi::AwraWidget, column: c_int, data: *mut c_void) -> *mut ffi::AwraWidget {
+unsafe extern "C" fn factory_setup(
+    _view: *mut ffi::AwraWidget,
+    column: c_int,
+    data: *mut c_void,
+) -> *mut ffi::AwraWidget {
     let f = &*(data as *const Factory);
     let w = (f.setup)(column);
     let p = w.as_ptr();
@@ -52,13 +56,25 @@ unsafe extern "C" fn factory_setup(_view: *mut ffi::AwraWidget, column: c_int, d
     p
 }
 
-unsafe extern "C" fn factory_bind(_view: *mut ffi::AwraWidget, cell: *mut ffi::AwraWidget, column: c_int, index: c_int, data: *mut c_void) {
+unsafe extern "C" fn factory_bind(
+    _view: *mut ffi::AwraWidget,
+    cell: *mut ffi::AwraWidget,
+    column: c_int,
+    index: c_int,
+    data: *mut c_void,
+) {
     let f = &*(data as *const Factory);
     let w = std::mem::ManuallyDrop::new(Widget::from_full(cell));
     (f.bind)(&w, column, index.max(0) as usize);
 }
 
-unsafe extern "C" fn factory_unbind(_view: *mut ffi::AwraWidget, cell: *mut ffi::AwraWidget, column: c_int, index: c_int, data: *mut c_void) {
+unsafe extern "C" fn factory_unbind(
+    _view: *mut ffi::AwraWidget,
+    cell: *mut ffi::AwraWidget,
+    column: c_int,
+    index: c_int,
+    data: *mut c_void,
+) {
     let f = &*(data as *const Factory);
     let w = std::mem::ManuallyDrop::new(Widget::from_full(cell));
     (f.unbind)(&w, column, index.max(0) as usize);
@@ -90,7 +106,11 @@ impl CollectionView {
         bind: impl Fn(&Widget, i32, usize) + 'static,
         unbind: impl Fn(&Widget, i32, usize) + 'static,
     ) {
-        let f = Box::new(Factory { setup: Box::new(setup), bind: Box::new(bind), unbind: Box::new(unbind) });
+        let f = Box::new(Factory {
+            setup: Box::new(setup),
+            bind: Box::new(bind),
+            unbind: Box::new(unbind),
+        });
         unsafe {
             ffi::awra_collection_view_set_factory(
                 ptr!(self),
@@ -109,14 +129,27 @@ impl CollectionView {
         unsafe { ffi::awra_collection_view_item_count(ptr!(self)).max(0) as usize }
     }
     pub fn items_changed(&self, position: usize, removed: usize, added: usize) {
-        unsafe { ffi::awra_collection_view_items_changed(ptr!(self), position as c_int, removed as c_int, added as c_int) }
+        unsafe {
+            ffi::awra_collection_view_items_changed(
+                ptr!(self),
+                position as c_int,
+                removed as c_int,
+                added as c_int,
+            )
+        }
     }
     /// Binds an item again (None: every item on screen).
     pub fn rebind(&self, index: Option<usize>) {
         unsafe { ffi::awra_collection_view_rebind(ptr!(self), index.map_or(-1, |i| i as c_int)) }
     }
     pub fn cell(&self, index: usize, column: i32) -> Option<Widget> {
-        unsafe { Widget::from_none_opt(ffi::awra_collection_view_cell(ptr!(self), index as c_int, column)) }
+        unsafe {
+            Widget::from_none_opt(ffi::awra_collection_view_cell(
+                ptr!(self),
+                index as c_int,
+                column,
+            ))
+        }
     }
     /// (first, count) of the items on screen.
     pub fn visible_range(&self) -> (usize, usize) {
@@ -155,7 +188,9 @@ impl CollectionView {
     }
     /// The column showing the order (None: none).
     pub fn set_sort_column(&self, column: Option<i32>, descending: bool) {
-        unsafe { ffi::awra_collection_view_set_sort_column(ptr!(self), column.unwrap_or(-1), descending) }
+        unsafe {
+            ffi::awra_collection_view_set_sort_column(ptr!(self), column.unwrap_or(-1), descending)
+        }
     }
     /// The sorted column's arrow; visible by default (GTK's own theme).
     pub fn set_sort_indicator_visible(&self, visible: bool) {
@@ -180,8 +215,17 @@ impl CollectionView {
     }
     pub fn item_bounds(&self, index: usize) -> Option<(f64, f64, f64, f64)> {
         let (mut x, mut y, mut w, mut h) = (0.0, 0.0, 0.0, 0.0);
-        unsafe { ffi::awra_collection_view_item_bounds(ptr!(self), index as c_int, &mut x, &mut y, &mut w, &mut h) }
-            .then_some((x, y, w, h))
+        unsafe {
+            ffi::awra_collection_view_item_bounds(
+                ptr!(self),
+                index as c_int,
+                &mut x,
+                &mut y,
+                &mut w,
+                &mut h,
+            )
+        }
+        .then_some((x, y, w, h))
     }
     pub fn is_selected(&self, index: usize) -> bool {
         unsafe { ffi::awra_collection_view_is_selected(ptr!(self), index as c_int) }
@@ -194,7 +238,9 @@ impl CollectionView {
         let count = self.selected_count();
         let max = limit.map_or(count, |l| l.min(count));
         let mut out = vec![0 as c_int; max];
-        let n = unsafe { ffi::awra_collection_view_get_selected(ptr!(self), out.as_mut_ptr(), max as c_int) };
+        let n = unsafe {
+            ffi::awra_collection_view_get_selected(ptr!(self), out.as_mut_ptr(), max as c_int)
+        };
         out.truncate(n.max(0) as usize);
         out.into_iter().map(|i| i as usize).collect()
     }
@@ -216,7 +262,9 @@ impl CollectionView {
         (c >= 0).then_some(c as usize)
     }
     pub fn set_cursor(&self, index: Option<usize>) {
-        unsafe { ffi::awra_collection_view_set_cursor(ptr!(self), index.map_or(-1, |i| i as c_int)) }
+        unsafe {
+            ffi::awra_collection_view_set_cursor(ptr!(self), index.map_or(-1, |i| i as c_int))
+        }
     }
     pub fn scroll_to(&self, index: usize) {
         unsafe { ffi::awra_collection_view_scroll_to(ptr!(self), index as c_int) }
@@ -238,28 +286,48 @@ impl CollectionView {
         unsafe { ffi::awra_collection_view_set_vvalue(ptr!(self), v) }
     }
     pub fn set_drop_index(&self, index: Option<usize>) {
-        unsafe { ffi::awra_collection_view_set_drop_index(ptr!(self), index.map_or(-1, |i| i as c_int)) }
+        unsafe {
+            ffi::awra_collection_view_set_drop_index(ptr!(self), index.map_or(-1, |i| i as c_int))
+        }
     }
     pub fn grid_columns(&self) -> i32 {
         unsafe { ffi::awra_collection_view_grid_columns(ptr!(self)) }
     }
-    pub fn connect_selection_changed<F: Fn(&CollectionView) + 'static>(&self, f: F) -> SignalHandlerId {
+    pub fn connect_selection_changed<F: Fn(&CollectionView) + 'static>(
+        &self,
+        f: F,
+    ) -> SignalHandlerId {
         self.connect_typed(sig::NOTIFY, move |v: &CollectionView, a| {
             if a.text().as_deref() == Some("selection") {
                 f(v)
             }
         })
     }
-    pub fn connect_activate<F: Fn(&CollectionView, usize) + 'static>(&self, f: F) -> SignalHandlerId {
-        self.connect_typed(sig::ACTIVATE, move |v: &CollectionView, a| f(v, a.index().max(0) as usize))
+    pub fn connect_activate<F: Fn(&CollectionView, usize) + 'static>(
+        &self,
+        f: F,
+    ) -> SignalHandlerId {
+        self.connect_typed(sig::ACTIVATE, move |v: &CollectionView, a| {
+            f(v, a.index().max(0) as usize)
+        })
     }
     /// A drag starts from an item: (index, x, y at the press).
-    pub fn connect_drag_begin<F: Fn(&CollectionView, usize, f64, f64) + 'static>(&self, f: F) -> SignalHandlerId {
-        self.connect_typed(sig::DRAG_BEGIN, move |v: &CollectionView, a| f(v, a.index().max(0) as usize, a.x(), a.y()))
+    pub fn connect_drag_begin<F: Fn(&CollectionView, usize, f64, f64) + 'static>(
+        &self,
+        f: F,
+    ) -> SignalHandlerId {
+        self.connect_typed(sig::DRAG_BEGIN, move |v: &CollectionView, a| {
+            f(v, a.index().max(0) as usize, a.x(), a.y())
+        })
     }
     /// A column header was clicked: (column, the descending order it asks for).
-    pub fn connect_header_clicked<F: Fn(&CollectionView, i32, bool) + 'static>(&self, f: F) -> SignalHandlerId {
-        self.connect_typed(sig::SELECTED, move |v: &CollectionView, a| f(v, a.index(), a.active()))
+    pub fn connect_header_clicked<F: Fn(&CollectionView, i32, bool) + 'static>(
+        &self,
+        f: F,
+    ) -> SignalHandlerId {
+        self.connect_typed(sig::SELECTED, move |v: &CollectionView, a| {
+            f(v, a.index(), a.active())
+        })
     }
     pub fn connect_scrolled<F: Fn(&CollectionView) + 'static>(&self, f: F) -> SignalHandlerId {
         self.connect_typed(sig::VALUE_CHANGED, move |v: &CollectionView, _| f(v))
@@ -284,7 +352,12 @@ impl PathBar {
     }
     pub fn set_icon_name(&self, icon: Option<&str>) {
         let c = icon.map(cstring);
-        unsafe { ffi::awra_path_bar_set_icon_name(ptr!(self), c.as_ref().map_or(std::ptr::null(), |c| c.as_ptr())) }
+        unsafe {
+            ffi::awra_path_bar_set_icon_name(
+                ptr!(self),
+                c.as_ref().map_or(std::ptr::null(), |c| c.as_ptr()),
+            )
+        }
     }
     pub fn set_text(&self, text: &str) {
         let c = cstring(text);
@@ -295,7 +368,12 @@ impl PathBar {
         unsafe { ffi::awra_path_bar_set_placeholder(ptr!(self), c.as_ptr()) }
     }
     pub fn set_end_widget(&self, w: Option<&impl IsWidget>) {
-        unsafe { ffi::awra_path_bar_set_end_widget(ptr!(self), w.map_or(std::ptr::null_mut(), |w| w.widget_ptr())) }
+        unsafe {
+            ffi::awra_path_bar_set_end_widget(
+                ptr!(self),
+                w.map_or(std::ptr::null_mut(), |w| w.widget_ptr()),
+            )
+        }
     }
     pub fn set_blank_tooltip(&self, text: &str) {
         let c = cstring(text);
@@ -303,7 +381,12 @@ impl PathBar {
     }
     pub fn begin_edit(&self, initial: Option<&str>) {
         let c = initial.map(cstring);
-        unsafe { ffi::awra_path_bar_begin_edit(ptr!(self), c.as_ref().map_or(std::ptr::null(), |c| c.as_ptr())) }
+        unsafe {
+            ffi::awra_path_bar_begin_edit(
+                ptr!(self),
+                c.as_ref().map_or(std::ptr::null(), |c| c.as_ptr()),
+            )
+        }
     }
     pub fn end_edit(&self) {
         unsafe { ffi::awra_path_bar_end_edit(ptr!(self)) }
@@ -315,7 +398,11 @@ impl PathBar {
         unsafe { from_cstr(ffi::awra_path_bar_edit_text(ptr!(self))) }
     }
     pub fn entry(&self) -> crate::Entry {
-        unsafe { <crate::Entry as crate::StaticType>::unchecked_from(Widget::from_none(ffi::awra_path_bar_entry(ptr!(self)))) }
+        unsafe {
+            <crate::Entry as crate::StaticType>::unchecked_from(Widget::from_none(
+                ffi::awra_path_bar_entry(ptr!(self)),
+            ))
+        }
     }
     /// (title, value inserted) pairs; empty hides them.
     pub fn set_suggestions(&self, items: &[(String, String)]) {
@@ -323,7 +410,14 @@ impl PathBar {
         let values: Vec<&str> = items.iter().map(|(_, v)| v.as_str()).collect();
         let (_a, tp) = cstrings(&titles);
         let (_b, vp) = cstrings(&values);
-        unsafe { ffi::awra_path_bar_set_suggestions(ptr!(self), tp.as_ptr(), vp.as_ptr(), tp.len() as c_int) }
+        unsafe {
+            ffi::awra_path_bar_set_suggestions(
+                ptr!(self),
+                tp.as_ptr(),
+                vp.as_ptr(),
+                tp.len() as c_int,
+            )
+        }
     }
     pub fn set_invalid(&self, invalid: bool) {
         unsafe { ffi::awra_path_bar_set_invalid(ptr!(self), invalid) }
@@ -352,7 +446,9 @@ impl PathBar {
         })
     }
     pub fn connect_edit_changed<F: Fn(&PathBar, &str) + 'static>(&self, f: F) -> SignalHandlerId {
-        self.connect_typed(sig::CHANGED, move |b: &PathBar, a| f(b, &a.text().unwrap_or_default()))
+        self.connect_typed(sig::CHANGED, move |b: &PathBar, a| {
+            f(b, &a.text().unwrap_or_default())
+        })
     }
     pub fn connect_editing_notify<F: Fn(&PathBar, bool) + 'static>(&self, f: F) -> SignalHandlerId {
         self.connect_typed(sig::NOTIFY, move |b: &PathBar, a| {
@@ -430,10 +526,14 @@ impl TabBar {
         unsafe { ffi::awra_tab_bar_set_insertion(ptr!(self), position.map_or(-1, |p| p as c_int)) }
     }
     pub fn connect_selected<F: Fn(&TabBar, usize) + 'static>(&self, f: F) -> SignalHandlerId {
-        self.connect_typed(sig::SELECTED, move |b: &TabBar, a| f(b, a.index().max(0) as usize))
+        self.connect_typed(sig::SELECTED, move |b: &TabBar, a| {
+            f(b, a.index().max(0) as usize)
+        })
     }
     pub fn connect_close_tab<F: Fn(&TabBar, usize) + 'static>(&self, f: F) -> SignalHandlerId {
-        self.connect_typed(sig::CLOSE_REQUEST, move |b: &TabBar, a| f(b, a.index().max(0) as usize))
+        self.connect_typed(sig::CLOSE_REQUEST, move |b: &TabBar, a| {
+            f(b, a.index().max(0) as usize)
+        })
     }
     pub fn connect_moved<F: Fn(&TabBar, usize, usize) + 'static>(&self, f: F) -> SignalHandlerId {
         self.connect_typed(sig::MOVED, move |b: &TabBar, a| {
@@ -449,7 +549,9 @@ impl TabBar {
         self.connect_typed(sig::ACTIVATE, move |b: &TabBar, _| f(b))
     }
     pub fn connect_drag_begin<F: Fn(&TabBar, usize) + 'static>(&self, f: F) -> SignalHandlerId {
-        self.connect_typed(sig::DRAG_BEGIN, move |b: &TabBar, a| f(b, a.index().max(0) as usize))
+        self.connect_typed(sig::DRAG_BEGIN, move |b: &TabBar, a| {
+            f(b, a.index().max(0) as usize)
+        })
     }
 }
 
@@ -466,10 +568,20 @@ impl Paned {
         unsafe { Paned::from_full(ffi::awra_paned_new(orientation as _)) }
     }
     pub fn set_start_child(&self, child: Option<&impl IsWidget>) {
-        unsafe { ffi::awra_paned_set_start_child(ptr!(self), child.map_or(std::ptr::null_mut(), |c| c.widget_ptr())) }
+        unsafe {
+            ffi::awra_paned_set_start_child(
+                ptr!(self),
+                child.map_or(std::ptr::null_mut(), |c| c.widget_ptr()),
+            )
+        }
     }
     pub fn set_end_child(&self, child: Option<&impl IsWidget>) {
-        unsafe { ffi::awra_paned_set_end_child(ptr!(self), child.map_or(std::ptr::null_mut(), |c| c.widget_ptr())) }
+        unsafe {
+            ffi::awra_paned_set_end_child(
+                ptr!(self),
+                child.map_or(std::ptr::null_mut(), |c| c.widget_ptr()),
+            )
+        }
     }
     pub fn start_child(&self) -> Option<Widget> {
         unsafe { Widget::from_none_opt(ffi::awra_paned_start_child(ptr!(self))) }
@@ -545,12 +657,27 @@ impl Canvas {
         let c = c.to_ffi();
         unsafe { ffi::awra_canvas_fill_rect(self.0, x, y, w, h, &c) }
     }
-    pub fn round_rect(&self, x: f64, y: f64, w: f64, h: f64, radius: f64, fill: Option<&crate::gdk::RGBA>, border_width: f64, border: Option<&crate::gdk::RGBA>) {
+    pub fn round_rect(
+        &self,
+        x: f64,
+        y: f64,
+        w: f64,
+        h: f64,
+        radius: f64,
+        fill: Option<&crate::gdk::RGBA>,
+        border_width: f64,
+        border: Option<&crate::gdk::RGBA>,
+    ) {
         let f = fill.map(|c| c.to_ffi());
         let b = border.map(|c| c.to_ffi());
         unsafe {
             ffi::awra_canvas_round_rect(
-                self.0, x, y, w, h, radius,
+                self.0,
+                x,
+                y,
+                w,
+                h,
+                radius,
                 f.as_ref().map_or(std::ptr::null(), |c| c as *const _),
                 border_width,
                 b.as_ref().map_or(std::ptr::null(), |c| c as *const _),
@@ -566,7 +693,14 @@ impl Canvas {
         unsafe { ffi::awra_canvas_circle(self.0, cx, cy, r, &c) }
     }
     /// Text whose top-left corner is at x, y, in a typography's font.
-    pub fn text(&self, x: f64, y: f64, text: &str, typography: crate::Typography, c: &crate::gdk::RGBA) {
+    pub fn text(
+        &self,
+        x: f64,
+        y: f64,
+        text: &str,
+        typography: crate::Typography,
+        c: &crate::gdk::RGBA,
+    ) {
         let t = cstring(text);
         let c = c.to_ffi();
         unsafe { ffi::awra_canvas_text(self.0, x, y, t.as_ptr(), typography as _, &c) }
@@ -585,7 +719,13 @@ impl Canvas {
 
 type DrawFn = Box<dyn Fn(&DrawingArea, &Canvas, i32, i32)>;
 
-unsafe extern "C" fn draw_tramp(w: *mut ffi::AwraWidget, c: *mut ffi::AwraCanvas, width: c_int, height: c_int, data: *mut c_void) {
+unsafe extern "C" fn draw_tramp(
+    w: *mut ffi::AwraWidget,
+    c: *mut ffi::AwraCanvas,
+    width: c_int,
+    height: c_int,
+    data: *mut c_void,
+) {
     let f = &*(data as *const DrawFn);
     let area: DrawingArea = Widget::from_none(w).downcast().unwrap();
     f(&area, &Canvas(c), width, height);
@@ -600,7 +740,13 @@ impl DrawingArea {
     /// `new` + `set_draw_func`, on a cairo subset).
     pub fn with_canvas(draw: impl Fn(&DrawingArea, &Canvas, i32, i32) + 'static) -> DrawingArea {
         let f: Box<DrawFn> = Box::new(Box::new(draw));
-        unsafe { DrawingArea::from_full(ffi::awra_drawing_area_new(Some(draw_tramp), Box::into_raw(f) as *mut c_void, Some(draw_free))) }
+        unsafe {
+            DrawingArea::from_full(ffi::awra_drawing_area_new(
+                Some(draw_tramp),
+                Box::into_raw(f) as *mut c_void,
+                Some(draw_free),
+            ))
+        }
     }
     pub fn set_content_size(&self, w: i32, h: i32) {
         self.set_rust_data("p:content-size", (w, h));

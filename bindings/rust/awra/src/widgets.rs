@@ -10,7 +10,9 @@ use crate::enums::*;
 use crate::ffi;
 use crate::gdk::{ModifierType, RGBA};
 use crate::gio::{FlatEntry, Menu};
-use crate::object::{cstring, from_cstr, from_cstr_opt, IntoOptStr, IntoOptWidget, IsWidget, OptC, Widget};
+use crate::object::{
+    cstring, from_cstr, from_cstr_opt, IntoOptStr, IntoOptWidget, IsWidget, OptC, Widget,
+};
 use crate::pango::{EllipsizeMode, WrapMode};
 use crate::signal::{sig, SignalHandlerId};
 
@@ -23,7 +25,15 @@ macro_rules! ptr {
 fn rgba_ptr(c: Option<&RGBA>) -> (ffi::AwraRGBA, bool) {
     match c {
         Some(c) => (c.to_ffi(), true),
-        None => (ffi::AwraRGBA { r: 0.0, g: 0.0, b: 0.0, a: 0.0 }, false),
+        None => (
+            ffi::AwraRGBA {
+                r: 0.0,
+                g: 0.0,
+                b: 0.0,
+                a: 0.0,
+            },
+            false,
+        ),
     }
 }
 
@@ -66,7 +76,9 @@ impl Box {
         b
     }
     pub fn orientation(&self) -> Orientation {
-        self.0.rust_data::<Orientation>("p:orientation").unwrap_or(Orientation::Horizontal)
+        self.0
+            .rust_data::<Orientation>("p:orientation")
+            .unwrap_or(Orientation::Horizontal)
     }
     pub fn append(&self, child: &impl IsWidget) {
         unsafe { ffi::awra_box_append(ptr!(self), child.widget_ptr()) }
@@ -162,7 +174,9 @@ impl FlowBox {
         unsafe { ffi::awra_container_remove_all(ptr!(self)) }
     }
     fn spacing(&self) -> (i32, i32) {
-        self.0.rust_data::<(i32, i32)>("flow-spacing").unwrap_or((0, 0))
+        self.0
+            .rust_data::<(i32, i32)>("flow-spacing")
+            .unwrap_or((0, 0))
     }
     pub fn set_row_spacing(&self, s: u32) {
         let (_, c) = self.spacing();
@@ -175,7 +189,9 @@ impl FlowBox {
         unsafe { ffi::awra_flow_box_set_spacing(ptr!(self), r, s as i32) }
     }
     fn columns(&self) -> (i32, i32) {
-        self.0.rust_data::<(i32, i32)>("flow-columns").unwrap_or((1, 7))
+        self.0
+            .rust_data::<(i32, i32)>("flow-columns")
+            .unwrap_or((1, 7))
     }
     pub fn set_min_children_per_line(&self, n: u32) {
         let (_, max) = self.columns();
@@ -213,12 +229,16 @@ impl FlowBox {
     pub fn invalidate_filter(&self) {
         unsafe { ffi::awra_flow_box_invalidate_filter(ptr!(self)) }
     }
-    pub fn connect_child_activated<F: Fn(&FlowBox, &Widget) + 'static>(&self, f: F) -> SignalHandlerId {
-        self.0.connect_typed::<FlowBox, _>(sig::ACTIVATE, move |w, a| {
-            if let Some(c) = w.0.children().get(a.index().max(0) as usize) {
-                f(w, c)
-            }
-        })
+    pub fn connect_child_activated<F: Fn(&FlowBox, &Widget) + 'static>(
+        &self,
+        f: F,
+    ) -> SignalHandlerId {
+        self.0
+            .connect_typed::<FlowBox, _>(sig::ACTIVATE, move |w, a| {
+                if let Some(c) = w.0.children().get(a.index().max(0) as usize) {
+                    f(w, c)
+                }
+            })
     }
 }
 impl Default for FlowBox {
@@ -264,7 +284,9 @@ impl Stack {
         unsafe { Widget::from_none_opt(ffi::awra_stack_child_by_name(ptr!(self), n.as_ptr())) }
     }
     fn transition(&self) -> (StackTransitionType, u32) {
-        self.0.rust_data("stack-transition").unwrap_or((StackTransitionType::None, 200))
+        self.0
+            .rust_data("stack-transition")
+            .unwrap_or((StackTransitionType::None, 200))
     }
     pub fn set_transition_type(&self, t: StackTransitionType) {
         let (_, ms) = self.transition();
@@ -283,7 +305,8 @@ impl Stack {
         unsafe { ffi::awra_stack_set_vhomogeneous(ptr!(self), h) }
     }
     pub fn connect_visible_child_notify<F: Fn(&Stack) + 'static>(&self, f: F) -> SignalHandlerId {
-        self.0.connect_typed::<Stack, _>(sig::SELECTED, move |w, _| f(w))
+        self.0
+            .connect_typed::<Stack, _>(sig::SELECTED, move |w, _| f(w))
     }
 }
 impl Default for Stack {
@@ -331,7 +354,9 @@ impl ScrolledWindow {
         unsafe { Widget::from_none_opt(ffi::awra_scrolled_child(ptr!(self))) }
     }
     fn policy(&self) -> (PolicyType, PolicyType) {
-        self.0.rust_data("scroll-policy").unwrap_or((PolicyType::Automatic, PolicyType::Automatic))
+        self.0
+            .rust_data("scroll-policy")
+            .unwrap_or((PolicyType::Automatic, PolicyType::Automatic))
     }
     /// Scrolls as GtkListView / GtkGridView: each wheel step lands on a
     /// whole px (on by itself over a TileGrid).
@@ -351,7 +376,9 @@ impl ScrolledWindow {
         self.set_policy(h, v)
     }
     fn propagate(&self) -> (bool, bool) {
-        self.0.rust_data("scroll-propagate").unwrap_or((false, false))
+        self.0
+            .rust_data("scroll-propagate")
+            .unwrap_or((false, false))
     }
     pub fn set_propagate_natural_width(&self, p: bool) {
         let (_, h) = self.propagate();
@@ -445,7 +472,10 @@ impl Label {
         crate::compat3::label_changed(self);
     }
     pub fn set_wrap(&self, wrap: bool) {
-        let mode = self.0.rust_data::<WrapMode>("wrap-mode").unwrap_or(WrapMode::Word);
+        let mode = self
+            .0
+            .rust_data::<WrapMode>("wrap-mode")
+            .unwrap_or(WrapMode::Word);
         self.0.set_rust_data("wrap-on", wrap);
         unsafe { ffi::awra_label_set_wrap(ptr!(self), if wrap { wrap_c(mode) } else { 0 }) }
     }
@@ -536,10 +566,17 @@ impl Image {
     }
     pub fn set_from_file(&self, path: Option<impl AsRef<std::path::Path>>) {
         let p = path.map(|p| cstring(&p.as_ref().to_string_lossy()));
-        unsafe { ffi::awra_image_set_file(ptr!(self), p.as_ref().map_or(std::ptr::null(), |c| c.as_ptr())) }
+        unsafe {
+            ffi::awra_image_set_file(
+                ptr!(self),
+                p.as_ref().map_or(std::ptr::null(), |c| c.as_ptr()),
+            )
+        }
     }
     pub fn set_from_bytes(&self, bytes: &[u8]) {
-        unsafe { ffi::awra_image_set_bytes(ptr!(self), bytes.as_ptr() as *const c_void, bytes.len()) }
+        unsafe {
+            ffi::awra_image_set_bytes(ptr!(self), bytes.as_ptr() as *const c_void, bytes.len())
+        }
     }
     pub fn set_from_rgba(&self, rgba: &[u8], width: i32, height: i32, stride: i32) {
         unsafe { ffi::awra_image_set_rgba(ptr!(self), rgba.as_ptr(), width, height, stride) }
@@ -579,11 +616,18 @@ macro_rules! actionable {
             }
             pub fn set_detailed_action_name(&self, detailed: &str) {
                 match detailed.split_once("::") {
-                    Some((n, t)) => self.set_action_target_internal(Some(n), Some(crate::gio::ToVariant::to_variant(t))),
+                    Some((n, t)) => self.set_action_target_internal(
+                        Some(n),
+                        Some(crate::gio::ToVariant::to_variant(t)),
+                    ),
                     None => self.set_action_target_internal(Some(detailed), None),
                 }
             }
-            fn set_action_target_internal(&self, name: Option<&str>, target: Option<crate::gio::Variant>) {
+            fn set_action_target_internal(
+                &self,
+                name: Option<&str>,
+                target: Option<crate::gio::Variant>,
+            ) {
                 let first = self.0.rust_data::<String>("action-name").is_none();
                 match name {
                     Some(n) => {
@@ -597,7 +641,9 @@ macro_rules! actionable {
                     self.0.connect_raw(sig::CLICKED, |w, _| {
                         let name = w.rust_data::<String>("action-name").unwrap_or_default();
                         if !name.is_empty() {
-                            let target = w.rust_data::<Option<crate::gio::Variant>>("action-target").flatten();
+                            let target = w
+                                .rust_data::<Option<crate::gio::Variant>>("action-target")
+                                .flatten();
                             crate::gio::activate_action(w, &name, target.as_ref());
                         }
                     });
@@ -663,7 +709,8 @@ impl Button {
     }
     pub fn set_use_underline(&self, _u: bool) {}
     pub fn connect_clicked<F: Fn(&Button) + 'static>(&self, f: F) -> SignalHandlerId {
-        self.0.connect_typed::<Button, _>(sig::CLICKED, move |w, _| f(w))
+        self.0
+            .connect_typed::<Button, _>(sig::CLICKED, move |w, _| f(w))
     }
     pub fn emit_clicked(&self) {
         self.0.emit_raw(&crate::signal::raw_args(sig::CLICKED));
@@ -719,16 +766,23 @@ impl ToggleButton {
         unsafe { ffi::awra_toggle_button_active(ptr!(self)) }
     }
     pub fn set_group(&self, group: Option<&ToggleButton>) {
-        unsafe { ffi::awra_toggle_button_set_group(ptr!(self), group.map_or(std::ptr::null_mut(), |g| g.0.as_ptr())) }
+        unsafe {
+            ffi::awra_toggle_button_set_group(
+                ptr!(self),
+                group.map_or(std::ptr::null_mut(), |g| g.0.as_ptr()),
+            )
+        }
     }
     pub fn connect_toggled<F: Fn(&ToggleButton) + 'static>(&self, f: F) -> SignalHandlerId {
-        self.0.connect_typed::<ToggleButton, _>(sig::TOGGLED, move |w, _| f(w))
+        self.0
+            .connect_typed::<ToggleButton, _>(sig::TOGGLED, move |w, _| f(w))
     }
     pub fn connect_active_notify<F: Fn(&ToggleButton) + 'static>(&self, f: F) -> SignalHandlerId {
         self.connect_toggled(f)
     }
     pub fn connect_clicked<F: Fn(&ToggleButton) + 'static>(&self, f: F) -> SignalHandlerId {
-        self.0.connect_typed::<ToggleButton, _>(sig::CLICKED, move |w, _| f(w))
+        self.0
+            .connect_typed::<ToggleButton, _>(sig::CLICKED, move |w, _| f(w))
     }
 }
 actionable!(ToggleButton);
@@ -770,13 +824,19 @@ impl CheckButton {
     }
     pub fn set_group<'a>(&self, group: impl Into<Option<&'a CheckButton>>) {
         let group = group.into();
-        unsafe { ffi::awra_check_button_set_group(ptr!(self), group.map_or(std::ptr::null_mut(), |g| g.0.as_ptr())) }
+        unsafe {
+            ffi::awra_check_button_set_group(
+                ptr!(self),
+                group.map_or(std::ptr::null_mut(), |g| g.0.as_ptr()),
+            )
+        }
     }
     pub fn set_inconsistent(&self, i: bool) {
         unsafe { ffi::awra_check_button_set_inconsistent(ptr!(self), i) }
     }
     pub fn connect_toggled<F: Fn(&CheckButton) + 'static>(&self, f: F) -> SignalHandlerId {
-        self.0.connect_typed::<CheckButton, _>(sig::TOGGLED, move |w, _| f(w))
+        self.0
+            .connect_typed::<CheckButton, _>(sig::TOGGLED, move |w, _| f(w))
     }
     pub fn connect_active_notify<F: Fn(&CheckButton) + 'static>(&self, f: F) -> SignalHandlerId {
         self.connect_toggled(f)
@@ -804,13 +864,18 @@ impl Switch {
         unsafe { ffi::awra_switch_active(ptr!(self)) }
     }
     pub fn connect_active_notify<F: Fn(&Switch) + 'static>(&self, f: F) -> SignalHandlerId {
-        self.0.connect_typed::<Switch, _>(sig::TOGGLED, move |w, _| f(w))
+        self.0
+            .connect_typed::<Switch, _>(sig::TOGGLED, move |w, _| f(w))
     }
     /// gtk's state-set: return Propagation::Stop to refuse.
-    pub fn connect_state_set<F: Fn(&Switch, bool) -> crate::glib::Propagation + 'static>(&self, f: F) -> SignalHandlerId {
-        self.0.connect_typed::<Switch, _>(sig::TOGGLED, move |w, a| {
-            let _ = f(w, a.active());
-        })
+    pub fn connect_state_set<F: Fn(&Switch, bool) -> crate::glib::Propagation + 'static>(
+        &self,
+        f: F,
+    ) -> SignalHandlerId {
+        self.0
+            .connect_typed::<Switch, _>(sig::TOGGLED, move |w, a| {
+                let _ = f(w, a.active());
+            })
     }
 }
 impl Default for Switch {
@@ -836,8 +901,14 @@ impl SegmentedControl {
         unsafe { ffi::awra_segmented_control_append(ptr!(self), l.as_ptr(), i.ptr()) }
     }
     /// Awra 1: (control, selected index).
-    pub fn connect_changed<F: Fn(&SegmentedControl, u32) + 'static>(&self, f: F) -> SignalHandlerId {
-        self.0.connect_typed::<SegmentedControl, _>(sig::SELECTED, move |w, a| f(w, a.index().max(0) as u32))
+    pub fn connect_changed<F: Fn(&SegmentedControl, u32) + 'static>(
+        &self,
+        f: F,
+    ) -> SignalHandlerId {
+        self.0
+            .connect_typed::<SegmentedControl, _>(sig::SELECTED, move |w, a| {
+                f(w, a.index().max(0) as u32)
+            })
     }
     /// Awra 1: (id, label) segments.
     pub fn append_segment(&self, _id: &str, label: &str) -> i32 {
@@ -852,8 +923,12 @@ impl SegmentedControl {
     pub fn remove_all(&self) {
         unsafe { ffi::awra_segmented_control_remove_all(ptr!(self)) }
     }
-    pub fn connect_selected_notify<F: Fn(&SegmentedControl) + 'static>(&self, f: F) -> SignalHandlerId {
-        self.0.connect_typed::<SegmentedControl, _>(sig::SELECTED, move |w, _| f(w))
+    pub fn connect_selected_notify<F: Fn(&SegmentedControl) + 'static>(
+        &self,
+        f: F,
+    ) -> SignalHandlerId {
+        self.0
+            .connect_typed::<SegmentedControl, _>(sig::SELECTED, move |w, _| f(w))
     }
 }
 impl Default for SegmentedControl {
@@ -873,7 +948,11 @@ struct MenuDispatch {
     _watch: RefCell<Option<Rc<dyn Fn()>>>,
 }
 
-unsafe extern "C" fn menu_item_activated(_w: *mut ffi::AwraWidget, args: *const ffi::AwraArgs, data: *mut c_void) {
+unsafe extern "C" fn menu_item_activated(
+    _w: *mut ffi::AwraWidget,
+    args: *const ffi::AwraArgs,
+    data: *mut c_void,
+) {
     let d = &*(data as *const MenuDispatch);
     let index = (*args).index.max(0) as usize;
     let item = d.items.borrow().get(index).cloned();
@@ -885,7 +964,12 @@ unsafe extern "C" fn menu_item_activated(_w: *mut ffi::AwraWidget, args: *const 
 /// AwraMenuItems for a menu model; strings live in `keep`.
 /// `headings`: labelled sections show their label (as GtkPopoverMenu);
 /// Awra 1's menu buttons and popovers only separate them.
-fn menu_items(menu: &Menu, keep: &mut Vec<std::ffi::CString>, dispatch: *mut c_void, headings: bool) -> (Vec<ffi::AwraMenuItem>, Vec<ActivateItem>) {
+fn menu_items(
+    menu: &Menu,
+    keep: &mut Vec<std::ffi::CString>,
+    dispatch: *mut c_void,
+    headings: bool,
+) -> (Vec<ffi::AwraMenuItem>, Vec<ActivateItem>) {
     let owner = unsafe { (*(dispatch as *const MenuDispatch)).owner.upgrade() };
     let mut items = Vec::new();
     let mut acts = Vec::new();
@@ -951,9 +1035,15 @@ fn menu_items(menu: &Menu, keep: &mut Vec<std::ffi::CString>, dispatch: *mut c_v
                         Some(t) => format!("{action}::{}", t.str().unwrap_or("")),
                         None => action.to_owned(),
                     };
-                    crate::gio::Application::default()?.accels_for_action(&detailed).into_iter().next()
+                    crate::gio::Application::default()?
+                        .accels_for_action(&detailed)
+                        .into_iter()
+                        .next()
                 });
-                it.accel = push_str(accel.as_deref().map(crate::window::accel_label).as_deref(), keep);
+                it.accel = push_str(
+                    accel.as_deref().map(crate::window::accel_label).as_deref(),
+                    keep,
+                );
                 it.handler = Some(menu_item_activated);
                 it.data = dispatch;
                 acts.push((d.action.clone(), d.target.clone()));
@@ -970,7 +1060,8 @@ unsafe extern "C" fn dispatch_free(data: *mut c_void) {
 
 /// Builds a menu's items again from its model (its actions' state now).
 fn refresh_menu(owner: &Widget) {
-    let d = unsafe { ffi::awra_widget_get_data(owner.as_ptr(), c"awra-rs-menu".as_ptr()) } as *mut MenuDispatch;
+    let d = unsafe { ffi::awra_widget_get_data(owner.as_ptr(), c"awra-rs-menu".as_ptr()) }
+        as *mut MenuDispatch;
     if d.is_null() {
         return;
     }
@@ -981,14 +1072,26 @@ fn refresh_menu(owner: &Widget) {
 }
 
 /// Shows `menu` in a menu button / popover, following its changes.
-fn attach_menu(owner: &Widget, menu: Option<&Menu>, headings: bool, apply: fn(&Widget, &[ffi::AwraMenuItem])) {
+fn attach_menu(
+    owner: &Widget,
+    menu: Option<&Menu>,
+    headings: bool,
+    apply: fn(&Widget, &[ffi::AwraMenuItem]),
+) {
     let key = c"awra-rs-menu";
     let dispatch = std::boxed::Box::into_raw(std::boxed::Box::new(MenuDispatch {
         items: RefCell::new(Vec::new()),
         owner: owner.downgrade(),
         _watch: RefCell::new(None),
     }));
-    unsafe { ffi::awra_widget_set_data(owner.as_ptr(), key.as_ptr(), dispatch as *mut c_void, Some(dispatch_free)) };
+    unsafe {
+        ffi::awra_widget_set_data(
+            owner.as_ptr(),
+            key.as_ptr(),
+            dispatch as *mut c_void,
+            Some(dispatch_free),
+        )
+    };
     let Some(menu) = menu else {
         apply(owner, &[]);
         return;
@@ -998,7 +1101,8 @@ fn attach_menu(owner: &Widget, menu: Option<&Menu>, headings: bool, apply: fn(&W
         let owner = owner.downgrade();
         move || {
             let Some(owner) = owner.upgrade() else { return };
-            let d = unsafe { ffi::awra_widget_get_data(owner.as_ptr(), c"awra-rs-menu".as_ptr()) } as *mut MenuDispatch;
+            let d = unsafe { ffi::awra_widget_get_data(owner.as_ptr(), c"awra-rs-menu".as_ptr()) }
+                as *mut MenuDispatch;
             if d.is_null() {
                 return;
             }
@@ -1030,14 +1134,22 @@ impl MenuButton {
         unsafe { ffi::awra_menu_button_set_label(ptr!(self), l.ptr()) }
     }
     pub fn label(&self) -> String {
-        self.0.rust_data::<Option<String>>("menu-label").flatten().unwrap_or_default()
+        self.0
+            .rust_data::<Option<String>>("menu-label")
+            .flatten()
+            .unwrap_or_default()
     }
     /// Custom content in place of the label and icon.
     pub fn set_child(&self, child: impl IntoOptWidget) {
         unsafe { ffi::awra_button_set_child(ptr!(self), child.into_opt_ptr()) }
     }
     pub fn set_popover(&self, popover: Option<&Popover>) {
-        unsafe { ffi::awra_menu_button_set_popover(ptr!(self), popover.map_or(std::ptr::null_mut(), |p| p.0.as_ptr())) }
+        unsafe {
+            ffi::awra_menu_button_set_popover(
+                ptr!(self),
+                popover.map_or(std::ptr::null_mut(), |p| p.0.as_ptr()),
+            )
+        }
     }
     pub fn popover(&self) -> Option<Popover> {
         unsafe { Widget::from_none_opt(ffi::awra_menu_button_popover(ptr!(self))) }.map(Popover)
@@ -1071,7 +1183,10 @@ impl MenuButton {
     /// `gtk::MenuButton::set_create_popup_func`: called each time before the
     /// popup shows (it sets the popover as things are now).
     pub fn set_create_popup_func<F: Fn(&MenuButton) + 'static>(&self, f: Option<F>) {
-        unsafe extern "C" fn tramp<F: Fn(&MenuButton) + 'static>(b: *mut ffi::AwraWidget, data: *mut c_void) {
+        unsafe extern "C" fn tramp<F: Fn(&MenuButton) + 'static>(
+            b: *mut ffi::AwraWidget,
+            data: *mut c_void,
+        ) {
             let f = &*(data as *const F);
             let button = MenuButton(Widget::from_none(b));
             f(&button);
@@ -1088,7 +1203,14 @@ impl MenuButton {
                     Some(free::<F>),
                 )
             },
-            None => unsafe { ffi::awra_menu_button_set_create_popup_func(ptr!(self), None, std::ptr::null_mut(), None) },
+            None => unsafe {
+                ffi::awra_menu_button_set_create_popup_func(
+                    ptr!(self),
+                    None,
+                    std::ptr::null_mut(),
+                    None,
+                )
+            },
         }
     }
 }
@@ -1134,7 +1256,8 @@ impl Popover {
     }
     /// Anchors the popover to `parent` (GTK's set_parent on popovers).
     pub fn set_parent(&self, parent: &impl IsWidget) {
-        self.0.set_rust_data("popover-anchor", parent.upcast_ref().downgrade());
+        self.0
+            .set_rust_data("popover-anchor", parent.upcast_ref().downgrade());
         unsafe { ffi::awra_popover_set_anchor(ptr!(self), parent.widget_ptr()) }
     }
     pub fn set_anchor(&self, anchor: &impl IsWidget) {
@@ -1197,10 +1320,12 @@ impl Popover {
         unsafe { ffi::awra_popover_set_offset(ptr!(self), x, y) }
     }
     pub fn connect_closed<F: Fn(&Popover) + 'static>(&self, f: F) -> SignalHandlerId {
-        self.0.connect_typed::<Popover, _>(sig::HIDE, move |w, _| f(w))
+        self.0
+            .connect_typed::<Popover, _>(sig::HIDE, move |w, _| f(w))
     }
     pub fn connect_show<F: Fn(&Popover) + 'static>(&self, f: F) -> SignalHandlerId {
-        self.0.connect_typed::<Popover, _>(sig::SHOW, move |w, _| f(w))
+        self.0
+            .connect_typed::<Popover, _>(sig::SHOW, move |w, _| f(w))
     }
 }
 impl Default for Popover {
@@ -1219,7 +1344,12 @@ pub struct Rectangle {
 }
 impl Rectangle {
     pub fn new(x: i32, y: i32, width: i32, height: i32) -> Rectangle {
-        Rectangle { x, y, width, height }
+        Rectangle {
+            x,
+            y,
+            width,
+            height,
+        }
     }
 }
 
@@ -1259,7 +1389,9 @@ macro_rules! entry_ops {
                     if chars < 0 {
                         -1
                     } else {
-                        text.char_indices().nth(chars as usize).map_or(text.len() as i32, |(b, _)| b as i32)
+                        text.char_indices()
+                            .nth(chars as usize)
+                            .map_or(text.len() as i32, |(b, _)| b as i32)
                     }
                 };
                 unsafe { ffi::awra_entry_select_region(ptr!(self), byte(start), byte(end)) }
@@ -1285,17 +1417,21 @@ macro_rules! entry_ops {
                 self.clone()
             }
             pub fn connect_changed<F: Fn(&$t) + 'static>(&self, f: F) -> SignalHandlerId {
-                self.0.connect_typed::<$t, _>(sig::CHANGED, move |w, _| f(w))
+                self.0
+                    .connect_typed::<$t, _>(sig::CHANGED, move |w, _| f(w))
             }
             /// gtk-rs's notify::text: the text changed.
             pub fn connect_text_notify<F: Fn(&$t) + 'static>(&self, f: F) -> SignalHandlerId {
                 self.connect_changed(f)
             }
             pub fn placeholder_text(&self) -> Option<String> {
-                self.0.rust_data::<Option<String>>("p:placeholder").flatten()
+                self.0
+                    .rust_data::<Option<String>>("p:placeholder")
+                    .flatten()
             }
             pub fn connect_activate<F: Fn(&$t) + 'static>(&self, f: F) -> SignalHandlerId {
-                self.0.connect_typed::<$t, _>(sig::ACTIVATE, move |w, _| f(w))
+                self.0
+                    .connect_typed::<$t, _>(sig::ACTIVATE, move |w, _| f(w))
             }
         }
     };
@@ -1342,10 +1478,12 @@ impl SearchEntry {
         unsafe { ffi::awra_entry_set_quiet(ptr!(self), quiet) }
     }
     pub fn connect_search_changed<F: Fn(&SearchEntry) + 'static>(&self, f: F) -> SignalHandlerId {
-        self.0.connect_typed::<SearchEntry, _>(sig::SEARCH_CHANGED, move |w, _| f(w))
+        self.0
+            .connect_typed::<SearchEntry, _>(sig::SEARCH_CHANGED, move |w, _| f(w))
     }
     pub fn connect_stop_search<F: Fn(&SearchEntry) + 'static>(&self, f: F) -> SignalHandlerId {
-        self.0.connect_typed::<SearchEntry, _>(sig::STOP_SEARCH, move |w, _| f(w))
+        self.0
+            .connect_typed::<SearchEntry, _>(sig::STOP_SEARCH, move |w, _| f(w))
     }
 }
 entry_ops!(SearchEntry);
@@ -1386,7 +1524,8 @@ impl TextView {
     pub fn set_left_margin(&self, _m: i32) {}
     pub fn set_right_margin(&self, _m: i32) {}
     pub fn connect_changed<F: Fn(&TextView) + 'static>(&self, f: F) -> SignalHandlerId {
-        self.0.connect_typed::<TextView, _>(sig::CHANGED, move |w, _| f(w))
+        self.0
+            .connect_typed::<TextView, _>(sig::CHANGED, move |w, _| f(w))
     }
 }
 impl Default for TextView {
@@ -1429,7 +1568,8 @@ impl Slider {
         }
     }
     pub fn connect_value_changed<F: Fn(&Slider) + 'static>(&self, f: F) -> SignalHandlerId {
-        self.0.connect_typed::<Slider, _>(sig::VALUE_CHANGED, move |w, _| f(w))
+        self.0
+            .connect_typed::<Slider, _>(sig::VALUE_CHANGED, move |w, _| f(w))
     }
 }
 
@@ -1462,7 +1602,8 @@ impl SpinButton {
     }
     pub fn set_numeric(&self, _n: bool) {}
     pub fn connect_value_changed<F: Fn(&SpinButton) + 'static>(&self, f: F) -> SignalHandlerId {
-        self.0.connect_typed::<SpinButton, _>(sig::VALUE_CHANGED, move |w, _| f(w))
+        self.0
+            .connect_typed::<SpinButton, _>(sig::VALUE_CHANGED, move |w, _| f(w))
     }
 }
 
@@ -1511,7 +1652,8 @@ impl Dropdown {
         unsafe { ffi::awra_dropdown_set_enable_search(ptr!(self), s) }
     }
     pub fn connect_selected_notify<F: Fn(&Dropdown) + 'static>(&self, f: F) -> SignalHandlerId {
-        self.0.connect_typed::<Dropdown, _>(sig::SELECTED, move |w, _| f(w))
+        self.0
+            .connect_typed::<Dropdown, _>(sig::SELECTED, move |w, _| f(w))
     }
 }
 
@@ -1520,7 +1662,9 @@ impl Dropdown {
 pub struct StringList(Rc<RefCell<Vec<String>>>);
 impl StringList {
     pub fn new(items: &[&str]) -> StringList {
-        StringList(Rc::new(RefCell::new(items.iter().map(|s| s.to_string()).collect())))
+        StringList(Rc::new(RefCell::new(
+            items.iter().map(|s| s.to_string()).collect(),
+        )))
     }
     pub fn append(&self, s: &str) {
         self.0.borrow_mut().push(s.to_owned())
@@ -1562,10 +1706,15 @@ impl VolumeControl {
         unsafe { ffi::awra_volume_control_muted(ptr!(self)) }
     }
     pub fn connect_value_changed<F: Fn(&VolumeControl) + 'static>(&self, f: F) -> SignalHandlerId {
-        self.0.connect_typed::<VolumeControl, _>(sig::VALUE_CHANGED, move |w, _| f(w))
+        self.0
+            .connect_typed::<VolumeControl, _>(sig::VALUE_CHANGED, move |w, _| f(w))
     }
-    pub fn connect_volume_changed<F: Fn(&VolumeControl, f64) + 'static>(&self, f: F) -> SignalHandlerId {
-        self.0.connect_typed::<VolumeControl, _>(sig::VALUE_CHANGED, move |w, a| f(w, a.value()))
+    pub fn connect_volume_changed<F: Fn(&VolumeControl, f64) + 'static>(
+        &self,
+        f: F,
+    ) -> SignalHandlerId {
+        self.0
+            .connect_typed::<VolumeControl, _>(sig::VALUE_CHANGED, move |w, a| f(w, a.value()))
     }
 }
 impl Default for VolumeControl {
@@ -1610,22 +1759,31 @@ impl ShortcutCapture {
     pub fn codes(&self) -> Vec<String> {
         let mut p: *const *const c_char = std::ptr::null();
         let n = unsafe { ffi::awra_shortcut_capture_codes(ptr!(self), &mut p) };
-        (0..n.max(0) as usize).map(|i| unsafe { from_cstr(*p.add(i)) }).collect()
+        (0..n.max(0) as usize)
+            .map(|i| unsafe { from_cstr(*p.add(i)) })
+            .collect()
     }
     pub fn set_display_labels(&self, labels: &[&str]) {
         let cs: Vec<_> = labels.iter().map(|s| cstring(s)).collect();
         let ps: Vec<*const c_char> = cs.iter().map(|c| c.as_ptr()).collect();
-        unsafe { ffi::awra_shortcut_capture_set_display_labels(ptr!(self), ps.as_ptr(), ps.len() as i32) }
+        unsafe {
+            ffi::awra_shortcut_capture_set_display_labels(ptr!(self), ps.as_ptr(), ps.len() as i32)
+        }
     }
     pub fn connect_captured<F: Fn(&ShortcutCapture) + 'static>(&self, f: F) -> SignalHandlerId {
-        self.0.connect_typed::<ShortcutCapture, _>(sig::CAPTURED, move |w, _| f(w))
+        self.0
+            .connect_typed::<ShortcutCapture, _>(sig::CAPTURED, move |w, _| f(w))
     }
-    pub fn connect_listening_notify<F: Fn(&ShortcutCapture) + 'static>(&self, f: F) -> SignalHandlerId {
-        self.0.connect_typed::<ShortcutCapture, _>(sig::NOTIFY, move |w, a| {
-            if a.text().as_deref() == Some("listening") {
-                f(w)
-            }
-        })
+    pub fn connect_listening_notify<F: Fn(&ShortcutCapture) + 'static>(
+        &self,
+        f: F,
+    ) -> SignalHandlerId {
+        self.0
+            .connect_typed::<ShortcutCapture, _>(sig::NOTIFY, move |w, a| {
+                if a.text().as_deref() == Some("listening") {
+                    f(w)
+                }
+            })
     }
 }
 impl Default for ShortcutCapture {
@@ -1655,7 +1813,8 @@ impl Card {
         unsafe { ffi::awra_card_set_padding(ptr!(self), s as _) }
     }
     pub fn connect_activated<F: Fn(&Card) + 'static>(&self, f: F) -> SignalHandlerId {
-        self.0.connect_typed::<Card, _>(sig::CLICKED, move |w, _| f(w))
+        self.0
+            .connect_typed::<Card, _>(sig::CLICKED, move |w, _| f(w))
     }
     /// Cards that hold a box: append to it (Awra 1 cards were boxes).
     pub fn append(&self, child: &impl IsWidget) {
@@ -1691,7 +1850,8 @@ impl MessageBubble {
         unsafe { ffi::awra_message_bubble_set_activatable(ptr!(self), activatable) }
     }
     pub fn connect_activated<F: Fn(&MessageBubble) + 'static>(&self, f: F) -> SignalHandlerId {
-        self.0.connect_typed::<MessageBubble, _>(sig::CLICKED, move |w, _| f(w))
+        self.0
+            .connect_typed::<MessageBubble, _>(sig::CLICKED, move |w, _| f(w))
     }
 }
 impl Default for MessageBubble {
@@ -1752,7 +1912,12 @@ impl Default for Page {
 awra_wrapper!(PageHeader, ["AwraBox"]);
 impl PageHeader {
     pub fn new() -> PageHeader {
-        unsafe { PageHeader::from_full(ffi::awra_page_header_new(std::ptr::null(), std::ptr::null())) }
+        unsafe {
+            PageHeader::from_full(ffi::awra_page_header_new(
+                std::ptr::null(),
+                std::ptr::null(),
+            ))
+        }
     }
     pub fn set_title(&self, t: impl IntoOptStr) {
         let t = OptC::new(t);
@@ -1900,7 +2065,10 @@ awra_wrapper!(ActionRow, ["AwraActionRow"]);
 actionable!(ActionRow);
 impl ActionRow {
     pub fn new(title: &str, subtitle: &str) -> ActionRow {
-        let (t, s) = (cstring(title), OptC::new((!subtitle.is_empty()).then_some(subtitle)));
+        let (t, s) = (
+            cstring(title),
+            OptC::new((!subtitle.is_empty()).then_some(subtitle)),
+        );
         unsafe { ActionRow::from_full(ffi::awra_action_row_new(t.as_ptr(), s.ptr())) }
     }
     pub fn set_title(&self, t: impl IntoOptStr) {
@@ -1914,7 +2082,10 @@ impl ActionRow {
         unsafe { ffi::awra_action_row_set_subtitle(ptr!(self), t.ptr()) }
     }
     pub fn subtitle(&self) -> String {
-        self.0.rust_data::<Option<String>>("p:subtitle").flatten().unwrap_or_default()
+        self.0
+            .rust_data::<Option<String>>("p:subtitle")
+            .flatten()
+            .unwrap_or_default()
     }
     pub fn connect_clicked<F: Fn(&ActionRow) + 'static>(&self, f: F) -> SignalHandlerId {
         self.connect_activated(f)
@@ -1943,7 +2114,8 @@ impl ActionRow {
         unsafe { ffi::awra_action_row_set_activatable(ptr!(self), a) }
     }
     pub fn connect_activated<F: Fn(&ActionRow) + 'static>(&self, f: F) -> SignalHandlerId {
-        self.0.connect_typed::<ActionRow, _>(sig::CLICKED, move |w, _| f(w))
+        self.0
+            .connect_typed::<ActionRow, _>(sig::CLICKED, move |w, _| f(w))
     }
 }
 
@@ -1970,14 +2142,18 @@ impl Badge {
         unsafe { ffi::awra_badge_set_appearance(ptr!(self), a as _) }
     }
     pub fn appearance(&self) -> BadgeAppearance {
-        self.0.rust_data::<BadgeAppearance>("p:appearance").unwrap_or(BadgeAppearance::Accent)
+        self.0
+            .rust_data::<BadgeAppearance>("p:appearance")
+            .unwrap_or(BadgeAppearance::Accent)
     }
     pub fn set_icon_name(&self, n: impl IntoOptStr) {
         let n = OptC::new(n);
         unsafe { ffi::awra_badge_set_icon_name(ptr!(self), n.ptr()) }
     }
     pub fn set_custom_color(&self, c: &RGBA) {
-        with_rgba!(Some(c), |p| unsafe { ffi::awra_badge_set_color(ptr!(self), p) })
+        with_rgba!(Some(c), |p| unsafe {
+            ffi::awra_badge_set_color(ptr!(self), p)
+        })
     }
     pub fn unset_custom_color(&self) {
         unsafe { ffi::awra_badge_set_color(ptr!(self), std::ptr::null()) }
@@ -1986,15 +2162,25 @@ impl Badge {
         self.set_label(label)
     }
     /// Awra 1 badges with an action were clickable chips.
-    pub fn connect_activated<F: Fn(&Badge, ModifierType) + 'static>(&self, f: F) -> SignalHandlerId {
-        self.0.connect_typed::<Badge, _>(sig::CLICKED, move |w, a| f(w, a.mods()))
+    pub fn connect_activated<F: Fn(&Badge, ModifierType) + 'static>(
+        &self,
+        f: F,
+    ) -> SignalHandlerId {
+        self.0
+            .connect_typed::<Badge, _>(sig::CLICKED, move |w, a| f(w, a.mods()))
     }
 }
 
 awra_wrapper!(StatusBanner, ["AwraStatusBanner"]);
 impl StatusBanner {
     pub fn new() -> StatusBanner {
-        unsafe { StatusBanner::from_full(ffi::awra_status_banner_new(std::ptr::null(), std::ptr::null(), 0)) }
+        unsafe {
+            StatusBanner::from_full(ffi::awra_status_banner_new(
+                std::ptr::null(),
+                std::ptr::null(),
+                0,
+            ))
+        }
     }
     pub fn set_title(&self, t: impl IntoOptStr) {
         let t = t.into_opt_string();
@@ -2003,7 +2189,10 @@ impl StatusBanner {
         unsafe { ffi::awra_status_banner_set_title(ptr!(self), t.ptr()) }
     }
     pub fn title(&self) -> String {
-        self.0.rust_data::<Option<String>>("p:title").flatten().unwrap_or_default()
+        self.0
+            .rust_data::<Option<String>>("p:title")
+            .flatten()
+            .unwrap_or_default()
     }
     pub fn set_description(&self, t: impl IntoOptStr) {
         let t = t.into_opt_string();
@@ -2012,21 +2201,27 @@ impl StatusBanner {
         unsafe { ffi::awra_status_banner_set_description(ptr!(self), t.ptr()) }
     }
     pub fn description(&self) -> String {
-        self.0.rust_data::<Option<String>>("p:description").flatten().unwrap_or_default()
+        self.0
+            .rust_data::<Option<String>>("p:description")
+            .flatten()
+            .unwrap_or_default()
     }
     pub fn set_appearance(&self, a: StatusAppearance) {
         self.0.set_rust_data("p:appearance", a);
         unsafe { ffi::awra_status_banner_set_appearance(ptr!(self), a as _) }
     }
     pub fn appearance(&self) -> StatusAppearance {
-        self.0.rust_data::<StatusAppearance>("p:appearance").unwrap_or_default()
+        self.0
+            .rust_data::<StatusAppearance>("p:appearance")
+            .unwrap_or_default()
     }
     pub fn is_revealed(&self) -> bool {
         self.0.is_visible()
     }
     /// The close button hid it.
     pub fn connect_dismissed<F: Fn(&StatusBanner) + 'static>(&self, f: F) -> SignalHandlerId {
-        self.0.connect_typed::<StatusBanner, _>(sig::HIDE, move |w, _| f(w))
+        self.0
+            .connect_typed::<StatusBanner, _>(sig::HIDE, move |w, _| f(w))
     }
     pub fn add_action(&self, w: &impl IsWidget) {
         unsafe { ffi::awra_status_banner_add_action(ptr!(self), w.widget_ptr()) }
@@ -2053,7 +2248,13 @@ impl Default for StatusBanner {
 awra_wrapper!(EmptyState, ["AwraBox"]);
 impl EmptyState {
     pub fn new() -> EmptyState {
-        unsafe { EmptyState::from_full(ffi::awra_empty_state_new(std::ptr::null(), std::ptr::null(), std::ptr::null())) }
+        unsafe {
+            EmptyState::from_full(ffi::awra_empty_state_new(
+                std::ptr::null(),
+                std::ptr::null(),
+                std::ptr::null(),
+            ))
+        }
     }
     pub fn set_title(&self, t: impl IntoOptStr) {
         let t = OptC::new(t);
@@ -2088,7 +2289,12 @@ impl LoadingState {
     /// The spinner runs while shown.
     pub fn set_active(&self, _active: bool) {}
     pub fn new() -> LoadingState {
-        unsafe { LoadingState::from_full(ffi::awra_loading_state_new(std::ptr::null(), std::ptr::null())) }
+        unsafe {
+            LoadingState::from_full(ffi::awra_loading_state_new(
+                std::ptr::null(),
+                std::ptr::null(),
+            ))
+        }
     }
     pub fn set_title(&self, t: impl IntoOptStr) {
         let t = OptC::new(t);
@@ -2251,7 +2457,9 @@ awra_wrapper!(NavigationItem, ["AwraNavigationItem"]);
 impl NavigationItem {
     pub fn with_label(label: &str) -> NavigationItem {
         let l = cstring(label);
-        unsafe { NavigationItem::from_full(ffi::awra_navigation_item_new(l.as_ptr(), std::ptr::null())) }
+        unsafe {
+            NavigationItem::from_full(ffi::awra_navigation_item_new(l.as_ptr(), std::ptr::null()))
+        }
     }
     /// An item with no label yet (Awra 1's `new`).
     pub fn new() -> NavigationItem {
@@ -2319,7 +2527,9 @@ impl NavigationItem {
     }
     pub fn set_label_color(&self, c: Option<&RGBA>) {
         self.0.set_rust_data("p:label-color", c.copied());
-        with_rgba!(c, |p| unsafe { ffi::awra_navigation_item_set_label_color(ptr!(self), p) })
+        with_rgba!(c, |p| unsafe {
+            ffi::awra_navigation_item_set_label_color(ptr!(self), p)
+        })
     }
     /// gtk-rs ToggleButton's active: selected.
     pub fn set_active(&self, a: bool) {
@@ -2328,11 +2538,16 @@ impl NavigationItem {
     pub fn is_active(&self) -> bool {
         self.is_selected()
     }
-    pub fn connect_selected_notify<F: Fn(&NavigationItem) + 'static>(&self, f: F) -> SignalHandlerId {
-        self.0.connect_typed::<NavigationItem, _>(sig::TOGGLED, move |w, _| f(w))
+    pub fn connect_selected_notify<F: Fn(&NavigationItem) + 'static>(
+        &self,
+        f: F,
+    ) -> SignalHandlerId {
+        self.0
+            .connect_typed::<NavigationItem, _>(sig::TOGGLED, move |w, _| f(w))
     }
     pub fn connect_activated<F: Fn(&NavigationItem) + 'static>(&self, f: F) -> SignalHandlerId {
-        self.0.connect_typed::<NavigationItem, _>(sig::CLICKED, move |w, _| f(w))
+        self.0
+            .connect_typed::<NavigationItem, _>(sig::CLICKED, move |w, _| f(w))
     }
     pub fn connect_clicked<F: Fn(&NavigationItem) + 'static>(&self, f: F) -> SignalHandlerId {
         self.connect_activated(f)
@@ -2381,7 +2596,11 @@ impl Default for SplitView {
 
 awra_wrapper!(ToastOverlay, ["AwraToastOverlay"]);
 type ToastAction = std::boxed::Box<dyn Fn()>;
-unsafe extern "C" fn toast_action(_w: *mut ffi::AwraWidget, _a: *const ffi::AwraArgs, data: *mut c_void) {
+unsafe extern "C" fn toast_action(
+    _w: *mut ffi::AwraWidget,
+    _a: *const ffi::AwraArgs,
+    data: *mut c_void,
+) {
     let f = &*(data as *const ToastAction);
     f();
 }
@@ -2398,7 +2617,13 @@ impl ToastOverlay {
         unsafe { ffi::awra_toast_overlay_show(ptr!(self), m.as_ptr(), timeout) }
     }
     /// A toast whose button activates `action` ("win.undo").
-    pub fn show_with_action(&self, message: &str, label: &str, action: Option<&str>, timeout: u32) -> u32 {
+    pub fn show_with_action(
+        &self,
+        message: &str,
+        label: &str,
+        action: Option<&str>,
+        timeout: u32,
+    ) -> u32 {
         let owner = self.0.downgrade();
         let action = action.map(str::to_owned);
         self.show_with_callback(message, label, timeout, move || {
@@ -2408,7 +2633,13 @@ impl ToastOverlay {
         })
     }
     /// A toast with a button running `f`.
-    pub fn show_with_callback<F: Fn() + 'static>(&self, message: &str, action: &str, timeout: u32, f: F) -> u32 {
+    pub fn show_with_callback<F: Fn() + 'static>(
+        &self,
+        message: &str,
+        action: &str,
+        timeout: u32,
+        f: F,
+    ) -> u32 {
         let (m, a) = (cstring(message), cstring(action));
         // the closure lives as long as the toast (freed when it goes)
         let data: std::boxed::Box<ToastAction> = std::boxed::Box::new(std::boxed::Box::new(f));
@@ -2447,7 +2678,9 @@ impl CommandPalette {
             p.0.set_rust_data("palette-window", w.downgrade());
         }
         p.0.connect_raw(sig::ACTIVATE, |w, a| {
-            let acts = w.rust_data::<Rc<Vec<ActivateItem>>>("palette-items").unwrap_or_default();
+            let acts = w
+                .rust_data::<Rc<Vec<ActivateItem>>>("palette-items")
+                .unwrap_or_default();
             if let Some((Some(action), target)) = acts.get(a.index().max(0) as usize).cloned() {
                 if crate::compat3::palette_command(w, &action, target.as_ref()) {
                     return;
@@ -2494,14 +2727,20 @@ impl CommandPalette {
                         title: s(d.label.as_deref()),
                         subtitle: s(d.subtitle.as_deref()),
                         icon_name: s(d.icon.as_deref()),
-                        accel: s(d.detail.clone().or_else(|| d.accel.as_deref().map(crate::window::accel_label)).as_deref()),
+                        accel: s(d
+                            .detail
+                            .clone()
+                            .or_else(|| d.accel.as_deref().map(crate::window::accel_label))
+                            .as_deref()),
                         section: s(section.as_deref()),
                     });
                     acts.push((d.action.clone(), d.target.clone()));
                 }
             }
         }
-        unsafe { ffi::awra_command_palette_set_commands(ptr!(self), cmds.as_ptr(), cmds.len() as i32) };
+        unsafe {
+            ffi::awra_command_palette_set_commands(ptr!(self), cmds.as_ptr(), cmds.len() as i32)
+        };
         self.0.set_rust_data("palette-items", Rc::new(acts));
     }
     pub fn present(&self) {
@@ -2542,11 +2781,19 @@ impl Dialog {
         if let Ok(w) = d.0.clone().downcast::<crate::Window>() {
             crate::window::window_added(&w);
         }
-        d.0.set_rust_data("dialog-state", std::rc::Rc::new(RefCell::new(DialogState::default())));
-        d.0.set_rust_data("dialog-handlers", std::rc::Rc::new(RefCell::new(Vec::<ResponseFn>::new())));
+        d.0.set_rust_data(
+            "dialog-state",
+            std::rc::Rc::new(RefCell::new(DialogState::default())),
+        );
+        d.0.set_rust_data(
+            "dialog-handlers",
+            std::rc::Rc::new(RefCell::new(Vec::<ResponseFn>::new())),
+        );
         // a response closes the dialog unless told otherwise
         d.0.connect_typed::<Dialog, _>(sig::SELECTED, |w, a| {
-            let Some(id) = w.response_id(a.index()) else { return };
+            let Some(id) = w.response_id(a.index()) else {
+                return;
+            };
             w.respond(&id);
         });
         // closing gives the close response
@@ -2572,7 +2819,12 @@ impl Dialog {
         self.0.rust_data("dialog-handlers").unwrap_or_default()
     }
     fn response_index(&self, id: &str) -> Option<i32> {
-        self.state().borrow().ids.iter().position(|i| i == id).map(|i| i as i32)
+        self.state()
+            .borrow()
+            .ids
+            .iter()
+            .position(|i| i == id)
+            .map(|i| i as i32)
     }
     fn response_id(&self, index: i32) -> Option<String> {
         self.state().borrow().ids.get(index as usize).cloned()
@@ -2602,7 +2854,12 @@ impl Dialog {
         unsafe { ffi::awra_window_set_modal(ptr!(self), m) }
     }
     pub fn set_transient_for(&self, w: Option<&crate::Window>) {
-        unsafe { ffi::awra_window_set_transient_for(ptr!(self), w.map_or(std::ptr::null_mut(), |w| w.as_ptr())) }
+        unsafe {
+            ffi::awra_window_set_transient_for(
+                ptr!(self),
+                w.map_or(std::ptr::null_mut(), |w| w.as_ptr()),
+            )
+        }
     }
     pub fn set_content(&self, w: impl IntoOptWidget) {
         unsafe { ffi::awra_dialog_set_child(ptr!(self), w.into_opt_ptr()) }
@@ -2638,7 +2895,14 @@ impl Dialog {
             s.ids.len() as i32 - 1
         };
         let l = cstring(label);
-        unsafe { ffi::awra_dialog_add_response(ptr!(self), index, l.as_ptr(), ButtonAppearance::Secondary as _) }
+        unsafe {
+            ffi::awra_dialog_add_response(
+                ptr!(self),
+                index,
+                l.as_ptr(),
+                ButtonAppearance::Secondary as _,
+            )
+        }
     }
     pub fn set_response_appearance(&self, id: &str, appearance: ButtonAppearance) {
         if let Some(i) = self.response_index(id) {
@@ -2684,11 +2948,13 @@ impl Dialog {
     /// Responses (`detail`: only that one).
     pub fn connect_response<F: Fn(&Dialog, &str) + 'static>(&self, detail: Option<&str>, f: F) {
         let detail = detail.map(str::to_owned);
-        self.handlers().borrow_mut().push(std::rc::Rc::new(move |d, id| {
-            if detail.as_deref().is_none_or(|x| x == id) {
-                f(d, id)
-            }
-        }));
+        self.handlers()
+            .borrow_mut()
+            .push(std::rc::Rc::new(move |d, id| {
+                if detail.as_deref().is_none_or(|x| x == id) {
+                    f(d, id)
+                }
+            }));
     }
     pub fn set_content_width(&self, w: i32) {
         unsafe { ffi::awra_dialog_set_content_width(ptr!(self), w) }
@@ -2698,7 +2964,10 @@ impl Dialog {
     }
     pub fn present(&self) {
         self.state().borrow_mut().responding = false;
-        let parent = self.0.rust_data::<crate::WeakRef<crate::Window>>("dialog-parent").and_then(|w| w.upgrade());
+        let parent = self
+            .0
+            .rust_data::<crate::WeakRef<crate::Window>>("dialog-parent")
+            .and_then(|w| w.upgrade());
         let pp = parent.as_ref().map_or(std::ptr::null_mut(), |w| w.as_ptr());
         unsafe { ffi::awra_dialog_present(ptr!(self), pp) }
     }
@@ -2706,14 +2975,21 @@ impl Dialog {
         unsafe { ffi::awra_dialog_close(ptr!(self)) }
     }
     pub fn is_open(&self) -> bool {
-        unsafe { ffi::awra_window_state(ptr!(self)) & ffi::AWRA_WINDOW_STATE_HIDDEN == 0 && ffi::awra_widget_mapped(ptr!(self)) }
+        unsafe {
+            ffi::awra_window_state(ptr!(self)) & ffi::AWRA_WINDOW_STATE_HIDDEN == 0
+                && ffi::awra_widget_mapped(ptr!(self))
+        }
     }
-    pub fn connect_close_request<F: Fn(&Dialog) -> crate::glib::Propagation + 'static>(&self, f: F) -> SignalHandlerId {
-        self.0.connect_typed::<Dialog, _>(sig::CLOSE_REQUEST, move |w, a| {
-            if f(w) == crate::glib::Propagation::Stop {
-                a.stop()
-            }
-        })
+    pub fn connect_close_request<F: Fn(&Dialog) -> crate::glib::Propagation + 'static>(
+        &self,
+        f: F,
+    ) -> SignalHandlerId {
+        self.0
+            .connect_typed::<Dialog, _>(sig::CLOSE_REQUEST, move |w, a| {
+                if f(w) == crate::glib::Propagation::Stop {
+                    a.stop()
+                }
+            })
     }
     pub fn add_shortcut<F: Fn(&Widget) + 'static>(&self, accel: &str, f: F) {
         crate::window::add_shortcut(&self.0, accel, f);
@@ -2766,7 +3042,9 @@ impl KeyCap {
         with_rgba!(c, |p| unsafe { ffi::awra_key_cap_set_tint(ptr!(self), p) })
     }
     pub fn set_edge_color(&self, c: Option<&RGBA>) {
-        with_rgba!(c, |p| unsafe { ffi::awra_key_cap_set_edge_color(ptr!(self), p) })
+        with_rgba!(c, |p| unsafe {
+            ffi::awra_key_cap_set_edge_color(ptr!(self), p)
+        })
     }
     pub fn set_width_units(&self, u: f64) {
         unsafe { ffi::awra_key_cap_set_width_units(ptr!(self), u) }
@@ -2783,8 +3061,12 @@ impl KeyCap {
     pub fn set_compact(&self, c: bool) {
         unsafe { ffi::awra_key_cap_set_compact(ptr!(self), c) }
     }
-    pub fn connect_activated<F: Fn(&KeyCap, ModifierType) + 'static>(&self, f: F) -> SignalHandlerId {
-        self.0.connect_typed::<KeyCap, _>(sig::CLICKED, move |w, a| f(w, a.mods()))
+    pub fn connect_activated<F: Fn(&KeyCap, ModifierType) + 'static>(
+        &self,
+        f: F,
+    ) -> SignalHandlerId {
+        self.0
+            .connect_typed::<KeyCap, _>(sig::CLICKED, move |w, a| f(w, a.mods()))
     }
 }
 
@@ -2845,7 +3127,8 @@ impl KeyboardView {
     }
     pub fn key_cap(&self, code: &str) -> Option<KeyCap> {
         let c = cstring(code);
-        unsafe { Widget::from_none_opt(ffi::awra_keyboard_view_key_cap(ptr!(self), c.as_ptr())) }.map(KeyCap)
+        unsafe { Widget::from_none_opt(ffi::awra_keyboard_view_key_cap(ptr!(self), c.as_ptr())) }
+            .map(KeyCap)
     }
     pub fn codes(&self) -> Vec<String> {
         c_list(unsafe { ffi::awra_keyboard_view_codes(ptr!(self)) })
@@ -2856,7 +3139,9 @@ impl KeyboardView {
     pub fn set_selected_codes(&self, codes: &[&str]) {
         let cs: Vec<_> = codes.iter().map(|s| cstring(s)).collect();
         let ps: Vec<*const c_char> = cs.iter().map(|c| c.as_ptr()).collect();
-        unsafe { ffi::awra_keyboard_view_set_selected_codes(ptr!(self), ps.as_ptr(), ps.len() as i32) }
+        unsafe {
+            ffi::awra_keyboard_view_set_selected_codes(ptr!(self), ps.as_ptr(), ps.len() as i32)
+        }
     }
     pub fn unselect_all(&self) {
         unsafe { ffi::awra_keyboard_view_unselect_all(ptr!(self)) }
@@ -2864,27 +3149,39 @@ impl KeyboardView {
     pub fn code_at(&self, x: f64, y: f64) -> Option<String> {
         unsafe { from_cstr_opt(ffi::awra_keyboard_view_code_at(ptr!(self), x, y)) }
     }
-    pub fn connect_selection_changed<F: Fn(&KeyboardView) + 'static>(&self, f: F) -> SignalHandlerId {
-        self.0.connect_typed::<KeyboardView, _>(sig::SELECTED, move |w, _| f(w))
+    pub fn connect_selection_changed<F: Fn(&KeyboardView) + 'static>(
+        &self,
+        f: F,
+    ) -> SignalHandlerId {
+        self.0
+            .connect_typed::<KeyboardView, _>(sig::SELECTED, move |w, _| f(w))
     }
     /// Files dropped on a key: (key code, paths).
-    pub fn connect_files_dropped<F: Fn(&KeyboardView, String, Vec<PathBuf>) + 'static>(&self, f: F) -> SignalHandlerId {
-        self.0.connect_typed::<KeyboardView, _>(sig::FILES_DROPPED, move |w, a| {
-            let text = a.text().unwrap_or_default();
-            // "code\npath\npath…"
-            let mut lines = text.lines();
-            let code = lines.next().unwrap_or_default().to_owned();
-            let paths = lines.filter(|l| !l.is_empty()).map(PathBuf::from).collect();
-            f(w, code, paths)
-        })
+    pub fn connect_files_dropped<F: Fn(&KeyboardView, String, Vec<PathBuf>) + 'static>(
+        &self,
+        f: F,
+    ) -> SignalHandlerId {
+        self.0
+            .connect_typed::<KeyboardView, _>(sig::FILES_DROPPED, move |w, a| {
+                let text = a.text().unwrap_or_default();
+                // "code\npath\npath…"
+                let mut lines = text.lines();
+                let code = lines.next().unwrap_or_default().to_owned();
+                let paths = lines.filter(|l| !l.is_empty()).map(PathBuf::from).collect();
+                f(w, code, paths)
+            })
     }
     /// A key dragged onto another.
-    pub fn connect_key_moved<F: Fn(&KeyboardView, String, String) + 'static>(&self, f: F) -> SignalHandlerId {
-        self.0.connect_typed::<KeyboardView, _>(sig::MOVED, move |w, a| {
-            let text = a.text().unwrap_or_default();
-            let (from, to) = text.split_once('\t').unwrap_or((&text, ""));
-            f(w, from.to_owned(), to.to_owned())
-        })
+    pub fn connect_key_moved<F: Fn(&KeyboardView, String, String) + 'static>(
+        &self,
+        f: F,
+    ) -> SignalHandlerId {
+        self.0
+            .connect_typed::<KeyboardView, _>(sig::MOVED, move |w, a| {
+                let text = a.text().unwrap_or_default();
+                let (from, to) = text.split_once('\t').unwrap_or((&text, ""));
+                f(w, from.to_owned(), to.to_owned())
+            })
     }
 }
 impl Default for KeyboardView {
@@ -2929,21 +3226,37 @@ impl WaveformView {
     pub fn set_marker_editable(&self, e: bool) {
         unsafe { ffi::awra_waveform_view_set_marker_editable(ptr!(self), e) }
     }
-    pub fn connect_seek_requested<F: Fn(&WaveformView, f64) + 'static>(&self, f: F) -> SignalHandlerId {
-        self.0.connect_typed::<WaveformView, _>(sig::SEEK, move |w, a| f(w, a.value()))
+    pub fn connect_seek_requested<F: Fn(&WaveformView, f64) + 'static>(
+        &self,
+        f: F,
+    ) -> SignalHandlerId {
+        self.0
+            .connect_typed::<WaveformView, _>(sig::SEEK, move |w, a| f(w, a.value()))
     }
-    pub fn connect_marker_moved<F: Fn(&WaveformView, f64) + 'static>(&self, f: F) -> SignalHandlerId {
-        self.0.connect_typed::<WaveformView, _>(sig::MARKER_MOVED, move |w, a| f(w, a.value()))
+    pub fn connect_marker_moved<F: Fn(&WaveformView, f64) + 'static>(
+        &self,
+        f: F,
+    ) -> SignalHandlerId {
+        self.0
+            .connect_typed::<WaveformView, _>(sig::MARKER_MOVED, move |w, a| f(w, a.value()))
     }
-    pub fn connect_marker_committed<F: Fn(&WaveformView, f64) + 'static>(&self, f: F) -> SignalHandlerId {
-        self.0.connect_typed::<WaveformView, _>(sig::MARKER_COMMITTED, move |w, a| f(w, a.value()))
+    pub fn connect_marker_committed<F: Fn(&WaveformView, f64) + 'static>(
+        &self,
+        f: F,
+    ) -> SignalHandlerId {
+        self.0
+            .connect_typed::<WaveformView, _>(sig::MARKER_COMMITTED, move |w, a| f(w, a.value()))
     }
-    pub fn connect_hint_position_notify<F: Fn(&WaveformView) + 'static>(&self, f: F) -> SignalHandlerId {
-        self.0.connect_typed::<WaveformView, _>(sig::NOTIFY, move |w, a| {
-            if a.text().as_deref() == Some("hint-position") {
-                f(w)
-            }
-        })
+    pub fn connect_hint_position_notify<F: Fn(&WaveformView) + 'static>(
+        &self,
+        f: F,
+    ) -> SignalHandlerId {
+        self.0
+            .connect_typed::<WaveformView, _>(sig::NOTIFY, move |w, a| {
+                if a.text().as_deref() == Some("hint-position") {
+                    f(w)
+                }
+            })
     }
 }
 impl Default for WaveformView {
@@ -2974,7 +3287,9 @@ impl MediaRow {
         self.set_icon_name(t)
     }
     pub fn set_accent_color(&self, c: Option<&RGBA>) {
-        with_rgba!(c, |p| unsafe { ffi::awra_media_row_set_accent_color(ptr!(self), p) })
+        with_rgba!(c, |p| unsafe {
+            ffi::awra_media_row_set_accent_color(ptr!(self), p)
+        })
     }
     pub fn set_show_play_button(&self, s: bool) {
         unsafe { ffi::awra_media_row_set_show_play_button(ptr!(self), s) }
@@ -3004,16 +3319,20 @@ impl MediaRow {
         unsafe { ffi::awra_media_row_set_suffix(ptr!(self), w.into_opt_ptr()) }
     }
     pub fn connect_play_requested<F: Fn(&MediaRow) + 'static>(&self, f: F) -> SignalHandlerId {
-        self.0.connect_typed::<MediaRow, _>(sig::PLAY_REQUESTED, move |w, _| f(w))
+        self.0
+            .connect_typed::<MediaRow, _>(sig::PLAY_REQUESTED, move |w, _| f(w))
     }
     pub fn connect_stop_requested<F: Fn(&MediaRow) + 'static>(&self, f: F) -> SignalHandlerId {
-        self.0.connect_typed::<MediaRow, _>(sig::STOP_REQUESTED, move |w, _| f(w))
+        self.0
+            .connect_typed::<MediaRow, _>(sig::STOP_REQUESTED, move |w, _| f(w))
     }
     pub fn connect_seek_requested<F: Fn(&MediaRow, f64) + 'static>(&self, f: F) -> SignalHandlerId {
-        self.0.connect_typed::<MediaRow, _>(sig::SEEK, move |w, a| f(w, a.value()))
+        self.0
+            .connect_typed::<MediaRow, _>(sig::SEEK, move |w, a| f(w, a.value()))
     }
     pub fn connect_volume_changed<F: Fn(&MediaRow, f64) + 'static>(&self, f: F) -> SignalHandlerId {
-        self.0.connect_typed::<MediaRow, _>(sig::VALUE_CHANGED, move |w, a| f(w, a.value()))
+        self.0
+            .connect_typed::<MediaRow, _>(sig::VALUE_CHANGED, move |w, a| f(w, a.value()))
     }
 }
 
@@ -3047,14 +3366,25 @@ impl DropZone {
     pub fn set_child(&self, w: impl IntoOptWidget) {
         unsafe { ffi::awra_drop_zone_set_child(ptr!(self), w.into_opt_ptr()) }
     }
-    pub fn connect_files_dropped<F: Fn(&DropZone, Vec<PathBuf>) + 'static>(&self, f: F) -> SignalHandlerId {
-        self.0.connect_typed::<DropZone, _>(sig::FILES_DROPPED, move |w, a| {
-            let paths = a.text().unwrap_or_default().lines().filter(|l| !l.is_empty()).map(PathBuf::from).collect();
-            f(w, paths)
-        })
+    pub fn connect_files_dropped<F: Fn(&DropZone, Vec<PathBuf>) + 'static>(
+        &self,
+        f: F,
+    ) -> SignalHandlerId {
+        self.0
+            .connect_typed::<DropZone, _>(sig::FILES_DROPPED, move |w, a| {
+                let paths = a
+                    .text()
+                    .unwrap_or_default()
+                    .lines()
+                    .filter(|l| !l.is_empty())
+                    .map(PathBuf::from)
+                    .collect();
+                f(w, paths)
+            })
     }
     pub fn connect_browse_requested<F: Fn(&DropZone) + 'static>(&self, f: F) -> SignalHandlerId {
-        self.0.connect_typed::<DropZone, _>(sig::BROWSE_REQUESTED, move |w, _| f(w))
+        self.0
+            .connect_typed::<DropZone, _>(sig::BROWSE_REQUESTED, move |w, _| f(w))
     }
 }
 impl Default for DropZone {

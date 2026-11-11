@@ -17,12 +17,32 @@ pub struct RGBA {
 }
 
 impl RGBA {
-    pub const BLACK: RGBA = RGBA { red: 0.0, green: 0.0, blue: 0.0, alpha: 1.0 };
-    pub const WHITE: RGBA = RGBA { red: 1.0, green: 1.0, blue: 1.0, alpha: 1.0 };
-    pub const TRANSPARENT: RGBA = RGBA { red: 0.0, green: 0.0, blue: 0.0, alpha: 0.0 };
+    pub const BLACK: RGBA = RGBA {
+        red: 0.0,
+        green: 0.0,
+        blue: 0.0,
+        alpha: 1.0,
+    };
+    pub const WHITE: RGBA = RGBA {
+        red: 1.0,
+        green: 1.0,
+        blue: 1.0,
+        alpha: 1.0,
+    };
+    pub const TRANSPARENT: RGBA = RGBA {
+        red: 0.0,
+        green: 0.0,
+        blue: 0.0,
+        alpha: 0.0,
+    };
 
     pub const fn new(red: f32, green: f32, blue: f32, alpha: f32) -> RGBA {
-        RGBA { red, green, blue, alpha }
+        RGBA {
+            red,
+            green,
+            blue,
+            alpha,
+        }
     }
     pub fn red(&self) -> f32 {
         self.red
@@ -66,10 +86,20 @@ impl RGBA {
             8 => (v(0, 2)?, v(2, 2)?, v(4, 2)?, v(6, 2)?),
             _ => return None,
         };
-        Some(RGBA::new(r as f32 / 255.0, g as f32 / 255.0, b as f32 / 255.0, a as f32 / 255.0))
+        Some(RGBA::new(
+            r as f32 / 255.0,
+            g as f32 / 255.0,
+            b as f32 / 255.0,
+            a as f32 / 255.0,
+        ))
     }
     pub(crate) fn to_ffi(self) -> ffi::AwraRGBA {
-        ffi::AwraRGBA { r: self.red, g: self.green, b: self.blue, a: self.alpha }
+        ffi::AwraRGBA {
+            r: self.red,
+            g: self.green,
+            b: self.blue,
+            a: self.alpha,
+        }
     }
     pub(crate) fn from_ffi(c: ffi::AwraRGBA) -> RGBA {
         RGBA::new(c.r, c.g, c.b, c.a)
@@ -293,7 +323,13 @@ pub enum ScrollUnit {
 pub struct MemoryTexture;
 impl MemoryTexture {
     #[allow(clippy::new_ret_no_self)]
-    pub fn new(width: i32, height: i32, format: MemoryFormat, bytes: &crate::glib::Bytes, stride: usize) -> Texture {
+    pub fn new(
+        width: i32,
+        height: i32,
+        format: MemoryFormat,
+        bytes: &crate::glib::Bytes,
+        stride: usize,
+    ) -> Texture {
         shared(width, height, format, bytes, stride)
             .or_else(|| texture_from(width, height, format, bytes, stride))
             .expect("a texture of these pixels")
@@ -301,7 +337,13 @@ impl MemoryTexture {
 }
 
 /// A texture reading `bytes` in place, when its format and rows allow.
-fn shared(width: i32, height: i32, format: MemoryFormat, bytes: &crate::glib::Bytes, stride: usize) -> Option<Texture> {
+fn shared(
+    width: i32,
+    height: i32,
+    format: MemoryFormat,
+    bytes: &crate::glib::Bytes,
+    stride: usize,
+) -> Option<Texture> {
     let data = match format {
         MemoryFormat::R8g8b8a8 => crate::TextureData::Rgba,
         _ => return None,
@@ -313,7 +355,13 @@ fn shared(width: i32, height: i32, format: MemoryFormat, bytes: &crate::glib::By
 }
 
 /// Converts pixels of `format` to a texture.
-pub fn texture_from(width: i32, height: i32, format: MemoryFormat, px: &[u8], stride: usize) -> Option<Texture> {
+pub fn texture_from(
+    width: i32,
+    height: i32,
+    format: MemoryFormat,
+    px: &[u8],
+    stride: usize,
+) -> Option<Texture> {
     match format {
         MemoryFormat::R8g8b8a8 => Texture::from_rgba(width, height, px, stride),
         _ => {
@@ -335,9 +383,23 @@ pub fn texture_from(width: i32, height: i32, format: MemoryFormat, px: &[u8], st
                                 }
                                 _ => (px[i], px[i + 1], px[i + 2], px[i + 3]),
                             };
-                            let un = |c: u8| if a == 0 { 0 } else { ((c as u32 * 255 + a as u32 / 2) / a as u32).min(255) as u8 };
-                            let premul = matches!(format, MemoryFormat::B8g8r8a8Premultiplied | MemoryFormat::R8g8b8a8Premultiplied);
-                            rgba[o..o + 4].copy_from_slice(&if premul { [un(r), un(g), un(b), a] } else { [r, g, b, a] });
+                            let un = |c: u8| {
+                                if a == 0 {
+                                    0
+                                } else {
+                                    ((c as u32 * 255 + a as u32 / 2) / a as u32).min(255) as u8
+                                }
+                            };
+                            let premul = matches!(
+                                format,
+                                MemoryFormat::B8g8r8a8Premultiplied
+                                    | MemoryFormat::R8g8b8a8Premultiplied
+                            );
+                            rgba[o..o + 4].copy_from_slice(&if premul {
+                                [un(r), un(g), un(b), a]
+                            } else {
+                                [r, g, b, a]
+                            });
                         }
                     }
                 }
@@ -370,13 +432,21 @@ impl MemoryTextureBuilder {
         Self { stride, ..self }
     }
     pub fn set_format(self, format: MemoryFormat) -> Self {
-        Self { format: Some(format), ..self }
+        Self {
+            format: Some(format),
+            ..self
+        }
     }
     pub fn set_bytes(self, bytes: Option<&crate::glib::Bytes>) -> Self {
-        Self { bytes: bytes.cloned(), ..self }
+        Self {
+            bytes: bytes.cloned(),
+            ..self
+        }
     }
     pub fn build(self) -> Texture {
-        let b = self.bytes.unwrap_or_else(|| crate::glib::Bytes::from_owned(Vec::new()));
+        let b = self
+            .bytes
+            .unwrap_or_else(|| crate::glib::Bytes::from_owned(Vec::new()));
         let format = self.format.unwrap_or(MemoryFormat::R8g8b8a8);
         shared(self.width, self.height, format, &b, self.stride)
             .or_else(|| texture_from(self.width, self.height, format, &b, self.stride))

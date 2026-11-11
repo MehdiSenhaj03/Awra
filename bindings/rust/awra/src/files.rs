@@ -23,8 +23,24 @@ impl crate::Sidebar {
 impl crate::CollectionView {
     /// The rubberband's look: the accent (else the focus colour) at these
     /// alphas, corners of `radius` px; `fade`: it fades out when let go.
-    pub fn set_band_style(&self, accent: bool, fill_alpha: f64, border_alpha: f64, radius: i32, fade: bool) {
-        unsafe { ffi::awra_collection_view_set_band_style(ptr!(self), accent, fill_alpha, border_alpha, radius, fade) }
+    pub fn set_band_style(
+        &self,
+        accent: bool,
+        fill_alpha: f64,
+        border_alpha: f64,
+        radius: i32,
+        fade: bool,
+    ) {
+        unsafe {
+            ffi::awra_collection_view_set_band_style(
+                ptr!(self),
+                accent,
+                fill_alpha,
+                border_alpha,
+                radius,
+                fade,
+            )
+        }
     }
 
     /// List: a blank below each row (logical px; Awra 1's spaced-rows role),
@@ -139,8 +155,10 @@ impl crate::TabBar {
     /// Where tab `index` is in the bar (logical px: x, y, width, height).
     pub fn tab_bounds(&self, index: usize) -> Option<(f64, f64, f64, f64)> {
         let (mut x, mut y, mut w, mut h) = (0.0, 0.0, 0.0, 0.0);
-        unsafe { ffi::awra_tab_bar_tab_bounds(ptr!(self), index as i32, &mut x, &mut y, &mut w, &mut h) }
-            .then_some((x, y, w, h))
+        unsafe {
+            ffi::awra_tab_bar_tab_bounds(ptr!(self), index as i32, &mut x, &mut y, &mut w, &mut h)
+        }
+        .then_some((x, y, w, h))
     }
 }
 

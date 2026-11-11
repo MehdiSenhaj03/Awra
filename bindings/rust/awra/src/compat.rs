@@ -116,7 +116,13 @@ impl ListStore {
         self.0.items.borrow().get(position as usize).cloned()
     }
     fn emit(&self, position: u32, removed: u32, added: u32) {
-        let hs: Vec<ItemsChanged> = self.0.handlers.borrow().iter().map(|(_, h)| h.clone()).collect();
+        let hs: Vec<ItemsChanged> = self
+            .0
+            .handlers
+            .borrow()
+            .iter()
+            .map(|(_, h)| h.clone())
+            .collect();
         for h in hs {
             h(position, removed, added);
         }
@@ -285,7 +291,11 @@ impl SignalListItemFactory {
     }
 }
 
-unsafe extern "C" fn factory_cb<const W: u8>(_list: *mut ffi::AwraWidget, item: *mut ffi::AwraWidget, data: *mut c_void) {
+unsafe extern "C" fn factory_cb<const W: u8>(
+    _list: *mut ffi::AwraWidget,
+    item: *mut ffi::AwraWidget,
+    data: *mut c_void,
+) {
     let f = &*(data as *const SignalListItemFactory);
     let item = std::mem::ManuallyDrop::new(ListItem(Widget::from_full(item)));
     f.run(W, &item);
@@ -382,7 +392,8 @@ impl ListView {
     pub fn set_enable_rubberband(&self, _r: bool) {}
     pub fn set_tab_behavior<T>(&self, _t: T) {}
     pub fn connect_activate<F: Fn(&ListView, u32) + 'static>(&self, f: F) -> SignalHandlerId {
-        self.0.connect_typed::<ListView, _>(sig::ACTIVATE, move |w, a| f(w, a.index() as u32))
+        self.0
+            .connect_typed::<ListView, _>(sig::ACTIVATE, move |w, a| f(w, a.index() as u32))
     }
     pub fn scroll_to(&self, position: u32, _flags: ListScrollFlags, _info: Option<()>) {
         unsafe { ffi::awra_list_view_scroll_to(ptr!(self), position, 0) }
@@ -394,7 +405,9 @@ impl ListView {
     pub fn bound_items(&self) -> Vec<ListItem> {
         let n = unsafe { ffi::awra_list_view_bound_count(ptr!(self)) };
         (0..n)
-            .filter_map(|i| unsafe { Widget::from_none_opt(ffi::awra_list_view_bound_item(ptr!(self), i)) })
+            .filter_map(|i| unsafe {
+                Widget::from_none_opt(ffi::awra_list_view_bound_item(ptr!(self), i))
+            })
             .map(ListItem)
             .collect()
     }
@@ -450,7 +463,10 @@ fn edge_of(p: PositionType) -> i32 {
 }
 
 impl ConversationView {
-    pub fn new(model: Option<ListStore>, factory: Option<SignalListItemFactory>) -> ConversationView {
+    pub fn new(
+        model: Option<ListStore>,
+        factory: Option<SignalListItemFactory>,
+    ) -> ConversationView {
         let v = unsafe { ConversationView::from_full(ffi::awra_conversation_view_new()) };
         let list = unsafe { Widget::from_none(ffi::awra_conversation_view_list(ptr!(v))) };
         attach_list(&list, model, factory, conversation_changed, &v.0);
@@ -473,7 +489,14 @@ impl ConversationView {
         unsafe { ffi::awra_conversation_view_scroll_to_end(ptr!(self), animate) }
     }
     pub fn scroll_to_item(&self, position: u32, align: ConversationAlign, highlight: bool) {
-        unsafe { ffi::awra_conversation_view_scroll_to_item(ptr!(self), position, align as i32, highlight) }
+        unsafe {
+            ffi::awra_conversation_view_scroll_to_item(
+                ptr!(self),
+                position,
+                align as i32,
+                highlight,
+            )
+        }
     }
     pub fn unread_count(&self) -> u32 {
         unsafe { ffi::awra_conversation_view_unread_count(ptr!(self)) }
@@ -487,7 +510,10 @@ impl ConversationView {
     pub fn set_jump_label(&self, label: Option<&str>) {
         let l = label.map(cstring);
         unsafe {
-            ffi::awra_conversation_view_set_jump_label(ptr!(self), l.as_ref().map_or(std::ptr::null(), |c| c.as_ptr()))
+            ffi::awra_conversation_view_set_jump_label(
+                ptr!(self),
+                l.as_ref().map_or(std::ptr::null(), |c| c.as_ptr()),
+            )
         }
     }
     pub fn set_edge_threshold(&self, t: i32) {
@@ -506,28 +532,59 @@ impl ConversationView {
     }
     pub fn visible_range(&self) -> Option<(u32, u32)> {
         let (mut a, mut b) = (0u32, 0u32);
-        unsafe { ffi::awra_conversation_view_visible_range(ptr!(self), &mut a, &mut b) }.then_some((a, b))
+        unsafe { ffi::awra_conversation_view_visible_range(ptr!(self), &mut a, &mut b) }
+            .then_some((a, b))
     }
-    pub fn connect_edge_reached<F: Fn(&ConversationView, PositionType) + 'static>(&self, f: F) -> SignalHandlerId {
-        self.0.connect_typed::<ConversationView, _>(sig::EDGE_REACHED, move |w, a| {
-            f(w, if a.index() == 0 { PositionType::Top } else { PositionType::Bottom })
-        })
+    pub fn connect_edge_reached<F: Fn(&ConversationView, PositionType) + 'static>(
+        &self,
+        f: F,
+    ) -> SignalHandlerId {
+        self.0
+            .connect_typed::<ConversationView, _>(sig::EDGE_REACHED, move |w, a| {
+                f(
+                    w,
+                    if a.index() == 0 {
+                        PositionType::Top
+                    } else {
+                        PositionType::Bottom
+                    },
+                )
+            })
     }
-    pub fn connect_retry<F: Fn(&ConversationView, PositionType) + 'static>(&self, f: F) -> SignalHandlerId {
-        self.0.connect_typed::<ConversationView, _>(sig::RETRY, move |w, a| {
-            f(w, if a.index() == 0 { PositionType::Top } else { PositionType::Bottom })
-        })
+    pub fn connect_retry<F: Fn(&ConversationView, PositionType) + 'static>(
+        &self,
+        f: F,
+    ) -> SignalHandlerId {
+        self.0
+            .connect_typed::<ConversationView, _>(sig::RETRY, move |w, a| {
+                f(
+                    w,
+                    if a.index() == 0 {
+                        PositionType::Top
+                    } else {
+                        PositionType::Bottom
+                    },
+                )
+            })
     }
-    pub fn connect_jump_activated<F: Fn(&ConversationView) + 'static>(&self, f: F) -> SignalHandlerId {
-        self.0.connect_typed::<ConversationView, _>(sig::JUMP_ACTIVATED, move |w, _| f(w))
+    pub fn connect_jump_activated<F: Fn(&ConversationView) + 'static>(
+        &self,
+        f: F,
+    ) -> SignalHandlerId {
+        self.0
+            .connect_typed::<ConversationView, _>(sig::JUMP_ACTIVATED, move |w, _| f(w))
     }
     /// "at-bottom" changes.
-    pub fn connect_at_bottom_notify<F: Fn(&ConversationView) + 'static>(&self, f: F) -> SignalHandlerId {
-        self.0.connect_typed::<ConversationView, _>(sig::NOTIFY, move |w, a| {
-            if a.text().as_deref() == Some("at-bottom") {
-                f(w)
-            }
-        })
+    pub fn connect_at_bottom_notify<F: Fn(&ConversationView) + 'static>(
+        &self,
+        f: F,
+    ) -> SignalHandlerId {
+        self.0
+            .connect_typed::<ConversationView, _>(sig::NOTIFY, move |w, a| {
+                if a.text().as_deref() == Some("at-bottom") {
+                    f(w)
+                }
+            })
     }
 }
 
@@ -553,10 +610,21 @@ impl CompletionPopover {
         }
     }
     pub fn set_factory(&self, factory: Option<&SignalListItemFactory>) {
-        attach_list(&self.list(), None, factory.cloned(), completion_changed, &self.0);
+        attach_list(
+            &self.list(),
+            None,
+            factory.cloned(),
+            completion_changed,
+            &self.0,
+        );
     }
     pub fn attach(&self, view: Option<&impl IsWidget>) {
-        unsafe { ffi::awra_completion_popover_attach(ptr!(self), view.map_or(std::ptr::null_mut(), |v| v.widget_ptr())) }
+        unsafe {
+            ffi::awra_completion_popover_attach(
+                ptr!(self),
+                view.map_or(std::ptr::null_mut(), |v| v.widget_ptr()),
+            )
+        }
     }
     pub fn selected(&self) -> u32 {
         unsafe { ffi::awra_completion_popover_selected(ptr!(self)) }
@@ -574,11 +642,18 @@ impl CompletionPopover {
     pub fn popdown(&self) {
         unsafe { ffi::awra_completion_popover_popdown(ptr!(self)) }
     }
-    pub fn connect_activated<F: Fn(&CompletionPopover, u32) + 'static>(&self, f: F) -> SignalHandlerId {
-        self.0.connect_typed::<CompletionPopover, _>(sig::ACTIVATE, move |w, a| f(w, a.index() as u32))
+    pub fn connect_activated<F: Fn(&CompletionPopover, u32) + 'static>(
+        &self,
+        f: F,
+    ) -> SignalHandlerId {
+        self.0
+            .connect_typed::<CompletionPopover, _>(sig::ACTIVATE, move |w, a| {
+                f(w, a.index() as u32)
+            })
     }
     pub fn connect_dismissed<F: Fn(&CompletionPopover) + 'static>(&self, f: F) -> SignalHandlerId {
-        self.0.connect_typed::<CompletionPopover, _>(sig::STOP_SEARCH, move |w, _| f(w))
+        self.0
+            .connect_typed::<CompletionPopover, _>(sig::STOP_SEARCH, move |w, _| f(w))
     }
 }
 
@@ -623,7 +698,9 @@ impl Revealer {
         unsafe { Widget::from_none_opt(ffi::awra_revealer_child(ptr!(self))) }
     }
     fn transition(&self) -> (RevealerTransitionType, u32) {
-        self.0.rust_data("reveal-transition").unwrap_or((RevealerTransitionType::SlideDown, 250))
+        self.0
+            .rust_data("reveal-transition")
+            .unwrap_or((RevealerTransitionType::SlideDown, 250))
     }
     pub fn set_transition_type(&self, t: RevealerTransitionType) {
         let (_, ms) = self.transition();
@@ -644,12 +721,16 @@ impl Revealer {
     pub fn is_child_revealed(&self) -> bool {
         unsafe { ffi::awra_revealer_child_revealed(ptr!(self)) }
     }
-    pub fn connect_child_revealed_notify<F: Fn(&Revealer) + 'static>(&self, f: F) -> SignalHandlerId {
-        self.0.connect_typed::<Revealer, _>(sig::NOTIFY, move |w, a| {
-            if a.text().as_deref() == Some("child-revealed") {
-                f(w)
-            }
-        })
+    pub fn connect_child_revealed_notify<F: Fn(&Revealer) + 'static>(
+        &self,
+        f: F,
+    ) -> SignalHandlerId {
+        self.0
+            .connect_typed::<Revealer, _>(sig::NOTIFY, move |w, a| {
+                if a.text().as_deref() == Some("child-revealed") {
+                    f(w)
+                }
+            })
     }
 }
 
@@ -710,12 +791,21 @@ unsafe extern "C" fn layout_measure(
 ) {
     let fns = &*(data as *const LayoutFns);
     let l = std::mem::ManuallyDrop::new(Layout(Widget::from_full(w)));
-    let o = if o == 0 { Orientation::Horizontal } else { Orientation::Vertical };
+    let o = if o == 0 {
+        Orientation::Horizontal
+    } else {
+        Orientation::Vertical
+    };
     let (a, b) = fns.measure.as_ref().map_or((0, 0), |m| m(&l, o, for_size));
     *mn = a;
     *nt = b;
 }
-unsafe extern "C" fn layout_allocate(w: *mut ffi::AwraWidget, width: i32, height: i32, data: *mut c_void) {
+unsafe extern "C" fn layout_allocate(
+    w: *mut ffi::AwraWidget,
+    width: i32,
+    height: i32,
+    data: *mut c_void,
+) {
     let fns = &*(data as *const LayoutFns);
     let l = std::mem::ManuallyDrop::new(Layout(Widget::from_full(w)));
     if let Some(a) = &fns.allocate {
@@ -736,7 +826,10 @@ impl Layout {
         M: Fn(&Layout, Orientation, i32) -> (i32, i32) + 'static,
         A: Fn(&Layout, i32, i32) + 'static,
     {
-        let fns = Box::new(LayoutFns { measure: Some(Box::new(measure)), allocate: Some(Box::new(allocate)) });
+        let fns = Box::new(LayoutFns {
+            measure: Some(Box::new(measure)),
+            allocate: Some(Box::new(allocate)),
+        });
         unsafe {
             Layout::from_full(ffi::awra_layout_new(
                 Some(layout_measure),
@@ -773,7 +866,12 @@ impl Widget {
     pub fn compute_bounds(&self, target: &impl IsWidget) -> Option<crate::Rectangle> {
         let (x, y) = self.window_position()?;
         let (tx, ty) = target.upcast_ref().window_position()?;
-        Some(crate::Rectangle::new((x - tx) as i32, (y - ty) as i32, self.width(), self.height()))
+        Some(crate::Rectangle::new(
+            (x - tx) as i32,
+            (y - ty) as i32,
+            self.width(),
+            self.height(),
+        ))
     }
 }
 
@@ -801,28 +899,51 @@ impl Texture {
     }
     /// Straight RGBA rows (copied).
     pub fn from_rgba(width: i32, height: i32, rgba: &[u8], stride: usize) -> Option<Texture> {
-        if width <= 0 || height <= 0 || rgba.len() < stride * (height as usize - 1) + width as usize * 4 {
+        if width <= 0
+            || height <= 0
+            || rgba.len() < stride * (height as usize - 1) + width as usize * 4
+        {
             return None;
         }
-        unsafe { Texture::from_raw(ffi::awra_texture_new_rgba(rgba.as_ptr(), width, height, stride as i32)) }
+        unsafe {
+            Texture::from_raw(ffi::awra_texture_new_rgba(
+                rgba.as_ptr(),
+                width,
+                height,
+                stride as i32,
+            ))
+        }
     }
     /// A video frame in NV12.
     pub fn from_nv12(width: i32, height: i32, data: &[u8], bt709: bool) -> Option<Texture> {
         if data.len() < (width as usize * height as usize * 3) / 2 {
             return None;
         }
-        unsafe { Texture::from_raw(ffi::awra_texture_new_nv12(data.as_ptr(), width, height, bt709)) }
+        unsafe {
+            Texture::from_raw(ffi::awra_texture_new_nv12(
+                data.as_ptr(),
+                width,
+                height,
+                bt709,
+            ))
+        }
     }
     /// A PNG, JPEG, GIF, WebP or SVG (gtk-rs takes `&glib::Bytes`, which
     /// derefs to the bytes).
     pub fn from_bytes(bytes: &[u8]) -> Result<Texture, crate::glib::Error> {
-        unsafe { Texture::from_raw(ffi::awra_texture_new_from_bytes(bytes.as_ptr() as *const c_void, bytes.len())) }
-            .ok_or_else(|| crate::glib::Error::new("not an image Awra decodes"))
+        unsafe {
+            Texture::from_raw(ffi::awra_texture_new_from_bytes(
+                bytes.as_ptr() as *const c_void,
+                bytes.len(),
+            ))
+        }
+        .ok_or_else(|| crate::glib::Error::new("not an image Awra decodes"))
     }
     pub fn from_filename(path: impl AsRef<std::path::Path>) -> Result<Texture, crate::glib::Error> {
         let p = cstring(&path.as_ref().to_string_lossy());
-        unsafe { Texture::from_raw(ffi::awra_texture_new_from_file(p.as_ptr())) }
-            .ok_or_else(|| crate::glib::Error::new(format!("could not read {}", path.as_ref().display())))
+        unsafe { Texture::from_raw(ffi::awra_texture_new_from_file(p.as_ptr())) }.ok_or_else(|| {
+            crate::glib::Error::new(format!("could not read {}", path.as_ref().display()))
+        })
     }
     pub fn width(&self) -> i32 {
         unsafe { ffi::awra_texture_width(self.as_ptr()) }
@@ -906,8 +1027,13 @@ impl Paintable {
         *self.0.texture.borrow_mut() = texture.clone();
         let viewers: Vec<(Widget, PaintableSetter)> = {
             let mut v = self.0.viewers.borrow_mut();
-            v.retain(|(w, _)| w.upgrade().is_some_and(|w| showing(&w).is_some_and(|p| p.ptr_eq(self))));
-            v.iter().filter_map(|(w, s)| w.upgrade().map(|w| (w, s.clone()))).collect()
+            v.retain(|(w, _)| {
+                w.upgrade()
+                    .is_some_and(|w| showing(&w).is_some_and(|p| p.ptr_eq(self)))
+            });
+            v.iter()
+                .filter_map(|(w, s)| w.upgrade().map(|w| (w, s.clone())))
+                .collect()
         };
         for (w, s) in viewers {
             s(&w, texture.as_ref());
@@ -915,7 +1041,11 @@ impl Paintable {
     }
     /// Whether a widget showing it is on screen.
     pub fn is_shown(&self) -> bool {
-        self.0.viewers.borrow().iter().any(|(w, _)| w.upgrade().is_some_and(|w| w.is_mapped()))
+        self.0
+            .viewers
+            .borrow()
+            .iter()
+            .any(|(w, _)| w.upgrade().is_some_and(|w| w.is_mapped()))
     }
     /// `widget` shows this paintable through `setter` (until it shows another).
     pub fn show_on(&self, widget: &Widget, setter: impl Fn(&Widget, Option<&Texture>) + 'static) {
@@ -942,7 +1072,11 @@ pub fn widget_paintable(w: &Widget) -> Option<Paintable> {
 }
 
 /// Shows `paintable` on `w` with `setter`, or nothing.
-pub fn show_paintable(w: &Widget, paintable: Option<&Paintable>, setter: impl Fn(&Widget, Option<&Texture>) + 'static) {
+pub fn show_paintable(
+    w: &Widget,
+    paintable: Option<&Paintable>,
+    setter: impl Fn(&Widget, Option<&Texture>) + 'static,
+) {
     match paintable {
         Some(p) => p.show_on(w, setter),
         None => {
@@ -969,7 +1103,9 @@ impl std::fmt::Debug for Paintable {
 }
 
 fn image_set_texture(w: &Widget, t: Option<&Texture>) {
-    unsafe { ffi::awra_image_set_texture(w.as_ptr(), t.map_or(std::ptr::null_mut(), |t| t.as_ptr())) }
+    unsafe {
+        ffi::awra_image_set_texture(w.as_ptr(), t.map_or(std::ptr::null_mut(), |t| t.as_ptr()))
+    }
 }
 
 impl crate::Image {
@@ -1073,7 +1209,12 @@ impl crate::Label {
                 Attribute::Weight(w) => weight = w,
                 Attribute::Scale(s) => scale = s,
                 Attribute::Foreground(r, g, b) => {
-                    color = Some(crate::gdk::RGBA::new(r as f32 / 65535.0, g as f32 / 65535.0, b as f32 / 65535.0, 1.0))
+                    color = Some(crate::gdk::RGBA::new(
+                        r as f32 / 65535.0,
+                        g as f32 / 65535.0,
+                        b as f32 / 65535.0,
+                        1.0,
+                    ))
                 }
             }
         }
@@ -1082,7 +1223,10 @@ impl crate::Label {
         self.set_color(color.as_ref());
     }
     /// A link of the label clicked; Stop keeps it from the desktop's handler.
-    pub fn connect_activate_link<F: Fn(&crate::Label, &str) -> Propagation + 'static>(&self, f: F) -> SignalHandlerId {
+    pub fn connect_activate_link<F: Fn(&crate::Label, &str) -> Propagation + 'static>(
+        &self,
+        f: F,
+    ) -> SignalHandlerId {
         self.connect_typed::<crate::Label, _>(sig::ACTIVATE_LINK, move |w, a| {
             if f(w, &a.text().unwrap_or_default()) == Propagation::Stop {
                 a.stop()
@@ -1119,7 +1263,9 @@ impl TextIter {
     }
     pub fn char(&self) -> char {
         let text = TextBuffer(self.widget.clone()).all_text();
-        text.chars().nth(self.offset.max(0) as usize).unwrap_or('\0')
+        text.chars()
+            .nth(self.offset.max(0) as usize)
+            .unwrap_or('\0')
     }
     pub fn set_offset(&mut self, offset: i32) {
         self.offset = offset;
@@ -1160,7 +1306,10 @@ impl TextBuffer {
         unsafe { crate::object::from_cstr(ffi::awra_entry_text(self.0.as_ptr())) }
     }
     fn iter(&self, offset: i32) -> TextIter {
-        TextIter { widget: self.0.clone(), offset: offset.clamp(0, self.char_count()) }
+        TextIter {
+            widget: self.0.clone(),
+            offset: offset.clamp(0, self.char_count()),
+        }
     }
     pub fn char_count(&self) -> i32 {
         unsafe { ffi::awra_editable_length(self.0.as_ptr()) }
@@ -1175,7 +1324,11 @@ impl TextBuffer {
         (self.start_iter(), self.end_iter())
     }
     pub fn iter_at_offset(&self, offset: i32) -> TextIter {
-        self.iter(if offset < 0 { self.char_count() } else { offset })
+        self.iter(if offset < 0 {
+            self.char_count()
+        } else {
+            offset
+        })
     }
     pub fn cursor_position(&self) -> i32 {
         unsafe { ffi::awra_editable_cursor(self.0.as_ptr()) }
@@ -1219,7 +1372,8 @@ impl TextBuffer {
     }
     pub fn selection_bounds(&self) -> Option<(TextIter, TextIter)> {
         let (mut s, mut e) = (0, 0);
-        unsafe { ffi::awra_editable_selection(self.0.as_ptr(), &mut s, &mut e) }.then(|| (self.iter(s), self.iter(e)))
+        unsafe { ffi::awra_editable_selection(self.0.as_ptr(), &mut s, &mut e) }
+            .then(|| (self.iter(s), self.iter(e)))
     }
     pub fn has_selection(&self) -> bool {
         self.selection_bounds().is_some()
@@ -1227,10 +1381,14 @@ impl TextBuffer {
     pub fn begin_user_action(&self) {}
     pub fn end_user_action(&self) {}
     pub fn connect_changed<F: Fn(&TextBuffer) + 'static>(&self, f: F) -> SignalHandlerId {
-        self.0.connect_raw(sig::CHANGED, move |w, _| f(&TextBuffer(w.clone())))
+        self.0
+            .connect_raw(sig::CHANGED, move |w, _| f(&TextBuffer(w.clone())))
     }
     /// "cursor-position" changes.
-    pub fn connect_cursor_position_notify<F: Fn(&TextBuffer) + 'static>(&self, f: F) -> SignalHandlerId {
+    pub fn connect_cursor_position_notify<F: Fn(&TextBuffer) + 'static>(
+        &self,
+        f: F,
+    ) -> SignalHandlerId {
         self.0.connect_raw(sig::NOTIFY, move |w, a| {
             if a.text().as_deref() == Some("cursor-position") {
                 f(&TextBuffer(w.clone()))
@@ -1294,7 +1452,8 @@ impl SimpleActionGroup {
 impl Widget {
     /// Actions named `prefix.name` for this widget and what's inside it.
     pub fn insert_action_group(&self, prefix: &str, group: Option<&SimpleActionGroup>) {
-        let mut groups: Vec<(String, SimpleActionGroup)> = self.rust_data("action-groups").unwrap_or_default();
+        let mut groups: Vec<(String, SimpleActionGroup)> =
+            self.rust_data("action-groups").unwrap_or_default();
         groups.retain(|(p, _)| p != prefix);
         if let Some(g) = group {
             groups.push((prefix.to_owned(), g.clone()));
@@ -1304,7 +1463,10 @@ impl Widget {
 }
 
 /// Finds `prefix.name` in the action groups of `widget` and its ancestors.
-pub(crate) fn lookup_group_action(widget: &Widget, detailed: &str) -> Option<crate::gio::SimpleAction> {
+pub(crate) fn lookup_group_action(
+    widget: &Widget,
+    detailed: &str,
+) -> Option<crate::gio::SimpleAction> {
     let (prefix, name) = detailed.split_once('.')?;
     let mut w = Some(widget.clone());
     while let Some(cur) = w {
@@ -1316,7 +1478,10 @@ pub(crate) fn lookup_group_action(widget: &Widget, detailed: &str) -> Option<cra
             }
         }
         // a popover's content: its anchor's ancestors next
-        w = cur.parent().or_else(|| cur.rust_data::<WeakRef<Widget>>("popover-anchor").and_then(|a| a.upgrade()));
+        w = cur.parent().or_else(|| {
+            cur.rust_data::<WeakRef<Widget>>("popover-anchor")
+                .and_then(|a| a.upgrade())
+        });
     }
     None
 }
@@ -1356,7 +1521,8 @@ impl EventControllerMotion {
         self.0.widget.borrow().as_ref().and_then(|w| w.upgrade())
     }
     pub fn contains_pointer(&self) -> bool {
-        self.widget().is_some_and(|w| w.rust_data::<bool>("pointer-inside").unwrap_or(false))
+        self.widget()
+            .is_some_and(|w| w.rust_data::<bool>("pointer-inside").unwrap_or(false))
     }
 }
 
@@ -1413,14 +1579,27 @@ type ScrollFn = Rc<dyn Fn(&EventControllerScroll, f64, f64) -> Propagation>;
 
 /// GtkEventControllerScroll.
 #[derive(Clone)]
-pub struct EventControllerScroll(Rc<(EventControllerScrollFlags, RefCell<Vec<ScrollFn>>, Cell<PropagationPhase>)>);
+pub struct EventControllerScroll(
+    Rc<(
+        EventControllerScrollFlags,
+        RefCell<Vec<ScrollFn>>,
+        Cell<PropagationPhase>,
+    )>,
+);
 use crate::widget::PropagationPhase;
 
 impl EventControllerScroll {
     pub fn new(flags: EventControllerScrollFlags) -> EventControllerScroll {
-        EventControllerScroll(Rc::new((flags, RefCell::new(Vec::new()), Cell::new(PropagationPhase::Bubble))))
+        EventControllerScroll(Rc::new((
+            flags,
+            RefCell::new(Vec::new()),
+            Cell::new(PropagationPhase::Bubble),
+        )))
     }
-    pub fn connect_scroll<F: Fn(&EventControllerScroll, f64, f64) -> Propagation + 'static>(&self, f: F) {
+    pub fn connect_scroll<F: Fn(&EventControllerScroll, f64, f64) -> Propagation + 'static>(
+        &self,
+        f: F,
+    ) {
         self.0 .1.borrow_mut().push(Rc::new(f));
     }
     pub fn set_propagation_phase(&self, p: PropagationPhase) {
@@ -1522,18 +1701,21 @@ impl TickCallbackId {
 
 impl Widget {
     /// Calls `f` about every frame (16 ms) while it returns Continue.
-    pub fn add_tick_callback<F: FnMut(&Widget, &FrameClock) -> crate::glib::ControlFlow + 'static>(
+    pub fn add_tick_callback<
+        F: FnMut(&Widget, &FrameClock) -> crate::glib::ControlFlow + 'static,
+    >(
         &self,
         mut f: F,
     ) -> TickCallbackId {
         let weak = self.downgrade();
         let clock = FrameClock;
-        TickCallbackId(crate::glib::timeout_add_local(std::time::Duration::from_millis(16), move || {
-            match weak.upgrade() {
+        TickCallbackId(crate::glib::timeout_add_local(
+            std::time::Duration::from_millis(16),
+            move || match weak.upgrade() {
                 Some(w) => f(&w, &clock),
                 None => crate::glib::ControlFlow::Break,
-            }
-        }))
+            },
+        ))
     }
 }
 
@@ -1550,7 +1732,13 @@ impl FrameClock {
 /// Registers an icon from SVG source (application icons).
 pub fn register_icon_svg(name: &str, svg: &[u8]) -> bool {
     let n = cstring(name);
-    unsafe { ffi::awra_icon_register_svg(n.as_ptr(), svg.as_ptr() as *const std::ffi::c_char, svg.len()) }
+    unsafe {
+        ffi::awra_icon_register_svg(
+            n.as_ptr(),
+            svg.as_ptr() as *const std::ffi::c_char,
+            svg.len(),
+        )
+    }
 }
 
 impl<T: StaticType> crate::object::WeakRef<T> {}

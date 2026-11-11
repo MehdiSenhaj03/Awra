@@ -38,7 +38,11 @@ fn main() {
         let ticks = ticks.clone();
         awra::glib::timeout_add_local(std::time::Duration::from_millis(5), move || {
             ticks.set(ticks.get() + 1);
-            if ticks.get() == 3 { awra::glib::ControlFlow::Break } else { awra::glib::ControlFlow::Continue }
+            if ticks.get() == 3 {
+                awra::glib::ControlFlow::Break
+            } else {
+                awra::glib::ControlFlow::Continue
+            }
         });
     }
     let done = Rc::new(Cell::new(false));
@@ -74,6 +78,9 @@ fn main() {
     drop(label);
     drop(w2);
     column.remove_all();
-    assert!(weak.upgrade().is_none(), "label freed with its last reference");
+    assert!(
+        weak.upgrade().is_none(),
+        "label freed with its last reference"
+    );
     println!("smoke ok: backend={} hits={}", awra::backend(), hits.get());
 }

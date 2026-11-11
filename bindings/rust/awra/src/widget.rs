@@ -9,7 +9,9 @@ use std::rc::Rc;
 use crate::enums::*;
 use crate::ffi;
 use crate::glib::Propagation;
-use crate::object::{cstring, from_cstr, from_cstr_opt, IntoOptStr, IsWidget, OptC, StaticType, Widget};
+use crate::object::{
+    cstring, from_cstr, from_cstr_opt, IntoOptStr, IsWidget, OptC, StaticType, Widget,
+};
 use crate::signal::{sig, SignalHandlerId};
 
 unsafe extern "C" fn any_free(data: *mut c_void) {
@@ -30,7 +32,11 @@ impl Widget {
     }
     pub fn children(&self) -> Vec<Widget> {
         let n = unsafe { ffi::awra_widget_child_count(self.as_ptr()) };
-        (0..n).filter_map(|i| unsafe { Widget::from_none_opt(ffi::awra_widget_child(self.as_ptr(), i)) }).collect()
+        (0..n)
+            .filter_map(|i| unsafe {
+                Widget::from_none_opt(ffi::awra_widget_child(self.as_ptr(), i))
+            })
+            .collect()
     }
     pub fn first_child(&self) -> Option<Widget> {
         unsafe { Widget::from_none_opt(ffi::awra_widget_child(self.as_ptr(), 0)) }
@@ -52,7 +58,9 @@ impl Widget {
                 if j < 0 || j >= n {
                     return None;
                 }
-                return unsafe { Widget::from_none_opt(ffi::awra_widget_child(parent.as_ptr(), j)) };
+                return unsafe {
+                    Widget::from_none_opt(ffi::awra_widget_child(parent.as_ptr(), j))
+                };
             }
         }
         None
@@ -244,7 +252,9 @@ impl Widget {
     /// (minimum, natural, -1, -1) in an orientation (gtk's measure).
     pub fn measure(&self, orientation: Orientation, for_size: i32) -> (i32, i32, i32, i32) {
         let (mut mn, mut nt) = (0, 0);
-        unsafe { ffi::awra_widget_measure(self.as_ptr(), orientation as _, for_size, &mut mn, &mut nt) };
+        unsafe {
+            ffi::awra_widget_measure(self.as_ptr(), orientation as _, for_size, &mut mn, &mut nt)
+        };
         (mn, nt, -1, -1)
     }
     pub fn width(&self) -> i32 {
@@ -287,7 +297,14 @@ impl Widget {
     pub fn set_rust_data<T: Any>(&self, key: &str, value: T) {
         let k = cstring(&format!("rs:{key}"));
         let b: Box<Box<dyn Any>> = Box::new(Box::new(value));
-        unsafe { ffi::awra_widget_set_data(self.as_ptr(), k.as_ptr(), Box::into_raw(b) as *mut c_void, Some(any_free)) }
+        unsafe {
+            ffi::awra_widget_set_data(
+                self.as_ptr(),
+                k.as_ptr(),
+                Box::into_raw(b) as *mut c_void,
+                Some(any_free),
+            )
+        }
     }
     pub fn rust_data<T: Any + Clone>(&self, key: &str) -> Option<T> {
         let k = cstring(&format!("rs:{key}"));
@@ -326,9 +343,18 @@ impl Widget {
     pub fn set_accepts_file_drops(&self, accepts: bool) {
         unsafe { ffi::awra_widget_set_accepts_file_drops(self.as_ptr(), accepts) }
     }
-    pub fn connect_files_dropped<F: Fn(&Widget, Vec<PathBuf>) + 'static>(&self, f: F) -> SignalHandlerId {
+    pub fn connect_files_dropped<F: Fn(&Widget, Vec<PathBuf>) + 'static>(
+        &self,
+        f: F,
+    ) -> SignalHandlerId {
         self.connect_raw(sig::FILES_DROPPED, move |w, a| {
-            let paths = a.text().unwrap_or_default().lines().filter(|l| !l.is_empty()).map(PathBuf::from).collect();
+            let paths = a
+                .text()
+                .unwrap_or_default()
+                .lines()
+                .filter(|l| !l.is_empty())
+                .map(PathBuf::from)
+                .collect();
             f(w, paths)
         })
     }
@@ -375,9 +401,11 @@ pub struct Clipboard(pub(crate) Widget);
 impl Clipboard {
     /// The clipboard of any of the application's windows.
     pub fn of_any_window() -> Clipboard {
-        let w = crate::Window::toplevels().into_iter().next().map(|w| w.upcast()).unwrap_or_else(|| {
-            crate::Box::new(crate::Orientation::Horizontal, 0).upcast()
-        });
+        let w = crate::Window::toplevels()
+            .into_iter()
+            .next()
+            .map(|w| w.upcast())
+            .unwrap_or_else(|| crate::Box::new(crate::Orientation::Horizontal, 0).upcast());
         Clipboard(w)
     }
     pub fn text(&self) -> Option<String> {
@@ -482,7 +510,8 @@ impl GestureClick {
 impl Controller for GestureClick {
     fn attach(&self, widget: &Widget) {
         *self.0.widget.borrow_mut() = Some(widget.downgrade());
-        let capture = self.0.phase.get() == PropagationPhase::Capture && widget.is::<crate::Window>();
+        let capture =
+            self.0.phase.get() == PropagationPhase::Capture && widget.is::<crate::Window>();
         if capture {
             // window-wide observation before anything else
             let me = self.clone();
@@ -520,7 +549,7 @@ impl Controller for GestureClick {
         widget.connect_raw(sig::RELEASED, move |_, a| {
             if me.wants(a.button()) {
                 me.0.current.set(a.button());
-                    me.0.mods.set(a.mods());
+                me.0.mods.set(a.mods());
                 let hs: Vec<ClickFn> = me.0.released.borrow().clone();
                 for h in hs {
                     h(&me, a.n_press(), a.x(), a.y());
@@ -533,7 +562,8 @@ impl Controller for GestureClick {
     }
 }
 
-type KeyFn = Rc<dyn Fn(&EventControllerKey, crate::gdk::Key, u32, crate::gdk::ModifierType) -> Propagation>;
+type KeyFn =
+    Rc<dyn Fn(&EventControllerKey, crate::gdk::Key, u32, crate::gdk::ModifierType) -> Propagation>;
 
 /// GDK's hardware keycode for a physical key ("KeyA"; W3C code names):
 /// the evdev number + 8 (the X11 numbering GDK uses on Linux); 0 unknown.
@@ -588,7 +618,8 @@ impl EventControllerKey {
         self.0.widget.borrow().as_ref().and_then(|w| w.upgrade())
     }
     pub fn connect_key_pressed<
-        F: Fn(&EventControllerKey, crate::gdk::Key, u32, crate::gdk::ModifierType) -> Propagation + 'static,
+        F: Fn(&EventControllerKey, crate::gdk::Key, u32, crate::gdk::ModifierType) -> Propagation
+            + 'static,
     >(
         &self,
         f: F,
@@ -596,23 +627,36 @@ impl EventControllerKey {
         self.0.pressed.borrow_mut().push(Rc::new(f));
     }
     /// (GTK's key-released returns nothing: releases propagate.)
-    pub fn connect_key_released<F: Fn(&EventControllerKey, crate::gdk::Key, u32, crate::gdk::ModifierType) + 'static>(
+    pub fn connect_key_released<
+        F: Fn(&EventControllerKey, crate::gdk::Key, u32, crate::gdk::ModifierType) + 'static,
+    >(
         &self,
         f: F,
     ) {
-        self.0.released.borrow_mut().push(Rc::new(move |c, k, code, m| {
-            f(c, k, code, m);
-            Propagation::Proceed
-        }));
+        self.0
+            .released
+            .borrow_mut()
+            .push(Rc::new(move |c, k, code, m| {
+                f(c, k, code, m);
+                Propagation::Proceed
+            }));
     }
 }
 
 impl Controller for EventControllerKey {
     fn attach(&self, widget: &Widget) {
         *self.0.widget.borrow_mut() = Some(widget.downgrade());
-        let capture = self.0.phase.get() == PropagationPhase::Capture && widget.is::<crate::Window>();
+        let capture =
+            self.0.phase.get() == PropagationPhase::Capture && widget.is::<crate::Window>();
         for (signal, list) in [
-            (if capture { sig::KEY_CAPTURE } else { sig::KEY_PRESSED }, 0),
+            (
+                if capture {
+                    sig::KEY_CAPTURE
+                } else {
+                    sig::KEY_PRESSED
+                },
+                0,
+            ),
             (sig::KEY_RELEASED, 1),
         ] {
             let me = self.clone();
@@ -622,8 +666,11 @@ impl Controller for EventControllerKey {
             widget.connect_raw(signal, move |_, a| {
                 let key = crate::gdk::Key::from_name(&a.keysym().unwrap_or_default());
                 let code = a.code().map_or(0, |c| hardware_keycode(&c));
-                let hs: Vec<KeyFn> =
-                    if list == 0 { me.0.pressed.borrow().clone() } else { me.0.released.borrow().clone() };
+                let hs: Vec<KeyFn> = if list == 0 {
+                    me.0.pressed.borrow().clone()
+                } else {
+                    me.0.released.borrow().clone()
+                };
                 for h in hs {
                     if h(&me, key, code, a.mods()) == Propagation::Stop {
                         a.stop();

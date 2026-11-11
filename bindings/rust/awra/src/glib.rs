@@ -85,32 +85,60 @@ fn ms(d: Duration) -> u32 {
     d.as_millis().min(u32::MAX as u128) as u32
 }
 
-pub fn timeout_add_local<F: FnMut() -> ControlFlow + 'static>(interval: Duration, f: F) -> SourceId {
+pub fn timeout_add_local<F: FnMut() -> ControlFlow + 'static>(
+    interval: Duration,
+    f: F,
+) -> SourceId {
     let data: Box<RepeatFn> = Box::new(Box::new(f));
     SourceId(unsafe {
-        ffi::awra_timeout_add(ms(interval), Some(repeat_tramp), Box::into_raw(data) as *mut c_void, Some(repeat_free))
+        ffi::awra_timeout_add(
+            ms(interval),
+            Some(repeat_tramp),
+            Box::into_raw(data) as *mut c_void,
+            Some(repeat_free),
+        )
     })
 }
 
 pub fn timeout_add_local_once<F: FnOnce() + 'static>(delay: Duration, f: F) -> SourceId {
     let data: Box<OnceFn> = Box::new(Some(Box::new(f)));
     SourceId(unsafe {
-        ffi::awra_timeout_add(ms(delay), Some(once_tramp), Box::into_raw(data) as *mut c_void, Some(once_free))
+        ffi::awra_timeout_add(
+            ms(delay),
+            Some(once_tramp),
+            Box::into_raw(data) as *mut c_void,
+            Some(once_free),
+        )
     })
 }
 
-pub fn timeout_add_seconds_local<F: FnMut() -> ControlFlow + 'static>(seconds: u32, f: F) -> SourceId {
+pub fn timeout_add_seconds_local<F: FnMut() -> ControlFlow + 'static>(
+    seconds: u32,
+    f: F,
+) -> SourceId {
     timeout_add_local(Duration::from_secs(seconds as u64), f)
 }
 
 pub fn idle_add_local<F: FnMut() -> ControlFlow + 'static>(f: F) -> SourceId {
     let data: Box<RepeatFn> = Box::new(Box::new(f));
-    SourceId(unsafe { ffi::awra_idle_add(Some(repeat_tramp), Box::into_raw(data) as *mut c_void, Some(repeat_free)) })
+    SourceId(unsafe {
+        ffi::awra_idle_add(
+            Some(repeat_tramp),
+            Box::into_raw(data) as *mut c_void,
+            Some(repeat_free),
+        )
+    })
 }
 
 pub fn idle_add_local_once<F: FnOnce() + 'static>(f: F) -> SourceId {
     let data: Box<OnceFn> = Box::new(Some(Box::new(f)));
-    SourceId(unsafe { ffi::awra_idle_add(Some(once_tramp), Box::into_raw(data) as *mut c_void, Some(once_free)) })
+    SourceId(unsafe {
+        ffi::awra_idle_add(
+            Some(once_tramp),
+            Box::into_raw(data) as *mut c_void,
+            Some(once_free),
+        )
+    })
 }
 
 /// Runs `f` on the UI thread soon; callable from any thread.
@@ -189,7 +217,10 @@ pub fn spawn_future_local<F: Future<Output = ()> + 'static>(f: F) -> JoinHandle 
     });
     TASKS.with(|t| t.borrow_mut().insert(id, Box::pin(f)));
     // first poll from the loop, as GLib does
-    let waker = Arc::new(TaskWaker { id, queued: AtomicBool::new(false) });
+    let waker = Arc::new(TaskWaker {
+        id,
+        queued: AtomicBool::new(false),
+    });
     waker.wake_by_ref();
     JoinHandle(id, std::marker::PhantomData)
 }
@@ -220,7 +251,10 @@ pub fn timeout_future(d: Duration) -> impl Future<Output = ()> {
 pub fn spawn_blocking<T: Send + 'static, F: FnOnce() -> T + Send + 'static>(
     f: F,
 ) -> impl Future<Output = Result<T, Box<dyn std::any::Any + Send>>> {
-    let state = Arc::new(std::sync::Mutex::new((None::<Result<T, Box<dyn std::any::Any + Send>>>, None::<Waker>)));
+    let state = Arc::new(std::sync::Mutex::new((
+        None::<Result<T, Box<dyn std::any::Any + Send>>>,
+        None::<Waker>,
+    )));
     let s2 = state.clone();
     std::thread::spawn(move || {
         let r = std::panic::catch_unwind(std::panic::AssertUnwindSafe(f));
@@ -283,7 +317,9 @@ pub fn home_dir() -> PathBuf {
     let var = "USERPROFILE";
     #[cfg(not(windows))]
     let var = "HOME";
-    std::env::var_os(var).map(PathBuf::from).unwrap_or_else(|| PathBuf::from("."))
+    std::env::var_os(var)
+        .map(PathBuf::from)
+        .unwrap_or_else(|| PathBuf::from("."))
 }
 
 /// A program on PATH (GLib's g_find_program_in_path).
@@ -304,7 +340,10 @@ pub fn find_program_in_path(program: impl AsRef<std::path::Path>) -> Option<Path
         #[cfg(not(windows))]
         {
             use std::os::unix::fs::PermissionsExt;
-            if candidate.metadata().is_ok_and(|m| m.is_file() && m.permissions().mode() & 0o111 != 0) {
+            if candidate
+                .metadata()
+                .is_ok_and(|m| m.is_file() && m.permissions().mode() & 0o111 != 0)
+            {
                 return Some(candidate);
             }
         }

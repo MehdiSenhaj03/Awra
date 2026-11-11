@@ -168,7 +168,10 @@ fn query_tooltip(w: &Widget) {
 /// gtk-rs connect_query_tooltip, and trigger_tooltip_query.
 pub trait TooltipExt: IsWidget {
     /// The tooltip is computed as the pointer comes over the widget.
-    fn connect_query_tooltip<F: Fn(&Widget, i32, i32, bool, &Tooltip) -> bool + 'static>(&self, f: F) {
+    fn connect_query_tooltip<F: Fn(&Widget, i32, i32, bool, &Tooltip) -> bool + 'static>(
+        &self,
+        f: F,
+    ) {
         let w = self.upcast_ref();
         w.set_rust_data::<QueryFn>("query-tooltip", Rc::new(f));
         if w.rust_data::<bool>("query-tooltip-hooked").is_none() {
@@ -189,9 +192,15 @@ impl<T: IsWidget> TooltipExt for T {}
 
 impl crate::TextBuffer {
     /// gtk-rs notify: "cursor-position" (and any change for `None`).
-    pub fn connect_notify_local<F: Fn(&crate::TextBuffer, &str) + 'static>(&self, name: Option<&str>, f: F) -> SignalHandlerId {
+    pub fn connect_notify_local<F: Fn(&crate::TextBuffer, &str) + 'static>(
+        &self,
+        name: Option<&str>,
+        f: F,
+    ) -> SignalHandlerId {
         match name {
-            Some("cursor-position") | None => self.connect_cursor_position_notify(move |b| f(b, "cursor-position")),
+            Some("cursor-position") | None => {
+                self.connect_cursor_position_notify(move |b| f(b, "cursor-position"))
+            }
             Some(_) => self.connect_changed(move |b| f(b, "text")),
         }
     }
@@ -214,7 +223,11 @@ impl StateFlags {
 /// is one.
 pub trait WidgetExt3: IsWidget {
     /// gtk-rs connect_notify_local, the widget typed.
-    fn connect_notify_local<F: Fn(&Self, &str) + 'static>(&self, name: Option<&str>, f: F) -> SignalHandlerId
+    fn connect_notify_local<F: Fn(&Self, &str) + 'static>(
+        &self,
+        name: Option<&str>,
+        f: F,
+    ) -> SignalHandlerId
     where
         Self: StaticType,
     {
@@ -258,10 +271,17 @@ pub trait WidgetExt3: IsWidget {
         self.upcast_ref().insert_action_group(name, group)
     }
     /// A point of this widget in `target`'s coordinates.
-    fn compute_point(&self, target: &impl IsWidget, p: &crate::graphene::Point) -> Option<crate::graphene::Point> {
+    fn compute_point(
+        &self,
+        target: &impl IsWidget,
+        p: &crate::graphene::Point,
+    ) -> Option<crate::graphene::Point> {
         let (x, y) = self.upcast_ref().window_position()?;
         let (tx, ty) = target.upcast_ref().window_position()?;
-        Some(crate::graphene::Point::new(p.x() + (x - tx) as f32, p.y() + (y - ty) as f32))
+        Some(crate::graphene::Point::new(
+            p.x() + (x - tx) as f32,
+            p.y() + (y - ty) as f32,
+        ))
     }
 }
 impl<T: IsWidget> WidgetExt3 for T {}
@@ -313,7 +333,14 @@ impl Texture {
         if width <= 0 || height <= 0 || data.len() < w * h + 2 * (w / 2) * (h / 2) {
             return None;
         }
-        unsafe { Texture::from_raw(ffi::awra_texture_new_i420(data.as_ptr(), width, height, bt709)) }
+        unsafe {
+            Texture::from_raw(ffi::awra_texture_new_i420(
+                data.as_ptr(),
+                width,
+                height,
+                bt709,
+            ))
+        }
     }
 }
 
@@ -327,7 +354,6 @@ impl Paintable {
         }
     }
 }
-
 
 // ===========================================================================
 // Values, and drag and drop within the application
@@ -436,7 +462,10 @@ impl DragSource {
     pub fn widget(&self) -> Option<Widget> {
         self.0.widget.borrow().as_ref().and_then(|w| w.upgrade())
     }
-    pub fn connect_prepare<F: Fn(&DragSource, f64, f64) -> Option<ContentProvider> + 'static>(&self, f: F) {
+    pub fn connect_prepare<F: Fn(&DragSource, f64, f64) -> Option<ContentProvider> + 'static>(
+        &self,
+        f: F,
+    ) {
         *self.0.prepare.borrow_mut() = Some(Rc::new(f));
     }
     pub fn connect_drag_begin<F: Fn(&DragSource, &Drag) + 'static>(&self, f: F) {
@@ -447,7 +476,11 @@ impl DragSource {
     }
     /// Whether a drag from this source is under way.
     pub fn is_dragging(&self) -> bool {
-        DRAGGING.with(|d| d.borrow().as_ref().is_some_and(|d| Rc::ptr_eq(&d.source.0, &self.0)))
+        DRAGGING.with(|d| {
+            d.borrow()
+                .as_ref()
+                .is_some_and(|d| Rc::ptr_eq(&d.source.0, &self.0))
+        })
     }
 }
 
@@ -494,7 +527,11 @@ fn drag_icon(source: &DragSource, widget: &Widget, value: &Value) -> Option<(Tex
         // the paintable's logical point, in its texture's pixels
         let (pw, ph) = (p.intrinsic_width().max(1), p.intrinsic_height().max(1));
         let (kx, ky) = (t.width() as f64 / pw as f64, t.height() as f64 / ph as f64);
-        let (kx, ky) = if p.intrinsic_width() > 0 && (kx - 1.0).abs() > 1e-3 { (kx, ky) } else { (scale as f64, scale as f64) };
+        let (kx, ky) = if p.intrinsic_width() > 0 && (kx - 1.0).abs() > 1e-3 {
+            (kx, ky)
+        } else {
+            (scale as f64, scale as f64)
+        };
         return Some((t, (x as f64 * kx) as i32, (y as f64 * ky) as i32));
     }
     let t = if let Ok(text) = value.get::<String>() {
@@ -508,15 +545,20 @@ fn drag_icon(source: &DragSource, widget: &Widget, value: &Value) -> Option<(Tex
 /// The pointer left the window with a drag of text or files: the system's
 /// drag takes over (other applications can take it).
 fn hand_over(source: &Widget, wx: f64, wy: f64) -> bool {
-    let Some(root) = source.root() else { return false };
+    let Some(root) = source.root() else {
+        return false;
+    };
     let root: Widget = root.upcast();
     let (w, h) = (root.width() as f64, root.height() as f64);
     if wx >= 0.0 && wy >= 0.0 && wx < w && wy < h {
         return false;
     }
-    let Some((value, src, icon)) =
-        DRAGGING.with(|d| d.borrow().as_ref().filter(|d| !d.native).map(|d| (d.value.clone(), d.source.clone(), d.icon.clone())))
-    else {
+    let Some((value, src, icon)) = DRAGGING.with(|d| {
+        d.borrow()
+            .as_ref()
+            .filter(|d| !d.native)
+            .map(|d| (d.value.clone(), d.source.clone(), d.icon.clone()))
+    }) else {
         return false;
     };
     let (tex, hx, hy) = match &icon {
@@ -541,7 +583,15 @@ fn hand_over(source: &Widget, wx: f64, wy: f64) -> bool {
     let started = if let Ok(files) = value.get::<crate::FileList>() {
         crate::transfer::drag_out_files(source, &files.0, tex, hx, hy, actions, done)
     } else if let Ok(text) = value.get::<String>() {
-        crate::transfer::drag_out_data(source, &[("text/plain;charset=utf-8", text.as_bytes())], tex, hx, hy, actions, done)
+        crate::transfer::drag_out_data(
+            source,
+            &[("text/plain;charset=utf-8", text.as_bytes())],
+            tex,
+            hx,
+            hy,
+            actions,
+            done,
+        )
     } else {
         false
     };
@@ -560,14 +610,20 @@ fn hand_over(source: &Widget, wx: f64, wy: f64) -> bool {
 }
 
 fn drag_motion(source: &Widget, x: f64, y: f64) {
-    let Some((sx, sy)) = source.window_position() else { return };
+    let Some((sx, sy)) = source.window_position() else {
+        return;
+    };
     let (wx, wy) = (sx + x, sy + y);
-    if DRAGGING.with(|d| d.borrow().as_ref().is_some_and(|d| d.native)) || hand_over(source, wx, wy) {
+    if DRAGGING.with(|d| d.borrow().as_ref().is_some_and(|d| d.native)) || hand_over(source, wx, wy)
+    {
         return;
     }
     let found = target_at(source, wx, wy);
     let old = DRAGGING.with(|d| d.borrow_mut().as_mut().and_then(|d| d.over.take()));
-    if old.as_ref().is_some_and(|(ow, _, _)| found.as_ref().is_none_or(|(w, _)| w != ow)) {
+    if old
+        .as_ref()
+        .is_some_and(|(ow, _, _)| found.as_ref().is_none_or(|(w, _)| w != ow))
+    {
         leave_target(old);
     }
     let mut action = crate::DragAction::empty();
@@ -612,7 +668,9 @@ fn drag_end(drop_at: Option<(f64, f64)>) {
     if drop_at.is_some() && DRAGGING.with(|d| d.borrow().as_ref().is_some_and(|d| d.native)) {
         return; /* the system's drag ends it */
     }
-    let Some(mut d) = DRAGGING.with(|d| d.borrow_mut().take()) else { return };
+    let Some(mut d) = DRAGGING.with(|d| d.borrow_mut().take()) else {
+        return;
+    };
     if let Some(win) = d.widget.root() {
         win.set_drag_icon(None, 0, 0);
     }
@@ -645,7 +703,9 @@ impl crate::widget::Controller for DragSource {
         });
         let me = self.clone();
         widget.connect_raw(sig::MOTION, move |w, a| {
-            let Some((px, py)) = me.0.press.get() else { return };
+            let Some((px, py)) = me.0.press.get() else {
+                return;
+            };
             if me.is_dragging() {
                 drag_motion(w, a.x(), a.y());
                 return;
@@ -655,7 +715,9 @@ impl crate::widget::Controller for DragSource {
             }
             me.0.press.set(None);
             let prepare = me.0.prepare.borrow().clone();
-            let Some(content) = prepare.and_then(|p| p(&me, px, py)) else { return };
+            let Some(content) = prepare.and_then(|p| p(&me, px, py)) else {
+                return;
+            };
             // a drag already under way (another source) ends first
             drag_end(None);
             let icon = drag_icon(&me, w, &content.0);
@@ -665,7 +727,12 @@ impl crate::widget::Controller for DragSource {
             let escape = w.root_widget().map(|win| {
                 let id = win.connect_raw(sig::KEY_CAPTURE, |_, a| {
                     if a.keysym().as_deref() == Some("Escape") {
-                        let source = DRAGGING.with(|d| d.borrow().as_ref().filter(|d| !d.native).map(|d| d.source.clone()));
+                        let source = DRAGGING.with(|d| {
+                            d.borrow()
+                                .as_ref()
+                                .filter(|d| !d.native)
+                                .map(|d| d.source.clone())
+                        });
                         if let Some(s) = source {
                             s.0.swallow_release.set(true);
                             s.0.press.set(None);
@@ -758,16 +825,25 @@ impl crate::widget::Controller for DropControllerMotion {
 fn motion_controllers(source: &Widget, wx: f64, wy: f64) {
     let ms: Vec<DropControllerMotion> = DROP_MOTIONS.with(|m| {
         let mut m = m.borrow_mut();
-        m.retain(|c| c.0.widget.borrow().as_ref().is_some_and(|w| w.upgrade().is_some()));
+        m.retain(|c| {
+            c.0.widget
+                .borrow()
+                .as_ref()
+                .is_some_and(|w| w.upgrade().is_some())
+        });
         m.clone()
     });
     let root = source.root_widget();
     for c in ms {
-        let Some(w) = c.0.widget.borrow().as_ref().and_then(|w| w.upgrade()) else { continue };
+        let Some(w) = c.0.widget.borrow().as_ref().and_then(|w| w.upgrade()) else {
+            continue;
+        };
         if w.root_widget() != root || !w.is_mapped() {
             continue;
         }
-        let Some((x, y)) = w.window_position() else { continue };
+        let Some((x, y)) = w.window_position() else {
+            continue;
+        };
         let (lx, ly) = (wx - x, wy - y);
         if lx >= 0.0 && ly >= 0.0 && lx < w.width() as f64 && ly < w.height() as f64 {
             c.0.inside.set(true);
@@ -879,7 +955,10 @@ impl crate::Slider {
 }
 
 impl crate::VolumeControl {
-    pub fn connect_muted_notify<F: Fn(&crate::VolumeControl) + 'static>(&self, f: F) -> SignalHandlerId {
+    pub fn connect_muted_notify<F: Fn(&crate::VolumeControl) + 'static>(
+        &self,
+        f: F,
+    ) -> SignalHandlerId {
         self.connect_typed::<crate::VolumeControl, _>(sig::TOGGLED, move |w, _| f(w))
     }
 }
@@ -890,7 +969,10 @@ impl crate::VolumeControl {
 impl crate::ShortcutCapture {
     /// Shows these keys (GDK hardware keycodes) as the shortcut.
     pub fn set_shortcut(&self, keycodes: &[u32], _mods: crate::gdk::ModifierType) {
-        let names: Vec<String> = keycodes.iter().filter_map(|&k| crate::keycode_name(k)).collect();
+        let names: Vec<String> = keycodes
+            .iter()
+            .filter_map(|&k| crate::keycode_name(k))
+            .collect();
         let cs: Vec<_> = names.iter().map(|n| cstring(n)).collect();
         let ps: Vec<*const std::ffi::c_char> = cs.iter().map(|c| c.as_ptr()).collect();
         unsafe { ffi::awra_shortcut_capture_set_codes(self.as_ptr(), ps.as_ptr(), ps.len() as i32) }
@@ -900,7 +982,9 @@ impl crate::ShortcutCapture {
         let mut p: *const *const std::ffi::c_char = std::ptr::null();
         let n = unsafe { ffi::awra_shortcut_capture_keysyms(self.as_ptr(), &mut p) };
         (0..n.max(0) as usize)
-            .map(|i| crate::gdk::Key::from_name(&unsafe { from_cstr_opt(*p.add(i)) }.unwrap_or_default()))
+            .map(|i| {
+                crate::gdk::Key::from_name(&unsafe { from_cstr_opt(*p.add(i)) }.unwrap_or_default())
+            })
             .collect()
     }
     /// The physical keys of the last capture, as GDK hardware keycodes.
@@ -908,7 +992,9 @@ impl crate::ShortcutCapture {
         let mut p: *const *const std::ffi::c_char = std::ptr::null();
         let n = unsafe { ffi::awra_shortcut_capture_codes(self.as_ptr(), &mut p) };
         (0..n.max(0) as usize)
-            .map(|i| crate::hardware_keycode(&unsafe { from_cstr_opt(*p.add(i)) }.unwrap_or_default()))
+            .map(|i| {
+                crate::hardware_keycode(&unsafe { from_cstr_opt(*p.add(i)) }.unwrap_or_default())
+            })
             .collect()
     }
 }
@@ -939,7 +1025,10 @@ impl StringObjectDowncast for Option<StringObject> {
 
 impl crate::Dropdown {
     /// A dropdown of a string list's strings.
-    pub fn new(model: Option<&crate::StringList>, _expression: Option<Expression>) -> crate::Dropdown {
+    pub fn new(
+        model: Option<&crate::StringList>,
+        _expression: Option<Expression>,
+    ) -> crate::Dropdown {
         let d = crate::Dropdown::from_strings(&[]);
         d.set_model(model);
         d
@@ -958,7 +1047,12 @@ type CommandFn = Rc<dyn Fn(&crate::CommandPalette, &str, &crate::gio::Variant) -
 impl crate::CommandPalette {
     /// A command chosen: `f` gets its action's name and target, and
     /// returns true when it handled it (else the action is activated).
-    pub fn connect_activate_command<F: Fn(&crate::CommandPalette, &str, &crate::gio::Variant) -> bool + 'static>(&self, f: F) {
+    pub fn connect_activate_command<
+        F: Fn(&crate::CommandPalette, &str, &crate::gio::Variant) -> bool + 'static,
+    >(
+        &self,
+        f: F,
+    ) {
         self.set_rust_data::<CommandFn>("palette-command", Rc::new(f));
     }
     pub fn set_query(&self, query: &str) {
@@ -967,11 +1061,16 @@ impl crate::CommandPalette {
     }
 }
 
-pub(crate) fn palette_command(w: &Widget, action: &str, target: Option<&crate::gio::Variant>) -> bool {
+pub(crate) fn palette_command(
+    w: &Widget,
+    action: &str,
+    target: Option<&crate::gio::Variant>,
+) -> bool {
     let Some(f) = w.rust_data::<CommandFn>("palette-command") else {
         return false;
     };
-    let palette: crate::CommandPalette = unsafe { crate::CommandPalette::unchecked_from(w.clone()) };
+    let palette: crate::CommandPalette =
+        unsafe { crate::CommandPalette::unchecked_from(w.clone()) };
     let name = action.split_once('.').map_or(action, |(_, n)| n);
     let empty = crate::gio::Variant::default();
     f(&palette, name, target.unwrap_or(&empty))
@@ -1009,7 +1108,10 @@ impl crate::Application {
     /// The window that last had the focus, or any.
     pub fn active_window(&self) -> Option<crate::Window> {
         let ws = self.windows();
-        ws.iter().find(|w| w.is_active()).cloned().or_else(|| ws.into_iter().next())
+        ws.iter()
+            .find(|w| w.is_active())
+            .cloned()
+            .or_else(|| ws.into_iter().next())
     }
 }
 
@@ -1087,7 +1189,12 @@ impl CairoContext {
         self.set_source_rgba(r, g, b, 1.0)
     }
     pub fn set_source_rgba(&self, r: f64, g: f64, b: f64, a: f64) {
-        self.source.set(ffi::AwraRGBA { r: r as f32, g: g as f32, b: b as f32, a: a as f32 })
+        self.source.set(ffi::AwraRGBA {
+            r: r as f32,
+            g: g as f32,
+            b: b as f32,
+            a: a as f32,
+        })
     }
     pub fn rectangle(&self, x: f64, y: f64, w: f64, h: f64) {
         self.path.borrow_mut().push(PathPart::Rect(x, y, w, h))
@@ -1100,8 +1207,12 @@ impl CairoContext {
         let c = self.source.get();
         for p in self.path.borrow_mut().drain(..) {
             match p {
-                PathPart::Rect(x, y, w, h) => unsafe { ffi::awra_canvas_fill_rect(self.canvas, x, y, w, h, &c) },
-                PathPart::Circle(x, y, r) => unsafe { ffi::awra_canvas_circle(self.canvas, x, y, r, &c) },
+                PathPart::Rect(x, y, w, h) => unsafe {
+                    ffi::awra_canvas_fill_rect(self.canvas, x, y, w, h, &c)
+                },
+                PathPart::Circle(x, y, r) => unsafe {
+                    ffi::awra_canvas_circle(self.canvas, x, y, r, &c)
+                },
             }
         }
         Ok(())
@@ -1116,15 +1227,28 @@ impl CairoContext {
 type DrawFn = Rc<dyn Fn(&DrawingArea, &CairoContext, i32, i32)>;
 type DrawCell = RefCell<Option<DrawFn>>;
 
-unsafe extern "C" fn area_draw(w: *mut ffi::AwraWidget, canvas: *mut ffi::AwraCanvas, width: i32, height: i32, data: *mut std::ffi::c_void) {
+unsafe extern "C" fn area_draw(
+    w: *mut ffi::AwraWidget,
+    canvas: *mut ffi::AwraCanvas,
+    width: i32,
+    height: i32,
+    data: *mut std::ffi::c_void,
+) {
     let cell = &*(data as *const DrawCell);
-    let Some(f) = cell.borrow().clone() else { return };
+    let Some(f) = cell.borrow().clone() else {
+        return;
+    };
     let area = DrawingArea(Widget::from_none(w));
     let cr = CairoContext {
         canvas,
         width: width as f64,
         height: height as f64,
-        source: Cell::new(ffi::AwraRGBA { r: 0.0, g: 0.0, b: 0.0, a: 1.0 }),
+        source: Cell::new(ffi::AwraRGBA {
+            r: 0.0,
+            g: 0.0,
+            b: 0.0,
+            a: 1.0,
+        }),
         path: RefCell::new(Vec::new()),
     };
     f(&area, &cr, width, height);
@@ -1143,7 +1267,13 @@ impl DrawingArea {
     pub fn new() -> DrawingArea {
         let cell: Box<DrawCell> = Box::new(RefCell::new(None));
         let raw = Box::into_raw(cell);
-        let w = unsafe { DrawingArea::from_full(ffi::awra_drawing_area_new(Some(area_draw), raw as *mut _, Some(area_free))) };
+        let w = unsafe {
+            DrawingArea::from_full(ffi::awra_drawing_area_new(
+                Some(area_draw),
+                raw as *mut _,
+                Some(area_free),
+            ))
+        };
         w.set_rust_data("draw-cell", raw as usize);
         w
     }
@@ -1155,7 +1285,8 @@ impl DrawingArea {
         self.queue_draw();
     }
     fn content_size(&self) -> (i32, i32) {
-        self.rust_data::<(i32, i32)>("p:content-size").unwrap_or((0, 0))
+        self.rust_data::<(i32, i32)>("p:content-size")
+            .unwrap_or((0, 0))
     }
     pub fn set_content_width(&self, width: i32) {
         let (_, h) = self.content_size();

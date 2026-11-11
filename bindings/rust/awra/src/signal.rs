@@ -5,7 +5,6 @@ use std::ffi::c_void;
 use crate::ffi;
 use crate::object::{from_cstr_opt, StaticType, Widget};
 
-
 /// Signal ids (AwraSignal).
 #[allow(non_upper_case_globals)]
 pub mod sig {
@@ -122,7 +121,11 @@ pub struct SignalHandlerId(pub(crate) std::ffi::c_ulong);
 
 type Callback = Box<dyn Fn(&Widget, &Args)>;
 
-unsafe extern "C" fn trampoline(w: *mut ffi::AwraWidget, args: *const ffi::AwraArgs, data: *mut c_void) {
+unsafe extern "C" fn trampoline(
+    w: *mut ffi::AwraWidget,
+    args: *const ffi::AwraArgs,
+    data: *mut c_void,
+) {
     let f = &*(data as *const Callback);
     // borrowed: no reference taken for the call
     let widget = std::mem::ManuallyDrop::new(Widget::from_full(w));
@@ -135,7 +138,11 @@ unsafe extern "C" fn free_callback(data: *mut c_void) {
 
 impl Widget {
     /// Connects a raw signal handler.
-    pub fn connect_raw<F: Fn(&Widget, &Args) + 'static>(&self, signal: i32, f: F) -> SignalHandlerId {
+    pub fn connect_raw<F: Fn(&Widget, &Args) + 'static>(
+        &self,
+        signal: i32,
+        f: F,
+    ) -> SignalHandlerId {
         let data: Box<Callback> = Box::new(Box::new(f));
         let id = unsafe {
             ffi::awra_signal_connect(
@@ -150,7 +157,11 @@ impl Widget {
     }
 
     /// Connects a handler that receives the widget as `T`.
-    pub fn connect_typed<T: StaticType, F: Fn(&T, &Args) + 'static>(&self, signal: i32, f: F) -> SignalHandlerId {
+    pub fn connect_typed<T: StaticType, F: Fn(&T, &Args) + 'static>(
+        &self,
+        signal: i32,
+        f: F,
+    ) -> SignalHandlerId {
         self.connect_raw(signal, move |w, a| {
             let t = unsafe { T::unchecked_from(w.clone()) };
             f(&t, a)

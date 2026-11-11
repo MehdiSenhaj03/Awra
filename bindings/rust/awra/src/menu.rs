@@ -114,7 +114,11 @@ impl Entry {
 /// The callbacks of one menu, by item index; freed with the popover.
 struct Actions(Vec<Option<Rc<dyn Fn()>>>);
 
-unsafe extern "C" fn activated(_w: *mut ffi::AwraWidget, args: *const ffi::AwraArgs, data: *mut c_void) {
+unsafe extern "C" fn activated(
+    _w: *mut ffi::AwraWidget,
+    args: *const ffi::AwraArgs,
+    data: *mut c_void,
+) {
     let actions = &*(data as *const Actions);
     let index = (*args).index.max(0) as usize;
     if let Some(Some(action)) = actions.0.get(index) {
@@ -191,7 +195,12 @@ pub fn build(entries: Vec<Entry>) -> Popover {
             it
         })
         .collect();
-    let popover = unsafe { Popover::from_full(ffi::awra_menu_popover_new(items.as_ptr(), items.len() as i32)) };
+    let popover = unsafe {
+        Popover::from_full(ffi::awra_menu_popover_new(
+            items.as_ptr(),
+            items.len() as i32,
+        ))
+    };
     drop(keep);
     popover.set_rust_data("menu-actions", Rc::new(actions));
     popover

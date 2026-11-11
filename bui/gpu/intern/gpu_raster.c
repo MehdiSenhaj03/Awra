@@ -6,6 +6,9 @@
 #include <math.h>
 #include <stdlib.h>
 #include <string.h>
+#if defined(__SSE2__) || defined(_M_X64) || defined(_M_AMD64)
+#  include <emmintrin.h>
+#endif
 
 #define TILE_W 64
 #define TILE_H 32
@@ -1194,6 +1197,40 @@ static inline void put_image_px(uint32_t *d, uint32_t c, uint32_t ga)
   }
 }
 
+/* BUI-Awra: a row of premultiplied ARGB pixels times ga/256 over the frame,
+ * four at a time: put_image_px's arithmetic on each 16-bit channel (the
+ * scale truncated, the blend rounded /255), so the pixels are the same. A
+ * cross-fade of a whole view copies millions of them per frame. */
+static void put_image_row(uint32_t *d, const uint32_t *s, int n, uint32_t ga)
+{
+  int i = 0;
+#if defined(__SSE2__) || defined(_M_X64) || defined(_M_AMD64)
+  const __m128i zero = _mm_setzero_si128();
+  const __m128i f = _mm_set1_epi16((short)(ga < 256 ? ga : 0));
+  const __m128i c255 = _mm_set1_epi16(255), c128 = _mm_set1_epi16(128);
+  for (; i + 4 <= n; i += 4) {
+    const __m128i sv = _mm_loadu_si128((const __m128i *)(s + i));
+    const __m128i dv = _mm_loadu_si128((const __m128i *)(d + i));
+    __m128i sl = _mm_unpacklo_epi8(sv, zero), sh = _mm_unpackhi_epi8(sv, zero);
+    if (ga < 256) {
+      sl = _mm_srli_epi16(_mm_mullo_epi16(sl, f), 8);
+      sh = _mm_srli_epi16(_mm_mullo_epi16(sh, f), 8);
+    }
+    /* each pixel's alpha on its four channels */
+    const __m128i al = _mm_shufflehi_epi16(_mm_shufflelo_epi16(sl, _MM_SHUFFLE(3, 3, 3, 3)), _MM_SHUFFLE(3, 3, 3, 3));
+    const __m128i ah = _mm_shufflehi_epi16(_mm_shufflelo_epi16(sh, _MM_SHUFFLE(3, 3, 3, 3)), _MM_SHUFFLE(3, 3, 3, 3));
+    __m128i tl = _mm_add_epi16(_mm_mullo_epi16(_mm_unpacklo_epi8(dv, zero), _mm_sub_epi16(c255, al)), c128);
+    __m128i th = _mm_add_epi16(_mm_mullo_epi16(_mm_unpackhi_epi8(dv, zero), _mm_sub_epi16(c255, ah)), c128);
+    tl = _mm_srli_epi16(_mm_add_epi16(tl, _mm_srli_epi16(tl, 8)), 8);
+    th = _mm_srli_epi16(_mm_add_epi16(th, _mm_srli_epi16(th, 8)), 8);
+    _mm_storeu_si128((__m128i *)(d + i), _mm_packus_epi16(_mm_add_epi16(sl, tl), _mm_add_epi16(sh, th)));
+  }
+#endif
+  for (; i < n; i++) {
+    put_image_px(d + i, s[i], ga);
+  }
+}
+
 /* Bilinear tap of premultiplied pixels: fx, fy are 8-bit fractions. */
 static inline uint32_t bilerp(uint32_t c00, uint32_t c10, uint32_t c01, uint32_t c11, uint32_t fx,
                               uint32_t fy)
@@ -1922,9 +1959,7 @@ void BUI_raster_image(BuiRaster *r,
         }
         continue;
       }
-      for (int px = x0; px < x1; px++) {
-        put_image_px(row + px, s[px], ga);
-      }
+      put_image_row(row + x0, s + x0, x1 - x0, ga);
     }
     return;
   }
