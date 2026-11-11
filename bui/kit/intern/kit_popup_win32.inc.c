@@ -198,6 +198,13 @@ static void pop_backdrop(BKWindow *win, WinPop *p)
   const int mode = backdrop_mode();
   const int on = p->blur && blur_capable();
   if (mode == 2) {
+    if (on) {
+      /* DWM paints the system backdrop of a window that is not active
+       * flat, and reads that when the backdrop is asked for: a popup is
+       * never activated, it takes the active look of its window first (as
+       * the window keeps it, WM_NCACTIVATE there) */
+      DefWindowProcW(p->hwnd, WM_NCACTIVATE, TRUE, -1);
+    }
     const int backdrop = on ? BK_DWMSBT_TRANSIENTWINDOW : BK_DWMSBT_NONE;
     dwm_attr(p->hwnd, BK_DWMWA_SYSTEMBACKDROP_TYPE, &backdrop, sizeof(backdrop));
   }
