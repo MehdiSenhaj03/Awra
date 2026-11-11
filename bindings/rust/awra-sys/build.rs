@@ -1,13 +1,13 @@
 //! Builds Awra 2 (and its BUI kit) from the C sources with CMake and links
 //! the static libraries. AWRA_LIB_DIR points to an existing build instead.
 use std::env;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 fn main() {
-    let root = PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap())
-        .join("../../..")
-        .canonicalize()
-        .expect("the Awra source tree");
+    // bindings/rust/awra-sys -> the Awra root. Not canonicalize(): on Windows
+    // it gives a \\?\ path, which CMake's globs do not read (no sources).
+    let manifest = env::var("CARGO_MANIFEST_DIR").unwrap();
+    let root = Path::new(&manifest).ancestors().nth(3).expect("the Awra source tree").to_path_buf();
     let target_os = env::var("CARGO_CFG_TARGET_OS").unwrap();
     let target_env = env::var("CARGO_CFG_TARGET_ENV").unwrap_or_default();
 

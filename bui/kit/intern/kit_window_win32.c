@@ -1001,12 +1001,11 @@ static LRESULT CALLBACK wndproc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
     case WM_NCACTIVATE:
       if (borderless) {
         report_state(win);
-        if (!wp && win->blur_on && backdrop_mode() == 2) {
-          /* Keep the Acrylic treatment while the real input focus changes. */
-          DefWindowProcW(hwnd, msg, TRUE, 0);
-          return TRUE;
-        }
-        return DefWindowProcW(hwnd, msg, wp, -1); /* no frame repaint */
+        /* DWM paints the system backdrop of an inactive window flat: a
+         * blurred window stays active to DWM; the activation itself (and
+         * BK_WSTATE_ACTIVE, from the foreground window) still changes */
+        const BOOL keep_backdrop = !wp && win->blur_on && backdrop_mode() == 2;
+        return DefWindowProcW(hwnd, msg, wp || keep_backdrop, -1); /* no frame repaint */
       }
       break;
     case WM_ACTIVATE:
@@ -1336,10 +1335,13 @@ BKWindow *BK_window_new_ex(BKContext *ctx, const char *title, int width, int hei
   }
   BK_set_scale(win->scale);
   /* borderless: the native frame's styles stay (snap, the minimize and
-   * maximize animations, Win+arrows); WM_NCCALCSIZE takes the frame away */
-  const DWORD frame = (flags & BK_WINDOW_UNDECORATED) ?
-                          WS_OVERLAPPEDWINDOW & ~(WS_CAPTION | WS_SYSMENU) : WS_OVERLAPPEDWINDOW;
-  const DWORD style = frame | WS_CLIPCHILDREN;
+   * maximize animations, Win+arrows); WM_NCCALCSIZE takes the frame away.
+   * Over a sheet of glass (transparent, below) DWM would still draw the
+   * caption buttons, so those windows give up WS_CAPTION and its animations */
+  const int glass = (flags & BK_WINDOW_UNDECORATED) && (flags & BK_WINDOW_TRANSPARENT);
+  const DWORD style = (glass ? WS_OVERLAPPEDWINDOW & ~(WS_CAPTION | WS_SYSMENU) :
+                               WS_OVERLAPPEDWINDOW) |
+                      WS_CLIPCHILDREN;
   RECT r = {0, 0, (LONG)(width * win->scale), (LONG)(height * win->scale)};
   if (!(flags & BK_WINDOW_UNDECORATED)) {
     AdjustWindowRect(&r, WS_OVERLAPPEDWINDOW, FALSE);
