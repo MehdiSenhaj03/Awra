@@ -78,7 +78,8 @@ impl Widget {
     /// The pointer's place in the widget, when it's over it.
     pub fn pointer_position(&self) -> Option<(f64, f64)> {
         let (mut x, mut y) = (0.0, 0.0);
-        unsafe { ffi::awra_widget_pointer_position(self.as_ptr(), &mut x, &mut y) }.then_some((x, y))
+        unsafe { ffi::awra_widget_pointer_position(self.as_ptr(), &mut x, &mut y) }
+            .then_some((x, y))
     }
     /// GObject data (gtk-rs's unsafe set_data / data).
     ///
@@ -95,7 +96,11 @@ impl Widget {
     }
     /// A property's change (gtk-rs connect_notify_local); the names Awra
     /// reports: "at-bottom", "child-revealed", "has-focus", "cursor-position"…
-    pub fn connect_notify_local<F: Fn(&Widget, &str) + 'static>(&self, name: Option<&str>, f: F) -> SignalHandlerId {
+    pub fn connect_notify_local<F: Fn(&Widget, &str) + 'static>(
+        &self,
+        name: Option<&str>,
+        f: F,
+    ) -> SignalHandlerId {
         let name = name.map(str::to_owned);
         self.connect_raw(sig::NOTIFY, move |w, a| {
             let n = a.text().unwrap_or_default();
@@ -203,11 +208,17 @@ impl Adjustment {
     fn get(&self) -> (f64, f64, f64) {
         if self.vertical {
             let (mut v, mut u, mut p) = (0.0, 0.0, 0.0);
-            unsafe { ffi::awra_scrolled_get_vadjustment(self.scrolled.as_ptr(), &mut v, &mut u, &mut p) };
+            unsafe {
+                ffi::awra_scrolled_get_vadjustment(self.scrolled.as_ptr(), &mut v, &mut u, &mut p)
+            };
             (v, u, p)
         } else {
             let v = unsafe { ffi::awra_scrolled_hvalue(self.scrolled.as_ptr()) };
-            (v, v + self.scrolled.width() as f64, self.scrolled.width() as f64)
+            (
+                v,
+                v + self.scrolled.width() as f64,
+                self.scrolled.width() as f64,
+            )
         }
     }
     pub fn value(&self) -> f64 {
@@ -233,7 +244,8 @@ impl Adjustment {
     }
     pub fn connect_value_changed<F: Fn(&Adjustment) + 'static>(&self, f: F) -> SignalHandlerId {
         let me = self.clone();
-        self.scrolled.connect_raw(sig::VALUE_CHANGED, move |_, _| f(&me))
+        self.scrolled
+            .connect_raw(sig::VALUE_CHANGED, move |_, _| f(&me))
     }
     /// The page (the scrolled window's size) changed.
     pub fn connect_page_size_notify<F: Fn(&Adjustment) + 'static>(&self, f: F) -> SignalHandlerId {
@@ -254,10 +266,16 @@ impl Adjustment {
 
 impl crate::ScrolledWindow {
     pub fn vadjustment(&self) -> Adjustment {
-        Adjustment { scrolled: self.upcast(), vertical: true }
+        Adjustment {
+            scrolled: self.upcast(),
+            vertical: true,
+        }
     }
     pub fn hadjustment(&self) -> Adjustment {
-        Adjustment { scrolled: self.upcast(), vertical: false }
+        Adjustment {
+            scrolled: self.upcast(),
+            vertical: false,
+        }
     }
     pub fn set_min_content_width(&self, w: i32) {
         unsafe { ffi::awra_scrolled_set_min_content_width(self.as_ptr(), w.max(0)) }
@@ -266,7 +284,10 @@ impl crate::ScrolledWindow {
         unsafe { ffi::awra_scrolled_set_max_content_width(self.as_ptr(), w.max(0)) }
     }
     /// An end reached by scrolling (GtkScrolledWindow::edge-reached).
-    pub fn connect_edge_reached<F: Fn(&crate::ScrolledWindow, PositionType) + 'static>(&self, f: F) -> SignalHandlerId {
+    pub fn connect_edge_reached<F: Fn(&crate::ScrolledWindow, PositionType) + 'static>(
+        &self,
+        f: F,
+    ) -> SignalHandlerId {
         let weak = self.downgrade();
         let at = Rc::new(Cell::new((false, false)));
         self.connect_raw(sig::VALUE_CHANGED, move |_, _| {
@@ -290,8 +311,15 @@ impl crate::ScrolledWindow {
 impl Widget {
     /// The adjustment of a scrolled window or what's inside one.
     pub fn vadjustment(&self) -> Option<Adjustment> {
-        let s = if self.is::<crate::ScrolledWindow>() { Some(self.clone()) } else { self.ancestor(crate::ScrolledWindow::static_type()) };
-        s.map(|scrolled| Adjustment { scrolled, vertical: true })
+        let s = if self.is::<crate::ScrolledWindow>() {
+            Some(self.clone())
+        } else {
+            self.ancestor(crate::ScrolledWindow::static_type())
+        };
+        s.map(|scrolled| Adjustment {
+            scrolled,
+            vertical: true,
+        })
     }
 }
 
@@ -342,7 +370,10 @@ impl std::ops::BitOr for DragAction {
 pub struct FileList(pub Vec<std::path::PathBuf>);
 impl FileList {
     pub fn files(&self) -> Vec<crate::gio::File> {
-        self.0.iter().map(|p| crate::gio::File::for_path(p)).collect()
+        self.0
+            .iter()
+            .map(|p| crate::gio::File::for_path(p))
+            .collect()
     }
 }
 
@@ -368,10 +399,14 @@ impl DropTarget {
     /// takes files; any other type, the application's own drags.
     pub fn new<T: 'static, A>(_t: T, _a: A) -> DropTarget {
         let t = DropTarget::default();
-        t.0.files.set(std::any::TypeId::of::<T>() == std::any::TypeId::of::<FileTypeMarker>());
+        t.0.files
+            .set(std::any::TypeId::of::<T>() == std::any::TypeId::of::<FileTypeMarker>());
         t
     }
-    pub fn connect_drop<F: Fn(&DropTarget, &crate::Value, f64, f64) -> bool + 'static>(&self, f: F) {
+    pub fn connect_drop<F: Fn(&DropTarget, &crate::Value, f64, f64) -> bool + 'static>(
+        &self,
+        f: F,
+    ) {
         self.0.drop.borrow_mut().push(Rc::new(f));
     }
     /// A file drag over the widget, or gone.
@@ -429,7 +464,12 @@ impl crate::widget::Controller for DropTarget {
         let me = self.clone();
         widget.connect_raw(sig::FILES_DROPPED, move |_, a| {
             let files = FileList(
-                a.text().unwrap_or_default().lines().filter(|l| !l.is_empty()).map(std::path::PathBuf::from).collect(),
+                a.text()
+                    .unwrap_or_default()
+                    .lines()
+                    .filter(|l| !l.is_empty())
+                    .map(std::path::PathBuf::from)
+                    .collect(),
             );
             me.drop_value(&crate::Value::new(files), a.x(), a.y());
         });
@@ -463,8 +503,27 @@ impl File {
         let path = self.0.to_string_lossy();
         for b in path.as_bytes() {
             match *b {
-                b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'.' | b'_' | b'~' | b'/' | b'!' | b'$' | b'&'
-                | b'\'' | b'(' | b')' | b'*' | b'+' | b',' | b';' | b'=' | b':' | b'@' => out.push(*b as char),
+                b'A'..=b'Z'
+                | b'a'..=b'z'
+                | b'0'..=b'9'
+                | b'-'
+                | b'.'
+                | b'_'
+                | b'~'
+                | b'/'
+                | b'!'
+                | b'$'
+                | b'&'
+                | b'\''
+                | b'('
+                | b')'
+                | b'*'
+                | b'+'
+                | b','
+                | b';'
+                | b'='
+                | b':'
+                | b'@' => out.push(*b as char),
                 other => out.push_str(&format!("%{other:02X}")),
             }
         }
@@ -487,7 +546,10 @@ impl Cancellable {
 /// gio::AppInfo: opening URIs with the desktop's handler.
 pub struct AppInfo;
 impl AppInfo {
-    pub fn launch_default_for_uri(uri: &str, _ctx: Option<&AppLaunchContext>) -> Result<(), String> {
+    pub fn launch_default_for_uri(
+        uri: &str,
+        _ctx: Option<&AppLaunchContext>,
+    ) -> Result<(), String> {
         if crate::show_uri(uri) {
             Ok(())
         } else {
@@ -568,7 +630,12 @@ unsafe extern "C" fn position_free(data: *mut c_void) {
 
 impl crate::Overlay {
     /// Places overlay children itself (GtkOverlay::get-child-position).
-    pub fn connect_get_child_position<F: Fn(&crate::Overlay, &Widget) -> Option<crate::Rectangle> + 'static>(&self, f: F) {
+    pub fn connect_get_child_position<
+        F: Fn(&crate::Overlay, &Widget) -> Option<crate::Rectangle> + 'static,
+    >(
+        &self,
+        f: F,
+    ) {
         let data: Box<PositionFn> = Box::new(Box::new(f));
         unsafe {
             ffi::awra_overlay_set_position_func(

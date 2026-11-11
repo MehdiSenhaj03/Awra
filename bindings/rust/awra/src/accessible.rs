@@ -73,7 +73,11 @@ a11y_enum!(
 
 impl From<bool> for AccessibleTristate {
     fn from(v: bool) -> Self {
-        if v { AccessibleTristate::True } else { AccessibleTristate::False }
+        if v {
+            AccessibleTristate::True
+        } else {
+            AccessibleTristate::False
+        }
     }
 }
 
@@ -155,26 +159,71 @@ pub enum Relation<'a> {
 #[repr(i32)]
 #[non_exhaustive]
 pub enum PropertyKind {
-    Autocomplete = 0, Description, HasPopup, KeyShortcuts, Label, Level, Modal, MultiLine,
-    MultiSelectable, Orientation, Placeholder, ReadOnly, Required, RoleDescription, Sort,
-    ValueMax, ValueMin, ValueNow, ValueText, HelpText,
+    Autocomplete = 0,
+    Description,
+    HasPopup,
+    KeyShortcuts,
+    Label,
+    Level,
+    Modal,
+    MultiLine,
+    MultiSelectable,
+    Orientation,
+    Placeholder,
+    ReadOnly,
+    Required,
+    RoleDescription,
+    Sort,
+    ValueMax,
+    ValueMin,
+    ValueNow,
+    ValueText,
+    HelpText,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(i32)]
 #[non_exhaustive]
 pub enum StateKind {
-    Busy = 0, Checked, Disabled, Expanded, Hidden, Invalid, Pressed, Selected, Visited,
+    Busy = 0,
+    Checked,
+    Disabled,
+    Expanded,
+    Hidden,
+    Invalid,
+    Pressed,
+    Selected,
+    Visited,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(i32)]
 #[non_exhaustive]
 pub enum RelationKind {
-    ActiveDescendant = 0, ColCount, ColIndex, ColIndexText, ColSpan, Controls, DescribedBy,
-    Details, ErrorMessage, FlowTo, LabelledBy, Owns, PosInSet, RowCount, RowIndex,
-    RowIndexText, RowSpan, SetSize, LabelFor, DescriptionFor, ControlledBy, DetailsFor,
-    ErrorMessageFor, FlowFrom,
+    ActiveDescendant = 0,
+    ColCount,
+    ColIndex,
+    ColIndexText,
+    ColSpan,
+    Controls,
+    DescribedBy,
+    Details,
+    ErrorMessage,
+    FlowTo,
+    LabelledBy,
+    Owns,
+    PosInSet,
+    RowCount,
+    RowIndex,
+    RowIndexText,
+    RowSpan,
+    SetSize,
+    LabelFor,
+    DescriptionFor,
+    ControlledBy,
+    DetailsFor,
+    ErrorMessageFor,
+    FlowFrom,
 }
 
 fn set_str(w: &Widget, p: PropertyKind, v: &str) {
@@ -188,7 +237,9 @@ fn set_num(w: &Widget, p: PropertyKind, v: f64) {
 
 fn set_refs(w: &Widget, r: RelationKind, targets: &[&Widget]) {
     let mut v: Vec<*mut ffi::AwraWidget> = targets.iter().map(|t| t.as_ptr()).collect();
-    unsafe { ffi::awra_accessible_update_relation(w.as_ptr(), r as i32, v.as_mut_ptr(), v.len() as i32) }
+    unsafe {
+        ffi::awra_accessible_update_relation(w.as_ptr(), r as i32, v.as_mut_ptr(), v.len() as i32)
+    }
 }
 
 impl Widget {
@@ -231,7 +282,8 @@ impl Widget {
     pub fn update_state(&self, states: &[State]) {
         use State as S;
         use StateKind as K;
-        let set = |k: K, v: i32| unsafe { ffi::awra_accessible_update_state(self.as_ptr(), k as i32, v) };
+        let set =
+            |k: K, v: i32| unsafe { ffi::awra_accessible_update_state(self.as_ptr(), k as i32, v) };
         let reset = |k: K| unsafe { ffi::awra_accessible_reset_state(self.as_ptr(), k as i32) };
         for s in states {
             match *s {
@@ -259,10 +311,14 @@ impl Widget {
     pub fn update_relation(&self, relations: &[Relation]) {
         use Relation as R;
         use RelationKind as K;
-        let num = |k: K, v: i32| unsafe { ffi::awra_accessible_update_relation_number(self.as_ptr(), k as i32, v) };
+        let num = |k: K, v: i32| unsafe {
+            ffi::awra_accessible_update_relation_number(self.as_ptr(), k as i32, v)
+        };
         let text = |k: K, s: &str| {
             let c = cstring(s);
-            unsafe { ffi::awra_accessible_update_relation_string(self.as_ptr(), k as i32, c.as_ptr()) }
+            unsafe {
+                ffi::awra_accessible_update_relation_string(self.as_ptr(), k as i32, c.as_ptr())
+            }
         };
         for r in relations {
             match *r {

@@ -27,7 +27,9 @@ pub struct UriLauncher {
 
 impl UriLauncher {
     pub fn new(uri: &str) -> UriLauncher {
-        UriLauncher { uri: Some(uri.to_string()) }
+        UriLauncher {
+            uri: Some(uri.to_string()),
+        }
     }
     pub fn uri(&self) -> Option<String> {
         self.uri.clone()
@@ -57,7 +59,9 @@ pub struct FileLauncher {
 
 impl FileLauncher {
     pub fn new(file: Option<&File>) -> FileLauncher {
-        FileLauncher { file: file.cloned() }
+        FileLauncher {
+            file: file.cloned(),
+        }
     }
     pub fn file(&self) -> Option<File> {
         self.file.clone()
@@ -85,7 +89,11 @@ impl FileLauncher {
         _cancellable: Option<&Cancellable>,
         done: F,
     ) {
-        let folder = self.file.as_ref().and_then(File::path).and_then(|p| p.parent().map(File::for_path));
+        let folder = self
+            .file
+            .as_ref()
+            .and_then(File::path)
+            .and_then(|p| p.parent().map(File::for_path));
         match folder {
             Some(folder) => answer(folder.uri(), done),
             None => refuse("No folder to open", done),

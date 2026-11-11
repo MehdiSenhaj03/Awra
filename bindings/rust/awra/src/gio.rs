@@ -6,7 +6,7 @@ use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
 use std::rc::{Rc, Weak};
 
-use crate::object::{IntoOptStr, Widget, WeakRef};
+use crate::object::{IntoOptStr, WeakRef, Widget};
 
 /// Action parameters: strings only (all Awra applications need).
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Default)]
@@ -98,7 +98,11 @@ impl SimpleAction {
         }))
     }
     /// An action with a state (a menu's check mark: "true" / "false").
-    pub fn new_stateful(name: &str, parameter_type: Option<&VariantTy>, state: &Variant) -> SimpleAction {
+    pub fn new_stateful(
+        name: &str,
+        parameter_type: Option<&VariantTy>,
+        state: &Variant,
+    ) -> SimpleAction {
         let a = SimpleAction::new(name, parameter_type);
         *a.0.state.borrow_mut() = Some(state.clone());
         a
@@ -153,7 +157,9 @@ pub(crate) fn add_action(window: &Widget, action: &SimpleAction) {
     let fresh = MAPS.with(|m| {
         let mut m = m.borrow_mut();
         let fresh = !m.contains_key(&key);
-        m.entry(key).or_default().insert(action.name(), action.clone());
+        m.entry(key)
+            .or_default()
+            .insert(action.name(), action.clone());
         fresh
     });
     if fresh {
@@ -176,7 +182,11 @@ pub(crate) fn remove_action(window: &Widget, name: &str) {
 }
 
 pub(crate) fn lookup_action(window: &Widget, name: &str) -> Option<SimpleAction> {
-    MAPS.with(|m| m.borrow().get(&(window.as_ptr() as usize)).and_then(|map| map.get(name).cloned()))
+    MAPS.with(|m| {
+        m.borrow()
+            .get(&(window.as_ptr() as usize))
+            .and_then(|map| map.get(name).cloned())
+    })
 }
 
 /// Activates "win.name" (or "name") for the window of `widget`.
@@ -185,7 +195,10 @@ pub fn activate_action(widget: &Widget, detailed: &str, target: Option<&Variant>
         a.activate(target);
         return true;
     }
-    let name = detailed.strip_prefix("win.").or_else(|| detailed.strip_prefix("app.")).unwrap_or(detailed);
+    let name = detailed
+        .strip_prefix("win.")
+        .or_else(|| detailed.strip_prefix("app."))
+        .unwrap_or(detailed);
     let window = widget.root_widget().unwrap_or_else(|| widget.clone());
     let action = lookup_action(&window, name).or_else(|| {
         // app.* or a window-less widget: any window's action of that name
@@ -208,7 +221,9 @@ pub(crate) fn bind_widget(widget: &Widget, detailed: &str) {
         b.push((widget.downgrade(), name.clone()));
     });
     let enabled = MAPS.with(|m| {
-        m.borrow().values().find_map(|map| map.get(&name).map(|a| a.is_enabled()))
+        m.borrow()
+            .values()
+            .find_map(|map| map.get(&name).map(|a| a.is_enabled()))
     });
     if let Some(enabled) = enabled {
         widget.set_sensitive(enabled);
@@ -219,7 +234,10 @@ fn sync_bound_widgets(name: &str, enabled: bool) {
     let widgets: Vec<Widget> = BOUND.with(|b| {
         let mut b = b.borrow_mut();
         b.retain(|(w, _)| w.upgrade().is_some());
-        b.iter().filter(|(_, n)| n == name).filter_map(|(w, _)| w.upgrade()).collect()
+        b.iter()
+            .filter(|(_, n)| n == name)
+            .filter_map(|(w, _)| w.upgrade())
+            .collect()
     });
     for w in widgets {
         w.set_sensitive(enabled);
@@ -231,10 +249,11 @@ fn sync_bound_widgets(name: &str, enabled: bool) {
 
 /// GThemedIcon and GIO's content types: in icontheme.rs.
 pub use crate::icontheme::{
-    content_type_can_be_executable, content_type_equals, content_type_for_file, content_type_from_mime_type,
-    content_type_get_description, content_type_get_generic_icon_name, content_type_get_icon,
-    content_type_get_mime_type, content_type_get_symbolic_icon, content_type_guess, content_type_is_a,
-    content_type_is_mime_type, content_type_is_unknown, ThemedIcon,
+    content_type_can_be_executable, content_type_equals, content_type_for_file,
+    content_type_from_mime_type, content_type_get_description, content_type_get_generic_icon_name,
+    content_type_get_icon, content_type_get_mime_type, content_type_get_symbolic_icon,
+    content_type_guess, content_type_is_a, content_type_is_mime_type, content_type_is_unknown,
+    ThemedIcon,
 };
 
 /// One entry of a menu.
@@ -340,7 +359,10 @@ impl Menu {
         self.append_item(&MenuItem::new(label, detailed_action));
     }
     pub fn append_item(&self, item: &MenuItem) {
-        self.0.entries.borrow_mut().push(MenuEntry::Item(item.clone()));
+        self.0
+            .entries
+            .borrow_mut()
+            .push(MenuEntry::Item(item.clone()));
         self.changed();
     }
     pub fn append_submenu(&self, label: Option<&str>, submenu: &Menu) {
@@ -349,21 +371,35 @@ impl Menu {
     pub fn insert_section(&self, position: i32, label: Option<&str>, section: &Menu) {
         section.0.parents.borrow_mut().push(Rc::downgrade(&self.0));
         let mut e = self.0.entries.borrow_mut();
-        let at = if position < 0 { e.len() } else { (position as usize).min(e.len()) };
-        e.insert(at, MenuEntry::Section(label.map(str::to_owned), section.clone()));
+        let at = if position < 0 {
+            e.len()
+        } else {
+            (position as usize).min(e.len())
+        };
+        e.insert(
+            at,
+            MenuEntry::Section(label.map(str::to_owned), section.clone()),
+        );
         drop(e);
         self.changed();
     }
     pub fn insert_item(&self, position: i32, item: &MenuItem) {
         let mut e = self.0.entries.borrow_mut();
-        let at = if position < 0 { e.len() } else { (position as usize).min(e.len()) };
+        let at = if position < 0 {
+            e.len()
+        } else {
+            (position as usize).min(e.len())
+        };
         e.insert(at, MenuEntry::Item(item.clone()));
         drop(e);
         self.changed();
     }
     pub fn append_section(&self, label: Option<&str>, section: &Menu) {
         section.0.parents.borrow_mut().push(Rc::downgrade(&self.0));
-        self.0.entries.borrow_mut().push(MenuEntry::Section(label.map(str::to_owned), section.clone()));
+        self.0.entries.borrow_mut().push(MenuEntry::Section(
+            label.map(str::to_owned),
+            section.clone(),
+        ));
         self.changed();
     }
     pub fn remove_all(&self) {
@@ -394,11 +430,21 @@ impl Menu {
 }
 
 fn notify(inner: &Rc<MenuInner>) {
-    let listeners: Vec<Rc<dyn Fn()>> = inner.listeners.borrow().iter().filter_map(|w| w.upgrade()).collect();
+    let listeners: Vec<Rc<dyn Fn()>> = inner
+        .listeners
+        .borrow()
+        .iter()
+        .filter_map(|w| w.upgrade())
+        .collect();
     for l in listeners {
         l();
     }
-    let parents: Vec<Rc<MenuInner>> = inner.parents.borrow().iter().filter_map(|w| w.upgrade()).collect();
+    let parents: Vec<Rc<MenuInner>> = inner
+        .parents
+        .borrow()
+        .iter()
+        .filter_map(|w| w.upgrade())
+        .collect();
     for p in parents {
         notify(&p);
     }
@@ -419,7 +465,12 @@ fn flatten_into(menu: &Menu, out: &mut Vec<FlatEntry>, depth: usize) {
     flatten_level(menu, out, depth, &mut section_name);
 }
 
-fn flatten_level(menu: &Menu, out: &mut Vec<FlatEntry>, depth: usize, section: &mut Option<String>) {
+fn flatten_level(
+    menu: &Menu,
+    out: &mut Vec<FlatEntry>,
+    depth: usize,
+    section: &mut Option<String>,
+) {
     for e in menu.entries() {
         match e {
             MenuEntry::Item(i) => {
@@ -503,14 +554,28 @@ impl Application {
         self.0.id.clone()
     }
     pub fn set_accels_for_action(&self, detailed: &str, accels: &[&str]) {
-        self.0.accels.borrow_mut().insert(detailed.to_owned(), accels.iter().map(|s| s.to_string()).collect());
-        let windows: Vec<Widget> = self.0.windows.borrow().iter().filter_map(|w| w.upgrade()).collect();
+        self.0.accels.borrow_mut().insert(
+            detailed.to_owned(),
+            accels.iter().map(|s| s.to_string()).collect(),
+        );
+        let windows: Vec<Widget> = self
+            .0
+            .windows
+            .borrow()
+            .iter()
+            .filter_map(|w| w.upgrade())
+            .collect();
         for w in windows {
             self.install(&w, detailed);
         }
     }
     pub fn accels_for_action(&self, detailed: &str) -> Vec<String> {
-        self.0.accels.borrow().get(detailed).cloned().unwrap_or_default()
+        self.0
+            .accels
+            .borrow()
+            .get(detailed)
+            .cloned()
+            .unwrap_or_default()
     }
     pub(crate) fn add_window(&self, window: &Widget) {
         self.0.windows.borrow_mut().push(window.downgrade());
@@ -520,7 +585,13 @@ impl Application {
         }
     }
     pub fn windows(&self) -> Vec<crate::Window> {
-        self.0.windows.borrow().iter().filter_map(|w| w.upgrade()).filter_map(|w| w.downcast().ok()).collect()
+        self.0
+            .windows
+            .borrow()
+            .iter()
+            .filter_map(|w| w.upgrade())
+            .filter_map(|w| w.downcast().ok())
+            .collect()
     }
     fn install(&self, window: &Widget, detailed: &str) {
         let key = (window.as_ptr() as usize, detailed.to_owned());
@@ -566,7 +637,10 @@ pub struct Notification {
 
 impl Notification {
     pub fn new(title: &str) -> Notification {
-        Notification { title: title.to_owned(), body: None }
+        Notification {
+            title: title.to_owned(),
+            body: None,
+        }
     }
     pub fn set_body(&mut self, body: Option<&str>) {
         self.body = body.map(str::to_owned);
@@ -580,12 +654,21 @@ impl Application {
         let app = crate::object::cstring(&self.0.id);
         let title = crate::object::cstring(&n.title);
         let body = crate::object::cstring(n.body.as_deref().unwrap_or(""));
-        unsafe { crate::ffi::awra_desktop_notify(app.as_ptr(), std::ptr::null(), title.as_ptr(), body.as_ptr()) }
+        unsafe {
+            crate::ffi::awra_desktop_notify(
+                app.as_ptr(),
+                std::ptr::null(),
+                title.as_ptr(),
+                body.as_ptr(),
+            )
+        }
     }
 }
 
 pub use crate::compat::{ListStore, SimpleActionGroup};
-pub use crate::compat2::{AppInfo, AppLaunchContext, ApplicationFlags, ApplicationHoldGuard, Cancellable, File};
+pub use crate::compat2::{
+    AppInfo, AppLaunchContext, ApplicationFlags, ApplicationHoldGuard, Cancellable, File,
+};
 
 /// The action a menu item names, from `widget`: its groups and ancestors',
 /// then the window's.
@@ -593,7 +676,11 @@ pub(crate) fn find_action(widget: &Widget, detailed: &str) -> Option<SimpleActio
     if let Some(a) = crate::compat::lookup_group_action(widget, detailed) {
         return Some(a);
     }
-    let name = detailed.strip_prefix("win.").or_else(|| detailed.strip_prefix("app.")).unwrap_or(detailed);
+    let name = detailed
+        .strip_prefix("win.")
+        .or_else(|| detailed.strip_prefix("app."))
+        .unwrap_or(detailed);
     let window = widget.root_widget().unwrap_or_else(|| widget.clone());
-    lookup_action(&window, name).or_else(|| MAPS.with(|m| m.borrow().values().find_map(|map| map.get(name).cloned())))
+    lookup_action(&window, name)
+        .or_else(|| MAPS.with(|m| m.borrow().values().find_map(|map| map.get(name).cloned())))
 }

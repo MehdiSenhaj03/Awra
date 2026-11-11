@@ -20,7 +20,12 @@ impl MetricRow {
     }
     pub fn set_icon_name(&self, name: Option<&str>) {
         let n = name.map(cstring);
-        unsafe { ffi::awra_metric_row_set_icon_name(self.widget_ptr(), n.as_ref().map_or(std::ptr::null(), |n| n.as_ptr())) }
+        unsafe {
+            ffi::awra_metric_row_set_icon_name(
+                self.widget_ptr(),
+                n.as_ref().map_or(std::ptr::null(), |n| n.as_ptr()),
+            )
+        }
     }
     pub(crate) fn from_row(w: Widget) -> MetricRow {
         MetricRow(w)

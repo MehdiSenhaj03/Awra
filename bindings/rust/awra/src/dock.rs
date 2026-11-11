@@ -46,8 +46,16 @@ pub enum DockNode {
     Panel(String),
     /// Two children side by side (`vertical`: one above the other); the
     /// first takes `fraction` of the room.
-    Split { vertical: bool, fraction: f64, a: Box<DockNode>, b: Box<DockNode> },
-    Tabs { panels: Vec<String>, active: usize },
+    Split {
+        vertical: bool,
+        fraction: f64,
+        a: Box<DockNode>,
+        b: Box<DockNode>,
+    },
+    Tabs {
+        panels: Vec<String>,
+        active: usize,
+    },
 }
 
 impl DockNode {
@@ -71,8 +79,18 @@ impl DockNode {
         match self {
             DockNode::Panel(p) if p == id => None,
             DockNode::Panel(p) => Some(DockNode::Panel(p)),
-            DockNode::Split { vertical, fraction, a, b } => match (a.without(id), b.without(id)) {
-                (Some(a), Some(b)) => Some(DockNode::Split { vertical, fraction, a: Box::new(a), b: Box::new(b) }),
+            DockNode::Split {
+                vertical,
+                fraction,
+                a,
+                b,
+            } => match (a.without(id), b.without(id)) {
+                (Some(a), Some(b)) => Some(DockNode::Split {
+                    vertical,
+                    fraction,
+                    a: Box::new(a),
+                    b: Box::new(b),
+                }),
                 (Some(x), None) | (None, Some(x)) => Some(x),
                 (None, None) => None,
             },
@@ -81,7 +99,10 @@ impl DockNode {
                 match panels.len() {
                     0 => None,
                     1 => Some(DockNode::Panel(panels.remove(0))),
-                    n => Some(DockNode::Tabs { panels, active: active.min(n - 1) }),
+                    n => Some(DockNode::Tabs {
+                        panels,
+                        active: active.min(n - 1),
+                    }),
                 }
             }
         }
@@ -91,8 +112,19 @@ impl DockNode {
     pub fn to_text(&self) -> String {
         match self {
             DockNode::Panel(p) => p.clone(),
-            DockNode::Split { vertical, fraction, a, b } => {
-                format!("{}({:.3},{},{})", if *vertical { 'v' } else { 'h' }, fraction, a.to_text(), b.to_text())
+            DockNode::Split {
+                vertical,
+                fraction,
+                a,
+                b,
+            } => {
+                format!(
+                    "{}({:.3},{},{})",
+                    if *vertical { 'v' } else { 'h' },
+                    fraction,
+                    a.to_text(),
+                    b.to_text()
+                )
             }
             DockNode::Tabs { panels, active } => format!("t({},{})", active, panels.join(",")),
         }
@@ -151,7 +183,10 @@ impl DockNode {
     fn largest(&self) -> Option<(String, f64)> {
         match self {
             DockNode::Panel(p) => Some((p.clone(), 1.0)),
-            DockNode::Tabs { panels, active } => panels.get(*active).or(panels.first()).map(|p| (p.clone(), 1.0)),
+            DockNode::Tabs { panels, active } => panels
+                .get(*active)
+                .or(panels.first())
+                .map(|p| (p.clone(), 1.0)),
             DockNode::Split { fraction, a, b, .. } => {
                 let x = a.largest().map(|(p, s)| (p, s * fraction));
                 let y = b.largest().map(|(p, s)| (p, s * (1.0 - fraction)));
@@ -165,15 +200,24 @@ impl DockNode {
 
     fn add_tab_beside(self, target: &str, id: &str) -> DockNode {
         match self {
-            DockNode::Panel(p) if p == target => {
-                DockNode::Tabs { panels: vec![p, id.to_string()], active: 1 }
-            }
+            DockNode::Panel(p) if p == target => DockNode::Tabs {
+                panels: vec![p, id.to_string()],
+                active: 1,
+            },
             DockNode::Tabs { mut panels, .. } if panels.iter().any(|p| p == target) => {
                 panels.push(id.to_string());
                 let n = panels.len();
-                DockNode::Tabs { panels, active: n - 1 }
+                DockNode::Tabs {
+                    panels,
+                    active: n - 1,
+                }
             }
-            DockNode::Split { vertical, fraction, a, b } => DockNode::Split {
+            DockNode::Split {
+                vertical,
+                fraction,
+                a,
+                b,
+            } => DockNode::Split {
                 vertical,
                 fraction,
                 a: Box::new(a.add_tab_beside(target, id)),
@@ -214,12 +258,22 @@ fn parse_node(s: &str) -> Option<(DockNode, &str)> {
                 "t" => {
                     let active: usize = num.parse().ok()?;
                     let close = rest.find(')')?;
-                    let panels: Vec<String> = rest[..close].split(',').filter(|p| !p.is_empty()).map(String::from).collect();
+                    let panels: Vec<String> = rest[..close]
+                        .split(',')
+                        .filter(|p| !p.is_empty())
+                        .map(String::from)
+                        .collect();
                     if panels.is_empty() {
                         return None;
                     }
                     let n = panels.len();
-                    Some((DockNode::Tabs { panels, active: active.min(n - 1) }, &rest[close + 1..]))
+                    Some((
+                        DockNode::Tabs {
+                            panels,
+                            active: active.min(n - 1),
+                        },
+                        &rest[close + 1..],
+                    ))
                 }
                 _ => None,
             }
@@ -253,7 +307,9 @@ const SHRINK_H: i32 = 80;
 fn shrinkable(child: &impl IsWidget) -> crate::Layout {
     let l = crate::Layout::new(
         |l, o, for_size| {
-            let Some(c) = l.first_child() else { return (0, 0) };
+            let Some(c) = l.first_child() else {
+                return (0, 0);
+            };
             match o {
                 Orientation::Horizontal => {
                     let (mn, nt, _, _) = c.measure(o, for_size);
@@ -261,7 +317,11 @@ fn shrinkable(child: &impl IsWidget) -> crate::Layout {
                 }
                 Orientation::Vertical => {
                     let (min_w, _, _, _) = c.measure(Orientation::Horizontal, -1);
-                    let w = if for_size < 0 { -1 } else { for_size.max(min_w) };
+                    let w = if for_size < 0 {
+                        -1
+                    } else {
+                        for_size.max(min_w)
+                    };
                     let (mn, nt, _, _) = c.measure(o, w);
                     (mn.min(SHRINK_H), nt)
                 }
@@ -330,7 +390,12 @@ impl Dock {
         Dock {
             root,
             bin,
-            state: Rc::new(RefCell::new(State { tree: None, panels: Vec::new(), editing: false, changed: Vec::new() })),
+            state: Rc::new(RefCell::new(State {
+                tree: None,
+                panels: Vec::new(),
+                editing: false,
+                changed: Vec::new(),
+            })),
         }
     }
 
@@ -350,12 +415,36 @@ impl Dock {
         title_l.set_xalign(0.0);
         bar.append(&title_l);
         let actions: [(&str, &str, Box<dyn Fn(&Dock, &str)>); 6] = [
-            ("pan-start-symbolic", "À gauche", Box::new(|d, id| d.move_panel(id, DockArea::Left))),
-            ("pan-down-symbolic", "En bas", Box::new(|d, id| d.move_panel(id, DockArea::Bottom))),
-            ("pan-end-symbolic", "À droite", Box::new(|d, id| d.move_panel(id, DockArea::Right))),
-            ("zoom-in-symbolic", "Agrandir", Box::new(|d, id| d.resize_panel(id, 1.25))),
-            ("zoom-out-symbolic", "Réduire", Box::new(|d, id| d.resize_panel(id, 0.8))),
-            ("window-close-symbolic", "Masquer", Box::new(|d, id| d.hide(id))),
+            (
+                "pan-start-symbolic",
+                "À gauche",
+                Box::new(|d, id| d.move_panel(id, DockArea::Left)),
+            ),
+            (
+                "pan-down-symbolic",
+                "En bas",
+                Box::new(|d, id| d.move_panel(id, DockArea::Bottom)),
+            ),
+            (
+                "pan-end-symbolic",
+                "À droite",
+                Box::new(|d, id| d.move_panel(id, DockArea::Right)),
+            ),
+            (
+                "zoom-in-symbolic",
+                "Agrandir",
+                Box::new(|d, id| d.resize_panel(id, 1.25)),
+            ),
+            (
+                "zoom-out-symbolic",
+                "Réduire",
+                Box::new(|d, id| d.resize_panel(id, 0.8)),
+            ),
+            (
+                "window-close-symbolic",
+                "Masquer",
+                Box::new(|d, id| d.hide(id)),
+            ),
         ];
         for (icon, tip, f) in actions {
             let b = icon_button(icon, tip);
@@ -365,7 +454,11 @@ impl Dock {
             let pid = id.to_string();
             b.connect_clicked(move |_| {
                 if let Some(state) = weak.upgrade() {
-                    let d = Dock { root: root.clone(), bin: bin.clone(), state };
+                    let d = Dock {
+                        root: root.clone(),
+                        bin: bin.clone(),
+                        state,
+                    };
                     f(&d, &pid);
                 }
             });
@@ -377,15 +470,31 @@ impl Dock {
         content.set_vexpand(true);
         frame.append(&content);
         let outer = shrinkable(&frame);
-        self.state.borrow_mut().panels.push(Panel { id: id.to_string(), title: title.to_string(), content, outer, bar });
+        self.state.borrow_mut().panels.push(Panel {
+            id: id.to_string(),
+            title: title.to_string(),
+            content,
+            outer,
+            bar,
+        });
     }
 
     pub fn panel_ids(&self) -> Vec<(String, String)> {
-        self.state.borrow().panels.iter().map(|p| (p.id.clone(), p.title.clone())).collect()
+        self.state
+            .borrow()
+            .panels
+            .iter()
+            .map(|p| (p.id.clone(), p.title.clone()))
+            .collect()
     }
 
     pub fn panel_widget(&self, id: &str) -> Option<Widget> {
-        self.state.borrow().panels.iter().find(|p| p.id == id).map(|p| p.content.clone())
+        self.state
+            .borrow()
+            .panels
+            .iter()
+            .find(|p| p.id == id)
+            .map(|p| p.content.clone())
     }
 
     pub fn layout(&self) -> Option<DockNode> {
@@ -393,7 +502,11 @@ impl Dock {
     }
 
     pub fn is_shown(&self, id: &str) -> bool {
-        self.state.borrow().tree.as_ref().is_some_and(|t| t.contains(id))
+        self.state
+            .borrow()
+            .tree
+            .as_ref()
+            .is_some_and(|t| t.contains(id))
     }
 
     /// Calls `f` after every change of the layout (to save it).
@@ -410,7 +523,13 @@ impl Dock {
 
     /// Replaces the layout (unknown panels are dropped).
     pub fn set_layout(&self, tree: DockNode) {
-        let known: Vec<String> = self.state.borrow().panels.iter().map(|p| p.id.clone()).collect();
+        let known: Vec<String> = self
+            .state
+            .borrow()
+            .panels
+            .iter()
+            .map(|p| p.id.clone())
+            .collect();
         let mut t = Some(tree);
         for id in t.as_ref().map(|t| t.panels()).unwrap_or_default() {
             if !known.contains(&id) {
@@ -441,15 +560,40 @@ impl Dock {
         if !self.state.borrow().panels.iter().any(|p| p.id == id) {
             return;
         }
-        let rest = self.state.borrow_mut().tree.take().and_then(|t| t.without(id));
+        let rest = self
+            .state
+            .borrow_mut()
+            .tree
+            .take()
+            .and_then(|t| t.without(id));
         let p = DockNode::Panel(id.to_string());
         let tree = match rest {
             None => p,
             Some(rest) => match area {
-                DockArea::Left => DockNode::Split { vertical: false, fraction: 0.28, a: Box::new(p), b: Box::new(rest) },
-                DockArea::Right => DockNode::Split { vertical: false, fraction: 0.72, a: Box::new(rest), b: Box::new(p) },
-                DockArea::Top => DockNode::Split { vertical: true, fraction: 0.3, a: Box::new(p), b: Box::new(rest) },
-                DockArea::Bottom => DockNode::Split { vertical: true, fraction: 0.68, a: Box::new(rest), b: Box::new(p) },
+                DockArea::Left => DockNode::Split {
+                    vertical: false,
+                    fraction: 0.28,
+                    a: Box::new(p),
+                    b: Box::new(rest),
+                },
+                DockArea::Right => DockNode::Split {
+                    vertical: false,
+                    fraction: 0.72,
+                    a: Box::new(rest),
+                    b: Box::new(p),
+                },
+                DockArea::Top => DockNode::Split {
+                    vertical: true,
+                    fraction: 0.3,
+                    a: Box::new(p),
+                    b: Box::new(rest),
+                },
+                DockArea::Bottom => DockNode::Split {
+                    vertical: true,
+                    fraction: 0.68,
+                    a: Box::new(rest),
+                    b: Box::new(p),
+                },
                 DockArea::Center => match rest.largest() {
                     Some((target, _)) => rest.add_tab_beside(&target, id),
                     None => p,
@@ -463,7 +607,12 @@ impl Dock {
 
     /// Grows (factor > 1) or shrinks a panel's share.
     pub fn resize_panel(&self, id: &str, factor: f64) {
-        let changed = self.state.borrow_mut().tree.as_mut().is_some_and(|t| t.resize(id, factor));
+        let changed = self
+            .state
+            .borrow_mut()
+            .tree
+            .as_mut()
+            .is_some_and(|t| t.resize(id, factor));
         if changed {
             self.rebuild();
             self.emit_changed();
@@ -505,7 +654,9 @@ impl Dock {
             self.root.remove(&c);
         }
         let Some(tree) = s.tree.clone() else {
-            let empty = crate::Label::new(Some("Espace vide : affiche un panneau depuis le menu Interface."));
+            let empty = crate::Label::new(Some(
+                "Espace vide : affiche un panneau depuis le menu Interface.",
+            ));
             empty.add_css_class("dim-label");
             empty.set_vexpand(true);
             self.root.append(&empty);
@@ -525,8 +676,17 @@ impl Dock {
                 let p = s.panels.iter().find(|p| p.id == *id).expect("known panel");
                 p.outer.clone().upcast::<Widget>()
             }
-            DockNode::Split { vertical, fraction, a, b } => {
-                let paned = crate::Paned::new(if *vertical { Orientation::Vertical } else { Orientation::Horizontal });
+            DockNode::Split {
+                vertical,
+                fraction,
+                a,
+                b,
+            } => {
+                let paned = crate::Paned::new(if *vertical {
+                    Orientation::Vertical
+                } else {
+                    Orientation::Horizontal
+                });
                 path.push(false);
                 let wa = self.build(a, path);
                 path.pop();
@@ -545,7 +705,11 @@ impl Dock {
                         if let Some(t) = st.borrow_mut().tree.as_mut() {
                             t.set_fraction(&my_path, p.fraction());
                         }
-                        let d = Dock { root: root.clone(), bin: bin.clone(), state: st };
+                        let d = Dock {
+                            root: root.clone(),
+                            bin: bin.clone(),
+                            state: st,
+                        };
                         d.emit_changed();
                     }
                 });
@@ -559,7 +723,10 @@ impl Dock {
                 let stack = crate::Stack::new();
                 stack.set_vexpand(true);
                 stack.set_transition_type(crate::StackTransitionType::Crossfade);
-                stack.set_transition_duration(crate::motion_duration(&crate::StyleManager::default(), crate::MotionPreset::Fast));
+                stack.set_transition_duration(crate::motion_duration(
+                    &crate::StyleManager::default(),
+                    crate::MotionPreset::Fast,
+                ));
                 {
                     let s = self.state.borrow();
                     for id in panels {

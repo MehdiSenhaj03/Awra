@@ -29,9 +29,17 @@ fn main() {
     // a toolbar of symbolic icons
     let bar = awra::Box::new(awra::Orientation::Horizontal, 6);
     for name in [
-        "sidebar-show-symbolic", "go-previous-symbolic", "go-next-symbolic", "go-up-symbolic",
-        "view-more-symbolic", "edit-find-symbolic", "view-grid-symbolic", "open-menu-symbolic",
-        "window-minimize-symbolic", "window-maximize-symbolic", "window-close-symbolic",
+        "sidebar-show-symbolic",
+        "go-previous-symbolic",
+        "go-next-symbolic",
+        "go-up-symbolic",
+        "view-more-symbolic",
+        "edit-find-symbolic",
+        "view-grid-symbolic",
+        "open-menu-symbolic",
+        "window-minimize-symbolic",
+        "window-maximize-symbolic",
+        "window-close-symbolic",
     ] {
         bar.append(&awra::Button::from_icon_name(name));
     }
@@ -39,16 +47,34 @@ fn main() {
 
     // places
     let places = awra::Box::new(awra::Orientation::Horizontal, 14);
-    for name in ["user-home-symbolic", "folder-documents-symbolic", "folder-download-symbolic", "folder-pictures-symbolic",
-                 "folder-videos-symbolic", "user-trash-symbolic", "drive-harddisk-symbolic", "computer-symbolic"] {
+    for name in [
+        "user-home-symbolic",
+        "folder-documents-symbolic",
+        "folder-download-symbolic",
+        "folder-pictures-symbolic",
+        "folder-videos-symbolic",
+        "user-trash-symbolic",
+        "drive-harddisk-symbolic",
+        "computer-symbolic",
+    ] {
         places.append(&awra::Image::from_icon_name(name));
     }
     column.append(&places);
 
     // files: their type's icon
     let files = awra::Box::new(awra::Orientation::Horizontal, 10);
-    for file in ["Documents/", "rapport.pdf", "photo.png", "notes.md", "archive.zip", "film.mkv", "song.mp3",
-                 "script.sh", "data.bin", "page.html"] {
+    for file in [
+        "Documents/",
+        "rapport.pdf",
+        "photo.png",
+        "notes.md",
+        "archive.zip",
+        "film.mkv",
+        "song.mp3",
+        "script.sh",
+        "data.bin",
+        "page.html",
+    ] {
         let (ct, _) = if file.ends_with('/') {
             ("inode/directory".to_owned(), false)
         } else {
@@ -62,10 +88,19 @@ fn main() {
         let label = awra::Label::new(Some(file));
         cell.append(&label);
         files.append(&cell);
-        let p = theme.lookup_by_gicon(&icon, 48, 1, awra::TextDirection::Ltr, awra::IconLookupFlags::NONE);
+        let p = theme.lookup_by_gicon(
+            &icon,
+            48,
+            1,
+            awra::TextDirection::Ltr,
+            awra::IconLookupFlags::NONE,
+        );
         println!(
             "{file:12} {ct:28} -> {} ({})",
-            p.file().and_then(|f| f.path()).map(|p| p.display().to_string()).unwrap_or_else(|| "built in".into()),
+            p.file()
+                .and_then(|f| f.path())
+                .map(|p| p.display().to_string())
+                .unwrap_or_else(|| "built in".into()),
             awra::gio::content_type_get_description(&ct)
         );
     }

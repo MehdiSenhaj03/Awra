@@ -15,82 +15,89 @@
 
 pub use awra_sys as ffi;
 
-pub mod object;
 pub mod accessible;
+mod collection;
 mod compat;
 mod compat2;
 mod compat3;
 mod content;
-mod signal;
 mod enums;
+pub mod object;
+mod signal;
+mod tilegrid;
 mod widget;
 mod widgets;
-mod collection;
-mod tilegrid;
 pub use tilegrid::TileGrid;
-mod window;
-mod video;
-mod texture_data;
 mod files;
+mod texture_data;
+mod video;
+mod window;
 pub use files::{DragPreview, TransitionBin};
-mod dnd;
-mod transfer;
-mod metric;
 mod accel;
+mod dnd;
+mod metric;
+mod transfer;
 mod transitions;
-pub use transitions::widget_finish_transitions;
 pub use accel::accelerator_get_label;
 pub use metric::MetricRow;
+pub use transitions::widget_finish_transitions;
+pub mod dock;
 mod gtk_look;
 mod launcher;
-pub mod dock;
-pub mod meter;
 pub mod menu;
+pub mod meter;
 pub use dock::{Dock, DockArea, DockNode};
-pub use meter::LevelMeter;
 pub use launcher::{FileLauncher, UriLauncher};
+pub use meter::LevelMeter;
 mod icontheme;
-pub use icontheme::{IconLookupFlags, IconPaintable, IconTheme, IconThemeDisplay, IconThemeHandlerId};
+pub use icontheme::{
+    IconLookupFlags, IconPaintable, IconTheme, IconThemeDisplay, IconThemeHandlerId,
+};
 pub mod gdk;
 pub mod gio;
 pub mod glib;
 pub mod pango;
 
 use std::boxed::Box as StdBox;
+use std::cell::RefCell;
 use std::ffi::c_void;
 use std::path::PathBuf;
-use std::cell::RefCell;
 use std::rc::Rc;
 
-pub use enums::*;
 pub use accessible::{
     AccessibleAnnouncementPriority, AccessibleAutocomplete, AccessibleInvalidState, AccessibleRole,
     AccessibleSort, AccessibleTristate,
 };
-pub use gio::Application;
-pub use object::{IntoOptStr, IntoOptWidget, IsWidget, StaticType, WeakRef, Widget};
-pub use signal::{raw_args as signal_args, sig, Args, SignalHandlerId};
-pub use widget::*;
-pub use widgets::*;
-pub use video::*;
-pub use texture_data::*;
 pub use collection::*;
 pub use compat::*;
 pub use compat2::*;
 pub use compat3::*;
-pub use pango::WrapMode;
 pub use content::*;
-pub use transfer::{drag_out_data, drag_out_files, widget_snapshot, ContentFormats, ContentType, TextureType, WidgetPaintable};
+pub use enums::*;
+pub use gio::Application;
+pub use object::{IntoOptStr, IntoOptWidget, IsWidget, StaticType, WeakRef, Widget};
+pub use pango::WrapMode;
+pub use signal::{raw_args as signal_args, sig, Args, SignalHandlerId};
+pub use texture_data::*;
+pub use transfer::{
+    drag_out_data, drag_out_files, widget_snapshot, ContentFormats, ContentType, TextureType,
+    WidgetPaintable,
+};
+pub use video::*;
+pub use widget::*;
+pub use widgets::*;
 pub use window::{accel_label, ApplicationWindow, Window};
 
 pub mod prelude {
     //! Traits for method syntax (gtk-rs's prelude).
+    pub use crate::compat2::{StaticTypeExt, WidgetExt};
+    pub use crate::compat3::{
+        GtkWindowExt, IsPaintable, StringObjectDowncast, ToValue, TooltipExt, WidgetExt3,
+    };
+    pub use crate::content::EmojiItemExt;
     pub use crate::gio::ToVariant;
     pub use crate::object::{IsWidget, StaticType};
     pub use crate::widget::{Cast, Controller};
-    pub use crate::content::EmojiItemExt;
-    pub use crate::compat2::{StaticTypeExt, WidgetExt};
-    pub use crate::compat3::{GtkWindowExt, IsPaintable, StringObjectDowncast, ToValue, TooltipExt, WidgetExt3};
 
     /// gtk-rs `and_downcast`: an optional widget as a `T`.
     pub trait OptionDowncast {
@@ -218,7 +225,12 @@ impl StyleManager {
     }
     pub fn color(&self, name: &str) -> Option<gdk::RGBA> {
         let n = object::cstring(name);
-        let mut c = ffi::AwraRGBA { r: 0.0, g: 0.0, b: 0.0, a: 0.0 };
+        let mut c = ffi::AwraRGBA {
+            r: 0.0,
+            g: 0.0,
+            b: 0.0,
+            a: 0.0,
+        };
         unsafe { ffi::awra_style_color(n.as_ptr(), &mut c) }.then(|| gdk::RGBA::from_ffi(c))
     }
     /// Calls `f` after every style change.
@@ -230,7 +242,10 @@ impl StyleManager {
         }
         let data: StdBox<ChangedFn> = StdBox::new(StdBox::new(f));
         // lives as long as the process (style listeners are few)
-        unsafe { ffi::awra_style_connect_changed(Some(tramp), StdBox::into_raw(data) as *mut c_void) as u64 }
+        unsafe {
+            ffi::awra_style_connect_changed(Some(tramp), StdBox::into_raw(data) as *mut c_void)
+                as u64
+        }
     }
 }
 
@@ -276,7 +291,12 @@ pub fn connect_keyboard_layout_changed<F: Fn() + 'static>(f: F) {
         f()
     }
     let data: StdBox<LayoutFn> = StdBox::new(StdBox::new(f));
-    unsafe { ffi::awra_keyboard_connect_layout_changed(Some(tramp), StdBox::into_raw(data) as *mut c_void) }
+    unsafe {
+        ffi::awra_keyboard_connect_layout_changed(
+            Some(tramp),
+            StdBox::into_raw(data) as *mut c_void,
+        )
+    }
 }
 
 pub fn key_code_label(code: &str) -> Option<String> {
@@ -321,7 +341,12 @@ impl std::fmt::Display for DialogError {
 type FileDone = StdBox<dyn FnOnce(Option<Vec<PathBuf>>)>;
 unsafe extern "C" fn file_done(paths: *const std::ffi::c_char, data: *mut c_void) {
     let f = StdBox::from_raw(data as *mut FileDone);
-    let r = object::from_cstr_opt(paths).map(|s| s.lines().filter(|l| !l.is_empty()).map(PathBuf::from).collect());
+    let r = object::from_cstr_opt(paths).map(|s| {
+        s.lines()
+            .filter(|l| !l.is_empty())
+            .map(PathBuf::from)
+            .collect()
+    });
     f(r)
 }
 
@@ -337,7 +362,9 @@ struct DialogData {
 pub struct FileDialog(Rc<RefCell<DialogData>>);
 
 fn picked(r: Option<Vec<PathBuf>>) -> Result<gio::File, DialogError> {
-    r.and_then(|v| v.into_iter().next()).map(gio::File::for_path).ok_or_else(|| DialogError("dismissed".into()))
+    r.and_then(|v| v.into_iter().next())
+        .map(gio::File::for_path)
+        .ok_or_else(|| DialogError("dismissed".into()))
 }
 
 impl FileDialog {
@@ -376,7 +403,10 @@ impl FileDialog {
             let n = keep.last().unwrap().as_ptr();
             keep.push(object::cstring(&f.1.join(";")));
             let p = keep.last().unwrap().as_ptr();
-            out.push(ffi::AwraFileFilter { name: n, patterns: p });
+            out.push(ffi::AwraFileFilter {
+                name: n,
+                patterns: p,
+            });
         }
         (keep, out)
     }
@@ -417,7 +447,10 @@ impl FileDialog {
             true,
             false,
             StdBox::new(move |r: Option<Vec<PathBuf>>| {
-                done(r.map(|v| v.into_iter().map(gio::File::for_path).collect()).ok_or_else(|| DialogError("dismissed".into())))
+                done(
+                    r.map(|v| v.into_iter().map(gio::File::for_path).collect())
+                        .ok_or_else(|| DialogError("dismissed".into())),
+                )
             }),
         )
     }
@@ -440,7 +473,8 @@ impl FileDialog {
         let name = d.initial_name.as_deref().map(object::cstring);
         drop(d);
         let (_keep, filters) = self.c_filters();
-        let data: StdBox<FileDone> = StdBox::new(StdBox::new(move |r: Option<Vec<PathBuf>>| done(picked(r))));
+        let data: StdBox<FileDone> =
+            StdBox::new(StdBox::new(move |r: Option<Vec<PathBuf>>| done(picked(r))));
         unsafe {
             ffi::awra_file_dialog_save(
                 parent.map_or(std::ptr::null_mut(), |p| p.as_ptr()),

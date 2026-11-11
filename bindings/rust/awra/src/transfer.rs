@@ -47,7 +47,13 @@ impl ContentType for TextureType {
     fn matches(&self, mime: &str) -> bool {
         matches!(
             mime,
-            "image/png" | "image/jpeg" | "image/webp" | "image/gif" | "image/svg+xml" | "image/bmp" | "image/x-bmp"
+            "image/png"
+                | "image/jpeg"
+                | "image/webp"
+                | "image/gif"
+                | "image/svg+xml"
+                | "image/bmp"
+                | "image/x-bmp"
         )
     }
 }
@@ -59,7 +65,10 @@ impl ContentType for crate::FileTypeMarker {
 impl ContentType for crate::Type {
     /// `glib::Type::STRING`: plain text.
     fn matches(&self, mime: &str) -> bool {
-        matches!(mime, "text/plain;charset=utf-8" | "text/plain" | "UTF8_STRING" | "STRING" | "TEXT")
+        matches!(
+            mime,
+            "text/plain;charset=utf-8" | "text/plain" | "UTF8_STRING" | "STRING" | "TEXT"
+        )
     }
 }
 impl ContentType for &str {
@@ -105,7 +114,10 @@ unsafe fn take_bytes(p: *mut c_void, len: usize) -> Option<Vec<u8>> {
 }
 
 fn path_cstrings(paths: &[impl AsRef<Path>]) -> (Vec<std::ffi::CString>, Vec<*const c_char>) {
-    let owned: Vec<std::ffi::CString> = paths.iter().map(|p| cstring(&p.as_ref().to_string_lossy())).collect();
+    let owned: Vec<std::ffi::CString> = paths
+        .iter()
+        .map(|p| cstring(&p.as_ref().to_string_lossy()))
+        .collect();
     let ptrs = owned.iter().map(|c| c.as_ptr()).collect();
     (owned, ptrs)
 }
@@ -117,7 +129,10 @@ impl crate::Clipboard {
     /// The MIME types on the clipboard now.
     pub fn formats(&self) -> ContentFormats {
         let s = unsafe { take_string(ffi::awra_clipboard_formats(self.0.as_ptr())) };
-        ContentFormats(s.map(|s| s.lines().map(str::to_owned).collect()).unwrap_or_default())
+        ContentFormats(
+            s.map(|s| s.lines().map(str::to_owned).collect())
+                .unwrap_or_default(),
+        )
     }
     /// An image (as PNG; Windows also CF_DIB).
     pub fn set_texture(&self, texture: &crate::Texture) {
@@ -133,7 +148,10 @@ impl crate::Clipboard {
     pub fn set_data(&self, items: &[(&str, &[u8])]) -> bool {
         let mimes: Vec<std::ffi::CString> = items.iter().map(|(m, _)| cstring(m)).collect();
         let mptr: Vec<*const c_char> = mimes.iter().map(|c| c.as_ptr()).collect();
-        let data: Vec<*const c_void> = items.iter().map(|(_, d)| d.as_ptr() as *const c_void).collect();
+        let data: Vec<*const c_void> = items
+            .iter()
+            .map(|(_, d)| d.as_ptr() as *const c_void)
+            .collect();
         let lens: Vec<usize> = items.iter().map(|(_, d)| d.len()).collect();
         unsafe {
             ffi::awra_clipboard_set_data(
@@ -181,7 +199,12 @@ impl crate::Clipboard {
     /// The clipboard's local files.
     pub fn files(&self) -> Vec<PathBuf> {
         unsafe { take_string(ffi::awra_clipboard_get_files(self.0.as_ptr())) }
-            .map(|s| s.lines().filter(|l| !l.is_empty()).map(PathBuf::from).collect())
+            .map(|s| {
+                s.lines()
+                    .filter(|l| !l.is_empty())
+                    .map(PathBuf::from)
+                    .collect()
+            })
             .unwrap_or_default()
     }
     /// Resolves at once (the clipboard is read synchronously).
@@ -204,9 +227,14 @@ impl crate::Clipboard {
             return Ok(crate::Value::new(crate::FileList(files)));
         }
         if any.is::<TextureType>() {
-            return self.texture().map(crate::Value::new).ok_or_else(|| Error::new("no image on the clipboard"));
+            return self
+                .texture()
+                .map(crate::Value::new)
+                .ok_or_else(|| Error::new("no image on the clipboard"));
         }
-        self.text().map(crate::Value::new).ok_or_else(|| Error::new("no text on the clipboard"))
+        self.text()
+            .map(crate::Value::new)
+            .ok_or_else(|| Error::new("no text on the clipboard"))
     }
 }
 
@@ -224,13 +252,21 @@ impl crate::Texture {
         if unsafe { ffi::awra_texture_save_png(self.as_ptr(), p.as_ptr()) } {
             Ok(())
         } else {
-            Err(Error::new(format!("could not write {}", path.as_ref().display())))
+            Err(Error::new(format!(
+                "could not write {}",
+                path.as_ref().display()
+            )))
         }
     }
     /// The texture as PNG bytes.
     pub fn save_to_png_bytes(&self) -> crate::glib::Bytes {
         let mut len = 0usize;
-        let bytes = unsafe { take_bytes(ffi::awra_texture_save_png_bytes(self.as_ptr(), &mut len), len) };
+        let bytes = unsafe {
+            take_bytes(
+                ffi::awra_texture_save_png_bytes(self.as_ptr(), &mut len),
+                len,
+            )
+        };
         crate::glib::Bytes::from(bytes.unwrap_or_default())
     }
     /// A label of `text`, as GtkDragSource shows text it drags.
@@ -256,7 +292,9 @@ impl WidgetPaintable {
         self.0 = widget.map(|w| w.upcast_ref().clone());
     }
     pub fn current_image(&self) -> crate::Paintable {
-        let t = self.0.as_ref().and_then(|w| unsafe { crate::Texture::from_raw(ffi::awra_widget_snapshot(w.as_ptr())) });
+        let t = self.0.as_ref().and_then(|w| unsafe {
+            crate::Texture::from_raw(ffi::awra_widget_snapshot(w.as_ptr()))
+        });
         crate::Paintable::new(t)
     }
 }
@@ -286,7 +324,11 @@ impl crate::Window {
 
 type DoneBox = Box<dyn FnOnce(crate::DragAction)>;
 
-unsafe extern "C" fn drag_out_done(_w: *mut ffi::AwraWidget, a: *const ffi::AwraArgs, data: *mut c_void) {
+unsafe extern "C" fn drag_out_done(
+    _w: *mut ffi::AwraWidget,
+    a: *const ffi::AwraArgs,
+    data: *mut c_void,
+) {
     let f: Box<DoneBox> = Box::from_raw(data as *mut DoneBox);
     let action = match (*a).index {
         1 => crate::DragAction::COPY,
@@ -358,7 +400,10 @@ pub fn drag_out_data(
 ) -> bool {
     let mimes: Vec<std::ffi::CString> = items.iter().map(|(m, _)| cstring(m)).collect();
     let mptr: Vec<*const c_char> = mimes.iter().map(|c| c.as_ptr()).collect();
-    let dptr: Vec<*const c_void> = items.iter().map(|(_, d)| d.as_ptr() as *const c_void).collect();
+    let dptr: Vec<*const c_void> = items
+        .iter()
+        .map(|(_, d)| d.as_ptr() as *const c_void)
+        .collect();
     let lens: Vec<usize> = items.iter().map(|(_, d)| d.len()).collect();
     let data = Box::into_raw(Box::new(Box::new(done) as DoneBox)) as *mut c_void;
     let ok = unsafe {
@@ -398,7 +443,11 @@ impl crate::Window {
         }
     }
     pub fn icon_name(&self) -> Option<String> {
-        unsafe { crate::object::from_cstr_opt(ffi::awra_window_icon_name(IsWidget::upcast_ref::<Widget>(self).as_ptr())) }
+        unsafe {
+            crate::object::from_cstr_opt(ffi::awra_window_icon_name(
+                IsWidget::upcast_ref::<Widget>(self).as_ptr(),
+            ))
+        }
     }
     /// The icon of windows that set none (gtk_window_set_default_icon_name).
     pub fn set_default_icon_name(name: &str) {
@@ -410,6 +459,11 @@ impl crate::Window {
     /// with it now.
     pub fn set_startup_id(&self, id: &str) {
         let i = cstring(id);
-        unsafe { ffi::awra_window_set_startup_id(IsWidget::upcast_ref::<Widget>(self).as_ptr(), i.as_ptr()) }
+        unsafe {
+            ffi::awra_window_set_startup_id(
+                IsWidget::upcast_ref::<Widget>(self).as_ptr(),
+                i.as_ptr(),
+            )
+        }
     }
 }

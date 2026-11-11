@@ -52,7 +52,10 @@ fn keyval_char(name: &str) -> Option<char> {
     if let (Some(c), None) = (chars.next(), chars.clone().next()) {
         return Some(c);
     }
-    tables::LATIN1.iter().find(|(k, _)| *k == name).and_then(|(_, v)| char::from_u32(*v))
+    tables::LATIN1
+        .iter()
+        .find(|(k, _)| *k == name)
+        .and_then(|(_, v)| char::from_u32(*v))
 }
 
 /// Parses GTK's accelerator syntax: modifiers and the key's name.
@@ -60,7 +63,9 @@ fn parse(accel: &str) -> (u32, &str) {
     let mut mods = 0;
     let mut rest = accel;
     while let Some(start) = rest.strip_prefix('<') {
-        let Some((m, r)) = start.split_once('>') else { break };
+        let Some((m, r)) = start.split_once('>') else {
+            break;
+        };
         mods |= match m.to_ascii_lowercase().as_str() {
             "primary" | "control" | "ctrl" | "ctl" => CONTROL,
             "shift" | "shft" => SHIFT,
@@ -80,9 +85,14 @@ pub fn accelerator_get_label(accel: &str) -> String {
     let (mods, key) = parse(accel);
     let mut out = String::new();
     let mut seen = false;
-    for (bit, name) in
-        [(SHIFT, "Shift"), (CONTROL, "Ctrl"), (ALT, "Alt"), (SUPER, "Super"), (HYPER, "Hyper"), (META, "Meta")]
-    {
+    for (bit, name) in [
+        (SHIFT, "Shift"),
+        (CONTROL, "Ctrl"),
+        (ALT, "Alt"),
+        (SUPER, "Super"),
+        (HYPER, "Hyper"),
+        (META, "Meta"),
+    ] {
         if mods & bit != 0 {
             if seen {
                 out.push('+');
@@ -96,10 +106,14 @@ pub fn accelerator_get_label(accel: &str) -> String {
     }
     // the keypad's characters: "KP_1" is the digit, after "KP "
     let (kp, base) = match key.strip_prefix("KP_") {
-        Some(k) if k.chars().count() == 1 || k == "Space" => (true, if k == "Space" { "space" } else { k }),
+        Some(k) if k.chars().count() == 1 || k == "Space" => {
+            (true, if k == "Space" { "space" } else { k })
+        }
         _ => (false, key),
     };
-    if let Some(ch) = keyval_char(base).filter(|c| *c == ' ' || !(c.is_whitespace() || c.is_control())) {
+    if let Some(ch) =
+        keyval_char(base).filter(|c| *c == ' ' || !(c.is_whitespace() || c.is_control()))
+    {
         if seen {
             out.push('+');
         }
@@ -120,7 +134,10 @@ pub fn accelerator_get_label(accel: &str) -> String {
     match tr(key) {
         Some(t) => out.push_str(t),
         None => {
-            let k = key.strip_prefix("XF86").or_else(|| key.strip_prefix("ISO_")).unwrap_or(key);
+            let k = key
+                .strip_prefix("XF86")
+                .or_else(|| key.strip_prefix("ISO_"))
+                .unwrap_or(key);
             out.push_str(&k.replace('_', " "));
         }
     }

@@ -31,7 +31,10 @@ fn main() {
     // an icon button: its tooltip names it, an explicit label wins
     delete.set_tooltip_text(Some("Remove"));
     assert_eq!(delete.accessible_name(), "Remove");
-    delete.update_property(&[Property::Label("Delete"), Property::Description("Deletes the file")]);
+    delete.update_property(&[
+        Property::Label("Delete"),
+        Property::Description("Deletes the file"),
+    ]);
     assert_eq!(delete.accessible_name(), "Delete");
     assert_eq!(delete.accessible_description(), "Deletes the file");
 

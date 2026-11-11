@@ -7,15 +7,29 @@ fn main() {
     // bindings/rust/awra-sys -> the Awra root. Not canonicalize(): on Windows
     // it gives a \\?\ path, which CMake's globs do not read (no sources).
     let manifest = env::var("CARGO_MANIFEST_DIR").unwrap();
-    let root = Path::new(&manifest).ancestors().nth(3).expect("the Awra source tree").to_path_buf();
+    let root = Path::new(&manifest)
+        .ancestors()
+        .nth(3)
+        .expect("the Awra source tree")
+        .to_path_buf();
     let target_os = env::var("CARGO_CFG_TARGET_OS").unwrap();
     let target_env = env::var("CARGO_CFG_TARGET_ENV").unwrap_or_default();
 
     println!("cargo:rerun-if-env-changed=AWRA_LIB_DIR");
-    for dir in ["src", "include", "bui/kit", "bui/gpu", "bui/core", "bui/types"] {
+    for dir in [
+        "src",
+        "include",
+        "bui/kit",
+        "bui/gpu",
+        "bui/core",
+        "bui/types",
+    ] {
         println!("cargo:rerun-if-changed={}", root.join(dir).display());
     }
-    println!("cargo:rerun-if-changed={}", root.join("CMakeLists.txt").display());
+    println!(
+        "cargo:rerun-if-changed={}",
+        root.join("CMakeLists.txt").display()
+    );
 
     println!("cargo:rerun-if-env-changed=CMAKE");
     if target_env == "msvc" && env::var_os("CMAKE").is_none() {
@@ -65,8 +79,8 @@ fn main() {
         }
         "windows" => {
             for lib in [
-                "user32", "gdi32", "dwmapi", "uxtheme", "shell32", "ole32", "uuid", "comdlg32", "imm32",
-                "shcore", "advapi32", "winmm",
+                "user32", "gdi32", "dwmapi", "uxtheme", "shell32", "ole32", "uuid", "comdlg32",
+                "imm32", "shcore", "advapi32", "winmm",
             ] {
                 println!("cargo:rustc-link-lib=dylib={lib}");
             }
@@ -75,7 +89,10 @@ fn main() {
                 let cxx = env::var("CXX_x86_64_pc_windows_gnu")
                     .or_else(|_| env::var("CXX"))
                     .unwrap_or_else(|_| "x86_64-w64-mingw32-g++".into());
-                if let Ok(out) = std::process::Command::new(&cxx).arg("-print-file-name=libstdc++.a").output() {
+                if let Ok(out) = std::process::Command::new(&cxx)
+                    .arg("-print-file-name=libstdc++.a")
+                    .output()
+                {
                     let p = PathBuf::from(String::from_utf8_lossy(&out.stdout).trim());
                     if let Some(dir) = p.parent().filter(|d| d.is_absolute()) {
                         println!("cargo:rustc-link-search=native={}", dir.display());
@@ -91,7 +108,10 @@ fn main() {
 /// The newest Visual Studio's own cmake.exe (vswhere knows where it is).
 fn visual_studio_cmake() -> Option<PathBuf> {
     let base = env::var_os("ProgramFiles(x86)").map(PathBuf::from)?;
-    let vswhere = base.join("Microsoft Visual Studio").join("Installer").join("vswhere.exe");
+    let vswhere = base
+        .join("Microsoft Visual Studio")
+        .join("Installer")
+        .join("vswhere.exe");
     let out = std::process::Command::new(vswhere)
         .args(["-latest", "-products", "*", "-property", "installationPath"])
         .output()

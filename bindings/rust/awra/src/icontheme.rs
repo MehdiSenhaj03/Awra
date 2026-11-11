@@ -27,7 +27,13 @@ unsafe fn take(p: *mut c_char) -> Option<String> {
 }
 
 fn lines(s: Option<String>) -> Vec<String> {
-    s.map(|s| s.split('\n').filter(|l| !l.is_empty()).map(str::to_owned).collect()).unwrap_or_default()
+    s.map(|s| {
+        s.split('\n')
+            .filter(|l| !l.is_empty())
+            .map(str::to_owned)
+            .collect()
+    })
+    .unwrap_or_default()
 }
 
 // ---------------------------------------------------------------------------
@@ -45,7 +51,14 @@ impl ThemedIcon {
     }
     /// `g_themed_icon_new_from_names`.
     pub fn from_names(names: &[&str]) -> ThemedIcon {
-        ThemedIcon(names.iter().map(|n| n.replace('\n', "")).filter(|n| !n.is_empty()).collect::<Vec<_>>().join("\n"))
+        ThemedIcon(
+            names
+                .iter()
+                .map(|n| n.replace('\n', ""))
+                .filter(|n| !n.is_empty())
+                .collect::<Vec<_>>()
+                .join("\n"),
+        )
     }
     /// `g_themed_icon_new_with_default_fallbacks`: "a-b-c" also tries
     /// "a-b" and "a".
@@ -63,7 +76,13 @@ impl ThemedIcon {
     pub fn names(&self) -> Vec<String> {
         let owned: Vec<_> = self.0.split('\n').map(cstring).collect();
         let ptrs: Vec<*const c_char> = owned.iter().map(|c| c.as_ptr()).collect();
-        lines(unsafe { take(ffi::awra_themed_icon_names(ptrs.as_ptr(), ptrs.len() as i32, false)) })
+        lines(unsafe {
+            take(ffi::awra_themed_icon_names(
+                ptrs.as_ptr(),
+                ptrs.len() as i32,
+                false,
+            ))
+        })
     }
     /// `g_themed_icon_append_name`.
     pub fn append_name(&mut self, name: &str) {
@@ -100,7 +119,11 @@ impl crate::Image {
         let owned: Vec<_> = icon.0.split('\n').map(cstring).collect();
         let ptrs: Vec<*const c_char> = owned.iter().map(|c| c.as_ptr()).collect();
         unsafe {
-            ffi::awra_image_set_from_icon_names(AsRef::<crate::Widget>::as_ref(self).as_ptr(), ptrs.as_ptr(), ptrs.len() as i32);
+            ffi::awra_image_set_from_icon_names(
+                AsRef::<crate::Widget>::as_ref(self).as_ptr(),
+                ptrs.as_ptr(),
+                ptrs.len() as i32,
+            );
         }
     }
 }
@@ -161,13 +184,21 @@ impl IconTheme {
     /// A theme other than the desktop's; `None`: the desktop's again.
     pub fn set_theme_name(&self, name: Option<&str>) {
         let n = name.map(cstring);
-        unsafe { ffi::awra_icon_theme_set_theme_name(n.as_ref().map_or(std::ptr::null(), |c| c.as_ptr())) }
+        unsafe {
+            ffi::awra_icon_theme_set_theme_name(n.as_ref().map_or(std::ptr::null(), |c| c.as_ptr()))
+        }
     }
     pub fn search_path(&self) -> Vec<PathBuf> {
-        lines(unsafe { take(ffi::awra_icon_theme_get_search_path()) }).into_iter().map(PathBuf::from).collect()
+        lines(unsafe { take(ffi::awra_icon_theme_get_search_path()) })
+            .into_iter()
+            .map(PathBuf::from)
+            .collect()
     }
     pub fn set_search_path(&self, path: &[impl AsRef<Path>]) {
-        let owned: Vec<_> = path.iter().map(|p| cstring(&p.as_ref().to_string_lossy())).collect();
+        let owned: Vec<_> = path
+            .iter()
+            .map(|p| cstring(&p.as_ref().to_string_lossy()))
+            .collect();
         let ptrs: Vec<*const c_char> = owned.iter().map(|c| c.as_ptr()).collect();
         unsafe { ffi::awra_icon_theme_set_search_path(ptrs.as_ptr(), ptrs.len() as i32) }
     }
@@ -201,7 +232,14 @@ impl IconTheme {
         let mut ptrs: Vec<*const c_char> = owned.iter().map(|c| c.as_ptr()).collect();
         ptrs.push(std::ptr::null());
         let p = unsafe {
-            ffi::awra_icon_theme_lookup_icon(n.as_ptr(), ptrs.as_ptr(), size.max(1), scale.max(1), direction as i32, flags.0)
+            ffi::awra_icon_theme_lookup_icon(
+                n.as_ptr(),
+                ptrs.as_ptr(),
+                size.max(1),
+                scale.max(1),
+                direction as i32,
+                flags.0,
+            )
         };
         IconPaintable(NonNull::new(p).expect("icon lookup out of memory"))
     }
@@ -217,7 +255,14 @@ impl IconTheme {
         let owned: Vec<_> = icon.0.split('\n').map(cstring).collect();
         let ptrs: Vec<*const c_char> = owned.iter().map(|c| c.as_ptr()).collect();
         let p = unsafe {
-            ffi::awra_icon_theme_lookup_names(ptrs.as_ptr(), ptrs.len() as i32, size.max(1), scale.max(1), direction as i32, flags.0)
+            ffi::awra_icon_theme_lookup_names(
+                ptrs.as_ptr(),
+                ptrs.len() as i32,
+                size.max(1),
+                scale.max(1),
+                direction as i32,
+                flags.0,
+            )
         };
         IconPaintable(NonNull::new(p).expect("icon lookup out of memory"))
     }
@@ -261,19 +306,24 @@ impl IconPaintable {
     pub fn for_file(file: &crate::gio::File, size: i32, scale: i32) -> Option<IconPaintable> {
         let path = file.path()?;
         let p = cstring(&path.to_string_lossy());
-        NonNull::new(unsafe { ffi::awra_icon_paintable_new_for_file(p.as_ptr(), size.max(1), scale.max(1)) })
-            .map(IconPaintable)
+        NonNull::new(unsafe {
+            ffi::awra_icon_paintable_new_for_file(p.as_ptr(), size.max(1), scale.max(1))
+        })
+        .map(IconPaintable)
     }
     /// The file shown; `None` for an icon built into Awra (GTK's resource
     /// icons) or one the application registered.
     pub fn file(&self) -> Option<crate::gio::File> {
         let p = unsafe { ffi::awra_icon_paintable_get_file(self.0.as_ptr()) };
-        (!p.is_null()).then(|| crate::gio::File::for_path(unsafe { CStr::from_ptr(p) }.to_string_lossy().as_ref()))
+        (!p.is_null()).then(|| {
+            crate::gio::File::for_path(unsafe { CStr::from_ptr(p) }.to_string_lossy().as_ref())
+        })
     }
     /// The name chosen (image-missing when nothing matched).
     pub fn icon_name(&self) -> Option<PathBuf> {
         let p = unsafe { ffi::awra_icon_paintable_get_icon_name(self.0.as_ptr()) };
-        (!p.is_null()).then(|| PathBuf::from(unsafe { CStr::from_ptr(p) }.to_string_lossy().into_owned()))
+        (!p.is_null())
+            .then(|| PathBuf::from(unsafe { CStr::from_ptr(p) }.to_string_lossy().into_owned()))
     }
     /// Whether it is tinted with the text colour (a symbolic file).
     pub fn is_symbolic(&self) -> bool {
@@ -288,11 +338,17 @@ impl IconPaintable {
     /// Drawn at size x scale pixels, a symbolic icon in `color` (`None`:
     /// the text colour) and GTK's success / warning / error colours.
     pub fn render(&self, color: Option<&crate::gdk::RGBA>) -> Option<crate::Texture> {
-        let c = color.map(|c| ffi::AwraRGBA { r: c.red(), g: c.green(), b: c.blue(), a: c.alpha() });
+        let c = color.map(|c| ffi::AwraRGBA {
+            r: c.red(),
+            g: c.green(),
+            b: c.blue(),
+            a: c.alpha(),
+        });
         unsafe {
             crate::Texture::from_raw(ffi::awra_icon_paintable_render(
                 self.0.as_ptr(),
-                c.as_ref().map_or(std::ptr::null(), |c| c as *const ffi::AwraRGBA),
+                c.as_ref()
+                    .map_or(std::ptr::null(), |c| c as *const ffi::AwraRGBA),
             ))
         }
     }
@@ -327,12 +383,19 @@ pub fn content_type_guess(filename: Option<impl AsRef<Path>>, data: &[u8]) -> (S
     let t = unsafe {
         take(ffi::awra_content_type_guess(
             f.as_ref().map_or(std::ptr::null(), |c| c.as_ptr()),
-            if data.is_empty() { std::ptr::null() } else { data.as_ptr() as *const c_void },
+            if data.is_empty() {
+                std::ptr::null()
+            } else {
+                data.as_ptr() as *const c_void
+            },
             data.len(),
             &mut uncertain,
         ))
     };
-    (t.unwrap_or_else(|| "application/octet-stream".to_owned()), uncertain)
+    (
+        t.unwrap_or_else(|| "application/octet-stream".to_owned()),
+        uncertain,
+    )
 }
 
 /// The content type GIO gives a file on disk (`standard::content-type`, or

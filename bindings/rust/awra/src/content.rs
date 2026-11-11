@@ -70,7 +70,9 @@ impl Avatar {
     }
     pub fn set_custom_image(&self, image: Option<&impl crate::IsPaintable>) {
         let image = image.map(|p| p.to_paintable());
-        show_paintable(self, image.as_ref(), |w, t| unsafe { ffi::awra_avatar_set_texture(w.as_ptr(), tex_ptr(t)) })
+        show_paintable(self, image.as_ref(), |w, t| unsafe {
+            ffi::awra_avatar_set_texture(w.as_ptr(), tex_ptr(t))
+        })
     }
     pub fn custom_image(&self) -> Option<Paintable> {
         widget_paintable(self)
@@ -147,7 +149,9 @@ impl Chip {
     pub fn set_paintable(&self, p: Option<&impl crate::IsPaintable>) {
         let p = p.map(|p| p.to_paintable());
         let p = p.as_ref();
-        show_paintable(self, p, |w, t| unsafe { ffi::awra_chip_set_texture(w.as_ptr(), tex_ptr(t)) })
+        show_paintable(self, p, |w, t| unsafe {
+            ffi::awra_chip_set_texture(w.as_ptr(), tex_ptr(t))
+        })
     }
     pub fn paintable(&self) -> Option<Paintable> {
         widget_paintable(self)
@@ -171,10 +175,12 @@ impl Chip {
         unsafe { ffi::awra_chip_set_appearance(ptr!(self), a as i32) }
     }
     pub fn connect_activate<F: Fn(&Chip) + 'static>(&self, f: F) -> SignalHandlerId {
-        self.0.connect_typed::<Chip, _>(sig::CLICKED, move |w, _| f(w))
+        self.0
+            .connect_typed::<Chip, _>(sig::CLICKED, move |w, _| f(w))
     }
     pub fn connect_toggled<F: Fn(&Chip) + 'static>(&self, f: F) -> SignalHandlerId {
-        self.0.connect_typed::<Chip, _>(sig::TOGGLED, move |w, _| f(w))
+        self.0
+            .connect_typed::<Chip, _>(sig::TOGGLED, move |w, _| f(w))
     }
 }
 
@@ -277,7 +283,10 @@ impl BadgeGroup {
     }
     /// The badge at `index`.
     pub fn badge(&self, index: u32) -> Option<crate::Badge> {
-        self.children().into_iter().nth(index as usize).and_then(|w| w.downcast().ok())
+        self.children()
+            .into_iter()
+            .nth(index as usize)
+            .and_then(|w| w.downcast().ok())
     }
     pub fn remove(&self, badge: &crate::Badge) {
         unsafe { ffi::awra_container_remove(ptr!(self), badge.widget_ptr()) }
@@ -303,7 +312,13 @@ impl MetadataGroup {
     }
     pub fn append(&self, label: &str, value: &str) -> crate::MetricRow {
         let (l, v) = (cstring(label), cstring(value));
-        crate::MetricRow::from_row(unsafe { Widget::from_none(ffi::awra_metadata_group_append(ptr!(self), l.as_ptr(), v.as_ptr())) })
+        crate::MetricRow::from_row(unsafe {
+            Widget::from_none(ffi::awra_metadata_group_append(
+                ptr!(self),
+                l.as_ptr(),
+                v.as_ptr(),
+            ))
+        })
     }
 }
 impl Default for MetadataGroup {
@@ -315,7 +330,12 @@ impl Default for MetadataGroup {
 awra_wrapper!(ErrorState, ["AwraPage"]);
 impl ErrorState {
     pub fn new() -> ErrorState {
-        unsafe { ErrorState::from_full(ffi::awra_error_state_new(std::ptr::null(), std::ptr::null())) }
+        unsafe {
+            ErrorState::from_full(ffi::awra_error_state_new(
+                std::ptr::null(),
+                std::ptr::null(),
+            ))
+        }
     }
     pub fn set_title(&self, t: Option<&str>) {
         let t = OptC::new(t);
@@ -350,15 +370,19 @@ impl RichLabel {
         unsafe { RichLabel::from_full(ffi::awra_rich_label_new()) }
     }
     pub fn label(&self) -> crate::Label {
-        unsafe { Widget::from_none(ffi::awra_rich_label_label(ptr!(self))) }.downcast().expect("a label")
+        unsafe { Widget::from_none(ffi::awra_rich_label_label(ptr!(self))) }
+            .downcast()
+            .expect("a label")
     }
     pub fn clear_paintables(&self) {
         unsafe { ffi::awra_rich_label_clear_textures(ptr!(self)) }
-        self.0.set_rust_data("rich-paintables", Vec::<Option<Paintable>>::new());
+        self.0
+            .set_rust_data("rich-paintables", Vec::<Option<Paintable>>::new());
     }
     /// The next picture; an animated one keeps moving.
     pub fn append_paintable(&self, p: Option<&Paintable>) {
-        let mut all: Vec<Option<Paintable>> = self.0.rust_data("rich-paintables").unwrap_or_default();
+        let mut all: Vec<Option<Paintable>> =
+            self.0.rust_data("rich-paintables").unwrap_or_default();
         let index = all.len() as i32;
         all.push(p.cloned());
         self.0.set_rust_data("rich-paintables", all);
@@ -371,12 +395,15 @@ impl RichLabel {
                 p.show_on(&tracker, move |_, t| unsafe {
                     ffi::awra_label_set_inline_texture(w.as_ptr(), index, tex_ptr(t))
                 });
-                let mut trackers: Vec<crate::Box> = self.0.rust_data("rich-trackers").unwrap_or_default();
+                let mut trackers: Vec<crate::Box> =
+                    self.0.rust_data("rich-trackers").unwrap_or_default();
                 trackers.truncate(index as usize);
                 trackers.push(tracker);
                 self.0.set_rust_data("rich-trackers", trackers);
             }
-            None => unsafe { ffi::awra_label_set_inline_texture(label.as_ptr(), index, std::ptr::null_mut()) },
+            None => unsafe {
+                ffi::awra_label_set_inline_texture(label.as_ptr(), index, std::ptr::null_mut())
+            },
         }
     }
     pub fn set_inline_size(&self, size: i32) {
@@ -425,13 +452,28 @@ impl Rail {
         unsafe { Widget::from_none_opt(ffi::awra_rail_selected_item(ptr!(self))) }.map(RailItem)
     }
     pub fn set_selected_item(&self, item: Option<&RailItem>) {
-        unsafe { ffi::awra_rail_set_selected_item(ptr!(self), item.map_or(std::ptr::null_mut(), |i| i.as_ptr())) }
+        unsafe {
+            ffi::awra_rail_set_selected_item(
+                ptr!(self),
+                item.map_or(std::ptr::null_mut(), |i| i.as_ptr()),
+            )
+        }
     }
     pub fn set_header(&self, header: Option<&impl IsWidget>) {
-        unsafe { ffi::awra_rail_set_header(ptr!(self), header.map_or(std::ptr::null_mut(), |h| h.widget_ptr())) }
+        unsafe {
+            ffi::awra_rail_set_header(
+                ptr!(self),
+                header.map_or(std::ptr::null_mut(), |h| h.widget_ptr()),
+            )
+        }
     }
     pub fn set_footer(&self, footer: Option<&impl IsWidget>) {
-        unsafe { ffi::awra_rail_set_footer(ptr!(self), footer.map_or(std::ptr::null_mut(), |h| h.widget_ptr())) }
+        unsafe {
+            ffi::awra_rail_set_footer(
+                ptr!(self),
+                footer.map_or(std::ptr::null_mut(), |h| h.widget_ptr()),
+            )
+        }
     }
     pub fn set_reorderable(&self, r: bool) {
         unsafe { ffi::awra_rail_set_reorderable(ptr!(self), r) }
@@ -441,29 +483,40 @@ impl Rail {
     }
     /// An entry dragged to `position` among the entries (a reorderable
     /// rail's entries drag; it is there already).
-    pub fn connect_item_moved<F: Fn(&Rail, &Widget, u32) + 'static>(&self, f: F) -> crate::SignalHandlerId {
-        self.upcast_ref::<Widget>().connect_raw(crate::sig::MOVED, move |w, args| {
-            if args.active() || args.index() < 0 {
-                return;
-            }
-            let rail = Rail(w.clone());
-            if let Some(entry) = rail.entry(args.index() as u32) {
-                f(&rail, &entry, args.index() as u32);
-            }
-        })
+    pub fn connect_item_moved<F: Fn(&Rail, &Widget, u32) + 'static>(
+        &self,
+        f: F,
+    ) -> crate::SignalHandlerId {
+        self.upcast_ref::<Widget>()
+            .connect_raw(crate::sig::MOVED, move |w, args| {
+                if args.active() || args.index() < 0 {
+                    return;
+                }
+                let rail = Rail(w.clone());
+                if let Some(entry) = rail.entry(args.index() as u32) {
+                    f(&rail, &entry, args.index() as u32);
+                }
+            })
     }
     /// An item dropped onto another entry, an item or a folder: what to
     /// make of it is the application's (the rail moves nothing).
-    pub fn connect_item_merged<F: Fn(&Rail, &Widget, &Widget) + 'static>(&self, f: F) -> crate::SignalHandlerId {
-        self.upcast_ref::<Widget>().connect_raw(crate::sig::MOVED, move |w, args| {
-            if !args.active() {
-                return;
-            }
-            let rail = Rail(w.clone());
-            if let (Some(dropped), Some(onto)) = (rail.entry(args.index() as u32), rail.entry(args.value() as u32)) {
-                f(&rail, &dropped, &onto);
-            }
-        })
+    pub fn connect_item_merged<F: Fn(&Rail, &Widget, &Widget) + 'static>(
+        &self,
+        f: F,
+    ) -> crate::SignalHandlerId {
+        self.upcast_ref::<Widget>()
+            .connect_raw(crate::sig::MOVED, move |w, args| {
+                if !args.active() {
+                    return;
+                }
+                let rail = Rail(w.clone());
+                if let (Some(dropped), Some(onto)) = (
+                    rail.entry(args.index() as u32),
+                    rail.entry(args.value() as u32),
+                ) {
+                    f(&rail, &dropped, &onto);
+                }
+            })
     }
 }
 impl Default for Rail {
@@ -511,7 +564,8 @@ impl RailItem {
     }
     pub fn set_has_tooltip(&self, _t: bool) {}
     pub fn connect_activate<F: Fn(&RailItem) + 'static>(&self, f: F) -> SignalHandlerId {
-        self.0.connect_typed::<RailItem, _>(sig::ACTIVATE, move |w, _| f(w))
+        self.0
+            .connect_typed::<RailItem, _>(sig::ACTIVATE, move |w, _| f(w))
     }
 }
 
@@ -529,7 +583,9 @@ impl RailGroup {
         self.0.rust_data::<Option<String>>("p:label").flatten()
     }
     pub fn color(&self) -> Option<crate::gdk::RGBA> {
-        self.0.rust_data::<Option<crate::gdk::RGBA>>("p:color").flatten()
+        self.0
+            .rust_data::<Option<crate::gdk::RGBA>>("p:color")
+            .flatten()
     }
     pub fn set_icon_name(&self, icon: Option<&str>) {
         let t = OptC::new(icon);
@@ -538,7 +594,9 @@ impl RailGroup {
     pub fn set_color(&self, c: Option<&crate::gdk::RGBA>) {
         self.0.set_rust_data("p:color", c.copied());
         let v = c.map(|c| c.to_ffi());
-        unsafe { ffi::awra_rail_group_set_color(ptr!(self), v.as_ref().map_or(std::ptr::null(), |v| v)) }
+        unsafe {
+            ffi::awra_rail_group_set_color(ptr!(self), v.as_ref().map_or(std::ptr::null(), |v| v))
+        }
     }
     pub fn set_expanded(&self, e: bool) {
         unsafe { ffi::awra_rail_group_set_expanded(ptr!(self), e) }
@@ -559,10 +617,12 @@ impl RailGroup {
         unsafe { ffi::awra_rail_group_n_items(ptr!(self)) as u32 }
     }
     pub fn item(&self, position: u32) -> Option<RailItem> {
-        unsafe { Widget::from_none_opt(ffi::awra_rail_group_item(ptr!(self), position as i32)) }.map(RailItem)
+        unsafe { Widget::from_none_opt(ffi::awra_rail_group_item(ptr!(self), position as i32)) }
+            .map(RailItem)
     }
     pub fn connect_expanded_notify<F: Fn(&RailGroup) + 'static>(&self, f: F) -> SignalHandlerId {
-        self.0.connect_typed::<RailGroup, _>(sig::TOGGLED, move |w, _| f(w))
+        self.0
+            .connect_typed::<RailGroup, _>(sig::TOGGLED, move |w, _| f(w))
     }
 }
 
@@ -579,7 +639,9 @@ impl Composer {
         unsafe { Composer::from_full(ffi::awra_composer_new()) }
     }
     pub fn view(&self) -> crate::TextView {
-        unsafe { Widget::from_none(ffi::awra_composer_view(ptr!(self))) }.downcast().expect("a text view")
+        unsafe { Widget::from_none(ffi::awra_composer_view(ptr!(self))) }
+            .downcast()
+            .expect("a text view")
     }
     pub fn buffer(&self) -> crate::TextBuffer {
         self.view().buffer()
@@ -612,7 +674,12 @@ impl Composer {
         unsafe { ffi::awra_composer_set_busy(ptr!(self), b) }
     }
     pub fn set_banner(&self, banner: Option<&impl IsWidget>) {
-        unsafe { ffi::awra_composer_set_banner(ptr!(self), banner.map_or(std::ptr::null_mut(), |b| b.widget_ptr())) }
+        unsafe {
+            ffi::awra_composer_set_banner(
+                ptr!(self),
+                banner.map_or(std::ptr::null_mut(), |b| b.widget_ptr()),
+            )
+        }
     }
     pub fn banner(&self) -> Option<Widget> {
         unsafe { Widget::from_none_opt(ffi::awra_composer_banner(ptr!(self))) }
@@ -622,25 +689,43 @@ impl Composer {
         unsafe { ffi::awra_composer_show_banner(ptr!(self), t.as_ptr(), closable) }
     }
     pub fn set_attachments(&self, a: Option<&impl IsWidget>) {
-        unsafe { ffi::awra_composer_set_attachments(ptr!(self), a.map_or(std::ptr::null_mut(), |b| b.widget_ptr())) }
+        unsafe {
+            ffi::awra_composer_set_attachments(
+                ptr!(self),
+                a.map_or(std::ptr::null_mut(), |b| b.widget_ptr()),
+            )
+        }
     }
     pub fn attachments(&self) -> Option<Widget> {
         unsafe { Widget::from_none_opt(ffi::awra_composer_attachments(ptr!(self))) }
     }
     pub fn set_start_widget(&self, w: Option<&impl IsWidget>) {
-        unsafe { ffi::awra_composer_set_start_widget(ptr!(self), w.map_or(std::ptr::null_mut(), |b| b.widget_ptr())) }
+        unsafe {
+            ffi::awra_composer_set_start_widget(
+                ptr!(self),
+                w.map_or(std::ptr::null_mut(), |b| b.widget_ptr()),
+            )
+        }
     }
     pub fn set_end_widget(&self, w: Option<&impl IsWidget>) {
-        unsafe { ffi::awra_composer_set_end_widget(ptr!(self), w.map_or(std::ptr::null_mut(), |b| b.widget_ptr())) }
+        unsafe {
+            ffi::awra_composer_set_end_widget(
+                ptr!(self),
+                w.map_or(std::ptr::null_mut(), |b| b.widget_ptr()),
+            )
+        }
     }
     pub fn connect_submit<F: Fn(&Composer) + 'static>(&self, f: F) -> SignalHandlerId {
-        self.0.connect_typed::<Composer, _>(sig::ACTIVATE, move |w, _| f(w))
+        self.0
+            .connect_typed::<Composer, _>(sig::ACTIVATE, move |w, _| f(w))
     }
     pub fn connect_banner_closed<F: Fn(&Composer) + 'static>(&self, f: F) -> SignalHandlerId {
-        self.0.connect_typed::<Composer, _>(sig::STOP_REQUESTED, move |w, _| f(w))
+        self.0
+            .connect_typed::<Composer, _>(sig::STOP_REQUESTED, move |w, _| f(w))
     }
     pub fn connect_text_notify<F: Fn(&Composer) + 'static>(&self, f: F) -> SignalHandlerId {
-        self.0.connect_typed::<Composer, _>(sig::CHANGED, move |w, _| f(w))
+        self.0
+            .connect_typed::<Composer, _>(sig::CHANGED, move |w, _| f(w))
     }
 }
 impl Default for Composer {
@@ -666,7 +751,9 @@ impl TextArea {
         unsafe { TextArea::from_full(ffi::awra_text_area_new()) }
     }
     pub fn delegate(&self) -> crate::TextView {
-        unsafe { Widget::from_none(ptr!(self)) }.downcast().expect("a text view")
+        unsafe { Widget::from_none(ptr!(self)) }
+            .downcast()
+            .expect("a text view")
     }
     pub fn buffer(&self) -> crate::TextBuffer {
         crate::TextBuffer(self.0.clone())
@@ -683,7 +770,11 @@ impl TextArea {
         unsafe { ffi::awra_text_view_set_placeholder(ptr!(self), t.as_ptr()) }
     }
     pub fn set_monospace(&self, mono: bool) {
-        self.0.set_typography(if mono { Typography::Monospace } else { Typography::Body });
+        self.0.set_typography(if mono {
+            Typography::Monospace
+        } else {
+            Typography::Body
+        });
     }
 }
 impl Default for TextArea {
@@ -701,10 +792,16 @@ impl PasswordEntry {
         unsafe { PasswordEntry::from_full(ffi::awra_password_entry_new()) }
     }
     pub fn delegate(&self) -> crate::Entry {
-        unsafe { Widget::from_none(ffi::awra_password_entry_entry(ptr!(self))) }.downcast().expect("an entry")
+        unsafe { Widget::from_none(ffi::awra_password_entry_entry(ptr!(self))) }
+            .downcast()
+            .expect("an entry")
     }
     pub fn text(&self) -> String {
-        unsafe { crate::object::from_cstr(ffi::awra_entry_text(ffi::awra_password_entry_entry(ptr!(self)))) }
+        unsafe {
+            crate::object::from_cstr(ffi::awra_entry_text(ffi::awra_password_entry_entry(ptr!(
+                self
+            ))))
+        }
     }
     pub fn set_text(&self, text: &str) {
         let t = cstring(text);
@@ -712,14 +809,18 @@ impl PasswordEntry {
     }
     pub fn set_placeholder_text(&self, text: impl crate::IntoOptStr) {
         let t = OptC::new(text);
-        unsafe { ffi::awra_entry_set_placeholder(ffi::awra_password_entry_entry(ptr!(self)), t.ptr()) }
+        unsafe {
+            ffi::awra_entry_set_placeholder(ffi::awra_password_entry_entry(ptr!(self)), t.ptr())
+        }
     }
     pub fn set_show_peek_icon(&self, show: bool) {
         unsafe { ffi::awra_password_entry_set_show_peek_icon(ptr!(self), show) }
     }
     pub fn set_activates_default(&self, _a: bool) {}
     pub fn set_position(&self, position: i32) {
-        unsafe { ffi::awra_entry_set_position(ffi::awra_password_entry_entry(ptr!(self)), position) }
+        unsafe {
+            ffi::awra_entry_set_position(ffi::awra_password_entry_entry(ptr!(self)), position)
+        }
     }
     pub fn connect_activate<F: Fn(&PasswordEntry) + 'static>(&self, f: F) -> SignalHandlerId {
         let me = self.downgrade();
@@ -753,7 +854,9 @@ impl TagEntry {
         unsafe { TagEntry::from_full(ffi::awra_tag_entry_new()) }
     }
     pub fn delegate(&self) -> crate::Entry {
-        unsafe { Widget::from_none(ffi::awra_tag_entry_entry(ptr!(self))) }.downcast().expect("an entry")
+        unsafe { Widget::from_none(ffi::awra_tag_entry_entry(ptr!(self))) }
+            .downcast()
+            .expect("an entry")
     }
     pub fn add(&self, tag: &str) -> bool {
         let t = cstring(tag);
@@ -772,10 +875,16 @@ impl TagEntry {
         (0..self.n_tags()).filter_map(|i| self.tag(i)).collect()
     }
     pub fn connect_tag_added<F: Fn(&TagEntry, &str) + 'static>(&self, f: F) -> SignalHandlerId {
-        self.0.connect_typed::<TagEntry, _>(sig::ACTIVATE, move |w, a| f(w, &a.text().unwrap_or_default()))
+        self.0
+            .connect_typed::<TagEntry, _>(sig::ACTIVATE, move |w, a| {
+                f(w, &a.text().unwrap_or_default())
+            })
     }
     pub fn connect_tag_removed<F: Fn(&TagEntry, &str) + 'static>(&self, f: F) -> SignalHandlerId {
-        self.0.connect_typed::<TagEntry, _>(sig::STOP_REQUESTED, move |w, a| f(w, &a.text().unwrap_or_default()))
+        self.0
+            .connect_typed::<TagEntry, _>(sig::STOP_REQUESTED, move |w, a| {
+                f(w, &a.text().unwrap_or_default())
+            })
     }
 }
 impl Default for TagEntry {
@@ -809,18 +918,32 @@ impl ColorPalette {
     }
     pub fn set_selected(&self, c: Option<&crate::gdk::RGBA>) {
         let v = c.map(|c| c.to_ffi());
-        unsafe { ffi::awra_color_palette_set_selected(ptr!(self), v.as_ref().map_or(std::ptr::null(), |v| v)) }
+        unsafe {
+            ffi::awra_color_palette_set_selected(
+                ptr!(self),
+                v.as_ref().map_or(std::ptr::null(), |v| v),
+            )
+        }
     }
     pub fn selected(&self) -> Option<crate::gdk::RGBA> {
         let mut c = ffi::AwraRGBA::default();
-        unsafe { ffi::awra_color_palette_selected(ptr!(self), &mut c) }.then(|| crate::gdk::RGBA::from_ffi(c))
+        unsafe { ffi::awra_color_palette_selected(ptr!(self), &mut c) }
+            .then(|| crate::gdk::RGBA::from_ffi(c))
     }
     /// A colour chosen (None: automatic).
-    pub fn connect_chosen<F: Fn(&ColorPalette, Option<&crate::gdk::RGBA>) + 'static>(&self, f: F) -> SignalHandlerId {
-        self.0.connect_typed::<ColorPalette, _>(sig::SELECTED, move |w, a| {
-            let c = if a.index() == 0 { None } else { crate::gdk::RGBA::parse(&a.text().unwrap_or_default()).ok() };
-            f(w, c.as_ref())
-        })
+    pub fn connect_chosen<F: Fn(&ColorPalette, Option<&crate::gdk::RGBA>) + 'static>(
+        &self,
+        f: F,
+    ) -> SignalHandlerId {
+        self.0
+            .connect_typed::<ColorPalette, _>(sig::SELECTED, move |w, a| {
+                let c = if a.index() == 0 {
+                    None
+                } else {
+                    crate::gdk::RGBA::parse(&a.text().unwrap_or_default()).ok()
+                };
+                f(w, c.as_ref())
+            })
     }
 }
 impl Default for ColorPalette {
@@ -897,12 +1020,18 @@ impl EmojiPicker {
     }
     pub fn clear(&self) {
         unsafe { ffi::awra_emoji_picker_clear(ptr!(self)) }
-        self.0.set_rust_data("emoji-items", std::collections::HashMap::<String, EmojiItem>::new());
+        self.0.set_rust_data(
+            "emoji-items",
+            std::collections::HashMap::<String, EmojiItem>::new(),
+        );
     }
     /// A section of the items `store` holds (EmojiItem objects).
     pub fn add_section(&self, id: &str, title: &str, icon: Option<&str>, store: &crate::ListStore) {
-        let items: Vec<EmojiItem> =
-            store.iter().iter().filter_map(|o| o.downcast_ref::<EmojiItem>().cloned()).collect();
+        let items: Vec<EmojiItem> = store
+            .iter()
+            .iter()
+            .filter_map(|o| o.downcast_ref::<EmojiItem>().cloned())
+            .collect();
         let mut keep = Vec::new();
         let mut textures = Vec::new();
         let mut c = Vec::new();
@@ -923,12 +1052,28 @@ impl EmojiPicker {
             let tex = it.0.paintable.as_ref().and_then(|p| p.texture());
             let tp = tex.as_ref().map_or(std::ptr::null_mut(), |t| t.as_ptr());
             textures.push(tex);
-            c.push(ffi::AwraEmoji { id: i, name: n, text: t, texture: tp, keywords: k });
+            c.push(ffi::AwraEmoji {
+                id: i,
+                name: n,
+                text: t,
+                texture: tp,
+                keywords: k,
+            });
         }
         let (idc, tc) = (cstring(id), cstring(title));
         let ic = OptC::new(icon);
-        unsafe { ffi::awra_emoji_picker_add_section(ptr!(self), idc.as_ptr(), tc.as_ptr(), ic.ptr(), c.as_ptr(), c.len() as i32) }
-        let mut map: std::collections::HashMap<String, EmojiItem> = self.0.rust_data("emoji-items").unwrap_or_default();
+        unsafe {
+            ffi::awra_emoji_picker_add_section(
+                ptr!(self),
+                idc.as_ptr(),
+                tc.as_ptr(),
+                ic.ptr(),
+                c.as_ptr(),
+                c.len() as i32,
+            )
+        }
+        let mut map: std::collections::HashMap<String, EmojiItem> =
+            self.0.rust_data("emoji-items").unwrap_or_default();
         for it in items {
             map.insert(it.0.id.clone(), it);
         }
@@ -939,17 +1084,24 @@ impl EmojiPicker {
         unsafe { ffi::awra_emoji_picker_set_search_text(ptr!(self), t.as_ptr()) }
     }
     pub fn search_entry(&self) -> crate::SearchEntry {
-        unsafe { Widget::from_none(ffi::awra_emoji_picker_search_entry(ptr!(self))) }.downcast().expect("a search entry")
+        unsafe { Widget::from_none(ffi::awra_emoji_picker_search_entry(ptr!(self))) }
+            .downcast()
+            .expect("a search entry")
     }
-    pub fn connect_picked<F: Fn(&EmojiPicker, &EmojiItem) + 'static>(&self, f: F) -> SignalHandlerId {
-        self.0.connect_typed::<EmojiPicker, _>(sig::ACTIVATE, move |w, a| {
-            let id = a.text().unwrap_or_default();
-            let item = w.rust_data::<std::collections::HashMap<String, EmojiItem>>("emoji-items")
-                .and_then(|m| m.get(&id).cloned());
-            if let Some(item) = item {
-                f(w, &item)
-            }
-        })
+    pub fn connect_picked<F: Fn(&EmojiPicker, &EmojiItem) + 'static>(
+        &self,
+        f: F,
+    ) -> SignalHandlerId {
+        self.0
+            .connect_typed::<EmojiPicker, _>(sig::ACTIVATE, move |w, a| {
+                let id = a.text().unwrap_or_default();
+                let item = w
+                    .rust_data::<std::collections::HashMap<String, EmojiItem>>("emoji-items")
+                    .and_then(|m| m.get(&id).cloned());
+                if let Some(item) = item {
+                    f(w, &item)
+                }
+            })
     }
 }
 impl Default for EmojiPicker {
@@ -996,7 +1148,13 @@ impl DataColumn {
     }
     pub fn set_visible(&self, v: bool) {
         self.0.visible.set(v);
-        if let Some((view, index)) = self.0.view.borrow().as_ref().and_then(|(w, i)| w.upgrade().map(|w| (w, *i))) {
+        if let Some((view, index)) = self
+            .0
+            .view
+            .borrow()
+            .as_ref()
+            .and_then(|(w, i)| w.upgrade().map(|w| (w, *i)))
+        {
             unsafe { ffi::awra_data_view_set_column_visible(view.as_ptr(), index, v) }
         }
     }
@@ -1018,7 +1176,9 @@ impl DataView {
         v
     }
     pub fn delegate(&self) -> crate::ListView {
-        unsafe { Widget::from_none(ffi::awra_data_view_list(ptr!(self))) }.downcast().expect("a list view")
+        unsafe { Widget::from_none(ffi::awra_data_view_list(ptr!(self))) }
+            .downcast()
+            .expect("a list view")
     }
     pub fn append_column(&self, column: &DataColumn) {
         let factory = column.0.factory.clone().unwrap_or_default();
@@ -1036,13 +1196,28 @@ impl DataView {
         self.0.rust_data("data-state").unwrap_or_default()
     }
     pub fn set_empty_widget(&self, w: Option<&impl IsWidget>) {
-        unsafe { ffi::awra_data_view_set_empty_widget(ptr!(self), w.map_or(std::ptr::null_mut(), |w| w.widget_ptr())) }
+        unsafe {
+            ffi::awra_data_view_set_empty_widget(
+                ptr!(self),
+                w.map_or(std::ptr::null_mut(), |w| w.widget_ptr()),
+            )
+        }
     }
     pub fn set_loading_widget(&self, w: Option<&impl IsWidget>) {
-        unsafe { ffi::awra_data_view_set_loading_widget(ptr!(self), w.map_or(std::ptr::null_mut(), |w| w.widget_ptr())) }
+        unsafe {
+            ffi::awra_data_view_set_loading_widget(
+                ptr!(self),
+                w.map_or(std::ptr::null_mut(), |w| w.widget_ptr()),
+            )
+        }
     }
     pub fn set_error_widget(&self, w: Option<&impl IsWidget>) {
-        unsafe { ffi::awra_data_view_set_error_widget(ptr!(self), w.map_or(std::ptr::null_mut(), |w| w.widget_ptr())) }
+        unsafe {
+            ffi::awra_data_view_set_error_widget(
+                ptr!(self),
+                w.map_or(std::ptr::null_mut(), |w| w.widget_ptr()),
+            )
+        }
     }
 }
 
@@ -1098,9 +1273,11 @@ impl crate::Surface {
             SurfaceRole::Content => (Material::Content, Elevation::Flat),
             SurfaceRole::Sidebar | SurfaceRole::Toolbar => (Material::Chrome, Elevation::Flat),
             SurfaceRole::Card => (Material::Layer, Elevation::Raised),
-            SurfaceRole::Floating | SurfaceRole::Popover | SurfaceRole::Menu | SurfaceRole::Tooltip | SurfaceRole::Hud => {
-                (Material::Floating, Elevation::Floating)
-            }
+            SurfaceRole::Floating
+            | SurfaceRole::Popover
+            | SurfaceRole::Menu
+            | SurfaceRole::Tooltip
+            | SurfaceRole::Hud => (Material::Floating, Elevation::Floating),
             SurfaceRole::Dialog => (Material::Floating, Elevation::Modal),
         };
         let s = crate::Surface::new(m);
