@@ -425,8 +425,13 @@ static void bubble_draw(AwraWidget *w, AwraDraw *d)
   if (v & BUBBLE_SELECTED) {
     AwraRGBA sel = t->selection;
     awra_paint_rbox4(d, box, radii, &sel, NULL, NULL);
+    /* the fill alone hardly shows over an outgoing bubble's accent: an
+     * accent ring marks it on any bubble */
+    const float rw = awra_pxf(2);
+    const float widths[4] = {rw, rw, rw, rw};
+    awra_paint_rbox4(d, box, radii, NULL, widths, &t->accent);
   }
-  if (m.border_width > 0 && m.border.a > 0) {
+  else if (m.border_width > 0 && m.border.a > 0) {
     const float bw = awra_pxf(m.border_width);
     const float widths[4] = {bw, bw, bw, bw};
     awra_paint_rbox4(d, box, radii, NULL, widths, &m.border);
