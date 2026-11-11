@@ -1503,7 +1503,16 @@ extern "C" {
     pub fn awra_collection_view_set_item_size(view: *mut AwraWidget, width: c_int, height: c_int);
     pub fn awra_collection_view_set_row_height(view: *mut AwraWidget, height: c_int);
     pub fn awra_collection_view_set_row_spacing(view: *mut AwraWidget, spacing: c_int);
+    pub fn awra_collection_view_set_side_inset(view: *mut AwraWidget, inset: c_int);
+    pub fn awra_collection_view_set_whole_rows(view: *mut AwraWidget, whole: bool);
     pub fn awra_collection_view_set_max_columns(view: *mut AwraWidget, n: c_int);
+    pub fn awra_collection_view_set_groups(
+        view: *mut AwraWidget,
+        starts: *const c_int,
+        titles: *const *const c_char,
+        n: c_int,
+    );
+    pub fn awra_collection_view_group_count(view: *mut AwraWidget) -> c_int;
     pub fn awra_collection_view_add_column(
         view: *mut AwraWidget,
         title: *const c_char,
@@ -1527,6 +1536,17 @@ extern "C" {
         width: c_int,
     );
     pub fn awra_collection_view_column_width(view: *mut AwraWidget, column: c_int) -> c_int;
+    pub fn awra_collection_view_set_columns_reorderable(view: *mut AwraWidget, reorderable: bool);
+    pub fn awra_collection_view_set_column_order(
+        view: *mut AwraWidget,
+        order: *const c_int,
+        n: c_int,
+    );
+    pub fn awra_collection_view_get_column_order(
+        view: *mut AwraWidget,
+        out: *mut c_int,
+        max: c_int,
+    ) -> c_int;
     pub fn awra_collection_view_set_sort_column(
         view: *mut AwraWidget,
         column: c_int,

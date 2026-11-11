@@ -48,6 +48,19 @@ impl crate::CollectionView {
     pub fn set_row_spacing(&self, spacing: i32) {
         unsafe { ffi::awra_collection_view_set_row_spacing(ptr!(self), spacing) }
     }
+
+    /// A blank along both sides (logical px), part of no item: rows, tiles
+    /// and headers stay within it; a press there starts a rubberband.
+    pub fn set_side_inset(&self, inset: i32) {
+        unsafe { ffi::awra_collection_view_set_side_inset(ptr!(self), inset) }
+    }
+
+    /// List: a row is an item over its whole width (a drag from anywhere on
+    /// it carries it, `index_at` reports its content everywhere on it, the
+    /// rubberband takes the rows it crosses); by default a row is its name.
+    pub fn set_whole_rows(&self, whole: bool) {
+        unsafe { ffi::awra_collection_view_set_whole_rows(ptr!(self), whole) }
+    }
 }
 
 impl crate::Label {

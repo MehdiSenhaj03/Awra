@@ -987,6 +987,11 @@ static void row_activate(AwraWidget *w)
   }
   awra_widget_ref(w);
   AwraWidget *pop = x->kind == 0 ? menu_root(w) : x->popover;
+  /* the menu outlives its popdown until the handler ran: what the handler's
+   * data points to may belong to it (a binding's closures on the root) */
+  if (pop) {
+    awra_widget_ref(pop);
+  }
   if (pop && !x->stays) {
     awra_popover_popdown(pop);
   }
@@ -998,6 +1003,9 @@ static void row_activate(AwraWidget *w)
     x->handler(w, &a, x->data);
   }
   awra_emit_index(w, AWRA_SIGNAL_ACTIVATE, x->index);
+  if (pop) {
+    awra_widget_unref(pop);
+  }
   awra_widget_unref(w);
 }
 

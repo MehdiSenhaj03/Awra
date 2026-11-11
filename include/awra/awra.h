@@ -1398,7 +1398,21 @@ void awra_collection_view_set_row_height(AwraWidget *view, int height);
 /* List: a blank below each row (logical px; Awra 1's spaced-rows role),
  * part of no item: a press there starts a rubberband. */
 void awra_collection_view_set_row_spacing(AwraWidget *view, int spacing);
+/* A blank along both sides (logical px, default 0), part of no item: rows,
+ * tiles and headers stay within it; a press there starts a rubberband. */
+void awra_collection_view_set_side_inset(AwraWidget *view, int inset);
+/* List: a row is an item over its whole width (a drag from anywhere on it
+ * carries it, index_at reports on_content everywhere on it, the rubberband
+ * takes the rows it crosses); by default a row is its name. */
+void awra_collection_view_set_whole_rows(AwraWidget *view, bool whole);
 void awra_collection_view_set_max_columns(AwraWidget *view, int n); /* grid, default 7 */
+/* Groups: the items [starts[g], starts[g + 1]) under a heading titles[g]
+ * (its title, then a line), the first starting at 0, in order; n 0: none.
+ * In a grid each group starts a new row. A heading is part of no item: a
+ * press there starts a rubberband. set_item_count drops them: set them
+ * again after it. */
+void awra_collection_view_set_groups(AwraWidget *view, const int *starts, const char *const *titles, int n);
+int awra_collection_view_group_count(AwraWidget *view);
 /* List columns: width in logical px (-1: the title's), expand shares the rest. */
 int awra_collection_view_add_column(AwraWidget *view, const char *title, int width, bool expand);
 void awra_collection_view_set_column_title(AwraWidget *view, int column, const char *title);
@@ -1406,6 +1420,13 @@ void awra_collection_view_set_column_visible(AwraWidget *view, int column, bool 
 bool awra_collection_view_column_visible(AwraWidget *view, int column);
 void awra_collection_view_set_column_width(AwraWidget *view, int column, int width);
 int awra_collection_view_column_width(AwraWidget *view, int column);
+/* Headers dragged sideways carry their column to another place (off by
+ * default); the view then notifies "column-order". The order lists the
+ * columns as shown, left to right (right to left: mirrored); the columns
+ * it leaves out follow in their own order. get returns the column count. */
+void awra_collection_view_set_columns_reorderable(AwraWidget *view, bool reorderable);
+void awra_collection_view_set_column_order(AwraWidget *view, const int *order, int n);
+int awra_collection_view_get_column_order(AwraWidget *view, int *out, int max);
 void awra_collection_view_set_sort_column(AwraWidget *view, int column, bool descending);
 /* The sorted column's arrow (GTK's sort-indicator: GTK's own theme draws
  * pan-up/pan-down, desktop themes without that rule draw none and leave

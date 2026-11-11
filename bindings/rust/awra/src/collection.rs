@@ -186,6 +186,43 @@ impl CollectionView {
     pub fn column_width(&self, column: i32) -> i32 {
         unsafe { ffi::awra_collection_view_column_width(ptr!(self), column) }
     }
+    /// Headers dragged sideways carry their column to another place (off
+    /// by default); `connect_column_order_changed` then tells.
+    pub fn set_columns_reorderable(&self, reorderable: bool) {
+        unsafe { ffi::awra_collection_view_set_columns_reorderable(ptr!(self), reorderable) }
+    }
+    /// The columns as shown, left to right; the ones it leaves out follow
+    /// in their own order.
+    pub fn set_column_order(&self, order: &[i32]) {
+        unsafe {
+            ffi::awra_collection_view_set_column_order(
+                ptr!(self),
+                order.as_ptr(),
+                order.len() as c_int,
+            )
+        }
+    }
+    pub fn column_order(&self) -> Vec<i32> {
+        let n = unsafe {
+            ffi::awra_collection_view_get_column_order(ptr!(self), std::ptr::null_mut(), 0)
+        };
+        let mut out = vec![0 as c_int; n.max(0) as usize];
+        unsafe {
+            ffi::awra_collection_view_get_column_order(ptr!(self), out.as_mut_ptr(), n.max(0))
+        };
+        out
+    }
+    /// A header was carried to another place.
+    pub fn connect_column_order_changed<F: Fn(&CollectionView) + 'static>(
+        &self,
+        f: F,
+    ) -> SignalHandlerId {
+        self.connect_typed(sig::NOTIFY, move |v: &CollectionView, a| {
+            if a.text().as_deref() == Some("column-order") {
+                f(v)
+            }
+        })
+    }
     /// The column showing the order (None: none).
     pub fn set_sort_column(&self, column: Option<i32>, descending: bool) {
         unsafe {
@@ -292,6 +329,19 @@ impl CollectionView {
     }
     pub fn grid_columns(&self) -> i32 {
         unsafe { ffi::awra_collection_view_grid_columns(ptr!(self)) }
+    }
+    /// Groups: (first item, heading) in order, the first at 0; empty: none.
+    /// In a grid each group starts a row. `set_item_count` drops them.
+    pub fn set_groups(&self, groups: &[(usize, &str)]) {
+        let starts: Vec<c_int> = groups.iter().map(|g| g.0 as c_int).collect();
+        let titles: Vec<&str> = groups.iter().map(|g| g.1).collect();
+        let (_owned, ptrs) = cstrings(&titles);
+        unsafe {
+            ffi::awra_collection_view_set_groups(ptr!(self), starts.as_ptr(), ptrs.as_ptr(), groups.len() as c_int)
+        }
+    }
+    pub fn group_count(&self) -> usize {
+        unsafe { ffi::awra_collection_view_group_count(ptr!(self)).max(0) as usize }
     }
     pub fn connect_selection_changed<F: Fn(&CollectionView) + 'static>(
         &self,

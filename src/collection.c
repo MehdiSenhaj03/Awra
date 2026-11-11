@@ -32,6 +32,7 @@
 #define TILE_PAD 8
 #define DRAG_THRESHOLD 8
 #define EDGE_SCROLL 32
+#define GROUP_H 40 /* a group's heading: its title over a line, logical */
 
 typedef struct Column {
   char *title;
@@ -55,6 +56,8 @@ typedef struct CollExt {
   AwraDestroyNotify destroy;
   Column *cols;
   int ncols;
+  int *order; /* the columns as shown, left to right */
+  bool reorderable;
   int sort_col;
   bool sort_desc;
   bool sort_hidden; /* no arrow (a GTK theme without a sort-indicator rule) */
@@ -63,6 +66,8 @@ typedef struct CollExt {
   int row_h;          /* list row height, logical */
   int row_gap;        /* list: blank below each row, logical (Awra 1's spaced-rows) */
   int max_cols;
+  int inset;       /* a blank along both sides, logical: part of no item */
+  bool whole_rows; /* list: a row is an item over its whole width, not only its name */
   /* computed, raster */
   int header_h, grid_cols, tile_h, content_h, view_h;
   double col_w;
@@ -96,6 +101,10 @@ typedef struct CollExt {
   int last_x, last_y;
   int resize_col, resize_w0;
   int header_hover;
+  /* a header carried to another place: its left edge (raster, relative
+   * to the view, left to right) and where the pointer holds it */
+  bool moving;
+  int move_x, move_grab;
   /* scroll indicator */
   /* the overlay indicator as GtkScrolledWindow's: its opacity bar_t
    * fading (1 s, ease-out cubic) from bar_from to bar_to since bar_start,
@@ -105,6 +114,13 @@ typedef struct CollExt {
   bool bar_over;
   unsigned fade_timer, conceal_timer;
   AwraTextLayout **titles;
+  /* groups (awra_collection_view_set_groups): items [gstart[g], gstart[g + 1])
+   * under the heading gtitle[g]; with none, one group without a heading */
+  int ngroups;
+  int *gstart;
+  char **gtitle;
+  int *gy;     /* computed: each group's top, content coordinates, raster */
+  int group_h; /* computed: a heading's height, 0 without groups */
 } CollExt;
 
 #define CX(w) AWRA_EXT(w, CollExt)
@@ -113,6 +129,12 @@ static void coll_emit_selection(AwraWidget *w);
 
 /* ----------------------------------------------------------------------- */
 /* Geometry */
+
+/* The blank along each side (raster). */
+static int side_inset(const CollExt *x)
+{
+  return awra_px(x->inset);
+}
 
 static int list_row_h(const CollExt *x)
 {
@@ -166,10 +188,10 @@ static void compute_columns(AwraWidget *w)
     }
     fixed += col->w;
   }
-  int extra = w->w - fixed;
-  int cx = 0;
-  for (int c = 0; c < x->ncols; c++) {
-    Column *col = &x->cols[c];
+  int extra = w->w - 2 * side_inset(x) - fixed;
+  int cx = side_inset(x);
+  for (int k = 0; k < x->ncols; k++) {
+    Column *col = &x->cols[x->order[k]];
     if (!col->visible) {
       col->x = cx;
       continue;
@@ -185,6 +207,100 @@ static void compute_columns(AwraWidget *w)
   }
 }
 
+/* Groups: with none set, one group of every item and no heading. */
+static int group_count(const CollExt *x)
+{
+  return x->ngroups > 0 ? x->ngroups : 1;
+}
+
+static int group_start(const CollExt *x, int g)
+{
+  return x->ngroups > 0 ? x->gstart[g] : 0;
+}
+
+static int group_end(const CollExt *x, int g)
+{
+  return g + 1 < group_count(x) ? group_start(x, g + 1) : x->n;
+}
+
+static int group_top(const CollExt *x, int g)
+{
+  return x->ngroups > 0 ? x->gy[g] : 0;
+}
+
+static int per_row(const CollExt *x)
+{
+  return x->layout == AWRA_COLLECTION_GRID ? BK_MAX(1, x->grid_cols) : 1;
+}
+
+/* The group of an item: the last one starting at or before it. */
+static int group_of(const CollExt *x, int i)
+{
+  int lo = 0, hi = group_count(x) - 1;
+  while (lo < hi) {
+    const int mid = (lo + hi + 1) / 2;
+    if (group_start(x, mid) <= i) {
+      lo = mid;
+    }
+    else {
+      hi = mid - 1;
+    }
+  }
+  return lo;
+}
+
+/* The group at a content height: the last one whose top is at or above it. */
+static int group_at_y(const CollExt *x, double cy)
+{
+  int lo = 0, hi = group_count(x) - 1;
+  while (lo < hi) {
+    const int mid = (lo + hi + 1) / 2;
+    if (group_top(x, mid) <= cy) {
+      lo = mid;
+    }
+    else {
+      hi = mid - 1;
+    }
+  }
+  return lo;
+}
+
+/* The top of an item's row, content coordinates. */
+static double item_top(const CollExt *x, int i)
+{
+  const int g = group_of(x, i);
+  return group_top(x, g) + x->group_h + (double)((i - group_start(x, g)) / per_row(x)) * x->tile_h;
+}
+
+/* The first item of the row an item is on. */
+static int row_first(const CollExt *x, int i)
+{
+  const int g = group_of(x, i), s = group_start(x, g);
+  return s + (i - s) / per_row(x) * per_row(x);
+}
+
+/* The first item whose row ends below a content height (n: none). */
+static int first_item_from(const CollExt *x, double cy)
+{
+  const int g = group_at_y(x, cy);
+  const double ly = cy - group_top(x, g) - x->group_h;
+  const int row = ly < 0 || x->tile_h <= 0 ? 0 : (int)(ly / x->tile_h);
+  const int i = group_start(x, g) + row * per_row(x);
+  return BK_MIN(i < group_end(x, g) ? i : group_end(x, g), x->n);
+}
+
+/* The last item whose row starts above a content height (-1: none). */
+static int last_item_to(const CollExt *x, double cy)
+{
+  const int g = group_at_y(x, cy);
+  const double ly = cy - group_top(x, g) - x->group_h;
+  if (ly < 0 || x->tile_h <= 0) {
+    return group_start(x, g) - 1;
+  }
+  const int row = (int)(ly / x->tile_h);
+  return BK_MIN(group_end(x, g) - 1, group_start(x, g) + (row + 1) * per_row(x) - 1);
+}
+
 static void compute_geometry(AwraWidget *w)
 {
   CollExt *x = CX(w);
@@ -192,23 +308,37 @@ static void compute_geometry(AwraWidget *w)
   x->view_h = BK_MAX(0, w->h - x->header_h);
   if (x->layout == AWRA_COLLECTION_GRID) {
     const int min_w = awra_px(x->item_w + 2 * (TILE_PAD + TILE_MARGIN));
-    int cols = min_w > 0 ? w->w / min_w : 1;
+    const int avail = BK_MAX(0, w->w - 2 * side_inset(x));
+    int cols = min_w > 0 ? avail / min_w : 1;
     cols = BK_CLAMP(cols, 1, x->max_cols > 0 ? x->max_cols : 7);
     x->grid_cols = cols;
     /* GtkGridView: (width + spacing) / n_columns - spacing in whole
      * application pixels (an int division), the rest left at the end */
-    x->col_w = floor((double)w->w / awra_scale() / cols) * awra_scale();
+    x->col_w = floor((double)avail / awra_scale() / cols) * awra_scale();
     x->tile_h = awra_px(x->item_h + 2 * (TILE_PAD + TILE_MARGIN));
-    const int rows = (x->n + cols - 1) / cols;
-    x->content_h = rows * x->tile_h;
   }
   else {
     compute_columns(w);
     x->grid_cols = 1;
     x->col_w = w->w;
     x->tile_h = list_row_h(x) + awra_px(x->row_gap);
-    x->content_h = x->n * x->tile_h;
   }
+  /* each group: its heading, then its rows (in a grid, a group starts a row) */
+  x->group_h = x->ngroups > 0 ? awra_px(GROUP_H) : 0;
+  const int cols = per_row(x);
+  /* starts kept in order and within the items, the first at 0 */
+  for (int g = 0; g < x->ngroups; g++) {
+    x->gstart[g] = g == 0 ? 0 : BK_CLAMP(x->gstart[g], x->gstart[g - 1], x->n);
+  }
+  int y = 0;
+  for (int g = 0; g < group_count(x); g++) {
+    if (x->ngroups > 0) {
+      x->gy[g] = y;
+    }
+    const int count = group_end(x, g) - group_start(x, g);
+    y += x->group_h + (count + cols - 1) / cols * x->tile_h;
+  }
+  x->content_h = y;
   const double maxv = BK_MAX(0, x->content_h - x->view_h);
   if (x->vvalue > maxv) {
     x->vvalue = maxv;
@@ -223,20 +353,20 @@ static void compute_geometry(AwraWidget *w)
 static void item_rect(AwraWidget *w, int i, int *rx, int *ry, int *rw, int *rh)
 {
   CollExt *x = CX(w);
-  const int top = w->y + x->header_h - (int)x->vvalue;
+  const int top = w->y + x->header_h - (int)x->vvalue + (int)item_top(x, i);
   if (x->layout == AWRA_COLLECTION_GRID) {
-    const int col = i % x->grid_cols, row = i / x->grid_cols;
+    const int col = (i - group_start(x, group_of(x, i))) % x->grid_cols;
     const int x0 = (int)floor(col * x->col_w + 0.5), x1 = (int)floor((col + 1) * x->col_w + 0.5);
     const int m = awra_px(TILE_MARGIN);
-    *rx = w->x + x0 + m;
-    *ry = top + row * x->tile_h + m;
+    *rx = w->x + side_inset(x) + x0 + m;
+    *ry = top + m;
     *rw = x1 - x0 - 2 * m;
     *rh = x->tile_h - 2 * m;
   }
   else {
-    *rx = w->x;
-    *ry = top + i * x->tile_h;
-    *rw = w->w;
+    *rx = w->x + side_inset(x);
+    *ry = top;
+    *rw = BK_MAX(0, w->w - 2 * side_inset(x));
     *rh = x->tile_h - awra_px(x->row_gap);
   }
 }
@@ -257,23 +387,34 @@ static int index_at(AwraWidget *w, int px, int py, bool *r_content)
     return -1;
   }
   const double cy = py - (w->y + x->header_h) + x->vvalue;
+  /* within its group, below the heading (the heading is blank) */
+  const int g = group_at_y(x, cy);
+  const double ly = cy - group_top(x, g) - x->group_h;
+  if (ly < 0 || x->tile_h <= 0) {
+    return -1;
+  }
+  const int row = (int)(ly / x->tile_h);
   int i;
   if (x->layout == AWRA_COLLECTION_GRID) {
-    const int col = (int)((px - w->x) / x->col_w);
-    const int row = (int)(cy / x->tile_h);
-    if (col < 0 || col >= x->grid_cols) {
+    const int gx = px - w->x - side_inset(x);
+    const int col = x->col_w > 0 ? (int)(gx / x->col_w) : -1;
+    if (gx < 0 || col < 0 || col >= x->grid_cols) {
       return -1;
     }
-    i = row * x->grid_cols + col;
+    i = group_start(x, g) + row * x->grid_cols + col;
   }
   else {
-    i = (int)(cy / x->tile_h);
+    i = group_start(x, g) + row;
+    /* the sides are blank */
+    if (px < w->x + side_inset(x) || px >= w->x + w->w - side_inset(x)) {
+      return -1;
+    }
     /* the gap below a row is blank */
-    if (x->row_gap > 0 && cy - (double)i * x->tile_h >= x->tile_h - awra_px(x->row_gap)) {
+    if (x->row_gap > 0 && ly - (double)row * x->tile_h >= x->tile_h - awra_px(x->row_gap)) {
       return -1;
     }
   }
-  if (i < 0 || i >= x->n) {
+  if (i < 0 || i >= group_end(x, g)) {
     return -1;
   }
   int rx, ry, rw, rh;
@@ -287,7 +428,10 @@ static int index_at(AwraWidget *w, int px, int py, bool *r_content)
     }
     return i;
   }
-  if (r_content && i >= x->first && i < x->first + x->nvis) {
+  if (r_content && x->whole_rows) {
+    *r_content = true;
+  }
+  else if (r_content && i >= x->first && i < x->first + x->nvis) {
     /* the first column's content: from the cell start to its natural width */
     const Bound *b = &x->vis[i - x->first];
     int c0 = -1;
@@ -445,10 +589,8 @@ static void update_window(AwraWidget *w)
   CollExt *x = CX(w);
   int first = 0, last = -1;
   if (x->n > 0 && x->tile_h > 0 && x->view_h > 0) {
-    const int row0 = (int)(x->vvalue / x->tile_h);
-    const int row1 = (int)((x->vvalue + x->view_h - 1) / x->tile_h);
-    first = row0 * x->grid_cols;
-    last = BK_MIN(x->n - 1, (row1 + 1) * x->grid_cols - 1);
+    first = first_item_from(x, x->vvalue);
+    last = BK_MIN(x->n - 1, last_item_to(x, x->vvalue + x->view_h - 1));
   }
   const int nnew = last >= first ? last - first + 1 : 0;
   Bound *nv = (Bound *)calloc((size_t)BK_MAX(1, nnew), sizeof(Bound));
@@ -535,49 +677,106 @@ static void paint_item_bg(AwraWidget *w, AwraDraw *d, int i)
   }
 }
 
+/* A column's header with its left edge at `left` (raster, relative to the
+ * view, left to right). */
+static void paint_header(AwraWidget *w, AwraDraw *d, int c, int left, bool hov)
+{
+  CollExt *x = CX(w);
+  const Column *col = &x->cols[c];
+  if (!col->visible || col->w <= 0) {
+    return;
+  }
+  const AwraTokens *t = awra_tokens();
+  AwraFont f = header_font();
+  const float asc = awra_font_ascent(&f);
+  const float lh = awra_font_line_height(&f);
+  const int pt = awra_px(4), pb = awra_px(8);
+  const float inner = (float)(x->header_h - pt - pb);
+  AwraBox hb = awra_mirror_box(w, (AwraBox){(float)(w->x + left), (float)w->y, (float)col->w, (float)x->header_h});
+  if (hov) {
+    awra_paint_rbox(d, hb, awra_pxf(7), &t->control_cap_hover, 0, NULL);
+  }
+  AwraRGBA color = hov ? t->foreground : t->muted;
+  const char *title = col->title ? col->title : "";
+  const float tw = awra_text_width(&f, title, (int)strlen(title));
+  const bool rtl = awra_widget_rtl(w);
+  /* the title starts the header (at its right, right to left), the sort arrow after it */
+  const float tx = rtl ? hb.x + hb.w - awra_px(CELL_PAD_X) - tw : hb.x + awra_px(CELL_PAD_X);
+  /* GtkLabel: floor ((height - logical.height) * yalign), the logical
+   * height in whole pixels (pango_layout_get_pixel_extents) */
+  const float base = w->y + pt + floorf((inner - ceilf(lh)) * 0.5f) + asc;
+  bk_clip_push((int)hb.x, (int)hb.y, (int)hb.w, (int)hb.h);
+  awra_draw_text(d, &f, tx, base, title, (int)strlen(title), &color);
+  if (c == x->sort_col && !x->sort_hidden) {
+    const int s = awra_px(16);
+    awra_paint_icon(d, x->sort_desc ? "pan-down-symbolic" : "pan-up-symbolic",
+                    rtl ? tx - awra_px(6) - s : tx + tw + awra_px(6), w->y + pt + floorf((inner - s) * 0.5f),
+                    s, &color);
+  }
+  bk_clip_pop();
+}
+
+/* A group's heading: its title where the names start, then a line to the
+ * view's end (Windows Explorer's groups). */
+static void paint_group(AwraWidget *w, AwraDraw *d, int g)
+{
+  CollExt *x = CX(w);
+  const char *title = x->gtitle[g] ? x->gtitle[g] : "";
+  const AwraTokens *t = awra_tokens();
+  AwraFont f = awra_font_for(AWRA_TYPOGRAPHY_BODY);
+  f.weight = 600;
+  const float asc = awra_font_ascent(&f), lh = awra_font_line_height(&f);
+  const float top = (float)(w->y + x->header_h - x->vvalue + x->gy[g]);
+  /* the text in the heading's lower part, close to its rows */
+  const float text_top = top + x->group_h - awra_px(8) - ceilf(lh);
+  const float base = floorf(text_top) + asc;
+  int left = side_inset(x) + awra_px(TILE_MARGIN + TILE_PAD);
+  if (x->layout == AWRA_COLLECTION_LIST) {
+    left = awra_px(CELL_PAD_X);
+    for (int k = 0; k < x->ncols; k++) {
+      const Column *col = &x->cols[x->order[k]];
+      if (col->visible && col->w > 0) {
+        left += col->x;
+        break;
+      }
+    }
+  }
+  const float tw = awra_text_width(&f, title, (int)strlen(title));
+  const bool rtl = awra_widget_rtl(w);
+  const float tx = rtl ? w->x + w->w - left - tw : w->x + left;
+  awra_draw_text(d, &f, tx, base, title, (int)strlen(title), &t->foreground);
+  const float gap = awra_pxf(12), end = awra_pxf(TILE_MARGIN + 4) + (float)side_inset(x);
+  const float lx0 = (float)left + tw + gap, lx1 = (float)w->w - end;
+  if (lx1 > lx0) {
+    const AwraRGBA line = t->high_contrast ? t->outline : t->separator;
+    const float ly = floorf(text_top + ceilf(lh) * 0.5f);
+    AwraBox b = awra_mirror_box(w, (AwraBox){(float)w->x + lx0, ly, lx1 - lx0, awra_pxf(1)});
+    awra_paint_rect(d, b, &line);
+  }
+}
+
 static void coll_draw(AwraWidget *w, AwraDraw *d)
 {
   CollExt *x = CX(w);
   bk_clip_push(w->x, w->y + x->header_h, w->w, x->view_h);
+  for (int g = 0; g < x->ngroups; g++) {
+    if (x->gy[g] + x->group_h > x->vvalue && x->gy[g] < x->vvalue + x->view_h) {
+      paint_group(w, d, g);
+    }
+  }
   for (int k = 0; k < x->nvis; k++) {
     paint_item_bg(w, d, x->vis[k].index);
   }
   bk_clip_pop();
   if (x->header_h > 0) {
-    const AwraTokens *t = awra_tokens();
-    AwraFont f = header_font();
-    const float asc = awra_font_ascent(&f);
-    const float lh = awra_font_line_height(&f);
-    const int pt = awra_px(4), pb = awra_px(8);
-    const float inner = (float)(x->header_h - pt - pb);
     for (int c = 0; c < x->ncols; c++) {
-      const Column *col = &x->cols[c];
-      if (!col->visible || col->w <= 0) {
-        continue;
+      if (!(x->moving && c == x->press_col)) {
+        paint_header(w, d, c, x->cols[c].x, c == x->header_hover && awra_hovered(w));
       }
-      AwraBox hb = awra_mirror_box(w, (AwraBox){(float)(w->x + col->x), (float)w->y, (float)col->w, (float)x->header_h});
-      const bool hov = c == x->header_hover && awra_hovered(w);
-      if (hov) {
-        awra_paint_rbox(d, hb, awra_pxf(7), &t->control_cap_hover, 0, NULL);
-      }
-      AwraRGBA color = hov ? t->foreground : t->muted;
-      const char *title = col->title ? col->title : "";
-      const float tw = awra_text_width(&f, title, (int)strlen(title));
-      const bool rtl = awra_widget_rtl(w);
-      /* the title starts the header (at its right, right to left), the sort arrow after it */
-      const float tx = rtl ? hb.x + hb.w - awra_px(CELL_PAD_X) - tw : hb.x + awra_px(CELL_PAD_X);
-      /* GtkLabel: floor ((height - logical.height) * yalign), the logical
-       * height in whole pixels (pango_layout_get_pixel_extents) */
-      const float base = w->y + pt + floorf((inner - ceilf(lh)) * 0.5f) + asc;
-      bk_clip_push((int)hb.x, (int)hb.y, (int)hb.w, (int)hb.h);
-      awra_draw_text(d, &f, tx, base, title, (int)strlen(title), &color);
-      if (c == x->sort_col && !x->sort_hidden) {
-        const int s = awra_px(16);
-        awra_paint_icon(d, x->sort_desc ? "pan-down-symbolic" : "pan-up-symbolic",
-                        rtl ? tx - awra_px(6) - s : tx + tw + awra_px(6), w->y + pt + floorf((inner - s) * 0.5f),
-                        s, &color);
-      }
-      bk_clip_pop();
+    }
+    if (x->moving) {
+      /* the carried header, over the others, where the pointer holds it */
+      paint_header(w, d, x->press_col, x->move_x, true);
     }
   }
 }
@@ -745,8 +944,10 @@ static void reveal_index(AwraWidget *w, int i)
   if (i < 0 || i >= x->n || x->tile_h <= 0) {
     return;
   }
-  const int row = x->layout == AWRA_COLLECTION_GRID ? i / x->grid_cols : i;
-  const double top = (double)row * x->tile_h, bottom = top + x->tile_h;
+  const double row_top = item_top(x, i), bottom = row_top + x->tile_h;
+  /* a group's first row shows with its heading */
+  const int g = group_of(x, i);
+  const double top = i - group_start(x, g) < per_row(x) ? group_top(x, g) : row_top;
   if (top < x->vvalue) {
     scroll_to_value(w, top);
   }
@@ -856,23 +1057,18 @@ static void band_apply(AwraWidget *w)
     x->sel[i] = (ctrl || shift) && x->band_initial ? x->band_initial[i] : 0;
   }
   if (x->tile_h > 0 && x->n > 0) {
-    const int row0 = BK_MAX(0, (int)(by0 / x->tile_h));
-    const int row1 = (int)(by1 / x->tile_h);
-    for (int row = row0; row <= row1; row++) {
-      for (int col = 0; col < x->grid_cols; col++) {
-        const int i = row * x->grid_cols + col;
-        if (i >= x->n) {
-          break;
-        }
+    const int i0 = first_item_from(x, BK_MAX(0, by0)), i1 = BK_MIN(x->n - 1, last_item_to(x, by1));
+    for (int i = i0; i <= i1; i++) {
+      {
         int rx, ry, rw, rh;
         item_rect(w, i, &rx, &ry, &rw, &rh);
         /* to content coordinates */
         const double cx0 = rx - w->x, cy0 = ry - (w->y + x->header_h - x->vvalue);
         double ix0 = cx0, ix1 = cx0 + rw;
-        if (x->layout == AWRA_COLLECTION_LIST) {
+        if (x->layout == AWRA_COLLECTION_LIST && !x->whole_rows) {
           /* a row is its name: the band must reach the first column's text */
-          ix0 = 0;
-          ix1 = x->ncols ? x->cols[0].w : rw;
+          ix0 = x->ncols ? x->cols[0].x : 0;
+          ix1 = x->ncols ? x->cols[0].x + x->cols[0].w : rw;
         }
         if (ix1 >= bx0 && ix0 <= bx1 && cy0 + rh >= by0 && cy0 <= by1) {
           x->sel[i] = ctrl ? !x->sel[i] : 1;
@@ -950,6 +1146,75 @@ static bool on_scrollbar(AwraWidget *w, int px, int py)
          py >= w->y + x->header_h;
 }
 
+/* The place in `order` of a column (-1: none). */
+static int order_pos(const CollExt *x, int c)
+{
+  for (int k = 0; k < x->ncols; k++) {
+    if (x->order[k] == c) {
+      return k;
+    }
+  }
+  return -1;
+}
+
+/* The next shown column from place k in `order`, going by step (-1: none). */
+static int shown_neighbour(const CollExt *x, int k, int step)
+{
+  for (int j = k + step; j >= 0 && j < x->ncols; j += step) {
+    const Column *n = &x->cols[x->order[j]];
+    if (n->visible && n->w > 0) {
+      return j;
+    }
+  }
+  return -1;
+}
+
+/* The carried header follows the pointer and takes a neighbour's place
+ * once its middle passes the neighbour's middle (Windows Explorer's). */
+static void move_column(AwraWidget *w, int px)
+{
+  CollExt *x = CX(w);
+  const int c = x->press_col;
+  const Column *col = &x->cols[c];
+  x->move_x = BK_CLAMP(awra_mirror_px(w, px) - w->x - x->move_grab, side_inset(x),
+                       BK_MAX(side_inset(x), w->w - side_inset(x) - col->w));
+  const int mid = x->move_x + col->w / 2;
+  bool moved = false;
+  for (int guard = 0; guard < x->ncols; guard++) {
+    const int k = order_pos(x, c);
+    const int right = shown_neighbour(x, k, 1), left = shown_neighbour(x, k, -1);
+    int to = -1;
+    if (right >= 0) {
+      const Column *n = &x->cols[x->order[right]];
+      if (mid > n->x + n->w / 2) {
+        to = right;
+      }
+    }
+    if (to < 0 && left >= 0) {
+      const Column *n = &x->cols[x->order[left]];
+      if (mid < n->x + n->w / 2) {
+        to = left;
+      }
+    }
+    if (to < 0) {
+      break;
+    }
+    if (to > k) {
+      memmove(&x->order[k], &x->order[k + 1], sizeof(int) * (size_t)(to - k));
+    }
+    else {
+      memmove(&x->order[to + 1], &x->order[to], sizeof(int) * (size_t)(k - to));
+    }
+    x->order[to] = c;
+    compute_columns(w);
+    moved = true;
+  }
+  if (moved) {
+    awra_queue_allocate(w);
+  }
+  awra_invalidate(w);
+}
+
 static int coll_press(AwraWidget *w, BKEvent *e)
 {
   CollExt *x = CX(w);
@@ -962,6 +1227,7 @@ static int coll_press(AwraWidget *w, BKEvent *e)
   x->band = false;
   x->dnd = false;
   x->resize_col = -1;
+  x->moving = false;
   x->press_scrollbar = false;
   x->press_header = false;
   bool edge = false;
@@ -1009,6 +1275,15 @@ static int coll_drag(AwraWidget *w, BKEvent *e)
       col->width = BK_MAX(40, (int)((x->resize_w0 + ddx) / awra_scale()));
       awra_queue_allocate(w);
       awra_invalidate(w);
+    }
+    else if (x->moving) {
+      move_column(w, e->x);
+    }
+    else if (x->reorderable && abs(e->x - x->press_x) >= awra_px(DRAG_THRESHOLD)) {
+      x->moving = true;
+      x->header_hover = -1;
+      x->move_grab = awra_mirror_px(w, x->press_x) - w->x - x->cols[x->press_col].x;
+      move_column(w, e->x);
     }
     return 1;
   }
@@ -1095,6 +1370,14 @@ static int coll_release(AwraWidget *w, BKEvent *e)
   CollExt *x = CX(w);
   if (x->press_header) {
     x->press_header = false;
+    if (x->moving) {
+      x->moving = false;
+      x->header_hover = header_column_at(w, e->x, e->y, NULL);
+      awra_queue_allocate(w);
+      awra_invalidate(w);
+      awra_emit_text(w, AWRA_SIGNAL_NOTIFY, "column-order");
+      return 1;
+    }
     if (x->resize_col < 0 && e->inside) {
       const int c = header_column_at(w, e->x, e->y, NULL);
       if (c >= 0 && c == x->press_col) {
@@ -1147,7 +1430,7 @@ static int coll_motion(AwraWidget *w, BKEvent *e)
     bool content;
     i = on_scrollbar(w, e->x, e->y) ? -1 : index_at(w, e->x, e->y, &content);
   }
-  const int hc = header_column_at(w, e->x, e->y, NULL);
+  const int hc = x->moving ? -1 : header_column_at(w, e->x, e->y, NULL);
   if (i != x->hover || hc != x->header_hover) {
     x->hover = i;
     x->header_hover = hc;
@@ -1184,6 +1467,30 @@ static void coll_leave(AwraWidget *w, const AwraArgs *a, void *data)
   }
 }
 
+/* Grouped: the item in the same column a row below (dir 1) or above (-1),
+ * across a heading into the next group; a shorter row gives its last item. */
+static int step_row(const CollExt *x, int i, int dir)
+{
+  const int cols = per_row(x);
+  int g = group_of(x, i);
+  const int s = group_start(x, g), e = group_end(x, g);
+  const int col = (i - s) % cols, row = (i - s) / cols;
+  if (dir > 0 && (row + 1) * cols < e - s) {
+    return BK_MIN(e - 1, s + (row + 1) * cols + col);
+  }
+  if (dir < 0 && row > 0) {
+    return s + (row - 1) * cols + col;
+  }
+  for (g += dir; g >= 0 && g < group_count(x); g += dir) {
+    const int s2 = group_start(x, g), e2 = group_end(x, g);
+    if (e2 > s2) {
+      const int last_row = dir > 0 ? 0 : (e2 - s2 - 1) / cols;
+      return BK_MIN(e2 - 1, s2 + last_row * cols + col);
+    }
+  }
+  return i;
+}
+
 static int coll_key(AwraWidget *w, BKEvent *e)
 {
   CollExt *x = CX(w);
@@ -1199,10 +1506,10 @@ static int coll_key(AwraWidget *w, BKEvent *e)
     return 0;
   }
   if (bk_keysym_is(e->keysym, "Down")) {
-    to = cur < 0 ? 0 : (cur + cols < x->n ? cur + cols : cur);
+    to = cur < 0 ? 0 : x->ngroups > 0 ? step_row(x, cur, 1) : (cur + cols < x->n ? cur + cols : cur);
   }
   else if (bk_keysym_is(e->keysym, "Up")) {
-    to = cur < 0 ? 0 : (cur - cols >= 0 ? cur - cols : cur);
+    to = cur < 0 ? 0 : x->ngroups > 0 ? step_row(x, cur, -1) : (cur - cols >= 0 ? cur - cols : cur);
   }
   else if (bk_keysym_is(e->keysym, awra_widget_rtl(w) ? "Left" : "Right") && cols > 1) {
     to = cur < 0 ? 0 : cur + 1; /* the next tile is on the left, right to left */
@@ -1241,6 +1548,21 @@ static int coll_key(AwraWidget *w, BKEvent *e)
   return x->cursor != was ? 1 : 2;
 }
 
+static void clear_groups(CollExt *x)
+{
+  for (int g = 0; g < x->ngroups; g++) {
+    free(x->gtitle[g]);
+  }
+  free(x->gstart);
+  free(x->gtitle);
+  free(x->gy);
+  x->gstart = NULL;
+  x->gtitle = NULL;
+  x->gy = NULL;
+  x->ngroups = 0;
+  x->group_h = 0;
+}
+
 static void coll_finalize(AwraWidget *w)
 {
   CollExt *x = CX(w);
@@ -1262,8 +1584,10 @@ static void coll_finalize(AwraWidget *w)
     free(x->cols[c].title);
   }
   free(x->cols);
+  free(x->order);
   free(x->sel);
   free(x->band_initial);
+  clear_groups(x);
   if (x->fade_timer) {
     awra_source_remove(x->fade_timer);
   }
@@ -1460,6 +1784,8 @@ void awra_collection_view_set_item_count(AwraWidget *w, int n)
   CollExt *x = CX(w);
   unbind_all(w);
   x->n = BK_MAX(0, n);
+  /* other items: their groups are set again */
+  clear_groups(x);
   const bool had_selection = x->sel_count > 0;
   clear_sel(x);
   ensure_sel(x);
@@ -1474,6 +1800,41 @@ void awra_collection_view_set_item_count(AwraWidget *w, int n)
   if (had_selection) {
     coll_emit_selection(w);
   }
+}
+
+void awra_collection_view_set_groups(AwraWidget *w, const int *starts, const char *const *titles, int n)
+{
+  CollExt *x = CX(w);
+  clear_groups(x);
+  if (n > 0 && starts) {
+    x->gstart = (int *)malloc(sizeof(int) * (size_t)n);
+    x->gtitle = (char **)calloc((size_t)n, sizeof(char *));
+    x->gy = (int *)calloc((size_t)n, sizeof(int));
+    if (!x->gstart || !x->gtitle || !x->gy) {
+      free(x->gstart);
+      free(x->gtitle);
+      free(x->gy);
+      x->gstart = NULL;
+      x->gtitle = NULL;
+      x->gy = NULL;
+    }
+    else {
+      for (int g = 0; g < n; g++) {
+        x->gstart[g] = starts[g];
+        x->gtitle[g] = awra_strdup(titles && titles[g] ? titles[g] : "");
+      }
+      x->ngroups = n;
+    }
+  }
+  /* the items move: laid out again, the scroll kept within */
+  compute_geometry(w);
+  awra_queue_allocate(w);
+  awra_invalidate(w);
+}
+
+int awra_collection_view_group_count(AwraWidget *w)
+{
+  return CX(w)->ngroups;
 }
 
 int awra_collection_view_item_count(AwraWidget *w)
@@ -1610,6 +1971,23 @@ void awra_collection_view_set_row_spacing(AwraWidget *w, int spacing)
   awra_invalidate(w);
 }
 
+void awra_collection_view_set_side_inset(AwraWidget *w, int inset)
+{
+  CollExt *x = CX(w);
+  inset = BK_MAX(0, inset);
+  if (x->inset == inset) {
+    return;
+  }
+  x->inset = inset;
+  awra_queue_allocate(w);
+  awra_invalidate(w);
+}
+
+void awra_collection_view_set_whole_rows(AwraWidget *w, bool whole)
+{
+  CX(w)->whole_rows = whole;
+}
+
 void awra_collection_view_set_max_columns(AwraWidget *w, int n)
 {
   CX(w)->max_cols = n;
@@ -1621,6 +1999,8 @@ int awra_collection_view_add_column(AwraWidget *w, const char *title, int width,
   CollExt *x = CX(w);
   drop_pools(w);
   x->cols = (Column *)realloc(x->cols, sizeof(Column) * (size_t)(x->ncols + 1));
+  x->order = (int *)realloc(x->order, sizeof(int) * (size_t)(x->ncols + 1));
+  x->order[x->ncols] = x->ncols;
   Column *c = &x->cols[x->ncols];
   memset(c, 0, sizeof(*c));
   c->title = awra_strdup(title ? title : "");
@@ -1682,6 +2062,49 @@ int awra_collection_view_column_width(AwraWidget *w, int column)
     return 0;
   }
   return (int)floorf(x->cols[column].w / awra_scale() + 0.5f);
+}
+
+void awra_collection_view_set_columns_reorderable(AwraWidget *w, bool reorderable)
+{
+  CX(w)->reorderable = reorderable;
+}
+
+void awra_collection_view_set_column_order(AwraWidget *w, const int *order, int n)
+{
+  CollExt *x = CX(w);
+  if (x->ncols == 0) {
+    return;
+  }
+  uint8_t *seen = (uint8_t *)calloc((size_t)x->ncols, 1);
+  if (!seen) {
+    return;
+  }
+  int k = 0;
+  for (int i = 0; i < n && order; i++) {
+    const int c = order[i];
+    if (c >= 0 && c < x->ncols && !seen[c]) {
+      seen[c] = 1;
+      x->order[k++] = c;
+    }
+  }
+  /* the columns it leaves out follow in their own order */
+  for (int c = 0; c < x->ncols; c++) {
+    if (!seen[c]) {
+      x->order[k++] = c;
+    }
+  }
+  free(seen);
+  awra_queue_allocate(w);
+  awra_invalidate(w);
+}
+
+int awra_collection_view_get_column_order(AwraWidget *w, int *out, int max)
+{
+  CollExt *x = CX(w);
+  for (int k = 0; k < x->ncols && k < max && out; k++) {
+    out[k] = x->order[k];
+  }
+  return x->ncols;
 }
 
 void awra_collection_view_set_sort_column(AwraWidget *w, int column, bool descending)
@@ -1871,13 +2294,12 @@ int awra_collection_view_get_anchor(AwraWidget *w, double *r_align, bool *r_end)
   if (x->n <= 0 || x->tile_h <= 0 || x->view_h <= 0) {
     return -1;
   }
-  const int per_row = x->layout == AWRA_COLLECTION_GRID ? BK_MAX(1, x->grid_cols) : 1;
   const double total = BK_MAX(x->content_h, x->view_h), page = x->view_h, value = x->vvalue;
   const double align = total == page ? 0.5 : value / (total - page);
   double along = value + floor(align * page + 0.5);
   along = fmin(fmax(along, 0.0), total - 1.0);
-  const int row = BK_MIN((int)(along / x->tile_h), (x->n - 1) / per_row);
-  const double top = (double)row * x->tile_h, bottom = top + x->tile_h;
+  const int first = row_first(x, BK_MIN(first_item_from(x, along), x->n - 1));
+  const double top = item_top(x, first), bottom = top + x->tile_h;
   bool end;
   if (top < value && bottom <= value + page) {
     end = true;
@@ -1890,7 +2312,7 @@ int awra_collection_view_get_anchor(AwraWidget *w, double *r_align, bool *r_end)
   }
   *r_end = end;
   *r_align = ((end ? bottom : top) - value) / page;
-  return row * per_row;
+  return first;
 }
 
 void awra_collection_view_set_anchor(AwraWidget *w, int index, double align, bool end)
@@ -1902,8 +2324,7 @@ void awra_collection_view_set_anchor(AwraWidget *w, int index, double align, boo
   if (index < 0 || index >= x->n || x->tile_h <= 0) {
     return;
   }
-  const int per_row = x->layout == AWRA_COLLECTION_GRID ? BK_MAX(1, x->grid_cols) : 1;
-  const double top = (double)(index / per_row) * x->tile_h;
+  const double top = item_top(x, index);
   const double v = (end ? top + x->tile_h : top) - align * x->view_h;
   const double maxv = BK_MAX(0, x->content_h - x->view_h);
   const double nv = v < 0 ? 0 : v > maxv ? maxv : v;
