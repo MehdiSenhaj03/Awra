@@ -28,6 +28,10 @@ struct AwraTexture {
   int small_w, small_h;
   float small_geom[10];
   uint64_t small_key;
+  /* the geometry it was last drawn at without a kept copy: a copy is made
+   * once the same geometry comes twice (a scroll), never while it moves */
+  float seen_geom[10];
+  bool seen;
 };
 
 static uint64_t g_texture_keys = 1;
@@ -481,7 +485,7 @@ static float gsk_coverage(float px, float py, float x0, float y0, float x1, floa
 /* A texture drawn smaller than half its size: each device pixel sampled
  * trilinearly from the mipmaps at its centre, times GSK's coverage, into a
  * pixmap on the pixel grid (kept while the geometry stays). */
-static bool texture_sampled(AwraTexture *t, float bx, float by, float bw, float bh, const float src[4], float radius, bool mips,
+static bool texture_sampled(AwraTexture *t, float bx, float by, float bw, float bh, const float src[4], float radius, bool mips, bool settled,
                             int *r_x, int *r_y)
 {
   const int X0 = (int)floorf(bx), Y0 = (int)floorf(by);
@@ -492,6 +496,16 @@ static bool texture_sampled(AwraTexture *t, float bx, float by, float bw, float 
   const float geom[10] = {bx - X0, by - Y0, bw, bh, src[0], src[1], src[2], src[3], radius, mips ? 1.0f : 0.0f};
   if (t->small && t->small_w == dw && t->small_h == dh && !memcmp(t->small_geom, geom, sizeof(geom))) {
     return true;
+  }
+  if (settled) {
+    /* drawn once more at a geometry not seen just before: it is moving (an
+     * animation, a zoom), and is drawn directly until it stays */
+    const bool again = t->seen && !memcmp(t->seen_geom, geom, sizeof(geom));
+    memcpy(t->seen_geom, geom, sizeof(geom));
+    t->seen = true;
+    if (!again) {
+      return false;
+    }
   }
   if (dw <= 0 || dh <= 0 || BUI_pixmap_yuv(t->format) || (mips && !make_mips(t))) {
     return false;
@@ -640,7 +654,7 @@ void awra_paint_texture_filtered(AwraDraw *d, const AwraTexture *t, AwraBox b, f
   if ((far || once) && !BUI_pixmap_yuv(t->format)) {
     int X, Y;
     /* at the draw shift (raster-shift.h): its pixels are placed whole */
-    if (texture_sampled((AwraTexture *)t, bx + awra_shift_x, by + awra_shift_y, bw, bh, src, radius, far, &X, &Y)) {
+    if (texture_sampled((AwraTexture *)t, bx + awra_shift_x, by + awra_shift_y, bw, bh, src, radius, far, !far, &X, &Y)) {
       const BuiPixmap spm = {t->small, t->small_w, t->small_h, t->small_key, BUI_PIXMAP_ARGB, 0};
       BUI_raster_image(d->r, (float)X, (float)Y, (float)t->small_w, (float)t->small_h, &spm, NULL, d->opacity, 0);
       return;
