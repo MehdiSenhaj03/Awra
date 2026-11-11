@@ -1866,6 +1866,18 @@ static void wait_for_messages(int timeout)
                               MWMO_INPUTAVAILABLE);
 }
 
+/* BUI-Awra: the next message, the pointer's first. Windows hands out posted
+ * messages before input, and an animation posts its next frame from the one
+ * it draws: the pointer waited for the animation's last frame, so a hover
+ * fading in held the next row's hover back (menus followed the pointer in
+ * steps). Only the pointer: keys stay in order with the WM_CHAR posted for
+ * them. */
+static BOOL next_message(MSG *msg)
+{
+  return PeekMessageW(msg, NULL, WM_MOUSEFIRST, WM_MOUSELAST, PM_REMOVE) ||
+         PeekMessageW(msg, NULL, 0, 0, PM_REMOVE);
+}
+
 void BK_window_run(void)
 {
   g_quit = 0;
@@ -1876,7 +1888,7 @@ void BK_window_run(void)
     if (!PeekMessageW(&msg, NULL, 0, 0, PM_NOREMOVE)) {
       wait_for_messages(timeout);
     }
-    while (PeekMessageW(&msg, NULL, 0, 0, PM_REMOVE)) {
+    while (next_message(&msg)) {
       if (msg.message == WM_QUIT) {
         g_quit = 1;
         break;
@@ -1902,7 +1914,7 @@ int BK_window_pump(void)
 {
   bk_loop_run_due();
   MSG msg;
-  while (PeekMessageW(&msg, NULL, 0, 0, PM_REMOVE)) {
+  while (next_message(&msg)) {
     if (msg.message == WM_QUIT) {
       break;
     }
