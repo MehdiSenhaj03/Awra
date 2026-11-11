@@ -17,6 +17,14 @@ fn main() {
     }
     println!("cargo:rerun-if-changed={}", root.join("CMakeLists.txt").display());
 
+    println!("cargo:rerun-if-env-changed=CMAKE");
+    if target_env == "msvc" && env::var_os("CMAKE").is_none() {
+        // the CMake installed with Visual Studio knows its generator; one
+        // found first on the PATH may be older than this Visual Studio
+        if let Some(cmake) = visual_studio_cmake() {
+            env::set_var("CMAKE", cmake);
+        }
+    }
     let build_dir = if let Ok(dir) = env::var("AWRA_LIB_DIR") {
         PathBuf::from(dir)
     } else {
@@ -78,4 +86,17 @@ fn main() {
         }
         _ => {}
     }
+}
+
+/// The newest Visual Studio's own cmake.exe (vswhere knows where it is).
+fn visual_studio_cmake() -> Option<PathBuf> {
+    let base = env::var_os("ProgramFiles(x86)").map(PathBuf::from)?;
+    let vswhere = base.join("Microsoft Visual Studio").join("Installer").join("vswhere.exe");
+    let out = std::process::Command::new(vswhere)
+        .args(["-latest", "-products", "*", "-property", "installationPath"])
+        .output()
+        .ok()?;
+    let install = PathBuf::from(String::from_utf8_lossy(&out.stdout).trim());
+    let cmake = install.join("Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/bin/cmake.exe");
+    cmake.is_file().then_some(cmake)
 }
