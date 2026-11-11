@@ -1138,6 +1138,12 @@ static LRESULT CALLBACK wndproc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
       BK_button(ctx, GET_X_LPARAM(lp), GET_Y_LPARAM(lp), msg == WM_RBUTTONUP ? 3 : 2,
                 msg != WM_MBUTTONDOWN, mods_now(wp, 1));
       return 0;
+    case WM_XBUTTONDOWN:
+    case WM_XBUTTONUP: /* the side buttons: back (8), forward (9) */
+      BK_button(ctx, GET_X_LPARAM(lp), GET_Y_LPARAM(lp),
+                GET_XBUTTON_WPARAM(wp) == XBUTTON1 ? 8 : 9, msg == WM_XBUTTONUP,
+                mods_now(wp, 1));
+      return TRUE; /* handled: no WM_APPCOMMAND on top */
     case WM_KEYUP:
     case WM_SYSKEYUP: {
       bk_last_key_code = scancode_to_evdev((int)((lp >> 16) & 0xFF), (int)((lp >> 24) & 1));

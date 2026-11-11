@@ -69,8 +69,18 @@ typedef struct BKNode BKNode;
 typedef struct BKContext BKContext;
 typedef struct BKTreeItem BKTreeItem;
 
-/* Modifier / button state bits for input calls. */
-enum { BK_SHIFT = 1, BK_CTRL = 2, BK_ALT = 4, BK_BUTTON1 = 8, BK_BUTTON2 = 16, BK_BUTTON3 = 32 };
+/* Modifier / button state bits for input calls. BK_BUTTON8/9: the side
+ * buttons (back, forward), numbered as X11 and GTK do. */
+enum {
+  BK_SHIFT = 1,
+  BK_CTRL = 2,
+  BK_ALT = 4,
+  BK_BUTTON1 = 8,
+  BK_BUTTON2 = 16,
+  BK_BUTTON3 = 32,
+  BK_BUTTON8 = 64,
+  BK_BUTTON9 = 128,
+};
 
 /* Mouse cursors requested through BKHost.set_cursor. */
 enum {

@@ -1363,6 +1363,14 @@ static void pointer_button(void *data, struct wl_pointer *p, uint32_t serial, ui
         BK_button(ctx, x, y, 3, 1, g_mods);
       }
       break;
+    case BTN_SIDE: /* back, forward: 8 and 9 as X11 and GTK number them */
+    case BTN_BACK:
+      BK_button(ctx, x, y, 8, !press, g_mods);
+      break;
+    case BTN_EXTRA:
+    case BTN_FORWARD:
+      BK_button(ctx, x, y, 9, !press, g_mods);
+      break;
   }
 }
 static void pointer_axis(void *data, struct wl_pointer *p, uint32_t t, uint32_t axis,

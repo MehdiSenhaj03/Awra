@@ -598,10 +598,17 @@ static void pointer_hook(BKContext *ctx, int kind, int x, int y, int mods)
     a.signal = AWRA_SIGNAL_PRESS_CAPTURE;
     a.x = x / awra_scale();
     a.y = y / awra_scale();
-    a.button = (mods & BK_BUTTON3) ? 3 : (mods & BK_BUTTON2) ? 2 : 1;
+    a.button = (mods & BK_BUTTON9)   ? 9 :
+               (mods & BK_BUTTON8)   ? 8 :
+               (mods & BK_BUTTON3)   ? 3 :
+               (mods & BK_BUTTON2)   ? 2 :
+                                       1;
     a.n_press = 1;
     a.mods = mods & (BK_SHIFT | BK_CTRL | BK_ALT);
     awra_emit(win, &a);
+  }
+  if (mods & (BK_BUTTON8 | BK_BUTTON9)) {
+    return; /* the side buttons: nothing but the capture */
   }
   if (kind == BK_EV_PRESS && !(mods & (BK_BUTTON2 | BK_BUTTON3))) {
     update_hover(win, x, y, false);

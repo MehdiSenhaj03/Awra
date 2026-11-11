@@ -3890,6 +3890,13 @@ int BK_button(BKContext *ctx, int x, int y, int button, int release, int mods)
   if (ctx->blocked) {
     return 0;
   }
+  if (button == 8 || button == 9) { /* back, forward: the host's to decide, window-wide */
+    if (ctx->pointer_hook) {
+      ctx->pointer_hook(ctx, release ? BK_EV_RELEASE : BK_EV_PRESS, x, y,
+                        mods | (button == 8 ? BK_BUTTON8 : BK_BUTTON9));
+    }
+    return 1;
+  }
   if (ctx->pointer_hook && (button == 2 || button == 3) && (release || button == 2)) {
     ctx->pointer_hook(ctx, release ? BK_EV_RELEASE : BK_EV_PRESS, x, y,
                       mods | (button == 2 ? BK_BUTTON2 : BK_BUTTON3));
