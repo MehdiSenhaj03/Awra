@@ -54,7 +54,7 @@ preferences as the rest of Awra.
 |---|---|---|
 | `workspace-canvas` | GtkBox | Quiet content plane and chrome separation |
 | `workspace-tabs` | AwraTabView | Tabs embedded in compact window chrome |
-| `compact-navigation` | AwraSidebar | 32 px navigation rows for long lists of places; selection stays neutral |
+| `compact-navigation` | AwraSidebar | 32 px navigation rows for long lists of places; the selected place has the accent's wash and hairline, as a selected list row |
 | `sidebar-heading` | GtkLabel, or an AwraButton that folds its section | Muted heading aligned with navigation items |
 | `compact-table` | AwraDataView | Compact rows and column headers |
 | `canvas-table` | AwraDataView | Transparent column headings on a shared Canvas |

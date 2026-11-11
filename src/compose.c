@@ -1883,6 +1883,14 @@ static void nav_colors(AwraWidget *w, AwraButtonColors *c)
   c->bg = awra_mix(rest.bg, hov.bg, ht);
   c->rim = NX(w)->selected ? rest.rim : awra_rgba(0, 0, 0, 0);
   c->ring = awra_rgba(0, 0, 0, 0);
+  if (role == 1 && NX(w)->selected && awra_sensitive(w)) {
+    /* a place among many: the selection of lists (the accent's wash and its
+     * hairline), not a raised grey cap; a little deeper under the pointer */
+    const float deep = awra_pressed(w) ? 1.6f : 1.0f + 0.35f * ht;
+    c->bg = awra_with_alpha(t->accent_soft, t->accent_soft.a * deep);
+    c->rim = awra_rgba(0, 0, 0, 0);
+    c->ring = awra_with_alpha(t->accent, 0.22f);
+  }
   c->pressed_shadow = 0;
 }
 

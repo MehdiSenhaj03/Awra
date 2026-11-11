@@ -6,6 +6,8 @@
 
 Awra 2: the same look, without GTK.
 
+- `compact-navigation`: the selected place has the accent's wash and
+  hairline, as a selected list row, instead of a raised grey cap.
 - Material opacity: `awra_style_set_material_opacity` sets how opaque a
   material is (window, header, cards, menus) whatever its tint; a clear
   tint is composed over the canvas first, so an opaque card keeps the
