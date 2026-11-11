@@ -2431,7 +2431,11 @@ int BK_render(BKContext *ctx, BuiRaster *r, int w, int h, int full)
   }
   bk_custom_frames(ctx); /* immediate-mode nodes build this frame (they dirty themselves) */
   if (ctx->layout_dirty) {
-    ctx->full_dirty = !ctx->root_fills;
+    /* BUI-Awra: a layout here adds to what the frame redraws; it never
+     * takes back a full redraw asked for above (a new size, `full`), or the
+     * frame draws only the regions its nodes dirtied and leaves the rest of
+     * the window as it was: unpainted, on a first frame */
+    ctx->full_dirty = ctx->full_dirty || !ctx->root_fills;
     layout(ctx);
   }
   if (ctx->full_dirty && ctx->pops) { /* BUI-Awra: everything redraws, popups too */
