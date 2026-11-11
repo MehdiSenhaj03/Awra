@@ -884,6 +884,10 @@ AwraWidget *awra_typing_indicator_new(void)
 
 void awra_typing_indicator_set_label(AwraWidget *w, const char *label)
 {
+  const char *now = awra_label_text(TYX(w)->label);
+  if (now && !strcmp(now, label ? label : "")) {
+    return; /* said already: its room is the same */
+  }
   awra_label_set_text(TYX(w)->label, label ? label : "");
   awra_widget_queue_resize(w);
 }

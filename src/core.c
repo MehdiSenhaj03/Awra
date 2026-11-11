@@ -1491,6 +1491,9 @@ void awra_widget_set_tooltip(AwraWidget *w, const char *text)
 void awra_widget_set_typography(AwraWidget *w, AwraTypography t)
 {
   AUX_OR_RETURN(w);
+  if (a->typography_set && a->typography == (unsigned char)t) {
+    return; /* as it is: nothing to lay out again */
+  }
   a->typography = (unsigned char)t;
   a->typography_set = 1;
   if (AWRA_CLASS_OF(w)->style_changed) {
