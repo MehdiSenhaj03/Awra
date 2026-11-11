@@ -55,6 +55,12 @@ impl crate::CollectionView {
         unsafe { ffi::awra_collection_view_set_side_inset(ptr!(self), inset) }
     }
 
+    /// More of that blank on the leading side only (logical px): a gap
+    /// beside the view that is the view's, for the press and the rubberband.
+    pub fn set_lead_inset(&self, extra: i32) {
+        unsafe { ffi::awra_collection_view_set_lead_inset(ptr!(self), extra) }
+    }
+
     /// List: a row is an item over its whole width (a drag from anywhere on
     /// it carries it, `index_at` reports its content everywhere on it, the
     /// rubberband takes the rows it crosses); by default a row is its name.

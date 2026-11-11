@@ -1401,6 +1401,9 @@ void awra_collection_view_set_row_spacing(AwraWidget *view, int spacing);
 /* A blank along both sides (logical px, default 0), part of no item: rows,
  * tiles and headers stay within it; a press there starts a rubberband. */
 void awra_collection_view_set_side_inset(AwraWidget *view, int inset);
+/* More of that blank on the leading side only (logical px, default 0): a
+ * gap beside the view that is the view's, for the press and the rubberband. */
+void awra_collection_view_set_lead_inset(AwraWidget *view, int extra);
 /* List: a row is an item over its whole width (a drag from anywhere on it
  * carries it, index_at reports on_content everywhere on it, the rubberband
  * takes the rows it crosses); by default a row is its name. */

@@ -1504,6 +1504,7 @@ extern "C" {
     pub fn awra_collection_view_set_row_height(view: *mut AwraWidget, height: c_int);
     pub fn awra_collection_view_set_row_spacing(view: *mut AwraWidget, spacing: c_int);
     pub fn awra_collection_view_set_side_inset(view: *mut AwraWidget, inset: c_int);
+    pub fn awra_collection_view_set_lead_inset(view: *mut AwraWidget, extra: c_int);
     pub fn awra_collection_view_set_whole_rows(view: *mut AwraWidget, whole: bool);
     pub fn awra_collection_view_set_max_columns(view: *mut AwraWidget, n: c_int);
     pub fn awra_collection_view_set_groups(

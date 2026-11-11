@@ -67,6 +67,7 @@ typedef struct CollExt {
   int row_gap;        /* list: blank below each row, logical (Awra 1's spaced-rows) */
   int max_cols;
   int inset;       /* a blank along both sides, logical: part of no item */
+  int lead;        /* more of it on the leading side, logical */
   bool whole_rows; /* list: a row is an item over its whole width, not only its name */
   /* computed, raster */
   int header_h, grid_cols, tile_h, content_h, view_h;
@@ -136,6 +137,12 @@ static int side_inset(const CollExt *x)
   return awra_px(x->inset);
 }
 
+/* The blank on the leading side: the same and what was added to it. */
+static int lead_inset(const CollExt *x)
+{
+  return awra_px(x->inset + x->lead);
+}
+
 static int list_row_h(const CollExt *x)
 {
   return awra_px(x->row_h > 0 ? x->row_h : 30);
@@ -188,8 +195,8 @@ static void compute_columns(AwraWidget *w)
     }
     fixed += col->w;
   }
-  int extra = w->w - 2 * side_inset(x) - fixed;
-  int cx = side_inset(x);
+  int extra = w->w - lead_inset(x) - side_inset(x) - fixed;
+  int cx = lead_inset(x);
   for (int k = 0; k < x->ncols; k++) {
     Column *col = &x->cols[x->order[k]];
     if (!col->visible) {
@@ -308,7 +315,7 @@ static void compute_geometry(AwraWidget *w)
   x->view_h = BK_MAX(0, w->h - x->header_h);
   if (x->layout == AWRA_COLLECTION_GRID) {
     const int min_w = awra_px(x->item_w + 2 * (TILE_PAD + TILE_MARGIN));
-    const int avail = BK_MAX(0, w->w - 2 * side_inset(x));
+    const int avail = BK_MAX(0, w->w - lead_inset(x) - side_inset(x));
     int cols = min_w > 0 ? avail / min_w : 1;
     cols = BK_CLAMP(cols, 1, x->max_cols > 0 ? x->max_cols : 7);
     x->grid_cols = cols;
@@ -358,15 +365,15 @@ static void item_rect(AwraWidget *w, int i, int *rx, int *ry, int *rw, int *rh)
     const int col = (i - group_start(x, group_of(x, i))) % x->grid_cols;
     const int x0 = (int)floor(col * x->col_w + 0.5), x1 = (int)floor((col + 1) * x->col_w + 0.5);
     const int m = awra_px(TILE_MARGIN);
-    *rx = w->x + side_inset(x) + x0 + m;
+    *rx = w->x + lead_inset(x) + x0 + m;
     *ry = top + m;
     *rw = x1 - x0 - 2 * m;
     *rh = x->tile_h - 2 * m;
   }
   else {
-    *rx = w->x + side_inset(x);
+    *rx = w->x + lead_inset(x);
     *ry = top;
-    *rw = BK_MAX(0, w->w - 2 * side_inset(x));
+    *rw = BK_MAX(0, w->w - lead_inset(x) - side_inset(x));
     *rh = x->tile_h - awra_px(x->row_gap);
   }
 }
@@ -396,7 +403,7 @@ static int index_at(AwraWidget *w, int px, int py, bool *r_content)
   const int row = (int)(ly / x->tile_h);
   int i;
   if (x->layout == AWRA_COLLECTION_GRID) {
-    const int gx = px - w->x - side_inset(x);
+    const int gx = px - w->x - lead_inset(x);
     const int col = x->col_w > 0 ? (int)(gx / x->col_w) : -1;
     if (gx < 0 || col < 0 || col >= x->grid_cols) {
       return -1;
@@ -406,7 +413,7 @@ static int index_at(AwraWidget *w, int px, int py, bool *r_content)
   else {
     i = group_start(x, g) + row;
     /* the sides are blank */
-    if (px < w->x + side_inset(x) || px >= w->x + w->w - side_inset(x)) {
+    if (px < w->x + lead_inset(x) || px >=w->x + w->w - side_inset(x)) {
       return -1;
     }
     /* the gap below a row is blank */
@@ -730,7 +737,7 @@ static void paint_group(AwraWidget *w, AwraDraw *d, int g)
   /* the text in the heading's lower part, close to its rows */
   const float text_top = top + x->group_h - awra_px(8) - ceilf(lh);
   const float base = floorf(text_top) + asc;
-  int left = side_inset(x) + awra_px(TILE_MARGIN + TILE_PAD);
+  int left = lead_inset(x) + awra_px(TILE_MARGIN + TILE_PAD);
   if (x->layout == AWRA_COLLECTION_LIST) {
     left = awra_px(CELL_PAD_X);
     for (int k = 0; k < x->ncols; k++) {
@@ -1176,8 +1183,8 @@ static void move_column(AwraWidget *w, int px)
   CollExt *x = CX(w);
   const int c = x->press_col;
   const Column *col = &x->cols[c];
-  x->move_x = BK_CLAMP(awra_mirror_px(w, px) - w->x - x->move_grab, side_inset(x),
-                       BK_MAX(side_inset(x), w->w - side_inset(x) - col->w));
+  x->move_x = BK_CLAMP(awra_mirror_px(w, px) - w->x - x->move_grab, lead_inset(x),
+                       BK_MAX(lead_inset(x), w->w - side_inset(x) - col->w));
   const int mid = x->move_x + col->w / 2;
   bool moved = false;
   for (int guard = 0; guard < x->ncols; guard++) {
@@ -1979,6 +1986,18 @@ void awra_collection_view_set_side_inset(AwraWidget *w, int inset)
     return;
   }
   x->inset = inset;
+  awra_queue_allocate(w);
+  awra_invalidate(w);
+}
+
+void awra_collection_view_set_lead_inset(AwraWidget *w, int extra)
+{
+  CollExt *x = CX(w);
+  extra = BK_MAX(0, extra);
+  if (x->lead == extra) {
+    return;
+  }
+  x->lead = extra;
   awra_queue_allocate(w);
   awra_invalidate(w);
 }
