@@ -26,7 +26,7 @@ struct AwraTexture {
   uint32_t *mip0;
   uint32_t *small;
   int small_w, small_h;
-  float small_geom[9];
+  float small_geom[10];
   uint64_t small_key;
 };
 
@@ -481,7 +481,7 @@ static float gsk_coverage(float px, float py, float x0, float y0, float x1, floa
 /* A texture drawn smaller than half its size: each device pixel sampled
  * trilinearly from the mipmaps at its centre, times GSK's coverage, into a
  * pixmap on the pixel grid (kept while the geometry stays). */
-static bool texture_sampled(AwraTexture *t, float bx, float by, float bw, float bh, const float src[4], float radius,
+static bool texture_sampled(AwraTexture *t, float bx, float by, float bw, float bh, const float src[4], float radius, bool mips,
                             int *r_x, int *r_y)
 {
   const int X0 = (int)floorf(bx), Y0 = (int)floorf(by);
@@ -489,11 +489,11 @@ static bool texture_sampled(AwraTexture *t, float bx, float by, float bw, float 
   const int dw = X1 - X0, dh = Y1 - Y0;
   *r_x = X0;
   *r_y = Y0;
-  const float geom[9] = {bx - X0, by - Y0, bw, bh, src[0], src[1], src[2], src[3], radius};
+  const float geom[10] = {bx - X0, by - Y0, bw, bh, src[0], src[1], src[2], src[3], radius, mips ? 1.0f : 0.0f};
   if (t->small && t->small_w == dw && t->small_h == dh && !memcmp(t->small_geom, geom, sizeof(geom))) {
     return true;
   }
-  if (dw <= 0 || dh <= 0 || BUI_pixmap_yuv(t->format) || !make_mips(t)) {
+  if (dw <= 0 || dh <= 0 || BUI_pixmap_yuv(t->format) || (mips && !make_mips(t))) {
     return false;
   }
   uint32_t *out = (uint32_t *)malloc(sizeof(uint32_t) * (size_t)dw * dh);
@@ -503,8 +503,8 @@ static bool texture_sampled(AwraTexture *t, float bx, float by, float bw, float 
   /* texels per device pixel: GL's lambda = log2(rho) */
   const float sx = src[2] / bw, sy = src[3] / bh;
   const float lambda = log2f(fmaxf(sx, sy));
-  const int d1 = BK_MAX(0, BK_MIN(t->nmips, (int)floorf(lambda)));
-  const int d2 = BK_MIN(t->nmips, d1 + 1);
+  const int d1 = mips ? BK_MAX(0, BK_MIN(t->nmips, (int)floorf(lambda))) : 0;
+  const int d2 = mips ? BK_MIN(t->nmips, d1 + 1) : 0;
   const float mix = d2 > d1 ? fminf(1.0f, fmaxf(0.0f, lambda - floorf(lambda))) : 0.0f;
   int w1, h1, w2, h2;
   const uint32_t *l1 = level(t, d1, &w1, &h1), *l2 = level(t, d2, &w2, &h2);
@@ -628,11 +628,19 @@ void awra_paint_texture_filtered(AwraDraw *d, const AwraTexture *t, AwraBox b, f
     }
   }
   BuiPixmap pm = awra_texture_pixmap(t);
-  /* more than twice smaller: sampled from the mipmaps as GSK does */
-  if ((t->w > 2.0f * bw * t->w / src[2] || t->h > 2.0f * bh * t->h / src[3]) && !BUI_pixmap_yuv(t->format)) {
+  /* more than twice smaller: sampled from the mipmaps as GSK does. Smaller
+   * by less, or with rounded corners: sampled once the same way (bilinear,
+   * the coverage of the corners), then copied pixel for pixel while the
+   * geometry stays: a grid of thumbnails scrolls without resampling each
+   * of them at every frame */
+  const bool far = t->w > 2.0f * bw * t->w / src[2] || t->h > 2.0f * bh * t->h / src[3];
+  const bool reduced = bw < src[2] - 0.5f || bh < src[3] - 0.5f;
+  const bool once = (filter & BUI_IMAGE_MIPMAP_AUTO) && (reduced || radius > 0.0f) && bw <= src[2] + 0.5f &&
+                    bh <= src[3] + 0.5f;
+  if ((far || once) && !BUI_pixmap_yuv(t->format)) {
     int X, Y;
     /* at the draw shift (raster-shift.h): its pixels are placed whole */
-    if (texture_sampled((AwraTexture *)t, bx + awra_shift_x, by + awra_shift_y, bw, bh, src, radius, &X, &Y)) {
+    if (texture_sampled((AwraTexture *)t, bx + awra_shift_x, by + awra_shift_y, bw, bh, src, radius, far, &X, &Y)) {
       const BuiPixmap spm = {t->small, t->small_w, t->small_h, t->small_key, BUI_PIXMAP_ARGB, 0};
       BUI_raster_image(d->r, (float)X, (float)Y, (float)t->small_w, (float)t->small_h, &spm, NULL, d->opacity, 0);
       return;

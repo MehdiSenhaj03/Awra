@@ -309,6 +309,9 @@ enum {
   /* BUI-Awra: scrolls what it holds (GtkScrolledWindow): wheels and motion
    * over its parts nothing interactive covers reach it */
   CLS_SCROLLER = 1 << 4,
+  /* BUI-Awra: draws what it holds clipped to its own box (a list's cells):
+   * what they invalidate outside it is never seen, so it is not redrawn */
+  CLS_CLIPS = 1 << 5,
 };
 
 enum { DRAG_GROUP_TOGGLE = 1, DRAG_GROUP_PANEL = 2 };

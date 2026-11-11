@@ -160,12 +160,14 @@ void BUI_raster_rbox(BuiRaster *r,
     uint32_t *row = RASTER_ROW(r, py);
     const float sy = (float)py + 0.5f;
     /* Interior span of this row: fully inside the outer box and, with a
-     * border, fully inside the inner box too: only the fill touches it. */
+     * border, fully inside the inner box too: only the fill touches it.
+     * Between the corner bands the sides are straight: whole pixels inside
+     * them are covered, up to the sides themselves (not the radius). */
     int sa = x1, sb = x0;
     const int in_rows = sy - 0.5f >= y + rmax_top && sy + 0.5f <= y + h - rmax_bot;
     if (in_rows && sy - 0.5f >= iy0 && sy + 0.5f <= iy1) {
-      sa = clampi((int)ceilf(fmaxf(x + rmax_left, ix0)), x0, x1);
-      sb = clampi((int)floorf(fminf(x + w - rmax_right, ix1)), x0, x1);
+      sa = clampi((int)ceilf(fmaxf(x, ix0)), x0, x1);
+      sb = clampi((int)floorf(fminf(x + w, ix1)), x0, x1);
       if (sb > sa && has_fill) {
         if (pf.a >= 256) {
           for (int px = sa; px < sb; px++) {
@@ -181,6 +183,40 @@ void BUI_raster_rbox(BuiRaster *r,
       if (sb <= sa) {
         sa = x1;
         sb = x0;
+      }
+    }
+    if (sa >= sb) {
+      /* A row crossing a top or bottom edge (or its border): between the
+       * corners the edge is straight, its coverage the same all along the
+       * row: computed once, not per pixel. Exact where the pixel's centre is
+       * at least half a pixel (and its corners' radius) from the sides:
+       * there sd_rbox is the horizontal edge's distance. */
+      const float ml = fmaxf(rmax_left, 0.5f), mr = fmaxf(rmax_right, 0.5f);
+      int ma = (int)ceilf(x + ml - 0.5f), mb = (int)floorf(x + w - mr - 0.5f) + 1;
+      float ci = 0.0f;
+      if (has_border && ix1 > ix0 && iy1 > iy0) {
+        const float iml = fmaxf(fmaxf(irad[0], irad[3]), 0.5f), imr = fmaxf(fmaxf(irad[1], irad[2]), 0.5f);
+        const int ia = (int)ceilf(ix0 + iml - 0.5f), ib = (int)floorf(ix1 - imr - 0.5f) + 1;
+        ma = ma > ia ? ma : ia;
+        mb = mb < ib ? mb : ib;
+        ci = clampf(0.5f - fmaxf(iy0 - sy, sy - iy1), 0.0f, 1.0f);
+      }
+      ma = clampi(ma, x0, x1);
+      mb = clampi(mb, x0, x1);
+      if (mb > ma) {
+        const float co = clampf(0.5f - fmaxf(y - sy, sy - (y + h)), 0.0f, 1.0f);
+        if (co > 0.0f) {
+          for (int px = ma; px < mb; px++) {
+            if (has_fill) {
+              put_cov(row + px, pf, co);
+            }
+            if (has_border && co - ci > 0.0f) {
+              put_cov(row + px, pb, co - ci);
+            }
+          }
+        }
+        sa = ma;
+        sb = mb;
       }
     }
     for (int px = x0; px < x1; px++) {
