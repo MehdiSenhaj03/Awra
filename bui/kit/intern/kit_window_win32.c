@@ -1837,6 +1837,35 @@ void bk_loop_wake_host(void)
   wake_loop();
 }
 
+/* BUI-Awra: waits for a message, at most `timeout` ms (< 0: for as long as it
+ * takes). A wait's own timeout ends on the system's tick, 15.6 ms apart, so
+ * a 33 ms timer came every 47 ms and what it animates stuttered: short waits
+ * end on a high-resolution timer instead (Windows 10 1803 and later; before,
+ * the wait's timeout as it was). */
+static void wait_for_messages(int timeout)
+{
+#  ifndef CREATE_WAITABLE_TIMER_HIGH_RESOLUTION
+#    define CREATE_WAITABLE_TIMER_HIGH_RESOLUTION 0x00000002
+#  endif
+  static HANDLE timer = NULL;
+  static int tried = 0;
+  if (timeout > 0 && timeout < 1000) {
+    if (!tried) {
+      tried = 1;
+      timer = CreateWaitableTimerExW(NULL, NULL, CREATE_WAITABLE_TIMER_HIGH_RESOLUTION, TIMER_ALL_ACCESS);
+    }
+    LARGE_INTEGER due;
+    due.QuadPart = -(LONGLONG)timeout * 10000; /* relative, in 100 ns */
+    if (timer && SetWaitableTimer(timer, &due, 0, NULL, NULL, FALSE)) {
+      MsgWaitForMultipleObjectsEx(1, &timer, INFINITE, QS_ALLINPUT, MWMO_INPUTAVAILABLE);
+      CancelWaitableTimer(timer);
+      return;
+    }
+  }
+  MsgWaitForMultipleObjectsEx(0, NULL, timeout < 0 ? INFINITE : (DWORD)timeout, QS_ALLINPUT,
+                              MWMO_INPUTAVAILABLE);
+}
+
 void BK_window_run(void)
 {
   g_quit = 0;
@@ -1845,8 +1874,7 @@ void BK_window_run(void)
     /* wait for messages, at most until the next loop timer is due */
     const int timeout = bk_loop_timeout_ms(-1);
     if (!PeekMessageW(&msg, NULL, 0, 0, PM_NOREMOVE)) {
-      MsgWaitForMultipleObjectsEx(0, NULL, timeout < 0 ? INFINITE : (DWORD)timeout, QS_ALLINPUT,
-                                  MWMO_INPUTAVAILABLE);
+      wait_for_messages(timeout);
     }
     while (PeekMessageW(&msg, NULL, 0, 0, PM_REMOVE)) {
       if (msg.message == WM_QUIT) {
@@ -1857,6 +1885,13 @@ void BK_window_run(void)
       DispatchMessageW(&msg);
       if (g_stop && g_stop()) {
         return;
+      }
+      /* BUI-Awra: an animation posts its next frame from the one it draws,
+       * so the queue is never empty while it runs: timers and idle work due
+       * meanwhile run between its frames, not after its last one */
+      bk_loop_run_due();
+      if (g_quit) {
+        break;
       }
     }
     bk_loop_run_due();
