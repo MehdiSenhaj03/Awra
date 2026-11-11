@@ -74,8 +74,10 @@ static void transition_draw(AwraWidget *w, AwraDraw *d)
     return;
   }
   const double eased = awra_ease_out_cubic(x->progress);
-  const float dx = (float)(-awra_pxf(x->offset[0]) * OUTGOING_DRIFT * eased);
-  const float dy = (float)(-awra_pxf(x->offset[1]) * OUTGOING_DRIFT * eased);
+  /* on whole device pixels: the old frame is copied, not resampled at every
+   * frame of its drift (half a pixel of a moving image is not seen) */
+  const float dx = roundf((float)(-awra_pxf(x->offset[0]) * OUTGOING_DRIFT * eased));
+  const float dy = roundf((float)(-awra_pxf(x->offset[1]) * OUTGOING_DRIFT * eased));
   const float saved = d->opacity;
   d->opacity = saved * (float)(1.0 - x->progress / OUTGOING_SPAN);
   const int top = fixed_px(w);
