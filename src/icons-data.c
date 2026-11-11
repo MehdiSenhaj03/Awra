@@ -2188,11 +2188,34 @@ static const AwraBuiltinIcon gtk_icons[] = {
 const AwraBuiltinSet awra_builtin_gtk = {"gtk", gtk_icons, 124};
 
 static const AwraBuiltinIcon awra_icons[] = {
+  {"awra-archive-symbolic.svg", (const unsigned char *)
+    "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"16\" height=\"16\" viewBox=\"0 0 16 16\"><path fill"
+    "=\"#000\" fill-rule=\"evenodd\" d=\"M1.5 2h13c.3 0 .5.2.5.5v2c0 .3-.2.5-.5.5h-13a.5.5 0 0 1-.5-.5v-2c"
+    "0-.3.2-.5.5-.5zM2 6h12v6.5c0 .8-.7 1.5-1.5 1.5h-9c-.8 0-1.5-.7-1.5-1.5zm4 2a.75.75 0 0 0 0 1.5h4A.75."
+    "75 0 0 0 10 8z\"/></svg>",
+    313},
   {"awra-avatar-default-symbolic.svg", (const unsigned char *)
     "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"16\" height=\"16\" viewBox=\"0 0 16 16\"><path fill"
     "=\"#000\" d=\"M8 1.25a3.25 3.25 0 1 1 0 6.5 3.25 3.25 0 0 1 0-6.5zM8 9c3.3 0 6 1.75 6 4.1v.4c0 .7-.55"
     " 1.25-1.25 1.25h-9.5C2.55 14.75 2 14.2 2 13.5v-.4C2 10.75 4.7 9 8 9z\"/></svg>",
     268},
+  {"awra-call-end-symbolic.svg", (const unsigned char *)
+    "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"16\" height=\"16\" viewBox=\"0 0 16 16\"><path d=\""
+    "M8 5.5c2.6 0 5 .8 6.6 2.1.5.4.5 1.1.1 1.6l-1.3 1.5c-.4.4-1 .5-1.5.2l-1.6-1a.9.9 0 0 1-.4-.8V7.8a9.4 9"
+    ".4 0 0 0-3.8 0v1.3c0 .3-.2.6-.4.8l-1.6 1c-.5.3-1.1.2-1.5-.2L1.3 9.2c-.4-.5-.4-1.2.1-1.6C3 6.3 5.4 5.5"
+    " 8 5.5z\" fill=\"#000\"/></svg>",
+    322},
+  {"awra-call-symbolic.svg", (const unsigned char *)
+    "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"16\" height=\"16\" viewBox=\"0 0 16 16\"><path d=\""
+    "M4.4 1.6l1.8 1.8c.5.5.5 1.2.1 1.7L5.2 6.3a8.6 8.6 0 0 0 4.5 4.5l1.2-1.1c.5-.4 1.2-.4 1.7.1l1.8 1.8c.5"
+    ".5.5 1.3 0 1.8l-1 1c-.8.8-2 1-3 .6A13 13 0 0 1 1 5.6c-.4-1-.2-2.2.6-3l1-1c.5-.5 1.3-.5 1.8 0z\" fill="
+    "\"#000\"/></svg>",
+    307},
+  {"awra-chats-symbolic.svg", (const unsigned char *)
+    "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"16\" height=\"16\" viewBox=\"0 0 16 16\"><path d=\""
+    "M3 2h10a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2H7.2l-3.4 2.8A.5.5 0 0 1 3 14.4V12a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2"
+    "z\" fill=\"#000\"/></svg>",
+    215},
   {"awra-close-symbolic.svg", (const unsigned char *)
     "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"16\" height=\"16\" viewBox=\"0 0 16 16\"><path d=\""
     "M4.3 3.2a.8.8 0 0 0-1.1 1.1L6.9 8l-3.7 3.7a.8.8 0 1 0 1.1 1.1L8 9.1l3.7 3.7a.8.8 0 1 0 1.1-1.1L9.1 8l"
@@ -2203,6 +2226,12 @@ static const AwraBuiltinIcon awra_icons[] = {
     "=\"#000\" d=\"M2.75 2.5h3.4c.45 0 .87.2 1.15.55L8.4 4.5h4.85c.97 0 1.75.78 1.75 1.75v5.5c0 .97-.78 1."
     "75-1.75 1.75H2.75C1.78 13.5 1 12.72 1 11.75v-7.5C1 3.28 1.78 2.5 2.75 2.5z\"/></svg>",
     274},
+  {"awra-microphone-symbolic.svg", (const unsigned char *)
+    "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"16\" height=\"16\" viewBox=\"0 0 16 16\"><path d=\""
+    "M8 1a2.5 2.5 0 0 1 2.5 2.5v4a2.5 2.5 0 0 1-5 0v-4A2.5 2.5 0 0 1 8 1zM3.75 7a.75.75 0 0 1 .75.75 3.5 3"
+    ".5 0 0 0 7 0 .75.75 0 0 1 1.5 0 5 5 0 0 1-4.25 4.94V14h1.5a.75.75 0 0 1 0 1.5h-4.5a.75.75 0 0 1 0-1.5"
+    "h1.5v-1.31A5 5 0 0 1 3 7.75.75.75 0 0 1 3.75 7z\" fill=\"#000\"/></svg>",
+    362},
   {"awra-send-symbolic.svg", (const unsigned char *)
     "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"16\" height=\"16\" viewBox=\"0 0 16 16\"><path d=\""
     "M8 2.2c.3 0 .6.1.8.3l4.4 4.4a1.1 1.1 0 0 1-1.6 1.6L9.1 6v7.3a1.1 1.1 0 0 1-2.2 0V6L4.4 8.5a1.1 1.1 0 "
@@ -2229,6 +2258,11 @@ static const AwraBuiltinIcon awra_icons[] = {
     "-1-1.6L7 1.8c.2-.4.6-.6 1-.6zM7 5.5v4.5h2V5.5zm1 5.6a1.1 1.1 0 1 0 0 2.2 1.1 1.1 0 0 0 0-2.2z\"/></sv"
     "g>",
     291},
+  {"awra-video-call-symbolic.svg", (const unsigned char *)
+    "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"16\" height=\"16\" viewBox=\"0 0 16 16\"><path d=\""
+    "M2.5 4h7A1.5 1.5 0 0 1 11 5.5v5A1.5 1.5 0 0 1 9.5 12h-7A1.5 1.5 0 0 1 1 10.5v-5A1.5 1.5 0 0 1 2.5 4zM"
+    "12 6.8l2.2-1.6c.3-.2.8 0 .8.4v4.8c0 .4-.5.6-.8.4L12 9.2z\" fill=\"#000\"/></svg>",
+    270},
   {"check-symbolic.svg", (const unsigned char *)
     "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"16\" height=\"16\" viewBox=\"0 0 16 16\"><path d=\""
     "M2.7 8.2 6.3 12 13.5 4.2 12 2.8 6.2 9.1 4.2 6.9z\" fill=\"#000\"/></svg>",
@@ -2246,7 +2280,7 @@ static const AwraBuiltinIcon awra_icons[] = {
     "=\"8\" cy=\"8\" r=\"4\" fill=\"#000\"/></svg>",
     130},
 };
-const AwraBuiltinSet awra_builtin_awra = {"awra", awra_icons, 12};
+const AwraBuiltinSet awra_builtin_awra = {"awra", awra_icons, 18};
 
 static const AwraBuiltinIcon adwaita_icons[] = {
   {"symbolic/actions/action-unavailable-symbolic.svg", (const unsigned char *)
