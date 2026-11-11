@@ -5,7 +5,7 @@
  * look), placed in screen coordinates by GDK's layout helper against the
  * work area of the monitor its anchor is on (gdk_win32_surface_layout_popup)
  * and moved with its window. As Awra 1's popovers there (awra-win32-popup),
- * DWM draws it: its small rounded corners on Windows 11 (square on 10), its
+ * DWM draws it: its rounded corners on Windows 11 (square on 10), its
  * shadow and the Acrylic backdrop (the accent blur on Windows 10) behind a
  * client area of glass, so the popup paints those corners and no shadow
  * (BK_POPHOST_NATIVE_FRAME). An autohide popup closes when its window
@@ -14,8 +14,6 @@
  * it in the kit. Each draws into its own raster, blitted where it changed.
  *
  * SPDX-License-Identifier: GPL-2.0-or-later */
-
-#  define BK_DWMWCP_ROUNDSMALL 3
 
 typedef struct WinPop {
   BKWindow *win;
@@ -74,8 +72,9 @@ static void win32_popups_init(BKWindow *win)
   dwm_load();
   win->pophost.data = win;
   win->pophost.flags = BK_POPHOST_NATIVE_FRAME;
-  /* DWMWCP_ROUNDSMALL: 4 px on Windows 11; Windows 10 doesn't round */
-  win->pophost.corner_radius = g_dwm.build >= BUILD_WIN11 ? (int)(4 * win->scale + 0.5f) : 0;
+  /* DWMWCP_ROUND: 8 px on Windows 11, as its own menus and flyouts (its
+   * tooltips have DWMWCP_ROUNDSMALL's 4 px); Windows 10 doesn't round */
+  win->pophost.corner_radius = g_dwm.build >= BUILD_WIN11 ? (int)(8 * win->scale + 0.5f) : 0;
   win->pophost.place = win32_pop_place;
   win->pophost.close = win32_pop_close;
   win->pophost.cursor_size = win32_cursor_size(win);
@@ -283,8 +282,7 @@ static int win32_pop_place(void *data, int slot, const BKPopupLayout *l, int w, 
     }
     if (g_dwm.build >= BUILD_WIN11) {
       /* tooltips round themselves (GTK's, transparent corners) */
-      const int corner = l->kind == BK_POPUP_KIND_TOOLTIP ? BK_DWMWCP_DONOTROUND :
-                                                            BK_DWMWCP_ROUNDSMALL;
+      const int corner = l->kind == BK_POPUP_KIND_TOOLTIP ? BK_DWMWCP_DONOTROUND : BK_DWMWCP_ROUND;
       const COLORREF border = BK_DWMWA_COLOR_NONE;
       dwm_attr(p->hwnd, BK_DWMWA_WINDOW_CORNER_PREFERENCE, &corner, sizeof(corner));
       dwm_attr(p->hwnd, BK_DWMWA_BORDER_COLOR, &border, sizeof(border));

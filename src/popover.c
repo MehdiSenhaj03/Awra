@@ -83,7 +83,7 @@ static void pop_allocate(AwraWidget *w)
   }
 }
 
-/* Windows: the popup is a window DWM rounds (its small radius, none on
+/* Windows: the popup is a window DWM rounds (its menus' radius, none on
  * Windows 10) and shadows; it draws the same corner and no shadow (Awra 1's
  * awra-win32-popup). */
 static bool pop_native_frame(const AwraWidget *w, float *r_radius)
