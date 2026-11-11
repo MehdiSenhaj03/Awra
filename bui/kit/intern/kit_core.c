@@ -413,7 +413,22 @@ void bk_invalidate(BKNode *n)
       break;
     }
   }
-  bk_node_dirty(n, bk_rect(n->x - m, n->y - m, n->w + 2 * m, n->h + 2 * m));
+  BKRect r = bk_rect(n->x - m, n->y - m, n->w + 2 * m, n->h + 2 * m);
+  /* BUI-Awra: a list's cells kept beyond its edges (scrolled out, about to
+   * come back) are drawn clipped to the list: what they change there is
+   * not seen, and must not make the header above be drawn again */
+  for (const BKNode *p = n->parent; p && !(p->cls->flags & CLS_POPUP); p = p->parent) {
+    if (p->cls->flags & CLS_CLIPS) {
+      r.xmin = BK_MAX(r.xmin, p->x);
+      r.ymin = BK_MAX(r.ymin, p->y);
+      r.xmax = BK_MIN(r.xmax, p->x + p->w);
+      r.ymax = BK_MIN(r.ymax, p->y + p->h);
+      if (r.xmax <= r.xmin || r.ymax <= r.ymin) {
+        return;
+      }
+    }
+  }
+  bk_node_dirty(n, r);
 }
 
 void bk_relayout(BKNode *n)
