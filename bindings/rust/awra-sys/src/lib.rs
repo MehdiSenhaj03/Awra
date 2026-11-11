@@ -733,6 +733,12 @@ extern "C" {
     pub fn awra_card_set_appearance(card: *mut AwraWidget, appearance: c_int);
     pub fn awra_card_set_activatable(card: *mut AwraWidget, activatable: bool);
     pub fn awra_card_set_padding(card: *mut AwraWidget, spacing: c_int);
+    pub fn awra_message_bubble_new() -> *mut AwraWidget;
+    pub fn awra_message_bubble_set_child(bubble: *mut AwraWidget, child: *mut AwraWidget);
+    pub fn awra_message_bubble_set_outgoing(bubble: *mut AwraWidget, outgoing: bool);
+    pub fn awra_message_bubble_set_tail(bubble: *mut AwraWidget, tail: bool);
+    pub fn awra_message_bubble_set_selected(bubble: *mut AwraWidget, selected: bool);
+    pub fn awra_message_bubble_set_activatable(bubble: *mut AwraWidget, activatable: bool);
     pub fn awra_surface_new(material: c_int) -> *mut AwraWidget;
     pub fn awra_surface_set_child(surface: *mut AwraWidget, child: *mut AwraWidget);
     pub fn awra_surface_set_material(surface: *mut AwraWidget, material: c_int);

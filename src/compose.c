@@ -383,6 +383,136 @@ void awra_card_set_padding(AwraWidget *w, AwraSpacing s)
 }
 
 /* ======================================================================= */
+/* Message bubble: one message on the Layer material, an outgoing one tinted
+ * with the accent; the first of a run has a tail corner on its sender's side
+ * (the top start corner for incoming, the top end for outgoing). variant
+ * bits: 1 outgoing, 2 tail, 4 selected. */
+
+enum { BUBBLE_OUTGOING = 1, BUBBLE_TAIL = 2, BUBBLE_SELECTED = 4 };
+
+static void bubble_radii(AwraWidget *w, float radii[4])
+{
+  const int v = BINX(w)->variant;
+  const float r = awra_pxf(16), tail = awra_pxf(4);
+  for (int i = 0; i < 4; i++) {
+    radii[i] = r;
+  }
+  if (v & BUBBLE_TAIL) {
+    /* outgoing sits at the end: the top end corner; incoming the top start */
+    const bool end = (v & BUBBLE_OUTGOING) != 0;
+    const bool right = end != awra_widget_rtl(w);
+    radii[right ? 1 : 0] = tail;
+  }
+}
+
+static void bubble_draw(AwraWidget *w, AwraDraw *d)
+{
+  const AwraTokens *t = awra_tokens();
+  const int v = BINX(w)->variant;
+  AwraResolvedMaterial m;
+  awra_material_resolve(AWRA_MATERIAL_LAYER, AWRA_ROLE_GENERIC, AWRA_ELEVATION_FLAT, false, &m);
+  float radii[4];
+  bubble_radii(w, radii);
+  const AwraBox box = awra_box_of(w);
+  /* the Layer's veil, then the accent over an outgoing bubble and the
+   * selection over a selected one, so either reads on any backdrop */
+  awra_paint_rbox4(d, box, radii, &m.fill, NULL, NULL);
+  if (v & BUBBLE_OUTGOING) {
+    AwraRGBA tint = t->accent;
+    tint.a = t->dark ? 0.30f : 0.16f;
+    awra_paint_rbox4(d, box, radii, &tint, NULL, NULL);
+  }
+  if (v & BUBBLE_SELECTED) {
+    AwraRGBA sel = t->selection;
+    awra_paint_rbox4(d, box, radii, &sel, NULL, NULL);
+  }
+  if (m.border_width > 0 && m.border.a > 0) {
+    const float bw = awra_pxf(m.border_width);
+    const float widths[4] = {bw, bw, bw, bw};
+    awra_paint_rbox4(d, box, radii, NULL, widths, &m.border);
+  }
+}
+
+static int bubble_release(AwraWidget *w, BKEvent *e)
+{
+  if (BINX(w)->activatable && e->inside) {
+    awra_emit_simple(w, AWRA_SIGNAL_CLICKED);
+  }
+  return 1;
+}
+
+static void bubble_a11y(AwraWidget *w, AwraA11yInfo *info)
+{
+  /* a bubble in a selection says whether it is in it */
+  if (BINX(w)->variant & BUBBLE_SELECTED) {
+    info->defined |= 1u << AWRA_ACCESSIBLE_STATE_SELECTED;
+    info->state[AWRA_ACCESSIBLE_STATE_SELECTED] = 1;
+  }
+  if (BINX(w)->activatable) {
+    info->action = "click";
+  }
+}
+
+static AwraClass bubble_class = {
+    .a11y = bubble_a11y,
+    .a11y_do = card_a11y_do,
+    .bk = AWRA_BK("AwraMessageBubble", 0),
+    .type = "AwraMessageBubble",
+    .flags = AWRA_CLASS_CONTAINER | AWRA_CLASS_EXPAND_ISOLATED,
+    .ext_size = sizeof(BinExt),
+    .init = bin_init,
+    .measure = bin_measure,
+    .allocate = bin_allocate,
+    .draw = bubble_draw,
+    .release = bubble_release,
+};
+
+AwraWidget *awra_message_bubble_new(void)
+{
+  AwraWidget *w = awra_widget_new(&bubble_class);
+  bin_pad(w, 6, 10, 6, 10);
+  return w;
+}
+
+void awra_message_bubble_set_child(AwraWidget *w, AwraWidget *child)
+{
+  bin_set_child(w, child);
+}
+
+static void bubble_flag(AwraWidget *w, int flag, bool on)
+{
+  BinExt *x = BINX(w);
+  const int v = on ? (x->variant | flag) : (x->variant & ~flag);
+  if (v != x->variant) {
+    x->variant = v;
+    awra_invalidate(w);
+  }
+}
+
+void awra_message_bubble_set_outgoing(AwraWidget *w, bool outgoing)
+{
+  bubble_flag(w, BUBBLE_OUTGOING, outgoing);
+}
+
+void awra_message_bubble_set_tail(AwraWidget *w, bool tail)
+{
+  bubble_flag(w, BUBBLE_TAIL, tail);
+}
+
+void awra_message_bubble_set_selected(AwraWidget *w, bool selected)
+{
+  bubble_flag(w, BUBBLE_SELECTED, selected);
+}
+
+void awra_message_bubble_set_activatable(AwraWidget *w, bool activatable)
+{
+  BINX(w)->activatable = activatable;
+  if (activatable) {
+    w->flags |= NF_EVENTS;
+  }
+}
+
+/* ======================================================================= */
 /* Page (spec A §7): a scrolled column, at most 960 wide, 32 px inset */
 
 typedef struct PageCol {

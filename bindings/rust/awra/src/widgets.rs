@@ -1668,6 +1668,38 @@ impl Default for Card {
     }
 }
 
+awra_wrapper!(MessageBubble, ["AwraMessageBubble"]);
+/// One message on a rounded fill: outgoing ones tinted with the accent, the
+/// first of a run from one sender with a tail corner on its side.
+impl MessageBubble {
+    pub fn new() -> MessageBubble {
+        unsafe { MessageBubble::from_full(ffi::awra_message_bubble_new()) }
+    }
+    pub fn set_child(&self, child: impl IntoOptWidget) {
+        unsafe { ffi::awra_message_bubble_set_child(ptr!(self), child.into_opt_ptr()) }
+    }
+    pub fn set_outgoing(&self, outgoing: bool) {
+        unsafe { ffi::awra_message_bubble_set_outgoing(ptr!(self), outgoing) }
+    }
+    pub fn set_tail(&self, tail: bool) {
+        unsafe { ffi::awra_message_bubble_set_tail(ptr!(self), tail) }
+    }
+    pub fn set_selected(&self, selected: bool) {
+        unsafe { ffi::awra_message_bubble_set_selected(ptr!(self), selected) }
+    }
+    pub fn set_activatable(&self, activatable: bool) {
+        unsafe { ffi::awra_message_bubble_set_activatable(ptr!(self), activatable) }
+    }
+    pub fn connect_activated<F: Fn(&MessageBubble) + 'static>(&self, f: F) -> SignalHandlerId {
+        self.0.connect_typed::<MessageBubble, _>(sig::CLICKED, move |w, _| f(w))
+    }
+}
+impl Default for MessageBubble {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 awra_wrapper!(Surface, ["AwraSurface"]);
 impl Surface {
     pub fn new(material: Material) -> Surface {

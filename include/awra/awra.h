@@ -844,6 +844,18 @@ void awra_card_set_appearance(AwraWidget *card, AwraCardAppearance appearance);
 void awra_card_set_activatable(AwraWidget *card, bool activatable); /* clicked on press */
 void awra_card_set_padding(AwraWidget *card, AwraSpacing spacing);
 
+/* Message bubble: one message (its text, quote, media, time) on a rounded
+ * fill, an outgoing one tinted with the accent. The first bubble of a run
+ * from one sender has a tail: a tighter top corner on the sender's side
+ * (start for incoming, end for outgoing). selected tints it as part of a
+ * selection; an activatable bubble emits clicked. */
+AwraWidget *awra_message_bubble_new(void);
+void awra_message_bubble_set_child(AwraWidget *bubble, AwraWidget *child);
+void awra_message_bubble_set_outgoing(AwraWidget *bubble, bool outgoing);
+void awra_message_bubble_set_tail(AwraWidget *bubble, bool tail);
+void awra_message_bubble_set_selected(AwraWidget *bubble, bool selected);
+void awra_message_bubble_set_activatable(AwraWidget *bubble, bool activatable);
+
 AwraWidget *awra_surface_new(AwraMaterial material);
 void awra_surface_set_child(AwraWidget *surface, AwraWidget *child);
 void awra_surface_set_material(AwraWidget *surface, AwraMaterial material);
